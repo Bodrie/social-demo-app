@@ -1,3 +1,5 @@
+import { Login } from "./login";
+
 export type User = {
   id: number;
   username: string | null;
@@ -10,5 +12,5 @@ export type User = {
 
 export type AuthContextT = {
   user: User;
-  login: () => void;
+  login: (data: Login) => void;
 } | null;
