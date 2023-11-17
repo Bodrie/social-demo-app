@@ -1,12 +1,17 @@
 import React from "react";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
+import Test from "./Test";
 
 const RouterComponent = () => {
   const router = createBrowserRouter([
     {
       path: "/login",
-      element: <div>Login page</div>,
+      element: (
+        <div>
+          <Test />
+        </div>
+      ),
     },
     {
       path: "/register",

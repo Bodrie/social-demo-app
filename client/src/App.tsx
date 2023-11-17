@@ -1,13 +1,11 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useContext } from "react";
+import RouterComponent from "./router/Router";
+import "./App.css";
 
 function App() {
   return (
     <div>
-      <header>
-        Hi
-      </header>
+      <RouterComponent />
     </div>
   );
 }
