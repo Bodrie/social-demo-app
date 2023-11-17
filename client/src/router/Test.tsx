@@ -15,7 +15,7 @@ const Test = () => {
   };
   return (
     <>
-      <button onClick={handleLogin}>login</button>
+      <button onClick={handleLogin} onTouchEnd={handleLogin}>login</button>
       <div>login page</div>
     </>
   );
