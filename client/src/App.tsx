@@ -1,10 +1,10 @@
-import React, { useState, useContext } from "react";
+import React from "react";
 import RouterComponent from "./router/Router";
-import "./App.css";
+import "./App.scss";
 
 function App() {
   return (
-    <div>
+    <div className="app">
       <RouterComponent />
     </div>
   );
