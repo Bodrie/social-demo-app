@@ -2,12 +2,12 @@
 
 @mixin theme($position) {
   @if $position == "left" {
-    border-top-left-radius: theme.$small;
-    border-bottom-left-radius: theme.$small;
+    border-top-left-radius: theme.$border-radius-sm;
+    border-bottom-left-radius: theme.$border-radius-sm;
   }
   @if $position == "right" {
-    border-top-right-radius: theme.$small;
-    border-bottom-right-radius: theme.$small;
+    border-top-right-radius: theme.$border-radius-sm;
+    border-bottom-right-radius: theme.$border-radius-sm;
   }
 }
 
@@ -42,7 +42,7 @@
       margin-right: auto;
       border: none;
       border-bottom: 1px solid theme.$tertiary;
-      border-radius: theme.$small;
+      border-radius: theme.$border-radius-sm;
       padding: 1rem;
       cursor: pointer;
     }
@@ -74,7 +74,7 @@
       input {
         border: none;
         border-bottom: 1px solid theme.$tertiary;
-        border-radius: theme.$small;
+        border-radius: theme.$border-radius-sm;
         padding: 1rem;
         margin-bottom: 1rem;
       }
