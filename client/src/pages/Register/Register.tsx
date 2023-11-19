@@ -1,5 +1,4 @@
 import React, { useContext, useState } from "react";
-import { AuthContext } from "../../context/authContext";
 import { useNavigate } from "react-router-dom";
 import { Register } from "../../types";
 import { register } from "../../services/axios";
@@ -7,7 +6,6 @@ import "./register.scss";
 
 const RegisterForm = () => {
   const navigate = useNavigate();
-  const context = useContext(AuthContext);
   const [registerForm, setRegisterForm] = useState<Register>({
     username: "",
     name: "",
@@ -21,16 +19,7 @@ const RegisterForm = () => {
 
   const handleFormSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
     register(e, registerForm).then((res) => {
-      if (res.status === 200) {
-        context
-          ?.login({
-            email: registerForm.email,
-            password: registerForm.password,
-          })
-          .then((res) => {
-            if (res === "ready") navigate("/profile");
-          });
-      }
+      if (res.status === 200) navigate("/login");
     });
   };
 
