@@ -39,3 +39,16 @@ export const login = (loginData: Login) => {
 
   return response;
 };
+
+export const logout = () => {
+  const response = axiosInstance
+    .post("/auth/logout")
+    .then((res) => {
+      return res;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};

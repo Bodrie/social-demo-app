@@ -14,9 +14,11 @@ export const AuthContextProvider = ({ children }: AuthContextProps) => {
   );
 
   const ctxLogin = ({ email, password }: Login) => {
-    login({ email, password }).then((res) => {
+    const loginRes = login({ email, password }).then((res) => {
       setCurrentUser(res.data);
+      return "ready";
     });
+    return loginRes;
   };
 
   useEffect(() => {
