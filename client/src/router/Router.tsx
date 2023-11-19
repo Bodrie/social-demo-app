@@ -1,18 +1,18 @@
 import React from "react";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
-import Login from "../pages/Login/Login";
+import LoginForm from "../pages/Login/Login";
 import RegisterForm from "../pages/Register/Register";
 
 const RouterComponent = () => {
   const router = createBrowserRouter([
     {
       path: "/",
-      element: <Login />,
+      element: <LoginForm />,
     },
     {
       path: "/login",
-      element: <Login />,
+      element: <LoginForm />,
     },
     {
       path: "/register",

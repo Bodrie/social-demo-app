@@ -1,9 +1,25 @@
-import React from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../context/authContext";
+import { Login } from "../../types";
 import "./login.scss";
 
-const Login = () => {
+const LoginForm = () => {
   const navigate = useNavigate();
+  const context = useContext(AuthContext);
+  const [loginForm, setLoginForm] = useState<Login>({
+    email: "",
+    password: "",
+  });
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLoginForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleFormSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
+    context?.ctxLogin(loginForm);
+    if(context?.user) navigate('/profile')
+  };
 
   return (
     <div className="login">
@@ -30,14 +46,16 @@ const Login = () => {
               name="email"
               placeholder="example@site.com"
               autoComplete="off"
+              onChange={handleFormChange}
             />
             <input
               type="password"
               name="password"
               placeholder="Password"
               autoComplete="off"
+              onChange={handleFormChange}
             />
-            <button>Login</button>
+            <button onClick={handleFormSubmit}>Login</button>
           </form>
         </div>
       </div>
@@ -45,4 +63,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default LoginForm;
