@@ -1,40 +1,74 @@
-import React from "react";
+import React, { useContext, useState } from "react";
+import { AuthContext } from "../../context/authContext";
 import { useNavigate } from "react-router-dom";
+import { Register } from "../../types";
+import { register } from "../../services/axios";
 import "./register.scss";
 
-const Register = () => {
+const RegisterForm = () => {
   const navigate = useNavigate();
+  const context = useContext(AuthContext);
+  const [registerForm, setRegisterForm] = useState<Register>({
+    username: "",
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRegisterForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleFormSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
+    register(e, registerForm).then((res) => {
+      if (res.status === 200) {
+        context
+          ?.login({
+            email: registerForm.email,
+            password: registerForm.password,
+          })
+          .then((res) => {
+            if (res === "ready") navigate("/profile");
+          });
+      }
+    });
+  };
+
   return (
     <div className="register">
       <div className="register-wrapper">
         <div className="left">
           <h1>Register</h1>
           <form>
-          <input
-              type="text"
-              name="name"
-              placeholder="Name or nickname"
-              autoComplete="off"
-            />
             <input
               type="text"
               name="username"
+              placeholder="Name or nickname"
+              autoComplete="off"
+              onChange={handleFormChange}
+            />
+            <input
+              type="text"
+              name="name"
               placeholder="Your real name"
               autoComplete="off"
+              onChange={handleFormChange}
             />
             <input
               type="email"
               name="email"
               placeholder="youremail@site.com"
               autoComplete="off"
+              onChange={handleFormChange}
             />
             <input
               type="password"
               name="password"
               placeholder="Password"
               autoComplete="off"
+              onChange={handleFormChange}
             />
-            <button>Register</button>
+            <button onClick={handleFormSubmit}>Register</button>
           </form>
         </div>
         <div className="right">
@@ -56,4 +90,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default RegisterForm;

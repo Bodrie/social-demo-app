@@ -25,6 +25,7 @@ export const AuthContextProvider = ({ children }: AuthContextProps) => {
       }
     );
     setCurrentUser(res.data);
+    return "ready";
   };
 
   useEffect(() => {

@@ -12,5 +12,5 @@ export type User = {
 
 export type AuthContextT = {
   user: User;
-  login: (data: Login) => void;
+  login: (data: Login) => Promise<string>;
 } | null;

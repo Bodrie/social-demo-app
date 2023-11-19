@@ -2,7 +2,7 @@ import React from "react";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 import Login from "../pages/Login/Login";
-import Register from "../pages/Register/Register";
+import RegisterForm from "../pages/Register/Register";
 
 const RouterComponent = () => {
   const router = createBrowserRouter([
@@ -16,7 +16,7 @@ const RouterComponent = () => {
     },
     {
       path: "/register",
-      element: <Register />,
+      element: <RegisterForm />,
     },
     {
       path: "/profile",
