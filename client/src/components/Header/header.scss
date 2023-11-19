@@ -18,7 +18,8 @@
     background-color: themed("bg");
 
     svg {
-      color: themed('textColorSoft');
+      color: themed("textColorSoft");
+      cursor: pointer;
     }
 
     .left {
@@ -53,7 +54,7 @@
           background-color: transparent;
           width: 100%;
           font-size: 15px;
-          color: themed('textColor');
+          color: themed("textColor");
         }
 
         input:focus {
@@ -75,7 +76,7 @@
         @extend %flex-items;
         gap: 0.5rem;
         font-weight: 500;
-        color: themed('textColor');
+        color: themed("textColor");
 
         img {
           width: 30px;
