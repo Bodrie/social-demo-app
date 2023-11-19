@@ -1,10 +1,10 @@
 @use "../../theme/theme";
 
 .left-bar {
+  flex: 2;
   position: sticky;
   height: calc(100vh - 71px);
   top: 71px;
-  flex: 2;
   overflow: scroll;
 
   &::-webkit-scrollbar {
@@ -12,7 +12,8 @@
   }
 
   .container {
-    padding: 2rem;
+    padding: 1rem;
+    background-color: theme.$white;
 
     .section {
       display: flex;

@@ -1,6 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { DarkModeOutlined, SearchOutlined, MailOutlined, NotificationsOutlined } from "@mui/icons-material";
+import {
+  DarkModeOutlined,
+  SearchOutlined,
+  MailOutlined,
+  NotificationsOutlined,
+} from "@mui/icons-material";
 import "./header.scss";
 
 const Header = () => {
@@ -11,6 +16,8 @@ const Header = () => {
           <span>The Network</span>
         </Link>
         <DarkModeOutlined />
+      </div>
+      <div className="center">
         <div className="search">
           <SearchOutlined />
           <input type="text" placeholder="Search..." />

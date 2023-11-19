@@ -18,6 +18,7 @@
 
   .left {
     @extend %flex-items;
+    flex: 2;
 
     a {
       font-size: 20px;
@@ -26,6 +27,12 @@
       text-decoration: none;
       letter-spacing: 2px;
     }
+  }
+
+  .center {
+    display: flex;
+    align-items: center;
+    flex: 6;
 
     .search {
       display: flex;
@@ -33,12 +40,13 @@
       border: 1px solid theme.$secondary;
       background-color: theme.$white;
       border-radius: theme.$border-radius-xs;
+      height: 30px;
+      width: 50%;
 
       input {
         border: none;
         background-color: transparent;
-        width: 300px;
-        height: 30px;
+        width: 100%;
         font-size: 15px;
       }
 
@@ -47,7 +55,7 @@
       }
 
       svg {
-        color: theme.$primary;
+        color: theme.$secondary;
         margin: 0 0.5rem;
       }
     }
@@ -55,6 +63,8 @@
 
   .right {
     @extend %flex-items;
+    flex: 3;
+    justify-content: end;
 
     .user {
       @extend %flex-items;
