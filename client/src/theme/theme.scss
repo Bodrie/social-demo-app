@@ -1,0 +1,53 @@
+$themes: (
+  light: (
+    textColor: #000,
+    bg: #fff,
+    logo: #00a9ff,
+    bgSoft: #ebebeb,
+    textColorSoft: #555,
+    border: #c2c2c2,
+    danger: red,
+    image: "../../assets/patternpad.svg"
+  ),
+  dark: (
+    textColor: rgb(197, 197, 197),
+    bg: #222,
+    logo: rgb(197, 197, 197),
+    bgSoft: #333,
+    textColorSoft: lightgray,
+    border: #444,
+    danger: rgb(255, 95, 95),
+    image: "../../assets/patternpad-dark.svg"
+  ),
+);
+
+@mixin themify($themes) {
+  @each $theme, $map in $themes {
+    .theme-#{$theme} & {
+      $theme-map: () !global;
+      @each $key, $submap in $map {
+        $value: map-get(map-get($themes, $theme), "#{$key}");
+        $theme-map: map-merge(
+          $theme-map,
+          (
+            $key: $value,
+          )
+        ) !global;
+      }
+      @content;
+      $theme-map: null !global;
+    }
+  }
+}
+
+@function themed($key) {
+  @return map-get($theme-map, $key);
+}
+
+
+// //Border radius
+// $border-radius-xs: 5px;
+// $border-radius-sm: 10px;
+// $border-radius-md: 20px;
+// $border-radius-lg: 30px;
+// $border-round: 50%;

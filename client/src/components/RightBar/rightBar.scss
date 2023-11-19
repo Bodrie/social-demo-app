@@ -1,4 +1,4 @@
-@use "../../theme/theme";
+@import "../../theme/theme";
 
 %flex-items {
   display: flex;
@@ -6,90 +6,93 @@
 }
 
 .right-bar {
-  flex: 3;
-  position: sticky;
-  height: calc(100vh - 71px);
-  top: 71px;
-  overflow: scroll;
+  @include themify($themes) {
+    flex: 3;
+    position: sticky;
+    height: calc(100vh - 71px);
+    top: 71px;
+    overflow: scroll;
 
-  &::-webkit-scrollbar {
-    display: none;
-  }
+    &::-webkit-scrollbar {
+      display: none;
+    }
 
-  .container {
-    padding: 1rem 1rem 0 0;
-    .item {
-      -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
-      -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
-      box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
-      padding: 1rem;
-      border-radius: theme.$border-radius-xs;
-      background-color: theme.$white;
-      margin-bottom: 0.7rem;
+    .container {
+      padding: 1rem 1rem 0 0;
+      .item {
+        -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+        -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+        box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+        padding: 1rem;
+        border-radius: 5px;
+        background-color: themed("bg");
+        margin-bottom: 0.7rem;
 
-      span {
-        color: theme.$black;
-      }
+        span {
+          color: themed("textColor");
+        }
 
-      .user {
-        @extend %flex-items;
-        justify-content: space-between;
-        margin: 0.7rem 0;
-
-        .user-info {
+        .user {
           @extend %flex-items;
-          position: relative;
-          gap: 0.5rem;
+          justify-content: space-between;
+          margin: 0.7rem 0;
 
-          img {
-            width: 40px;
-            height: 40px;
-            border-radius: theme.$border-round;
-            object-fit: cover;
+          .user-info {
+            @extend %flex-items;
+            position: relative;
+            gap: 0.5rem;
+
+            img {
+              width: 40px;
+              height: 40px;
+              border-radius: 5px;
+              object-fit: cover;
+            }
+
+            span {
+              font-weight: 500;
+            }
+
+            p {
+              font-size: 12px;
+              color: themed("textColor");
+            }
+
+            .online {
+              position: absolute;
+              top: 2px;
+              left: 30px;
+              background-color: limegreen;
+              width: 11px;
+              height: 11px;
+              border-radius: 5px;
+            }
           }
 
-          span {
-            font-weight: 500;
+          .buttons {
+            @extend %flex-items;
+            gap: 0.5rem;
+
+            button {
+              border: none;
+              border-radius: 5px;
+              padding: 0.5rem;
+              color: white;
+              cursor: pointer;
+
+              &:first-child {
+                background-color: themed("logo");
+              }
+
+              &:last-child {
+                background-color: themed("danger");
+              }
+            }
           }
 
-          p {
+          .when {
             font-size: 12px;
           }
-
-          .online {
-            position: absolute;
-            top: 2px;
-            left: 30px;
-            background-color: limegreen;
-            width: 11px;
-            height: 11px;
-            border-radius: theme.$border-round;
-          }
-        }
-
-        .buttons {
-          @extend %flex-items;
-          gap: 0.5rem;
-
-          button {
-            border: none;
-            border-radius: theme.$border-radius-xs;
-            padding: 0.5rem;
-            color: white;
-            cursor: pointer;
-
-            &:first-child {
-              background-color: theme.$tertiary;
-            }
-
-            &:last-child {
-              background-color: theme.$quaternary;
-            }
-          }
-        }
-
-        .when {
-          font-size: 12px;
         }
       }
     }

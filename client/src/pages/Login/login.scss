@@ -1,13 +1,13 @@
-@use "../../theme/theme";
+@import "../../theme/theme.scss";
 
-@mixin theme($position) {
+@mixin borderPosition($position) {
   @if $position == "left" {
-    border-top-left-radius: theme.$border-radius-sm;
-    border-bottom-left-radius: theme.$border-radius-sm;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
   }
   @if $position == "right" {
-    border-top-right-radius: theme.$border-radius-sm;
-    border-bottom-right-radius: theme.$border-radius-sm;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
   }
 }
 
@@ -20,63 +20,72 @@
 }
 
 .login {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  .login-wrapper {
+  @include themify($themes) {
+    height: 100vh;
     display: flex;
-    width: 50%;
-    min-height: 600px;
+    align-items: center;
+    justify-content: center;
 
-    h1 {
-      align-self: flex-start;
-      margin-bottom: 2rem;
-    }
+    .login-wrapper {
+      display: flex;
+      width: 50%;
+      min-height: 600px;
+      border-radius: 10px;
 
-    button {
-      min-width: 150px;
-      margin-top: auto;
-      margin-left: auto;
-      margin-right: auto;
-      border: none;
-      border-bottom: 1px solid theme.$tertiary;
-      border-radius: theme.$border-radius-sm;
-      padding: 1rem;
-      cursor: pointer;
-    }
+      -webkit-box-shadow: 0px 0px 15px 1px themed('textColor');
+      -moz-box-shadow: 0px 0px 15px 1px themed('textColor');
+      box-shadow: 0px 0px 15px 1px themed('textColor');
 
-    .left {
-      @extend %flex-wrapper;
-      @include theme("left");
-      background-image: url("../../assets/patternpad.svg");
-      background-size: contain;
-
-      p {
-        line-height: 1.5;
+      h1 {
+        align-self: flex-start;
         margin-bottom: 2rem;
-      }
-    }
-
-    .right {
-      @extend %flex-wrapper;
-      @include theme("right");
-      background-color: theme.$secondary;
-
-      form {
-        display: flex;
-        flex: 1;
-        flex-direction: column;
-        width: 100%;
+        color: themed("textColor");
       }
 
-      input {
+      button {
+        min-width: 150px;
+        margin-top: auto;
+        margin-left: auto;
+        margin-right: auto;
         border: none;
-        border-bottom: 1px solid theme.$tertiary;
-        border-radius: theme.$border-radius-sm;
+        border-bottom: 1px solid themed("logo");
+        border-radius: 10px;
         padding: 1rem;
-        margin-bottom: 1rem;
+        cursor: pointer;
+      }
+
+      .left {
+        @extend %flex-wrapper;
+        @include borderPosition("left");
+        background-image: url(themed("image"));
+        background-size: contain;
+
+        p {
+          line-height: 1.5;
+          margin-bottom: 2rem;
+          color: themed("textColor");
+        }
+      }
+
+      .right {
+        @extend %flex-wrapper;
+        @include borderPosition("right");
+        background-color: themed("bgSoft");
+
+        form {
+          display: flex;
+          flex: 1;
+          flex-direction: column;
+          width: 100%;
+        }
+
+        input {
+          border: none;
+          border-bottom: 1px solid themed(logo);
+          border-radius: 10px;
+          padding: 1rem;
+          margin-bottom: 1rem;
+        }
       }
     }
   }

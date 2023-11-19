@@ -5,7 +5,9 @@ import {
   SearchOutlined,
   MailOutlined,
   NotificationsOutlined,
+  WbSunnyOutlined
 } from "@mui/icons-material";
+import srcImg from '../../assets/images.png'
 import "./header.scss";
 
 const Header = () => {
@@ -27,7 +29,7 @@ const Header = () => {
         <NotificationsOutlined />
         <MailOutlined />
         <div className="user">
-          <img src="" alt="" />
+          <img src={srcImg} alt="" />
           <span>User Name</span>
         </div>
       </div>
