@@ -6,9 +6,13 @@ const Main = () => {
   return (
     <>
       <Header />
-      <LeftBar />
-      <Outlet />
-      <RightBar />
+      <div style={{ display: "flex" }}>
+        <LeftBar />
+        <div style={{ flex: 6 }}>
+          <Outlet />
+        </div>
+        <RightBar />
+      </div>
     </>
   );
 };
