@@ -1,15 +1,17 @@
 // Basic colors
 $white: #fff;
 $light-gray: #c5c5c5;
-$dark-gray:#787878 ;
+$dark-gray: #787878;
 $black: #000;
 
 // App colors light
-$primary: #F3EEEA;
-$secondary: #EBE3D5;
-$tertiary: #776B5D;
+$primary: #ffffff;
+$secondary: #e9e9e9;
+$tertiary: #00a9ff;
 
 //Border radius
-$small: 10px;
-$medium: 20px;
-$large: 30px;
+$border-radius-xs: 5px;
+$border-radius-sm: 10px;
+$border-radius-md: 20px;
+$border-radius-lg: 30px;
+$border-round: 50%;
