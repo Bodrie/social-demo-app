@@ -17,7 +17,7 @@ export const ThemeContextProvider = ({ children }: ThemeContextProps) => {
   };
 
   useEffect(() => {
-    localStorage.setItem("theme", JSON.stringify(theme));
+    localStorage.setItem("theme", theme);
   }, [theme]);
 
   return (
