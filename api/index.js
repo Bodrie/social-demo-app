@@ -7,9 +7,9 @@ import postRoutes from "./routes/posts.js";
 import commentRoutes from "./routes/comments.js";
 import likeRoutes from "./routes/likes.js";
 import chalk from "chalk";
+import { PORT } from "./config.js";
 
 const app = express();
-const PORT = 8000;
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", true);
