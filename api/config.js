@@ -1,4 +1,6 @@
 import { config } from "dotenv";
 
 config({ path: "./.env.local" });
-export const { HOST, USER, PASSWORD, DB, KEY, PORT } = process.env;
+
+export const { HOST, USER, PASSWORD, DB, KEY, PORT_PROD, PORT_DEV, NODE_ENV } =
+  process.env;
