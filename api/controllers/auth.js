@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { KEY } from "../config.js";
 
 export const login = (req, res) => {
+  console.log("[SERVER LOG] User LOGIN");
   const q = "SELECT * FROM users WHERE email = ?";
   db.query(q, [req.body.email], (err, data) => {
     if (err) return res.status(500).send(err);
@@ -20,7 +21,6 @@ export const login = (req, res) => {
 
     const { password, ...rest } = data[0];
 
-    console.log("[SERVER LOG] User LOGIN");
     res
       .cookie("accessToken", token, {
         httpOnly: true,
