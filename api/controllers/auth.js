@@ -20,6 +20,7 @@ export const login = (req, res) => {
 
     const { password, ...rest } = data[0];
 
+    console.log("[SERVER LOG] User LOGIN");
     res
       .cookie("accessToken", token, {
         httpOnly: true,
@@ -47,12 +48,14 @@ export const register = (req, res) => {
     ];
     db.query(q, [values], (err, data) => {
       if (err) return res.status(500).send(err);
+      console.log("[SERVER LOG] User REGISTER");
       return res.status(200).send("Succsessful registration");
     });
   });
 };
 
 export const logout = (req, res) => {
+  console.log("[SERVER LOG] User LOGOUT");
   res
     .clearCookie("accessToken", { secure: true, sameSite: "none" })
     .status(200)
