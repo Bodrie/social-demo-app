@@ -14,7 +14,7 @@ export const login = (req, res) => {
     }
     if (data.length === 0) {
       console.log("[SERVER LOG] User LOGIN Error!");
-      console.log("[SERVER LOG] User not found!");
+      console.log("[SERVER LOG] User not found!\n");
       return res.status(404).send("User not found!");
     }
 
@@ -25,7 +25,7 @@ export const login = (req, res) => {
 
     if (!checkPassword) {
       console.log("[SERVER LOG] User LOGIN Error!");
-      console.log("[SERVER LOG] Wrong password or email!");
+      console.log("[SERVER LOG] Wrong password or email!\n");
       return res.status(400).send("Wrong password or email!");
     }
 
@@ -33,7 +33,7 @@ export const login = (req, res) => {
 
     const { password, ...rest } = data[0];
 
-    console.log("[SERVER LOG] User LOGIN successful!");
+    console.log("[SERVER LOG] User LOGIN successful!\n");
     res
       .cookie("accessToken", token, {
         httpOnly: true,
