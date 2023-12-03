@@ -12,7 +12,11 @@ export const login = (req, res) => {
       console.log(err);
       return res.status(500).send(err);
     }
-    if (data.length === 0) return res.status(404).send("User not found!");
+    if (data.length === 0) {
+      console.log("[SERVER LOG] User LOGIN Error!");
+      console.log("[SERVER LOG] User not found!");
+      return res.status(404).send("User not found!");
+    }
 
     const checkPassword = bcrypt.compareSync(
       req.body.password,
