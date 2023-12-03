@@ -47,7 +47,7 @@ app.use(express.json());
 app.use(cors({ origin: "https://social-demo-app.vercel.app" }));
 app.use(cookieParser());
 
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRoutes, console.log('asdasd'));
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
