@@ -13,8 +13,8 @@ import chalk from "chalk";
 import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
 
 const options = {
-  key: fs.readFileSync("ssl/s.key"),
-  cert: fs.readFileSync("ssl/s.crt"),
+  key: fs.readFileSync("ssl/pk.pem"),
+  cert: fs.readFileSync("ssl/s.pem"),
 };
 
 const PORT = NODE_ENV === "prod" ? PORT_PROD : PORT_DEV;
