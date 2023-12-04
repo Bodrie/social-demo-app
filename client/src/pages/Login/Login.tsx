@@ -19,7 +19,7 @@ const LoginForm = () => {
   const handleFormSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     context?.ctxLogin(loginForm).then((res) => {
-      if (res === "ready") navigate("/profile");
+      if (res === "ready") navigate("/");
     });
   };
 
