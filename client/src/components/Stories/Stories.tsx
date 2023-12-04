@@ -1,17 +1,12 @@
 import React, { useContext } from "react";
-import imgSrc from "../../assets/story-placeholder.webp";
 import defImgSrc from "../../assets/images.png";
 import { AuthContext } from "../../context/authContext";
 import { ControlPoint } from "@mui/icons-material";
+import { stories } from "../../mocks";
 import "./stories.scss";
 
 const Stories = () => {
   const context = useContext(AuthContext);
-  const stories = [
-    { id: 1, name: "asd", img: imgSrc },
-    { id: 2, name: "222", img: imgSrc },
-    { id: 3, name: "333", img: imgSrc },
-  ];
   return (
     <div className="stories">
       <div className="story">
