@@ -1,5 +1,6 @@
 import imgSrc from "../assets/images.png";
 import imgSrc2 from "../assets/story-placeholder.webp";
+import imgSrc3 from "../assets/placeholder1920x1000.png";
 import { Post, Story } from "../types";
 
 export const posts: Post[] = [
@@ -10,6 +11,7 @@ export const posts: Post[] = [
     profilePic: imgSrc,
     content:
       "Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123",
+    contentImg: imgSrc3,
   },
   {
     id: 2,
@@ -18,6 +20,7 @@ export const posts: Post[] = [
     profilePic: imgSrc,
     content:
       "ipsum. Lorem ipsuLoremLorem ipsum... 123, Lorem ipsum..., Lorem ipsum... 123, Lorem, Lorem ipsum... 123",
+    contentImg: imgSrc3,
   },
 ];
 

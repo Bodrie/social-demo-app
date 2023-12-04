@@ -16,6 +16,7 @@
     height: 50px;
     border-bottom: 1px solid themed("border");
     background-color: themed("bg");
+    z-index: 9;
 
     svg {
       color: themed("textColorSoft");

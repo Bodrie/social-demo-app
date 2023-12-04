@@ -1,0 +1,80 @@
+@import "../../theme/theme";
+
+.post {
+  @include themify($themes) {
+    -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+    -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+    box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+    border-radius: 20px;
+    background-color: themed("bg");
+    color: themed("textColor");
+
+    .container {
+      padding: 1rem;
+
+      .user {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .user-info {
+          display: flex;
+          gap: 1rem;
+
+          img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+
+          .details {
+            display: flex;
+            flex-direction: column;
+
+            a {
+                text-decoration: none;
+            }
+
+            .name {
+              font-weight: 500;
+              color: themed('textColor');
+            }
+
+            .date {
+              font-size: 12px;
+            }
+          }
+        }
+      }
+
+      .content {
+        margin: 1rem 0;
+
+        p {
+          padding-bottom: 1rem;
+        }
+
+        img {
+          width: 100%;
+          max-height: 500px;
+          object-fit: cover;
+        }
+      }
+
+      .info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
