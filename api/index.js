@@ -12,10 +12,13 @@ import likeRoutes from "./routes/likes.js";
 import chalk from "chalk";
 import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
 
-const options = {
-  key: fs.readFileSync("ssl/pk.pem"),
-  cert: fs.readFileSync("ssl/s.pem"),
-};
+const options =
+  NODE_ENV === "prod"
+    ? {
+        key: fs.readFileSync("ssl/pk.pem"),
+        cert: fs.readFileSync("ssl/s.pem"),
+      }
+    : {};
 
 const PORT = NODE_ENV === "prod" ? PORT_PROD : PORT_DEV;
 
@@ -44,7 +47,11 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
-app.use(cors({ origin: "https://social-demo-app.vercel.app" }));
+app.use(
+  cors({
+    origin: ["https://social-demo-app.vercel.app", "http://localhost:3000"],
+  })
+);
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
