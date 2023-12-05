@@ -51,17 +51,16 @@ const SinglePost = ({
         </div>
         <div className="info">
           <div className="item">
-            {liked ? <FavoriteOutlined /> : <FavoriteBorderOutlined />} 4 Likes
+            {liked ? <FavoriteOutlined /> : <FavoriteBorderOutlined />} 4
           </div>
           <div
             className="item"
             onClick={() => setCommentsSection(!commentsSection)}
           >
-            <TextsmsOutlined />9 Comments
+            <TextsmsOutlined />9
           </div>
           <div className="item">
             <ShareOutlined />
-            Share
           </div>
         </div>
         {commentsSection && <Comments />}

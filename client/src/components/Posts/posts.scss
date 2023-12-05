@@ -1,5 +1,11 @@
+@import "../../theme/theme.scss";
+
 .posts {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+
+  @include mobile {
+    gap: 1rem;
+  }
 }

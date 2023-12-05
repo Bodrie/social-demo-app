@@ -26,20 +26,36 @@
     align-items: center;
     justify-content: center;
 
+    @include smallerThanDesktop {
+      align-items: unset;
+      justify-content: unset;
+    }
+
     .register-wrapper {
       display: flex;
       width: 50%;
       min-height: 600px;
       border-radius: 10px;
 
-      -webkit-box-shadow: 0px 0px 15px 1px themed("textColor");
-      -moz-box-shadow: 0px 0px 15px 1px themed("textColor");
-      box-shadow: 0px 0px 15px 1px themed("textColor");
+      @include smallerThanDesktop {
+        width: unset;
+        border-radius: unset;
+        min-height: unset;
+        flex-direction: column-reverse;
+      }
+
+      -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
 
       h1 {
         align-self: start;
         margin-bottom: 2rem;
         color: themed("textColor");
+
+        @include smallerThanDesktop {
+          align-self: center;
+        }
       }
 
       button {
@@ -57,13 +73,21 @@
       .right {
         @extend %flex-wrapper;
         @include borderPosition("right");
-        background-image: url(themed('image'));
+        background-image: url(themed("image"));
         background-size: contain;
+
+        @include mobile {
+          padding: 1.5rem 2rem;
+        }
 
         p {
           line-height: 1.5;
           margin-bottom: 2rem;
           color: themed("textColor");
+
+          @include smallerThanDesktop {
+            text-align: center
+          }
         }
       }
 
@@ -72,11 +96,19 @@
         @include borderPosition("left");
         background-color: themed("bgSoft");
 
+        @include mobile {
+          padding: 1.5rem 2rem;
+        }
+
         form {
           display: flex;
           flex: 1;
           flex-direction: column;
           width: 100%;
+
+          @include tablet {
+            max-width: 400px;
+          }
         }
 
         input {
