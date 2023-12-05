@@ -41,6 +41,14 @@
         margin: 0 1rem 0 0.3rem;
       }
 
+      @include mobile {
+        gap: 1rem;
+        
+        span {
+          display: none;
+        }
+      }
+
       button {
         margin-left: auto;
         border: none;
