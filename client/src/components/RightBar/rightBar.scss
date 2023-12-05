@@ -17,12 +17,16 @@
       display: none;
     }
 
-    @include mobile {
+    @media (max-width: 635px) {
       display: none;
     }
 
     .container {
       padding: 1rem 0;
+
+      @include tablet {
+        padding: 0.5rem 0 0 0.5rem;
+      }
 
       .item {
         -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
@@ -33,8 +37,16 @@
         background-color: themed("bg");
         margin-bottom: 0.7rem;
 
+        @include tablet {
+          padding: 0.5rem;
+        }
+
         span {
           color: themed("textColor");
+
+          @include tablet {
+            font-size: 14px;
+          }
         }
 
         .user {
@@ -50,17 +62,30 @@
             img {
               width: 40px;
               height: 40px;
-              border-radius: 5px;
+              border-radius: 50%;
               object-fit: cover;
+
+              @include tablet {
+                width: 30px;
+                height: 30px;
+              }
             }
 
             span {
               font-weight: 500;
+
+              @include tablet {
+                font-size: 12px;
+              }
             }
 
             p {
               font-size: 12px;
               color: themed("textColor");
+
+              @include tablet {
+                font-size: 10px;
+              }
             }
 
             .online {
@@ -70,7 +95,13 @@
               background-color: limegreen;
               width: 11px;
               height: 11px;
-              border-radius: 5px;
+              border-radius: 50%;
+
+              @include tablet {
+                left: 22px;
+                width: 8px;
+                height: 8px;
+              }
             }
           }
 
@@ -85,6 +116,11 @@
               color: white;
               cursor: pointer;
 
+              @include tablet {
+                font-size: 12px;
+                padding: 0.3rem;
+              }
+
               &:first-child {
                 background-color: themed("logo");
               }
@@ -97,6 +133,10 @@
 
           .when {
             font-size: 12px;
+
+            @include tablet {
+              font-size: 10px;
+            }
           }
         }
       }

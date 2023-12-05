@@ -7,6 +7,10 @@
     padding: unset;
   }
 
+  @include tablet {
+    padding: unset;
+  }
+
   @include themify($themes) {
     background-color: themed("bgSoft");
 
@@ -41,6 +45,10 @@
         padding: 1rem 0.5rem 0;
       }
 
+      @include tablet {
+        padding: 1rem 0.5rem 0;
+      }
+
       .general-info {
         border-radius: 20px;
         background-color: themed("bg");
@@ -61,12 +69,24 @@
           gap: 2rem;
         }
 
+        @include tablet {
+          flex-direction: column;
+          padding: 6rem 1rem 1rem;
+          height: unset;
+          gap: 2rem;
+        }
+
         .left {
           flex: 1;
           display: flex;
           gap: 0.5rem;
 
           @include mobile {
+            flex: none;
+            gap: 2rem;
+          }
+
+          @include tablet {
             flex: none;
             gap: 2rem;
           }
@@ -87,6 +107,10 @@
             flex: none;
           }
 
+          @include tablet {
+            flex: none;
+          }
+
           span {
             font-size: 30px;
             font-weight: bold;
@@ -99,6 +123,10 @@
             justify-content: space-around;
 
             @include mobile {
+              gap: 2rem;
+            }
+
+            @include tablet {
               gap: 2rem;
             }
 
@@ -131,6 +159,10 @@
           gap: 0.5rem;
 
           @include mobile {
+            flex: none;
+          }
+
+          @include tablet {
             flex: none;
           }
         }
