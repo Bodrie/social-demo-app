@@ -5,3 +5,4 @@ export { default as Stories } from "./Stories/Stories";
 export { default as Posts } from "./Posts/Posts";
 export { default as SinglePost } from "./SinglePost/SinglePost";
 export { default as Comments } from "./Comments/Comments";
+export { default as AddPost } from "./AddPost/AddPost";

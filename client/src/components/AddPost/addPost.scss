@@ -1,0 +1,67 @@
+@import "../../theme/theme.scss";
+
+.add-post {
+  @include themify($themes) {
+    background-color: themed("bg");
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 10px;
+
+    .content {
+      display: flex;
+      align-items: center;
+
+      img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+
+      textarea {
+        width: 100%;
+        max-height: 65px;
+        margin-left: 1rem;
+        color: themed("textColor");
+        background-color: transparent;
+        border: none;
+        resize: none;
+        &::-webkit-scrollbar {
+          display: none;
+        }
+      }
+    }
+
+    .add {
+      display: flex;
+      align-items: center;
+      color: themed("textColorSoft");
+
+      span {
+        margin: 0 1rem 0 0.3rem;
+      }
+
+      button {
+        margin-left: auto;
+        border: none;
+        border-radius: 5px;
+        padding: 0.5rem;
+        color: white;
+        cursor: pointer;
+        background-color: themed("logo");
+
+        @include tablet {
+          font-size: 12px;
+          padding: 0.3rem;
+        }
+      }
+    }
+
+    hr {
+      height: 0.5px;
+      border: none;
+      background-color: themed("border");
+      margin: 0.6rem 0 1rem;
+    }
+  }
+}
