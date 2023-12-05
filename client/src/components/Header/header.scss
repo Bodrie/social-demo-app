@@ -61,10 +61,15 @@
         border-radius: 5px;
         height: 30px;
         width: 50%;
+        margin: 0 1rem;
 
         @include mobile {
           border: none;
           justify-content: flex-end;
+        }
+
+        @include tablet {
+          width: 100%;
         }
 
         input {
@@ -94,7 +99,7 @@
       flex: 3;
       justify-content: end;
 
-      @include mobile {
+      @include smallerThanDesktop {
         gap: 1rem;
       }
 

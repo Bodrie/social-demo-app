@@ -3,7 +3,7 @@
 .home {
   padding: 1rem 1rem 0;
 
-  @include mobile {
+  @include smallerThanDesktop {
     padding: 0.5rem 0.5rem 0;
   }
 }
