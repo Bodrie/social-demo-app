@@ -3,8 +3,9 @@ import { Register, Login } from "../types";
 
 const API = process.env.REACT_APP_API;
 
-const axiosInstance = axios.create({
+const makeRequest = axios.create({
   baseURL: API,
+  withCredentials: true,
 });
 
 export const register = (
@@ -13,7 +14,7 @@ export const register = (
 ) => {
   e.preventDefault();
 
-  const response = axiosInstance
+  const response = makeRequest
     .post("/auth/register", registerData)
     .then((res: AxiosResponse) => {
       return res;
@@ -26,7 +27,7 @@ export const register = (
 };
 
 export const login = (loginData: Login) => {
-  const response = axiosInstance
+  const response = makeRequest
     .post("/auth/login", loginData, {
       withCredentials: true,
     })
@@ -41,10 +42,23 @@ export const login = (loginData: Login) => {
 };
 
 export const logout = () => {
-  const response = axiosInstance
+  const response = makeRequest
     .post("/auth/logout")
     .then((res) => {
       return res;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const getPosts = () => {
+  const response = makeRequest
+    .get("/posts")
+    .then((res) => {
+      return res.data;
     })
     .catch((e) => {
       throw Error(e);

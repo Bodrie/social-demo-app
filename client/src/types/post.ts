@@ -4,5 +4,6 @@ export type Post = {
   userId: number;
   profilePic: string;
   content: string;
-  contentImg: string;
+  contentImg: string | null;
+  createdAt: string | null;
 };
