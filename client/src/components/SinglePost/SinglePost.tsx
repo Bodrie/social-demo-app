@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   MoreHoriz,
@@ -8,6 +8,7 @@ import {
   ShareOutlined,
 } from "@mui/icons-material";
 import "./singlePost.scss";
+import { Comments } from "../../components";
 
 interface SinglePostProps {
   id: number;
@@ -27,6 +28,7 @@ const SinglePost = ({
   contentImg,
 }: SinglePostProps) => {
   const liked = false;
+  const [commentsSection, setCommentsSection] = useState(false);
 
   return (
     <div className="post">
@@ -51,14 +53,18 @@ const SinglePost = ({
           <div className="item">
             {liked ? <FavoriteOutlined /> : <FavoriteBorderOutlined />} 4 Likes
           </div>
-          <div className="item">
-            <TextsmsOutlined /> 9 Comments
+          <div
+            className="item"
+            onClick={() => setCommentsSection(!commentsSection)}
+          >
+            <TextsmsOutlined />9 Comments
           </div>
           <div className="item">
             <ShareOutlined />
             Share
           </div>
         </div>
+        {commentsSection && <Comments />}
       </div>
     </div>
   );
