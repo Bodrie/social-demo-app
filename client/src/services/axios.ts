@@ -54,6 +54,19 @@ export const logout = () => {
   return response;
 };
 
+export const getUserById = (id: number | string) => {
+  const response = makeRequest
+    .get(`/users/${id}`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
 export const getPosts = () => {
   const response = makeRequest
     .get("/posts")
