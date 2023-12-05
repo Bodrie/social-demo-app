@@ -23,7 +23,7 @@ const Comments = () => {
                 <span>{name}</span>
                 <p>{content}</p>
               </div>
-              <span className="date">3 hours ago</span>
+              <span className="date">3h. ago</span>
             </div>
             <hr />
           </>

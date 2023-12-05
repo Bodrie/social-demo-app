@@ -9,7 +9,9 @@ function App() {
   return (
     <div className={`theme-${context?.theme}`}>
       <div className="app">
-        <RouterComponent />
+        <div className="wrapper">
+          <RouterComponent />
+        </div>
       </div>
     </div>
   );

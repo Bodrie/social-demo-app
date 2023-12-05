@@ -12,6 +12,10 @@
       display: none;
     }
 
+    @include mobile {
+      display: none;
+    }
+
     .container {
       padding: 1rem;
       background-color: themed("bg");

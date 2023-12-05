@@ -28,7 +28,7 @@ export const comments: Comment[] = [
   {
     id: 1,
     content:
-      "Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123",
+      "Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123 Lorem ipsum... 123, Lorem ipsum um... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123 Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123um... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123 Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123um... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123 Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123",
     name: "Jane Doe",
     userId: 1,
     profilePic: imgSrc,
