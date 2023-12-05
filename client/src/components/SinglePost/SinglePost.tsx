@@ -11,21 +11,21 @@ import "./singlePost.scss";
 import { Comments } from "../../components";
 
 interface SinglePostProps {
-  id: number;
   name: string;
   userId: number;
   profilePic: string;
   content: string;
-  contentImg: string;
+  contentImg: string | null;
+  createdAt: string | null;
 }
 
 const SinglePost = ({
-  id,
   name,
   userId,
   profilePic,
   content,
   contentImg,
+  createdAt,
 }: SinglePostProps) => {
   const liked = false;
   const [commentsSection, setCommentsSection] = useState(false);
@@ -35,19 +35,21 @@ const SinglePost = ({
       <div className="container">
         <div className="user">
           <div className="user-info">
-            <img src={profilePic} alt="" />
+            <Link to={`/profile/${userId}`}>
+              <img src={profilePic} alt="" />
+            </Link>
             <div className="details">
               <Link to={`/profile/${userId}`}>
                 <span className="name">{name}</span>
               </Link>
-              <span className="date">7 min ago</span>
+              <span className="date">{createdAt}7 min ago</span>
             </div>
           </div>
           <MoreHoriz />
         </div>
         <div className="content">
           <p>{content}</p>
-          <img src={contentImg} alt="" />
+          {contentImg && <img src={contentImg} alt="" />}
         </div>
         <div className="info">
           <div className="item">

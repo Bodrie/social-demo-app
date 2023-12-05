@@ -1,8 +1,6 @@
 import React, { useContext } from "react";
 import "./profile.scss";
 import { AuthContext } from "../../context/authContext";
-import defImg from "../../assets/IMG_3301 (2).jpg";
-import defImg2 from "../../assets/placeholder1920x1000.png";
 import {
   FacebookTwoTone,
   Instagram,
@@ -18,19 +16,19 @@ import "./profile.scss";
 import { Posts } from "../../components";
 
 const Profile = () => {
-  const context = useContext(AuthContext);
+  const authCtx = useContext(AuthContext);
 
   return (
     <div className="profile">
       <div className="pictures">
         <img
-          src={context?.user?.cover_picture || defImg2}
-          alt=""
+          src={authCtx?.user?.cover_picture}
+          alt="cover picture of user profile"
           className="cover"
         />
         <img
-          src={context?.user?.profile_picture || defImg}
-          alt=""
+          src={authCtx?.user?.profile_picture}
+          alt="main picture of user profile"
           className="main"
         />
       </div>
@@ -54,7 +52,7 @@ const Profile = () => {
             </a>
           </div>
           <div className="center">
-            <span>Bodrie Kirov</span>
+            <span>{authCtx?.user?.name} ({authCtx?.user?.username})</span>
             <div className="person-info">
               <div className="item">
                 <Place />

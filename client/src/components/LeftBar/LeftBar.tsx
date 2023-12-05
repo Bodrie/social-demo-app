@@ -45,45 +45,6 @@ const LeftBar = () => {
           </div>
         </div>
         <hr />
-        <div className="section">
-          <span>Section name</span>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 1</span>
-          </div>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 2</span>
-          </div>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 3</span>
-          </div>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 4</span>
-          </div>
-        </div>
-        <hr />
-        <div className="section">
-          <span>Section name</span>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 1</span>
-          </div>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 2</span>
-          </div>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 3</span>
-          </div>
-          <div className="item">
-            <img src={imgSrc} alt="" />
-            <span>Menu item 4</span>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useContext } from "react";
 import { ThemeContext } from "../../context/themeContext";
+import { AuthContext } from "../../context/authContext";
 import { Link } from "react-router-dom";
 import {
   DarkModeOutlined,
@@ -8,14 +9,14 @@ import {
   NotificationsOutlined,
   WbSunnyOutlined,
 } from "@mui/icons-material";
-import srcImg from "../../assets/images.png";
 import "./header.scss";
 
 const Header = () => {
-  const context = useContext(ThemeContext);
+  const themeCtx = useContext(ThemeContext);
+  const authCtx = useContext(AuthContext);
 
   const handleThemeChange = (theme: string) => {
-    context?.switchTheme(theme);
+    themeCtx?.switchTheme(theme);
   };
 
   return (
@@ -24,7 +25,7 @@ const Header = () => {
         <Link to={"/"}>
           <span>The Network</span>
         </Link>
-        {context?.theme === "light" ? (
+        {themeCtx?.theme === "light" ? (
           <DarkModeOutlined onClick={() => handleThemeChange("dark")} />
         ) : (
           <WbSunnyOutlined onClick={() => handleThemeChange("light")} />
@@ -40,8 +41,8 @@ const Header = () => {
         <NotificationsOutlined />
         <MailOutlined />
         <div className="user">
-          <img src={srcImg} alt="" />
-          <span>User Name</span>
+          <img src={authCtx?.user?.profile_picture} alt="" />
+          <span>{authCtx?.user?.name}</span>
         </div>
       </div>
     </header>

@@ -2,11 +2,11 @@ import { Login } from "./login";
 
 export type User = {
   id: number;
-  username: string | null;
+  username: string;
   email: string;
   name: string;
-  cover_picture: null | string;
-  profile_picture: null | string;
+  cover_picture: string;
+  profile_picture: string;
   city: null | string;
 } | null;
 

@@ -12,6 +12,7 @@ export const posts: Post[] = [
     content:
       "Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123",
     contentImg: imgSrc3,
+    createdAt: null,
   },
   {
     id: 2,
@@ -21,6 +22,7 @@ export const posts: Post[] = [
     content:
       "ipsum. Lorem ipsuLoremLorem ipsum... 123, Lorem ipsum..., Lorem ipsum... 123, Lorem, Lorem ipsum... 123",
     contentImg: imgSrc3,
+    createdAt: null,
   },
 ];
 

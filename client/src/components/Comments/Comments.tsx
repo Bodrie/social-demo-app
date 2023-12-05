@@ -9,6 +9,7 @@ const Comments = () => {
 
   return (
     <div className="comments">
+      <hr />
       <div className="write">
         <img src={context?.user?.profile_picture || defImg} alt="" />
         <input type="text" placeholder="Write a comment..." />
@@ -16,8 +17,8 @@ const Comments = () => {
       </div>
       {comments.map(({ id, content, name, userId, profilePic }) => {
         return (
-          <>
-            <div className="comment" key={id}>
+          <div key={id}>
+            <div className="comment">
               <img src={profilePic} alt="" />
               <div className="info">
                 <span>{name}</span>
@@ -26,7 +27,7 @@ const Comments = () => {
               <span className="date">3h. ago</span>
             </div>
             <hr />
-          </>
+          </div>
         );
       })}
     </div>

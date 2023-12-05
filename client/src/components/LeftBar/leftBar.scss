@@ -23,6 +23,7 @@
     .container {
       padding: 1rem;
       background-color: themed("bg");
+      height: -webkit-fill-available;
 
       .section {
         display: flex;
