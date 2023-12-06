@@ -103,6 +103,10 @@
         gap: 1rem;
       }
 
+      a {
+        text-decoration: none;
+      }
+
       .user {
         @extend %flex-items;
         gap: 0.5rem;

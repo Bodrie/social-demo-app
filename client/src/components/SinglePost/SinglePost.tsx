@@ -35,11 +35,11 @@ const SinglePost = ({
       <div className="container">
         <div className="user">
           <div className="user-info">
-            <Link to={`/profile/${userId}`}>
+            <Link to={`/profile?id=${userId}`}>
               <img src={profilePic} alt="" />
             </Link>
             <div className="details">
-              <Link to={`/profile/${userId}`}>
+              <Link to={`/profile?id=${userId}`}>
                 <span className="name">{name}</span>
               </Link>
               <span className="date">{createdAt}7 min ago</span>

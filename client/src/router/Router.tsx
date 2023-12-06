@@ -20,7 +20,7 @@ const RouterComponent = () => {
           element: <Home />,
         },
         {
-          path: "/profile/:id",
+          path: "/profile",
           element: <Profile />,
         },
       ],

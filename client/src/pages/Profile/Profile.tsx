@@ -1,6 +1,10 @@
-import React, { useContext } from "react";
-import "./profile.scss";
+import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/authContext";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { getUserById } from "../../services/axios";
+import { Posts } from "../../components";
+import { User } from "../../types";
 import {
   FacebookTwoTone,
   Instagram,
@@ -13,21 +17,36 @@ import {
   MoreVert,
 } from "@mui/icons-material";
 import "./profile.scss";
-import { Posts } from "../../components";
 
 const Profile = () => {
   const authCtx = useContext(AuthContext);
+  const [queryParameters] = useSearchParams();
+  const userId = queryParameters.get("id") as string;
+  const [user, setUser] = useState<User>(null);
+
+  const { isLoading, error, data } = useQuery({
+    queryKey: ["users", userId],
+    queryFn: () => getUserById(userId),
+  });
+
+  const isCurrentUser = user?.id === authCtx?.user?.id;
+
+  useEffect(() => {
+    if (data) {
+      setUser(data[0]);
+    }
+  }, [data]);
 
   return (
     <div className="profile">
       <div className="pictures">
         <img
-          src={authCtx?.user?.cover_picture}
+          src={user?.cover_picture}
           alt="cover picture of user profile"
           className="cover"
         />
         <img
-          src={authCtx?.user?.profile_picture}
+          src={user?.profile_picture}
           alt="main picture of user profile"
           className="main"
         />
@@ -52,7 +71,9 @@ const Profile = () => {
             </a>
           </div>
           <div className="center">
-            <span>{authCtx?.user?.name} ({authCtx?.user?.username})</span>
+            <span>
+              {user?.name} ({user?.username})
+            </span>
             <div className="person-info">
               <div className="item">
                 <Place />
@@ -63,11 +84,10 @@ const Profile = () => {
                 <span>Some Site Name</span>
               </div>
             </div>
-            <button>Follow</button>
+            {!isCurrentUser && <button>Follow</button>}
           </div>
           <div className="right">
-            <EmailOutlined />
-            <MoreVert />
+            {isCurrentUser ? <MoreVert /> : <EmailOutlined />}
           </div>
         </div>
         <Posts />

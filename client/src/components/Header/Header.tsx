@@ -40,10 +40,12 @@ const Header = () => {
       <div className="right">
         <NotificationsOutlined />
         <MailOutlined />
-        <div className="user">
-          <img src={authCtx?.user?.profile_picture} alt="" />
-          <span>{authCtx?.user?.name}</span>
-        </div>
+        <Link to={`/profile?id=${authCtx?.user?.id}`}>
+          <div className="user">
+            <img src={authCtx?.user?.profile_picture} alt="" />
+            <span>{authCtx?.user?.name}</span>
+          </div>
+        </Link>
       </div>
     </header>
   );
