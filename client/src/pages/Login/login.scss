@@ -19,6 +19,12 @@
   padding: 2.5rem 2rem;
 }
 
+%box-shadow {
+  -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.20);
+  -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.20);
+  box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.20);
+}
+
 .login {
   @include themify($themes) {
     height: 100svh;
@@ -33,25 +39,23 @@
 
     .login-wrapper {
       display: flex;
-      width: 50%;
+      max-width: 800px;
       min-height: 600px;
       border-radius: 10px;
 
       @include smallerThanDesktop {
-        width: unset;
+        max-width: unset;
         border-radius: unset;
         min-height: unset;
         flex-direction: column-reverse;
       }
 
-      -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
-      -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
-      box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      @extend %box-shadow;
 
       h1 {
         align-self: flex-start;
-        margin-bottom: 2rem;
-        color: themed("textColor");
+        margin: 0.5rem 0 1.5rem 0;
+        color: themed("logo");
 
         @include smallerThanDesktop {
           align-self: center;
@@ -59,15 +63,20 @@
       }
 
       button {
+        @extend %box-shadow;
         min-width: 150px;
         margin-top: auto;
         margin-left: auto;
         margin-right: auto;
         border: none;
-        border-bottom: 1px solid themed("logo");
-        border-radius: 10px;
+        border-bottom: 2px solid themed("logo");
         padding: 1rem;
         cursor: pointer;
+        color: themed('logo');
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        background-color: white;
       }
 
       .left {
@@ -77,7 +86,7 @@
         background-size: contain;
 
         @include mobile {
-          padding: 4rem 1rem;
+          padding: 1rem;
         }
 
         p {
@@ -97,7 +106,7 @@
         background-color: themed("bgSoft");
 
         @include mobile {
-          padding: 4rem 1rem;
+          padding: 1rem;
         }
 
         form {
@@ -113,8 +122,7 @@
 
         input {
           border: none;
-          border-bottom: 1px solid themed(logo);
-          border-radius: 10px;
+          border-bottom: 2px solid themed(logo);
           padding: 1rem;
           margin-bottom: 1rem;
         }
