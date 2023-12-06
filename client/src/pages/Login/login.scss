@@ -76,7 +76,7 @@
         font-size: 16px;
         font-weight: 600;
         letter-spacing: 1.5px;
-        background-color: white;
+        background-color: themed("bg");
       }
 
       .left {
@@ -125,6 +125,13 @@
           border-bottom: 2px solid themed(logo);
           padding: 1rem;
           margin-bottom: 1rem;
+          font-size: 16px;
+          color: themed('textColorSoft');
+          background-color: themed("bg");
+
+          @include mobile {
+            font-size: 12px;
+          }
         }
       }
     }
