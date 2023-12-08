@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from "react";
 import { User, AuthContextT, Login } from "../types";
 import { login } from "../services/axios";
+import { useCookies } from "react-cookie";
 
 type AuthContextProps = {
   children: string | JSX.Element | JSX.Element[];
@@ -15,7 +16,7 @@ export const AuthContextProvider = ({ children }: AuthContextProps) => {
 
   const ctxLogin = ({ email, password }: Login) => {
     const loginRes = login({ email, password }).then((res) => {
-      setCurrentUser(res.data);
+      setCurrentUser(res.data.user);
       return "ready";
     });
     return loginRes;

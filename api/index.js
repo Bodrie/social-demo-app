@@ -44,12 +44,15 @@ if (NODE_ENV === "dev") {
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", true);
+  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
   next();
 });
 app.use(express.json());
 app.use(
   cors({
+    credentials: true,
     origin: ["https://social-demo-app.vercel.app", "http://localhost:3000"],
+    exposedHeaders: ["set-cookie"],
   })
 );
 app.use(cookieParser());

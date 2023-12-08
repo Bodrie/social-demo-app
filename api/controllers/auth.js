@@ -31,15 +31,17 @@ export const login = (req, res) => {
 
     const token = jwt.sign({ id: data[0].id }, KEY);
 
-    const { password, ...rest } = data[0];
+    const { password, ...user } = data[0];
 
     console.log("[SERVER LOG] User LOGIN successful!\n");
     res
+      .status(200)
       .cookie("accessToken", token, {
         httpOnly: true,
+        secure: true,
+        sameSite: "none",
       })
-      .status(200)
-      .send(rest);
+      .send({ user, token });
   });
 };
 

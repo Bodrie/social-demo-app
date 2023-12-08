@@ -28,9 +28,7 @@ export const register = (
 
 export const login = (loginData: Login) => {
   const response = makeRequest
-    .post("/auth/login", loginData, {
-      withCredentials: true,
-    })
+    .post("/auth/login", loginData)
     .then((res: AxiosResponse) => {
       return res;
     })
@@ -67,9 +65,9 @@ export const getUserById = (id: number | string) => {
   return response;
 };
 
-export const getPosts = () => {
+export const getPosts = (id: number) => {
   const response = makeRequest
-    .get("/posts")
+    .post("/posts", { user: id })
     .then((res) => {
       return res.data;
     })
