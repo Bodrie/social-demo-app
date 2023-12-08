@@ -52,7 +52,6 @@ app.use(
   cors({
     credentials: true,
     origin: ["https://social-demo-app.vercel.app", "http://localhost:3000"],
-    // exposedHeaders: ["set-cookie"],
   })
 );
 app.use(cookieParser());

@@ -39,7 +39,7 @@ export const login = (req, res) => {
       .cookie("accessToken", token, {
         httpOnly: true,
         secure: true,
-        sameSite: "none",
+        sameSite: "none", // For now, but unsafe...
       })
       .send({ user, token });
   });

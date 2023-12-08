@@ -65,9 +65,9 @@ export const getUserById = (id: number | string) => {
   return response;
 };
 
-export const getPosts = (id: number) => {
+export const getPosts = () => {
   const response = makeRequest
-    .post("/posts", { user: id })
+    .get("/posts")
     .then((res) => {
       return res.data;
     })
