@@ -1,12 +1,16 @@
 import { db } from "../connect.js";
 import jwt from "jsonwebtoken";
+import moment from "moment";
 import { KEY, NODE_ENV } from "../config.js";
 
-export const getPost = (req, res) => {
+export const getPosts = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === 'prod') return res.status(401).send("Not logged in!");
+  if (!token && NODE_ENV === "prod")
+    return res.status(401).send("Not logged in!");
+
   jwt.verify(token, KEY, (err, user) => {
-    if (err && NODE_ENV === 'prod') return res.status(403).send("Invalid token!");
+    if (err && NODE_ENV === "prod")
+      return res.status(403).send("Invalid token!");
 
     const q = `SELECT 
                   p.id,
@@ -24,7 +28,7 @@ export const getPost = (req, res) => {
               WHERE r.follower_user_id = ? OR p.user_id = ?
               ORDER BY p.created_at DESC`;
 
-    const userId = NODE_ENV === 'prod' ? user.id : 8;
+    const userId = NODE_ENV === "prod" ? user.id : 8;
 
     db.query(q, [userId, userId], (err, data) => {
       if (err) {
@@ -33,6 +37,33 @@ export const getPost = (req, res) => {
         return res.status(500).send(err);
       }
       return res.status(200).send(data);
+    });
+  });
+};
+
+export const addPost = (req, res) => {
+  const token = req.cookies.accessToken;
+  if (!token && NODE_ENV === "prod")
+    return res.status(401).send("Not logged in!");
+
+  jwt.verify(token, KEY, (err, user) => {
+    if (err && NODE_ENV === "prod")
+      return res.status(403).send("Invalid token!");
+
+    const q = `INSERT INTO posts (description, image, user_id, created_at) VALUES (?)`;
+
+    const userId = NODE_ENV === "prod" ? user.id : 8;
+
+    const values = [
+      req.body.content,
+      req.body.contentImg,
+      userId,
+      moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
+    ];
+
+    db.query(q, [values], (err, data) => {
+      if (err) return res.status(500).send(err);
+      return res.status(200).send("Post created!");
     });
   });
 };
