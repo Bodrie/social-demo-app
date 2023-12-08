@@ -7,8 +7,6 @@ export const getPost = (req, res) => {
   if (!token) return res.status(401).send("Not logged in!");
   jwt.verify(token, KEY, (err, user) => {
     if (err) return res.status(403).send("Invalid token!");
-    console.log(token);
-    console.log(user);
 
     const q = `SELECT 
                   p.id,
