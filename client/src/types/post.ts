@@ -7,3 +7,8 @@ export type Post = {
   contentImg: string | null;
   createdAt: string | null;
 };
+
+export type PostCreate = {
+  content: string,
+  contentImg?: string,
+}
