@@ -10,6 +10,8 @@ import postRoutes from "./routes/posts.js";
 import commentRoutes from "./routes/comments.js";
 import likeRoutes from "./routes/likes.js";
 import chalk from "chalk";
+import multer from "multer";
+import stream from "stream";
 import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
 
 const options =
@@ -55,6 +57,35 @@ app.use(
   })
 );
 app.use(cookieParser());
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "../api/upload/images");
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + file.originalname);
+  },
+});
+
+const upload = multer({ storage: storage });
+
+app.post("/api/upload", upload.single("file"), (req, res) => {
+  const file = req.file;
+  res.status(200).json(file.filename);
+});
+
+app.get("/api/images/:id", (req, res) => {
+  const filePath = `../api/upload/images/${req.params.id}`;
+  const readbleStream = fs.createReadStream(filePath);
+  const ps = new stream.PassThrough();
+  stream.pipeline(readbleStream, ps, (err) => {
+    if (err) {
+      console.log(err);
+      return res.status(400).send('Server error!');
+    }
+  });
+  ps.pipe(res);
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
