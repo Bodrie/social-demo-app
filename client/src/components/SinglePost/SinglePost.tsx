@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import moment from "moment";
 import {
   MoreHoriz,
   FavoriteBorderOutlined,
@@ -7,8 +8,8 @@ import {
   TextsmsOutlined,
   ShareOutlined,
 } from "@mui/icons-material";
-import "./singlePost.scss";
 import { Comments } from "../../components";
+import "./singlePost.scss";
 
 interface SinglePostProps {
   name: string;
@@ -42,7 +43,7 @@ const SinglePost = ({
               <Link to={`/profile?id=${userId}`}>
                 <span className="name">{name}</span>
               </Link>
-              <span className="date">{createdAt}7 min ago</span>
+              <span className="date">{moment(createdAt).fromNow()}</span>
             </div>
           </div>
           <MoreHoriz />
