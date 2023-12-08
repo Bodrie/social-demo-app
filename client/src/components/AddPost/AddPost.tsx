@@ -18,7 +18,7 @@ const AddPost = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
-      setContent('');
+      setContent("");
       setFile(null);
     },
   });
@@ -43,8 +43,6 @@ const AddPost = () => {
       </div>
       <hr />
       <div className="add">
-        <AddAPhoto />
-        <span>Add photo</span>
         <input
           type="file"
           id="file"
@@ -52,6 +50,10 @@ const AddPost = () => {
             setFile(e.currentTarget.files ? e.currentTarget.files[0] : null)
           }
         />
+        <label htmlFor="file">
+          <AddAPhoto />
+          <span>Add photo</span>
+        </label>
         <PersonPin />
         <span>Tag people</span>
         <button onClick={handlePostShare}>Share</button>
