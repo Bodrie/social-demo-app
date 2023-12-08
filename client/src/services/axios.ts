@@ -91,3 +91,18 @@ export const addPost = (postData: PostCreate) => {
 
   return response;
 };
+
+export const upload = (file: any) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = makeRequest
+    .post("/upload", formData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};

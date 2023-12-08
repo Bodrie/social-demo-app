@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { AddAPhoto, PersonPin } from "@mui/icons-material";
 import { AuthContext } from "../../context/authContext";
-import { addPost } from "../../services/axios";
+import { addPost, upload } from "../../services/axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PostCreate } from "../../types/post";
 import "./addPost.scss";
@@ -23,9 +23,11 @@ const AddPost = () => {
     },
   });
 
-  const handlePostShare = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handlePostShare = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    mutation.mutate({ content });
+    let imgUrl = "";
+    if (file) imgUrl = await upload(file);
+    mutation.mutate({ content, contentImg: imgUrl });
   };
 
   return (
