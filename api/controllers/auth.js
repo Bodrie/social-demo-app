@@ -34,14 +34,17 @@ export const login = (req, res) => {
     const { password, ...user } = data[0];
 
     console.log("[SERVER LOG] User LOGIN successful!\n");
+
+    const oneWeek = 7 * 24 * 3600 * 1000;
     res
       .status(200)
       .cookie("accessToken", token, {
         httpOnly: true,
         secure: true,
         sameSite: "none", // For now, but unsafe...
+        expires: new Date(Date.now() + oneWeek),
       })
-      .send({ user, token });
+      .send(user);
   });
 };
 
@@ -71,9 +74,8 @@ export const register = (req, res) => {
 
 export const logout = (req, res) => {
   console.log("[SERVER LOG] User LOGOUT");
-  const oneWeek = 7 * 24 * 3600 * 1000;
   res
-    .clearCookie("accessToken", { secure: true, sameSite: "none",  expires: new Date(Date.now() + oneWeek)})
+    .clearCookie("accessToken", { secure: true, sameSite: "none" })
     .status(200)
     .send("Succsessful logout!");
 };
