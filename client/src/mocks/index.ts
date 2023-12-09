@@ -1,30 +1,6 @@
 import imgSrc from "../assets/images.png";
 import imgSrc2 from "../assets/story-placeholder.webp";
-import imgSrc3 from "../assets/placeholder1920x1000.png";
-import { Post, Story, Comment } from "../types";
-
-export const posts: Post[] = [
-  {
-    id: 1,
-    name: "Jane Doe",
-    userId: 1,
-    profilePic: imgSrc,
-    content:
-      "Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123, Lorem ipsum... 123",
-    contentImg: imgSrc3,
-    createdAt: null,
-  },
-  {
-    id: 2,
-    name: "Doe Someone",
-    userId: 32,
-    profilePic: imgSrc,
-    content:
-      "ipsum. Lorem ipsuLoremLorem ipsum... 123, Lorem ipsum..., Lorem ipsum... 123, Lorem, Lorem ipsum... 123",
-    contentImg: imgSrc3,
-    createdAt: null,
-  },
-];
+import { Story, Comment } from "../types";
 
 export const comments: Comment[] = [
   {

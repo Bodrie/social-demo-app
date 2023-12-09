@@ -29,6 +29,7 @@ const SinglePost = ({
   createdAt,
 }: SinglePostProps) => {
   const API = process.env.REACT_APP_API;
+  const imgSrc = `${API}/upload/${contentImg}`;
   const liked = false;
   const [commentsSection, setCommentsSection] = useState(false);
 
@@ -51,7 +52,7 @@ const SinglePost = ({
         </div>
         <div className="content">
           <p>{content}</p>
-          {contentImg && <img src={`${API}/images/${contentImg}`} alt="" />}
+          {contentImg && <img src={imgSrc} alt="" />}
         </div>
         <div className="info">
           <div className="item">
