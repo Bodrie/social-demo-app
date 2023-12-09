@@ -5,8 +5,8 @@ import { KEY, NODE_ENV } from "../config.js";
 
 export const getPosts = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === "prod")
-    return res.status(401).send("Not logged in!");
+  if (!token)
+    return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
     if (err && NODE_ENV === "prod")
@@ -44,7 +44,7 @@ export const getPosts = (req, res) => {
 export const addPost = (req, res) => {
   const token = req.cookies.accessToken;
   if (!token && NODE_ENV === "prod")
-    return res.status(401).send("Not logged in!");
+    return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
     if (err && NODE_ENV === "prod")
