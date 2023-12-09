@@ -9,7 +9,7 @@ type ProtectedRouteProps = {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [cookies, setCookie, removeCookie] = useCookies(['accessToken']);
-  console.log(cookies);
+  console.log(cookies, 'new');
 
   const context = useContext(AuthContext);
   if (!context?.user || !cookies) {
