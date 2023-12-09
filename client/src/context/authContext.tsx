@@ -21,12 +21,16 @@ export const AuthContextProvider = ({ children }: AuthContextProps) => {
     return loginRes;
   };
 
+  const ctxLogout = () => {
+    setCurrentUser(null)
+  };
+
   useEffect(() => {
     localStorage.setItem("user", JSON.stringify(currentUser));
   }, [currentUser]);
 
   return (
-    <AuthContext.Provider value={{ user: currentUser, ctxLogin }}>
+    <AuthContext.Provider value={{ user: currentUser, ctxLogin, ctxLogout }}>
       {children}
     </AuthContext.Provider>
   );
