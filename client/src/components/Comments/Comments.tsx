@@ -1,8 +1,7 @@
 import React, { useContext } from "react";
-import "./comments.scss";
 import { comments } from "../../mocks";
 import { AuthContext } from "../../context/authContext";
-import defImg from '../../assets/IMG_3301 (2).jpg'
+import "./comments.scss";
 
 const Comments = () => {
   const context = useContext(AuthContext);
@@ -11,7 +10,7 @@ const Comments = () => {
     <div className="comments">
       <hr />
       <div className="write">
-        <img src={context?.user?.profile_picture || defImg} alt="" />
+        <img src={context?.user?.profile_picture} alt="" />
         <input type="text" placeholder="Write a comment..." />
         <button>Send</button>
       </div>

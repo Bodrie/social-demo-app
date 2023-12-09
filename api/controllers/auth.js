@@ -71,8 +71,9 @@ export const register = (req, res) => {
 
 export const logout = (req, res) => {
   console.log("[SERVER LOG] User LOGOUT");
+  const oneWeek = 7 * 24 * 3600 * 1000;
   res
-    .clearCookie("accessToken", { secure: true, sameSite: "none" })
+    .clearCookie("accessToken", { secure: true, sameSite: "none",  expires: new Date(Date.now() + oneWeek)})
     .status(200)
     .send("Succsessful logout!");
 };
