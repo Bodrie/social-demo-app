@@ -9,10 +9,8 @@ import userRoutes from "./routes/users.js";
 import postRoutes from "./routes/posts.js";
 import commentRoutes from "./routes/comments.js";
 import likeRoutes from "./routes/likes.js";
-import uploadRoutes from './routes/uploads.js'
+import uploadRoutes from "./routes/uploads.js";
 import chalk from "chalk";
-import multer from "multer";
-import stream from "stream";
 import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
 
 const options =
@@ -47,14 +45,18 @@ if (NODE_ENV === "dev") {
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", true);
-  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  if (NODE_ENV === "dev")
+    res.header("Access-Control-Allow-Origin", "http://localhost:3000");
   next();
 });
 app.use(express.json());
 app.use(
   cors({
     credentials: true,
-    origin: ["https://social-demo-app.vercel.app", "http://localhost:3000"],
+    origin:
+      NODE_ENV === "prod"
+        ? "https://social-demo-app.vercel.app"
+        : "http://localhost:3000",
   })
 );
 app.use(cookieParser());
@@ -64,4 +66,4 @@ app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/likes", likeRoutes);
-app.use("/api/upload", uploadRoutes)
+app.use("/api/upload", uploadRoutes);
