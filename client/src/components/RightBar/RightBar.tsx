@@ -10,7 +10,7 @@ const RightBar = () => {
           <span>Suggestions for you</span>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="Recommended user" />
               <span>User Name</span>
             </div>
             <div className="buttons">
@@ -20,7 +20,7 @@ const RightBar = () => {
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="Recommended user" />
               <span>User Name</span>
             </div>
             <div className="buttons">
@@ -33,7 +33,7 @@ const RightBar = () => {
           <span>Latest activities</span>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="User changed something" />
               <span>User Name</span>
               <p>Changed their profile picture</p>
             </div>
@@ -41,7 +41,7 @@ const RightBar = () => {
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="User changed somethingser" />
               <span>User Name</span>
               <p>Changed their profile picture</p>
             </div>
@@ -49,7 +49,7 @@ const RightBar = () => {
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="User changed something" />
               <span>User Name</span>
               <p>Changed their profile picture</p>
             </div>
@@ -57,7 +57,7 @@ const RightBar = () => {
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="User changed something" />
               <span>User Name</span>
               <p>Changed their profile picture</p>
             </div>
@@ -68,28 +68,28 @@ const RightBar = () => {
           <span>Online friends</span>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
               <div className="online"/>
             </div>
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
               <div className="online"/>
             </div>
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
               <div className="online"/>
             </div>
           </div>
           <div className="user">
             <div className="user-info">
-              <img src={imgSrc} alt="" />
+              <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
               <div className="online"/>
             </div>

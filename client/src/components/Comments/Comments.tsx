@@ -10,7 +10,7 @@ const Comments = () => {
     <div className="comments">
       <hr />
       <div className="write">
-        <img src={context?.user?.profile_picture} alt="" />
+        <img src={context?.user?.profile_picture} alt="Current user" />
         <input type="text" placeholder="Write a comment..." />
         <button>Send</button>
       </div>
@@ -18,7 +18,7 @@ const Comments = () => {
         return (
           <div key={id}>
             <div className="comment">
-              <img src={profilePic} alt="" />
+              <img src={profilePic} alt="User comment" />
               <div className="info">
                 <span>{name}</span>
                 <p>{content}</p>

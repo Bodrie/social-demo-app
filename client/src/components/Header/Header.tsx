@@ -42,7 +42,7 @@ const Header = () => {
         <MailOutlined />
         <Link to={`/profile?id=${authCtx?.user?.id}`}>
           <div className="user">
-            <img src={authCtx?.user?.profile_picture} alt="" />
+            <img src={authCtx?.user?.profile_picture} alt="Current user" />
             <span>{authCtx?.user?.name}</span>
           </div>
         </Link>

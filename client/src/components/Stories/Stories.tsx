@@ -12,7 +12,7 @@ const Stories = () => {
       <div className="story">
         <img
           src={context?.user?.profile_picture || defImgSrc}
-          alt="add story"
+          alt="Add story"
         />
         <span>{context?.user?.name}</span>
         <ControlPoint className="add" />
@@ -20,7 +20,7 @@ const Stories = () => {
       {stories.map(({ id, img, name }) => {
         return (
           <div key={id} className="story">
-            <img src={img} alt="story of some user" />
+            <img src={img} alt="Story of some user" />
             <span>{name}</span>
           </div>
         );

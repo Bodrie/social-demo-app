@@ -33,7 +33,7 @@ const AddPost = () => {
   return (
     <div className="add-post">
       <div className="content">
-        <img src={context?.user?.profile_picture} alt="" />
+        <img src={context?.user?.profile_picture} alt="Current user" />
         <textarea
           name="post"
           id="post"

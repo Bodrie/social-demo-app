@@ -42,12 +42,12 @@ const Profile = () => {
       <div className="pictures">
         <img
           src={user?.cover_picture}
-          alt="cover picture of user profile"
+          alt="Cover picture of user profile"
           className="cover"
         />
         <img
           src={user?.profile_picture}
-          alt="main picture of user profile"
+          alt="Main picture of user profile"
           className="main"
         />
       </div>

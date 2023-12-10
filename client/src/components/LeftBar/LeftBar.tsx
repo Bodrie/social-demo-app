@@ -8,19 +8,19 @@ const LeftBar = () => {
       <div className="container">
         <div className="section">
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 1" />
             <span>Menu item 1</span>
           </div>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 2" />
             <span>Menu item 2</span>
           </div>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 3" />
             <span>Menu item 3</span>
           </div>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 4" />
             <span>Menu item 4</span>
           </div>
         </div>
@@ -28,19 +28,19 @@ const LeftBar = () => {
         <div className="section">
           <span>Section name</span>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 1" />
             <span>Menu item 1</span>
           </div>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 2" />
             <span>Menu item 2</span>
           </div>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 3" />
             <span>Menu item 3</span>
           </div>
           <div className="item">
-            <img src={imgSrc} alt="" />
+            <img src={imgSrc} alt="Menu item 4" />
             <span>Menu item 4</span>
           </div>
         </div>
