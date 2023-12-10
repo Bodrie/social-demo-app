@@ -32,6 +32,11 @@ const SinglePost = ({
   const imgSrc = `${API}/upload/${contentImg}`;
   const liked = false;
   const [commentsSection, setCommentsSection] = useState(false);
+  const [fit, setFit] = useState("cover");
+
+  const handleImgFit = () => {
+    setFit(fit === "cover" ? "contain" : "cover");
+  };
 
   return (
     <div className="post">
@@ -39,7 +44,7 @@ const SinglePost = ({
         <div className="user">
           <div className="user-info">
             <Link to={`/profile?id=${userId}`}>
-              <img src={profilePic} alt="" />
+              <img src={profilePic} alt="User" />
             </Link>
             <div className="details">
               <Link to={`/profile?id=${userId}`}>
@@ -52,7 +57,14 @@ const SinglePost = ({
         </div>
         <div className="content">
           <p>{content}</p>
-          {contentImg && <img src={imgSrc} alt="" />}
+          {contentImg && (
+            <img
+              className={`content-img ${fit}`}
+              src={imgSrc}
+              alt="User post content"
+              onClick={handleImgFit}
+            />
+          )}
         </div>
         <div className="info">
           <div className="item">

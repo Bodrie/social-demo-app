@@ -33,12 +33,12 @@
             flex-direction: column;
 
             a {
-                text-decoration: none;
+              text-decoration: none;
             }
 
             .name {
               font-weight: 500;
-              color: themed('textColor');
+              color: themed("textColor");
             }
 
             .date {
@@ -55,10 +55,17 @@
           padding-bottom: 1rem;
         }
 
-        img {
+        .content-img {
           width: 100%;
           max-height: 500px;
-          object-fit: cover;
+
+          &.cover {
+            object-fit: cover;
+          }
+
+          &.contain {
+            object-fit: contain;
+          }
         }
       }
 
