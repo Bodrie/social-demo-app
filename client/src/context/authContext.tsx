@@ -1,6 +1,6 @@
 import { createContext, useEffect, useState } from "react";
 import { User, AuthContextT, Login } from "../types";
-import { login } from "../services/axios";
+import { login, logout } from "../services/axios";
 
 type AuthContextProps = {
   children: string | JSX.Element | JSX.Element[];
@@ -22,6 +22,7 @@ export const AuthContextProvider = ({ children }: AuthContextProps) => {
   };
 
   const ctxLogout = () => {
+    logout();
     setCurrentUser(null)
   };
 

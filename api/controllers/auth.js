@@ -2,9 +2,14 @@ import { db } from "../connect.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { KEY } from "../config.js";
+import moment from "moment";
 
 export const login = (req, res) => {
-  console.log("[SERVER LOG] User LOGIN initiated!");
+  console.log(
+    `[SERVER LOG] User LOGIN initiated! ${moment(Date.now()).format(
+      "HH:mm / DD-MM-YYYY"
+    )}`
+  );
   const q = "SELECT * FROM users WHERE email = ?";
   db.query(q, [req.body.email], (err, data) => {
     if (err) {
@@ -66,7 +71,11 @@ export const register = (req, res) => {
     ];
     db.query(q, [values], (err, data) => {
       if (err) return res.status(500).send(err);
-      console.log("[SERVER LOG] User REGISTER");
+      console.log(
+        `[SERVER LOG] User REGISTER ${moment(Date.now()).format(
+          "HH:mm / DD-MM-YYYY"
+        )}`
+      );
       return res.status(200).send("Succsessful registration");
     });
   });
