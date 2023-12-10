@@ -7,6 +7,7 @@
 
 .right-bar {
   @include themify($themes) {
+    max-width: 520px;
     flex: 3;
     position: sticky;
     height: calc(100vh - 71px);
