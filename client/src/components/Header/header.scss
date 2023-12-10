@@ -99,8 +99,8 @@
       flex: 3;
       justify-content: end;
 
-      @include smallerThanDesktop {
-        gap: 1rem;
+      @include mobile {
+        display: none;
       }
 
       a {
@@ -113,17 +113,27 @@
         font-weight: 500;
         color: themed("textColor");
 
+        @include smallerThanDesktop {
+          font-size: 14px;
+        }
+
         img {
           width: 40px;
           height: 40px;
           border-radius: 50%;
           object-fit: cover;
         }
+      }
 
-        span {
-          @include mobile {
-            display: none;
-          }
+      .logout {
+        @extend %flex-items;
+        gap: 0.2rem;
+        font-weight: 500;
+        color: themed("textColor");
+        cursor: pointer;
+
+        @include smallerThanDesktop {
+          font-size: 14px;
         }
       }
     }

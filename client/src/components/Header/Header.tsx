@@ -5,10 +5,10 @@ import { Link } from "react-router-dom";
 import {
   DarkModeOutlined,
   SearchOutlined,
-  MailOutlined,
-  NotificationsOutlined,
+  Logout,
   WbSunnyOutlined,
 } from "@mui/icons-material";
+import HeaderMobile from "./HeaderMobile";
 import "./header.scss";
 
 const Header = () => {
@@ -38,15 +38,18 @@ const Header = () => {
         </div>
       </div>
       <div className="right">
-        <NotificationsOutlined />
-        <MailOutlined />
         <Link to={`/profile?id=${authCtx?.user?.id}`}>
           <div className="user">
             <img src={authCtx?.user?.profile_picture} alt="Current user" />
             <span>{authCtx?.user?.name}</span>
           </div>
         </Link>
+        <div className="logout" onClick={authCtx?.ctxLogout}>
+          <Logout />
+          <span>Logout</span>
+        </div>
       </div>
+      <HeaderMobile />
     </header>
   );
 };

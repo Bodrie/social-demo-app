@@ -1,0 +1,53 @@
+@import "../../theme/theme";
+
+.right-mobile {
+  @include themify($themes) {
+    display: none;
+
+    @include mobile {
+      position: relative;
+      display: flex;
+      align-items: center;
+
+      img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        cursor: pointer;
+      }
+
+      .menu {
+        position: absolute;
+        display: none;
+        border-radius: 10px;
+
+        &.visible {
+          display: flex;
+          flex-direction: column;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          background-color: themed("bg");
+          top: 70px;
+          right: 0px;
+          -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+          -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+          box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+          color: themed("textColor");
+
+          li {
+            margin: 1rem 0;
+            padding: 0 4rem;
+            cursor: pointer;
+
+            a {
+              color: themed("textColor");
+              text-decoration: none;
+            }
+          }
+        }
+      }
+    }
+  }
+}
