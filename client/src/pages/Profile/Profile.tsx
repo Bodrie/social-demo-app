@@ -72,8 +72,9 @@ const Profile = () => {
           </div>
           <div className="center">
             <span>
-              {user?.name} ({user?.username})
+              {user?.name}
             </span>
+            <span>({user?.username})</span>
             <div className="person-info">
               <div className="item">
                 <Place />

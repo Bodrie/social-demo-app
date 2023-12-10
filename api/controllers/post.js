@@ -5,7 +5,7 @@ import { KEY, NODE_ENV } from "../config.js";
 
 export const getPosts = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token)
+  if (!token && NODE_ENV === "prod")
     return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
