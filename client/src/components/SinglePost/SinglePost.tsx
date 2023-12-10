@@ -12,6 +12,7 @@ import { Comments } from "../../components";
 import "./singlePost.scss";
 
 interface SinglePostProps {
+  id: number,
   name: string;
   userId: number;
   profilePic: string;
@@ -21,6 +22,7 @@ interface SinglePostProps {
 }
 
 const SinglePost = ({
+  id,
   name,
   userId,
   profilePic,
@@ -32,6 +34,7 @@ const SinglePost = ({
   const imgSrc = `${API}/upload/${contentImg}`;
   const liked = false;
   const [commentsSection, setCommentsSection] = useState(false);
+  const [numberOfComments, setNumberOfComments] = useState(0);
   const [fit, setFit] = useState("cover");
 
   const handleImgFit = () => {
@@ -74,13 +77,13 @@ const SinglePost = ({
             className="item"
             onClick={() => setCommentsSection(!commentsSection)}
           >
-            <TextsmsOutlined />9
+            <TextsmsOutlined />{numberOfComments}
           </div>
           <div className="item">
             <ShareOutlined />
           </div>
         </div>
-        {commentsSection && <Comments />}
+        {commentsSection && <Comments postId={id} setNumberOfComments={setNumberOfComments} />}
       </div>
     </div>
   );
