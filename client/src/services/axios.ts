@@ -1,6 +1,5 @@
 import axios, { AxiosResponse } from "axios";
-import { Register, Login } from "../types";
-import { PostCreate } from "../types/post";
+import { Register, Login, PostCreate, CommentCreate } from "../types";
 
 const API = process.env.REACT_APP_API;
 
@@ -82,6 +81,32 @@ export const getPosts = () => {
 export const addPost = (postData: PostCreate) => {
   const response = makeRequest
     .post("/posts", postData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const getPostComments = (id: number) => {
+  const response = makeRequest
+    .get(`/comments/${id}`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const addComment = (commentData: CommentCreate) => {
+  const response = makeRequest
+    .post("/comments", commentData)
     .then((res) => {
       return res.data;
     })
