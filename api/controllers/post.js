@@ -18,6 +18,7 @@ export const getPosts = (req, res) => {
                   user_id AS userId,
                   image AS contentImg,
                   description AS content,
+                  likes,
                   u.name,
                   profile_picture AS profilePic
               FROM posts AS p

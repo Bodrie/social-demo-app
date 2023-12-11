@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from "axios";
-import { Register, Login, PostCreate, CommentCreate } from "../types";
+import { Register, Login, PostCreate, CommentCreate, PostLike } from "../types";
 
 const API = process.env.REACT_APP_API;
 
@@ -107,6 +107,32 @@ export const getPostComments = (id: number) => {
 export const addComment = (commentData: CommentCreate) => {
   const response = makeRequest
     .post("/comments", commentData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const likePost = (likeData: PostLike) => {
+  const response = makeRequest
+    .post("/likes/like", likeData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const dislikePost = (dislikeData: PostLike) => {
+  const response = makeRequest
+    .post("/likes/dislike", dislikeData)
     .then((res) => {
       return res.data;
     })
