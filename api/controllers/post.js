@@ -51,7 +51,7 @@ export const addPost = (req, res) => {
     if (err && NODE_ENV === "prod")
       return res.status(403).send("Invalid token!");
 
-    const q = `INSERT INTO posts (description, image, user_id, created_at) VALUES (?)`;
+    const q = `INSERT INTO posts (description, image, user_id, created_at, likes) VALUES (?)`;
 
     const userId = NODE_ENV === "prod" ? user.id : 8;
 
@@ -60,6 +60,7 @@ export const addPost = (req, res) => {
       req.body.contentImg,
       userId,
       moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
+      "",
     ];
 
     db.query(q, [values], (err, data) => {
