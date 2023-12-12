@@ -91,7 +91,7 @@ const Profile = () => {
             {isCurrentUser ? <MoreVert /> : <EmailOutlined />}
           </div>
         </div>
-        <Posts />
+        <Posts profileId={Number(userId)} />
       </div>
     </div>
   );

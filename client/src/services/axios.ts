@@ -65,6 +65,19 @@ export const getUserById = (id: number | string) => {
   return response;
 };
 
+export const getUserPosts = (id: number) => {
+  const response = makeRequest
+    .get(`/posts/user/${id}`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+}
+
 export const getPosts = () => {
   const response = makeRequest
     .get("/posts")
