@@ -37,8 +37,6 @@ export const getPosts = (req, res) => {
         console.log(err);
         return res.status(500).send(err);
       }
-      console.log(' === DATA FROM Q ON SERVER === ');
-      console.log(data);
       return res.status(200).send(data);
     });
   });
