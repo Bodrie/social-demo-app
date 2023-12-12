@@ -81,6 +81,10 @@
           gap: 0.5rem;
           cursor: pointer;
           font-size: 14px;
+
+          .liked {
+            color: themed('danger');
+          }
         }
       }
     }

@@ -8,10 +8,9 @@ import "./comments.scss";
 
 interface CommentsProps {
   postId: number;
-  setNumberOfComments: (comments: number) => void;
 }
 
-const Comments = ({ postId, setNumberOfComments }: CommentsProps) => {
+const Comments = ({ postId }: CommentsProps) => {
   const queryClient = useQueryClient();
   const context = useContext(AuthContext);
   const [content, setContentValue] = useState("");
@@ -35,10 +34,6 @@ const Comments = ({ postId, setNumberOfComments }: CommentsProps) => {
     e.preventDefault();
     mutation.mutate({ content, postId });
   };
-
-  useEffect(() => {
-    setNumberOfComments(data?.length || 0);
-  }, [data]);
 
   return (
     <div className="comments">
