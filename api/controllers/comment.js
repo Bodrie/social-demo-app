@@ -53,3 +53,23 @@ export const addComment = (req, res) => {
     });
   });
 };
+
+export const getCommentsCount = (req, res) => {
+  const q = `SELECT comments.post_id AS postId FROM comments`;
+
+  db.query(q, (err, data) => {
+    if (err) {
+      console.log("[SERVER LOG] Comments GET Error!");
+      console.log(err);
+      return res.status(500).send(err);
+    }
+
+    const count = {};
+    const postIdsToArray = data.map((comment) => comment.postId);
+    postIdsToArray.forEach((id) => {
+      count[id] = (count[id] || 0) + 1;
+    });
+
+    return res.status(200).send(count);
+  });
+};

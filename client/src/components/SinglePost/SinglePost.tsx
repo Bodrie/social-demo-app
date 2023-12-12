@@ -24,6 +24,7 @@ interface SinglePostProps {
   contentImg: string | null;
   createdAt: string | null;
   likes: string;
+  commentsCount: Record<string, number> | undefined;
 }
 
 const SinglePost = ({
@@ -35,6 +36,7 @@ const SinglePost = ({
   contentImg,
   createdAt,
   likes,
+  commentsCount,
 }: SinglePostProps) => {
   const API = process.env.REACT_APP_API;
   const imgSrc = `${API}/upload/${contentImg}`;
@@ -50,10 +52,10 @@ const SinglePost = ({
   const likesToArray = likes.split(",");
 
   const mutation = useMutation({
-    mutationFn: ({userId, postId, action}: PostInteraction) => {
+    mutationFn: ({ userId, postId, action }: PostInteraction) => {
       return action === "like"
-        ? likePost({userId, postId})
-        : dislikePost({userId, postId});
+        ? likePost({ userId, postId })
+        : dislikePost({ userId, postId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
@@ -112,6 +114,7 @@ const SinglePost = ({
             onClick={() => setCommentsSection(!commentsSection)}
           >
             <TextsmsOutlined />
+            {commentsCount ? commentsCount[id] : 0}
           </div>
           <div className="item">
             <ShareOutlined />

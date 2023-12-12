@@ -2,7 +2,11 @@ import React, { useContext, useEffect } from "react";
 import { AuthContext } from "../../context/authContext";
 import { SinglePost } from "../../components";
 import { useQuery } from "@tanstack/react-query";
-import { getPosts, getUserPosts } from "../../services/axios";
+import {
+  getPosts,
+  getUserPosts,
+  getPostCommentsCount,
+} from "../../services/axios";
 import { Post } from "../../types";
 import "./posts.scss";
 
@@ -12,12 +16,17 @@ interface PostsProps {
 
 const Posts = ({ profileId }: PostsProps) => {
   const authCtx = useContext(AuthContext);
-  
-  const { isLoading, error, data, refetch } = useQuery<Post[]>({
+
+  const { isLoading, error, data } = useQuery<Post[]>({
     queryKey: ["posts", profileId],
     queryFn: () => {
       return profileId ? getUserPosts(profileId) : getPosts();
     },
+  });
+
+  const { data: commentsCount } = useQuery<Record<string, number>>({
+    queryKey: ["commentsCount"],
+    queryFn: getPostCommentsCount,
   });
 
   useEffect(() => {
@@ -31,7 +40,13 @@ const Posts = ({ profileId }: PostsProps) => {
       {isLoading
         ? "Loading..."
         : data?.map((post) => {
-            return <SinglePost {...post} key={post.id} />;
+            return (
+              <SinglePost
+                {...post}
+                key={post.id}
+                commentsCount={commentsCount}
+              />
+            );
           })}
     </div>
   );

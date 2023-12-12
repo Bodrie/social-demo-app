@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState } from "react";
 import { AuthContext } from "../../context/authContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Comment, CommentCreate } from "../../types";
@@ -25,7 +25,10 @@ const Comments = ({ postId }: CommentsProps) => {
       return addComment(newComment);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["comments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["comments"],
+      });
+      queryClient.refetchQueries({ exact: true, queryKey: ["commentsCount"] });
       setContentValue("");
     },
   });
