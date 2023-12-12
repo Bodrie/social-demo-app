@@ -12,7 +12,7 @@ export const getPosts = (req, res) => {
     if (err && NODE_ENV === "prod")
       return res.status(403).send("Invalid token!");
 
-    const q = `SELECT 
+    const q = `SELECT DISTINCT
                   p.id,
                   created_at AS createdAt,
                   user_id AS userId,
