@@ -12,6 +12,9 @@ const Posts = () => {
     queryKey: ["posts"],
     queryFn: getPosts,
   });
+  
+  console.log(" === FROM useQuery DATA === ");
+  console.log(data);
 
   useEffect(() => {
     if (error?.message.includes("401")) {

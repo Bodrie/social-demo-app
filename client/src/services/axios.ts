@@ -69,6 +69,8 @@ export const getPosts = () => {
   const response = makeRequest
     .get("/posts")
     .then((res) => {
+      console.log(' === FROM AXIOS RES === ');
+      console.log(res);
       return res.data;
     })
     .catch((e) => {
