@@ -1,7 +1,7 @@
 import { User, AuthContextT } from "./user";
 import { Login } from "./login";
 import { Register } from "./register";
-import { Post, PostCreate, PostLike } from "./post";
+import { Post, PostCreate, PostInteraction, PostAction } from "./post";
 import { ThemeContextT } from "./theme";
 import { Story } from "./story";
 import { Comment, CommentCreate } from "./comment";
@@ -13,7 +13,8 @@ export type {
   Register,
   Post,
   PostCreate,
-  PostLike,
+  PostInteraction,
+  PostAction,
   Story,
   Comment,
   CommentCreate,

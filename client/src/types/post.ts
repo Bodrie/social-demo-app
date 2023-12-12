@@ -14,7 +14,10 @@ export type PostCreate = {
   contentImg?: string;
 };
 
-export type PostLike = {
+export type PostInteraction = {
   userId: number;
   postId: number;
+  action?: PostAction
 };
+
+export type PostAction = "like" | "dislike";

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Comments } from "../../components";
 import { likePost, dislikePost } from "../../services/axios";
-import { PostLike } from "../../types";
+import { PostInteraction, PostAction } from "../../types";
 import moment from "moment";
 import {
   MoreHoriz,
@@ -49,30 +49,20 @@ const SinglePost = ({
 
   const likesToArray = likes.split(",");
 
-  const mutationLike = useMutation({
-    mutationFn: (like: PostLike) => {
-      return likePost(like);
+  const mutation = useMutation({
+    mutationFn: ({userId, postId, action}: PostInteraction) => {
+      return action === "like"
+        ? likePost({userId, postId})
+        : dislikePost({userId, postId});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
     },
   });
-  const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault();
-    mutationLike.mutate({ userId: authCtx?.user?.id!, postId: id });
-  };
 
-  const mutationDislike = useMutation({
-    mutationFn: (dislike: PostLike) => {
-      return dislikePost(dislike);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-    },
-  });
-  const handleDislike = (e: React.MouseEvent) => {
+  const handlePostInteraction = (e: React.MouseEvent, action: PostAction) => {
     e.preventDefault();
-    mutationDislike.mutate({ userId: authCtx?.user?.id!, postId: id });
+    mutation.mutate({ userId: authCtx?.user?.id!, postId: id, action });
   };
 
   return (
@@ -106,9 +96,14 @@ const SinglePost = ({
         <div className="info">
           <div className="item">
             {likesToArray.includes(authCtx?.user?.id.toString()!) ? (
-              <FavoriteOutlined className="liked" onClick={handleDislike} />
+              <FavoriteOutlined
+                className="liked"
+                onClick={(e) => handlePostInteraction(e, "dislike")}
+              />
             ) : (
-              <FavoriteBorderOutlined onClick={handleLike} />
+              <FavoriteBorderOutlined
+                onClick={(e) => handlePostInteraction(e, "like")}
+              />
             )}
             {likesToArray.length - 1}
           </div>

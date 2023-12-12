@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from "axios";
-import { Register, Login, PostCreate, CommentCreate, PostLike } from "../types";
+import { Register, Login, PostCreate, CommentCreate, PostInteraction } from "../types";
 
 const API = process.env.REACT_APP_API;
 
@@ -117,7 +117,7 @@ export const addComment = (commentData: CommentCreate) => {
   return response;
 };
 
-export const likePost = (likeData: PostLike) => {
+export const likePost = (likeData: PostInteraction) => {
   const response = makeRequest
     .post("/likes/like", likeData)
     .then((res) => {
@@ -130,7 +130,7 @@ export const likePost = (likeData: PostLike) => {
   return response;
 };
 
-export const dislikePost = (dislikeData: PostLike) => {
+export const dislikePost = (dislikeData: PostInteraction) => {
   const response = makeRequest
     .post("/likes/dislike", dislikeData)
     .then((res) => {
