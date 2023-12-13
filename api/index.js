@@ -10,7 +10,8 @@ import postRoutes from "./routes/posts.js";
 import commentRoutes from "./routes/comments.js";
 import likeRoutes from "./routes/likes.js";
 import uploadRoutes from "./routes/uploads.js";
-import activitiesRoutes from './routes/activities.js'
+import activitiesRoutes from "./routes/activities.js";
+import relationshipsRoutes from "./routes/relationships.js";
 import chalk from "chalk";
 import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
 
@@ -68,4 +69,5 @@ app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/likes", likeRoutes);
 app.use("/api/activities", activitiesRoutes);
+app.use("/api/relationships", relationshipsRoutes);
 app.use("/api/upload", uploadRoutes);

@@ -15,7 +15,6 @@ const RightBar = () => {
   });
 
   if (isLoading || !data) return <p>Loading...</p>;
-  console.log(data);
 
   return (
     <div className="right-bar">
