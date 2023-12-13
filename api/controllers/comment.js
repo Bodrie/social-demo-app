@@ -36,9 +36,13 @@ export const addComment = (req, res) => {
     if (err && NODE_ENV === "prod")
       return res.status(403).send("Invalid token!");
 
-    const q = `INSERT INTO comments (description, created_at, user_id, post_id) VALUES (?)`;
+    const q = `INSERT INTO comments (description, created_at, user_id, post_id) VALUES (?);`;
+
+    const q2 = `INSERT INTO latest_activities (user, profile_picture, activity, created_at) VALUES (?);`;
 
     const userId = NODE_ENV === "prod" ? user.id : 8;
+
+    console.log(user);
 
     const values = [
       req.body.content,
@@ -47,8 +51,18 @@ export const addComment = (req, res) => {
       req.body.postId,
     ];
 
+    const activity = [
+      userId,
+      "https://bodrie-server.ddns.net:8999/api/upload/def-user.png",
+      "commented on a post.",
+      moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
+    ];
+
     db.query(q, [values], (err, data) => {
       if (err) return res.status(500).send(err);
+      db.query(q2, [activity], (err, data) => {
+        if (err) return res.status(500).send(err);
+      });
       return res.status(200).send("Comment created!");
     });
   });
