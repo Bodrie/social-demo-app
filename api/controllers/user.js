@@ -26,3 +26,16 @@ export const getUser = (req, res) => {
     });
   });
 };
+
+export const getAllUsers = (req, res) => {
+  const q = `SELECT u.* FROM users AS u ORDER BY u.id DESC`;
+
+  db.query(q, (err, data) => {
+    if (err) {
+      console.log("[SERVER LOG] User GET Error!");
+      console.log(err);
+      return res.status(500).send(err);
+    }
+    return res.status(200).send(data);
+  });
+};
