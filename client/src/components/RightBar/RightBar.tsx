@@ -1,8 +1,22 @@
-import React from "react";
-import "./rightBar.scss";
+import React, { useContext } from "react";
+import { AuthContext } from "../../context/authContext";
+import { useQuery } from "@tanstack/react-query";
+import { getActivities } from "../../services/axios";
 import imgSrc from "../../assets/images.png";
+import { ActivityType } from "../../types";
+import moment from "moment";
+import "./rightBar.scss";
 
-const RightBar = () => {
+const RightBar = () => {  
+  const authCtx = useContext(AuthContext);
+  const { isLoading, error, data } = useQuery<ActivityType[]>({
+    queryKey: ["activities"],
+    queryFn: () => getActivities(authCtx?.user?.id!),
+  });
+
+  if (isLoading || !data) return <p>Loading...</p>;
+  console.log(data);
+
   return (
     <div className="right-bar">
       <div className="container">
@@ -31,38 +45,24 @@ const RightBar = () => {
         </div>
         <div className="item">
           <span>Latest activities</span>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="User changed something" />
-              <span>User Name</span>
-              <p>Changed their profile picture</p>
-            </div>
-            <span className="when">1 min ago</span>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="User changed somethingser" />
-              <span>User Name</span>
-              <p>Changed their profile picture</p>
-            </div>
-            <span className="when">1 min ago</span>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="User changed something" />
-              <span>User Name</span>
-              <p>Changed their profile picture</p>
-            </div>
-            <span className="when">1 min ago</span>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="User changed something" />
-              <span>User Name</span>
-              <p>Changed their profile picture</p>
-            </div>
-            <span className="when">1 min ago</span>
-          </div>
+          {data.map(
+            (
+              { profilePic, user, activity, createdAt }: ActivityType,
+              idx: number
+            ) => {
+              if (idx > 3) return;
+              return (
+                <div className="user">
+                  <div className="user-info">
+                    <img src={profilePic} alt="User activity on something" />
+                    <span>{user}</span>
+                    <p>{activity}</p>
+                  </div>
+                  <span className="when">{moment(createdAt).fromNow()}</span>
+                </div>
+              );
+            }
+          )}
         </div>
         <div className="item">
           <span>Online friends</span>
@@ -70,28 +70,28 @@ const RightBar = () => {
             <div className="user-info">
               <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
-              <div className="online"/>
+              <div className="online" />
             </div>
           </div>
           <div className="user">
             <div className="user-info">
               <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
-              <div className="online"/>
+              <div className="online" />
             </div>
           </div>
           <div className="user">
             <div className="user-info">
               <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
-              <div className="online"/>
+              <div className="online" />
             </div>
           </div>
           <div className="user">
             <div className="user-info">
               <img src={imgSrc} alt="Online user" />
               <span>User Name</span>
-              <div className="online"/>
+              <div className="online" />
             </div>
           </div>
         </div>
