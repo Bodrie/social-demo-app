@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { AuthContext } from "../../context/authContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Comment, CommentCreate } from "../../types";
-import { getPostComments, addComment } from "../../services/axios";
+import { getPostComments, addComment, addActivity } from "../../services/axios";
 import moment from "moment";
 import "./comments.scss";
 
@@ -12,7 +12,7 @@ interface CommentsProps {
 
 const Comments = ({ postId }: CommentsProps) => {
   const queryClient = useQueryClient();
-  const context = useContext(AuthContext);
+  const authCtx = useContext(AuthContext);
   const [content, setContentValue] = useState("");
 
   const { isLoading, error, data } = useQuery<Comment[]>({
@@ -22,13 +22,20 @@ const Comments = ({ postId }: CommentsProps) => {
 
   const mutation = useMutation({
     mutationFn: (newComment: CommentCreate) => {
-      return addComment(newComment);
+      return (
+        addComment(newComment),
+        addActivity({
+          profilePic: authCtx?.user?.profile_picture!,
+          user: authCtx?.user?.name!,
+          activity: "commented on a post.",
+          userId: authCtx?.user?.id,
+        })
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["comments"],
-      });
-      queryClient.refetchQueries({ exact: true, queryKey: ["commentsCount"] });
+      queryClient.invalidateQueries({ queryKey: ["comments"] });
+      queryClient.invalidateQueries({ queryKey: ["commentsCount"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
       setContentValue("");
     },
   });
@@ -42,7 +49,7 @@ const Comments = ({ postId }: CommentsProps) => {
     <div className="comments">
       <hr />
       <div className="write">
-        <img src={context?.user?.profile_picture} alt="Current user" />
+        <img src={authCtx?.user?.profile_picture} alt="Current user" />
         <input
           type="text"
           placeholder="Write a comment..."

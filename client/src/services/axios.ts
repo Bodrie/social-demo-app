@@ -5,6 +5,7 @@ import {
   PostCreate,
   CommentCreate,
   PostInteraction,
+  ActivityType,
 } from "../types";
 
 const API = process.env.REACT_APP_API;
@@ -165,6 +166,32 @@ export const likePost = (likeData: PostInteraction) => {
 export const dislikePost = (dislikeData: PostInteraction) => {
   const response = makeRequest
     .post("/likes/dislike", dislikeData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const getActivities = (userId: number) => {
+  const response = makeRequest
+    .get(`/activities/${userId}`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const addActivity = (activityData: ActivityType) => {
+  const response = makeRequest
+    .post("/activities", activityData)
     .then((res) => {
       return res.data;
     })

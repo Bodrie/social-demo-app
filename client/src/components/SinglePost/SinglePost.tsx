@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Comments } from "../../components";
 import { useDoubleTap } from "use-double-tap";
-import { likePost, dislikePost } from "../../services/axios";
+import { likePost, dislikePost, addActivity } from "../../services/axios";
 import { PostInteraction, PostAction } from "../../types";
 import moment from "moment";
 import {
@@ -56,11 +56,18 @@ const SinglePost = ({
   const mutation = useMutation({
     mutationFn: ({ userId, postId, action }: PostInteraction) => {
       return action === "like"
-        ? likePost({ userId, postId })
+        ? (likePost({ userId, postId }),
+          addActivity({
+            profilePic: authCtx?.user?.profile_picture!,
+            user: authCtx?.user?.name!,
+            activity: "liked post.",
+            userId: authCtx?.user?.id,
+          }))
         : dislikePost({ userId, postId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
     },
   });
 
