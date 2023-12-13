@@ -3,6 +3,7 @@ import { AuthContext } from "../../context/authContext";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Comments } from "../../components";
+import { useDoubleTap } from "use-double-tap";
 import { likePost, dislikePost } from "../../services/axios";
 import { PostInteraction, PostAction } from "../../types";
 import moment from "moment";
@@ -50,6 +51,7 @@ const SinglePost = ({
   };
 
   const likesToArray = likes.split(",");
+  const isImgLiked = likesToArray.includes(authCtx?.user?.id.toString()!);
 
   const mutation = useMutation({
     mutationFn: ({ userId, postId, action }: PostInteraction) => {
@@ -62,10 +64,23 @@ const SinglePost = ({
     },
   });
 
-  const handlePostInteraction = (e: React.MouseEvent, action: PostAction) => {
+  const handlePostInteraction = (e: React.MouseEvent) => {
     e.preventDefault();
+    const action: PostAction = isImgLiked ? "dislike" : "like";
     mutation.mutate({ userId: authCtx?.user?.id!, postId: id, action });
   };
+
+  const bindTab = useDoubleTap(
+    (event) => {
+      handlePostInteraction(event);
+    },
+    250,
+    {
+      onSingleTap: () => {
+        handleImgFit();
+      },
+    }
+  );
 
   return (
     <div className="post">
@@ -91,21 +106,19 @@ const SinglePost = ({
               className={`content-img ${fit}`}
               src={imgSrc}
               alt="User post content"
-              onClick={handleImgFit}
+              {...bindTab}
             />
           )}
         </div>
         <div className="info">
           <div className="item">
-            {likesToArray.includes(authCtx?.user?.id.toString()!) ? (
+            {isImgLiked ? (
               <FavoriteOutlined
                 className="liked"
-                onClick={(e) => handlePostInteraction(e, "dislike")}
+                onClick={handlePostInteraction}
               />
             ) : (
-              <FavoriteBorderOutlined
-                onClick={(e) => handlePostInteraction(e, "like")}
-              />
+              <FavoriteBorderOutlined onClick={handlePostInteraction} />
             )}
             {likesToArray.length - 1}
           </div>
