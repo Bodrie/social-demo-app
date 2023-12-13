@@ -5,7 +5,8 @@ import { Post, PostCreate, PostInteraction, PostAction } from "./post";
 import { ThemeContextT } from "./theme";
 import { Story } from "./story";
 import { Comment, CommentCreate } from "./comment";
-import {ActivityType, ActivityTypes} from './activity'
+import { ActivityType, ActivityTypes } from "./activity";
+import { RelationshipType } from "./relationship";
 
 export type {
   User,
@@ -21,5 +22,6 @@ export type {
   CommentCreate,
   ActivityType,
   ActivityTypes,
+  RelationshipType,
   ThemeContextT,
 };

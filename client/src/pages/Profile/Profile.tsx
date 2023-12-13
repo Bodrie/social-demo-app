@@ -1,8 +1,13 @@
 import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/authContext";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { getUserById } from "../../services/axios";
+import {
+  getUserById,
+  addRelationship,
+  getRelationships,
+  deleteRelationship,
+} from "../../services/axios";
 import { Posts } from "../../components";
 import { User } from "../../types";
 import {
@@ -19,17 +24,42 @@ import {
 import "./profile.scss";
 
 const Profile = () => {
+  const queryClient = useQueryClient();
   const authCtx = useContext(AuthContext);
   const [queryParameters] = useSearchParams();
   const userId = queryParameters.get("id") as string;
   const [user, setUser] = useState<User>(null);
+  const isCurrentUser = user?.id === authCtx?.user?.id;
 
   const { isLoading, error, data } = useQuery({
     queryKey: ["users", userId],
     queryFn: () => getUserById(userId),
   });
 
-  const isCurrentUser = user?.id === authCtx?.user?.id;
+  const { data: relationshipData } = useQuery({
+    queryKey: ["relationships"],
+    queryFn: () => getRelationships(userId),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (isFollowing: boolean) => {
+      return isFollowing
+        ? deleteRelationship(userId)
+        : addRelationship({
+            currUserId: authCtx?.user?.id!,
+            foreignUserId: userId,
+          });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["relationships"] });
+    },
+  });
+
+  const handleAddRelationship = () => {
+    mutation.mutate(relationshipData?.includes(authCtx?.user?.id));
+  };
+
+  const handleUpdateProfile = () => {};
 
   useEffect(() => {
     if (data) {
@@ -71,9 +101,7 @@ const Profile = () => {
             </a>
           </div>
           <div className="center">
-            <span>
-              {user?.name}
-            </span>
+            <span>{user?.name}</span>
             <span>({user?.username})</span>
             <div className="person-info">
               <div className="item">
@@ -85,7 +113,15 @@ const Profile = () => {
                 <span>Some Site Name</span>
               </div>
             </div>
-            {!isCurrentUser && <button>Follow</button>}
+            {isCurrentUser ? (
+              <button onClick={handleUpdateProfile}>Update profile</button>
+            ) : (
+              <button onClick={handleAddRelationship}>
+                {relationshipData?.includes(authCtx?.user?.id)
+                  ? "Following"
+                  : "Follow"}
+              </button>
+            )}
           </div>
           <div className="right">
             {isCurrentUser ? <MoreVert /> : <EmailOutlined />}

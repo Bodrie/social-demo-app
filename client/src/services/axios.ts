@@ -6,6 +6,7 @@ import {
   CommentCreate,
   PostInteraction,
   ActivityType,
+  RelationshipType,
 } from "../types";
 
 const API = process.env.REACT_APP_API;
@@ -192,6 +193,45 @@ export const getActivities = (userId: number) => {
 export const addActivity = (activityData: ActivityType) => {
   const response = makeRequest
     .post("/activities", activityData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const getRelationships = (userId: string) => {
+  const response = makeRequest
+    .get(`/relationships/${userId}`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const addRelationship = (relationshipData: RelationshipType) => {
+  const response = makeRequest
+    .post("/relationships", relationshipData)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const deleteRelationship = (id: string) => {
+  const response = makeRequest
+    .delete(`/relationships?id=${id}`)
     .then((res) => {
       return res.data;
     })
