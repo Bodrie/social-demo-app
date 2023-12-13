@@ -10,6 +10,7 @@ import postRoutes from "./routes/posts.js";
 import commentRoutes from "./routes/comments.js";
 import likeRoutes from "./routes/likes.js";
 import uploadRoutes from "./routes/uploads.js";
+import activitiesRoutes from './routes/activities.js'
 import chalk from "chalk";
 import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
 
@@ -56,7 +57,7 @@ app.use(
     origin:
       NODE_ENV === "prod"
         ? "https://social-demo-app.vercel.app"
-        : "http://localhost:3000",
+        : ["http://localhost:3000", "http://192.168.0.146:3000"],
   })
 );
 app.use(cookieParser());
@@ -66,4 +67,5 @@ app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/likes", likeRoutes);
+app.use("/api/activities", activitiesRoutes);
 app.use("/api/upload", uploadRoutes);
