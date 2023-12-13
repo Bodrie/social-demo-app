@@ -40,6 +40,13 @@
           align-items: center;
           gap: 1rem;
           cursor: pointer;
+          text-decoration: none;
+
+          .icon {
+            width: 30px;
+            height: 30px;
+            color: themed("logo");
+          }
 
           img {
             width: 30px;

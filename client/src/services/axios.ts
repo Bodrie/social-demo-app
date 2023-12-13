@@ -60,6 +60,20 @@ export const logout = () => {
   return response;
 };
 
+export const getAllUsers = () => {
+  const response = makeRequest
+    .get(`/users/all`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+
 export const getUserById = (id: number | string) => {
   const response = makeRequest
     .get(`/users/${id}`)

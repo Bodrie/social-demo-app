@@ -1,7 +1,7 @@
 import React from "react";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
-import { Login, Register, Main, Home, Profile } from "../pages";
+import { Login, Register, Main, Home, Profile, Users } from "../pages";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
@@ -23,6 +23,10 @@ const RouterComponent = () => {
         {
           path: "/profile",
           element: <Profile />,
+        },
+        {
+          path: "/users",
+          element: <Users />,
         },
       ],
     },
