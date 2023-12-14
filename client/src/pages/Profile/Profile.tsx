@@ -28,8 +28,7 @@ const Profile = () => {
   const authCtx = useContext(AuthContext);
   const [queryParameters] = useSearchParams();
   const userId = queryParameters.get("id") as string;
-  const [user, setUser] = useState<User>(null);
-  const isCurrentUser = user?.id === authCtx?.user?.id;
+  const [user, setUser] = useState<User>(null!);
 
   const { isLoading, error, data } = useQuery({
     queryKey: ["users", userId],
@@ -46,7 +45,7 @@ const Profile = () => {
       return isFollowing
         ? deleteRelationship(userId)
         : addRelationship({
-            currUserId: authCtx?.user?.id!,
+            currUserId: authCtx.user.id,
             foreignUserId: userId,
           });
     },
@@ -56,7 +55,7 @@ const Profile = () => {
   });
 
   const handleAddRelationship = () => {
-    mutation.mutate(relationshipData?.includes(authCtx?.user?.id));
+    mutation.mutate(relationshipData?.includes(authCtx.user.id));
   };
 
   const handleUpdateProfile = () => {};
@@ -67,16 +66,19 @@ const Profile = () => {
     }
   }, [data]);
 
+  if(isLoading || !user) return <p>Loading...</p>
+  const isCurrentUser = user.id === authCtx.user.id;
+  
   return (
     <div className="profile">
       <div className="pictures">
         <img
-          src={user?.cover_picture}
+          src={user.cover_picture}
           alt="Cover picture of user profile"
           className="cover"
         />
         <img
-          src={user?.profile_picture}
+          src={user.profile_picture}
           alt="Main picture of user profile"
           className="main"
         />
@@ -101,8 +103,8 @@ const Profile = () => {
             </a>
           </div>
           <div className="center">
-            <span>{user?.name}</span>
-            <span>({user?.username})</span>
+            <span>{user.name}</span>
+            <span>({user.username})</span>
             <div className="person-info">
               <div className="item">
                 <Place />
@@ -117,7 +119,7 @@ const Profile = () => {
               <button onClick={handleUpdateProfile}>Update profile</button>
             ) : (
               <button onClick={handleAddRelationship}>
-                {relationshipData?.includes(authCtx?.user?.id)
+                {relationshipData?.includes(authCtx.user.id)
                   ? "Following"
                   : "Follow"}
               </button>

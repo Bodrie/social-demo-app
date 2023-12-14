@@ -8,10 +8,10 @@ export type User = {
   cover_picture: string;
   profile_picture: string;
   city: null | string;
-} | null;
+};
 
 export type AuthContextT = {
   user: User;
   ctxLogin: (data: Login) => Promise<string>;
   ctxLogout: () => void;
-} | null;
+};

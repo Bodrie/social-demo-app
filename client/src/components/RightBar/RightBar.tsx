@@ -1,20 +1,31 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/authContext";
 import { useQuery } from "@tanstack/react-query";
 import { getActivities } from "../../services/axios";
 import imgSrc from "../../assets/images.png";
-import { ActivityType } from "../../types";
+import { ActivityType, User } from "../../types";
 import moment from "moment";
 import "./rightBar.scss";
+import { socket } from "../../socket";
 
-const RightBar = () => {  
+const RightBar = () => {
   const authCtx = useContext(AuthContext);
+  const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const { isLoading, error, data } = useQuery<ActivityType[]>({
     queryKey: ["activities"],
     queryFn: () => getActivities(authCtx?.user?.id!),
   });
 
-  if (isLoading || !data) return <p>Loading...</p>;
+  useEffect(() => {
+    socket.on("get_online_users", (data: User[]) => {
+      setOnlineUsers(data);
+    });
+    return () => {
+      socket.off("get_online_users");
+    };
+  }, [socket]);
+
+  if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;  
 
   return (
     <div className="right-bar">
@@ -64,35 +75,18 @@ const RightBar = () => {
           )}
         </div>
         <div className="item">
-          <span>Online friends</span>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="Online user" />
-              <span>User Name</span>
-              <div className="online" />
-            </div>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="Online user" />
-              <span>User Name</span>
-              <div className="online" />
-            </div>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="Online user" />
-              <span>User Name</span>
-              <div className="online" />
-            </div>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="Online user" />
-              <span>User Name</span>
-              <div className="online" />
-            </div>
-          </div>
+          <span>Online users</span>
+          {onlineUsers.map(({ id, profile_picture, name }: User) => {
+            return (
+              <div className="user" key={id}>
+                <div className="user-info">
+                  <img src={profile_picture} alt="Online user" />
+                  <span>{name}</span>
+                  <div className="online" />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
