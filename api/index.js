@@ -13,7 +13,31 @@ import uploadRoutes from "./routes/uploads.js";
 import activitiesRoutes from "./routes/activities.js";
 import relationshipsRoutes from "./routes/relationships.js";
 import chalk from "chalk";
-import { PORT_PROD, PORT_DEV, NODE_ENV } from "./config.js";
+import {
+  PORT_PROD,
+  PORT_DEV,
+  SOCKET_DEV,
+  SOCKET_PROD,
+  NODE_ENV,
+} from "./config.js";
+import { socketInit } from "./socket.js";
+
+const PORT = NODE_ENV === "prod" ? PORT_PROD : PORT_DEV;
+const SOCKET = NODE_ENV === "prod" ? SOCKET_PROD : SOCKET_DEV;
+
+const app = express();
+
+socketInit(app, SOCKET, NODE_ENV);
+
+app.use(
+  cors({
+    credentials: true,
+    origin:
+      NODE_ENV === "prod"
+        ? "https://social-demo-app.vercel.app"
+        : ["http://localhost:3000", "http://192.168.0.146:3000"],
+  })
+);
 
 const options =
   NODE_ENV === "prod"
@@ -22,10 +46,6 @@ const options =
         cert: fs.readFileSync("ssl/s.pem"),
       }
     : {};
-
-const PORT = NODE_ENV === "prod" ? PORT_PROD : PORT_DEV;
-
-const app = express();
 
 if (NODE_ENV === "dev") {
   http.createServer(app).listen(PORT, () => {
@@ -48,19 +68,16 @@ if (NODE_ENV === "dev") {
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", true);
   if (NODE_ENV === "dev")
-    res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+    res.header(
+      "Access-Control-Allow-Origin",
+      "http://localhost:3000",
+      "http://192.168.0.146:3000"
+    );
   next();
 });
+
 app.use(express.json());
-app.use(
-  cors({
-    credentials: true,
-    origin:
-      NODE_ENV === "prod"
-        ? "https://social-demo-app.vercel.app"
-        : ["http://localhost:3000", "http://192.168.0.146:3000"],
-  })
-);
+
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
