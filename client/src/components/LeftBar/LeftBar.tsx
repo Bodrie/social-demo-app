@@ -1,5 +1,5 @@
 import React from "react";
-import { PeopleAlt } from "@mui/icons-material";
+import { PeopleAlt, Chat } from "@mui/icons-material";
 import imgSrc from "../../assets/images.png";
 import "./leftBar.scss";
 import { Link } from "react-router-dom";
@@ -14,10 +14,10 @@ const LeftBar = () => {
             <span>All Users</span>
           </Link>
 
-          <div className="item">
-            <img src={imgSrc} alt="Menu item 2" />
-            <span>Menu item 2</span>
-          </div>
+          <Link to={"/chats"} className="item">
+            <Chat className="icon" />
+            <span>What's in progress?</span>
+          </Link>
           <div className="item">
             <img src={imgSrc} alt="Menu item 3" />
             <span>Menu item 3</span>
