@@ -1,0 +1,109 @@
+@import "../../theme/theme.scss";
+
+.chats {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  gap: 1.5rem;
+
+  .chat {
+    @include themify($themes) {
+      border: 1px solid themed("border");
+      height: 450px;
+      width: 340px;
+      z-index: 100;
+      background-color: themed("bg");
+      border-radius: 10px;
+
+      -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: -webkit-fill-available;
+
+        .user {
+          display: flex;
+          align-items: center;
+          padding: 0.5rem;
+          border-bottom: 1px solid themed("border");
+
+          img {
+            width: 35px;
+            height: 35px;
+            object-fit: cover;
+            border-radius: 50%;
+          }
+
+          span {
+            margin-left: 0.5rem;
+            color: themed("textColor");
+          }
+
+          svg {
+            margin: 0 0 0 auto;
+            color: themed("textColorSoft");
+            cursor: pointer;
+          }
+        }
+
+        .msg-container {
+          height: 100%;
+          padding: 0 0.5rem;
+          margin-bottom: 0.5rem;
+          overflow: scroll;
+
+          &::-webkit-scrollbar {
+            display: none;
+          }
+
+          .msg {
+            width: fit-content;
+            max-width: 65%;
+            background-color: themed("bgSoft");
+            color: themed("textColor");
+            padding: 0.5rem;
+            margin: 0 0 0.3rem auto;
+            border-radius: 10px;
+
+            &.in {
+              margin: 0 auto 0.3rem 0;
+              background-color: themed("messagess");
+            }
+          }
+        }
+
+        .send {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.5rem;
+          border-top: 1px solid themed("border");
+
+          #file {
+            display: none;
+          }
+
+          input {
+            width: 100%;
+            height: 30px;
+            background-color: themed("bgSoft");
+            border-radius: 10px;
+            margin: 0 0.5rem 0 0.2rem;
+            padding: 0 0.5rem;
+            color: themed("textColor");
+            border: 1px solid themed("border");
+          }
+
+          svg {
+            color: themed("logo");
+            cursor: pointer;
+          }
+        }
+      }
+    }
+  }
+}

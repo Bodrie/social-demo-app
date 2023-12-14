@@ -6,3 +6,4 @@ export { default as Posts } from "./Posts/Posts";
 export { default as SinglePost } from "./SinglePost/SinglePost";
 export { default as Comments } from "./Comments/Comments";
 export { default as AddPost } from "./AddPost/AddPost";
+export { default as Chat } from "./Chat/Chat";

@@ -7,6 +7,7 @@ import { ActivityType, User } from "../../types";
 import moment from "moment";
 import "./rightBar.scss";
 import { socket } from "../../socket";
+import Chat from "../Chat/Chat";
 
 const RightBar = () => {
   const authCtx = useContext(AuthContext);
@@ -25,7 +26,7 @@ const RightBar = () => {
     };
   }, [socket]);
 
-  if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;  
+  if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;
 
   return (
     <div className="right-bar">
