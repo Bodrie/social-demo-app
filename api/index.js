@@ -25,9 +25,17 @@ import { socketInit } from "./socket.js";
 const PORT = NODE_ENV === "prod" ? PORT_PROD : PORT_DEV;
 const SOCKET = NODE_ENV === "prod" ? SOCKET_PROD : SOCKET_DEV;
 
+const options =
+  NODE_ENV === "prod"
+    ? {
+        key: fs.readFileSync("ssl/pk.pem"),
+        cert: fs.readFileSync("ssl/s.pem"),
+      }
+    : {};
+
 const app = express();
 
-socketInit(app, SOCKET, NODE_ENV);
+socketInit(app, options, SOCKET, NODE_ENV);
 
 app.use(
   cors({
@@ -38,14 +46,6 @@ app.use(
         : ["http://localhost:3000", "http://192.168.0.146:3000"],
   })
 );
-
-const options =
-  NODE_ENV === "prod"
-    ? {
-        key: fs.readFileSync("ssl/pk.pem"),
-        cert: fs.readFileSync("ssl/s.pem"),
-      }
-    : {};
 
 if (NODE_ENV === "dev") {
   http.createServer(app).listen(PORT, () => {

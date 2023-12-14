@@ -1,8 +1,9 @@
 import http from "http";
+import https from "https";
 import { Server } from "socket.io";
 
-export const socketInit = (app, SOCKET, NODE_ENV) => {
-  const server = http.createServer(app).listen(SOCKET, () => {
+export const socketInit = (app, options, SOCKET, NODE_ENV) => {
+  const server = https.createServer(options, app).listen(SOCKET, () => {
     console.log(
       `\n[SERVER LOG] SOCKET\n[SERVER LOG] Is running on port ${SOCKET}\n`
     );
