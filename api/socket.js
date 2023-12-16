@@ -21,29 +21,45 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
     },
   });
 
-  let onlineUsers = [];
+  io.use((socket, next) => {
+    const name = socket.handshake.auth.user.name;
+    const profilePic = socket.handshake.auth.user.profile_picture;
+    const id = socket.handshake.auth.user.id;
+    socket.name = name;
+    socket.profilePic = profilePic;
+    socket.userId = id;
+    next();
+  });
 
   io.on("connection", (socket) => {
-    socket.on("user_connection", ({ id, name, profile_picture }) => {
-      if (!onlineUsers.some((user) => user.id === id)) {
-        onlineUsers.push({
-          socketId: socket.id,
-          id,
-          profile_picture,
-          name,
-        });
-      }
-      io.emit("get_online_users", onlineUsers);
+    const users = [];
+    for (let [id, socket] of io.of("/").sockets) {
+      users.push({
+        userId: socket.userId,
+        name: socket.name,
+        profilePic: socket.profilePic,
+        socketId: id,
+        key: id,
+      });
+    }
+
+    socket.emit("users", users);
+
+    socket.broadcast.emit("user_connected", {
+      userId: socket.userId,
+      name: socket.name,
+      profilePic: socket.profilePic,
+      socketId: socket.id,
+      key: socket.id,
+      self: false,
     });
 
-    socket.on("user_logout", () => {
-      onlineUsers = onlineUsers.filter((user) => user.socketId !== socket.id);
-      io.emit("get_online_users", onlineUsers);
-    });
-
-    socket.on("disconnect", () => {
-      onlineUsers = onlineUsers.filter((user) => user.socketId !== socket.id);
-      io.emit("get_online_users", onlineUsers);
+    socket.on("private_message", ({ content, to }) => {
+      console.log("Content:", content, " To:", to);
+      socket.to(to).emit("private message", {
+        content,
+        from: socket.id,
+      });
     });
   });
 };
