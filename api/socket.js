@@ -32,7 +32,7 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
   });
 
   io.on("connection", (socket) => {
-    const users = [];
+    let users = [];
     for (let [id, socket] of io.of("/").sockets) {
       users.push({
         userId: socket.userId,
@@ -43,23 +43,24 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
       });
     }
 
-    socket.emit("users", users);
-
-    socket.broadcast.emit("user_connected", {
-      userId: socket.userId,
-      name: socket.name,
-      profilePic: socket.profilePic,
-      socketId: socket.id,
-      key: socket.id,
-      self: false,
-    });
-
     socket.on("private_message", ({ content, to }) => {
-      console.log("Content:", content, " To:", to);
-      socket.to(to).emit("private message", {
+      socket.to(to).emit("private_message", {
         content,
         from: socket.id,
       });
     });
+
+    socket.on("user_logout", (user) => {
+      users = users.filter((onlineUser) => onlineUser.userId !== user.id);
+      socket.disconnect(
+        socket.id
+      );
+    });
+
+    socket.on("disconnect", () => {
+      io.emit("online_users", users);
+    });
+
+    io.emit("online_users", users);
   });
 };

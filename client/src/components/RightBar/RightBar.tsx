@@ -3,28 +3,25 @@ import { AuthContext } from "../../context/authContext";
 import { useQuery } from "@tanstack/react-query";
 import { getActivities } from "../../services/axios";
 import imgSrc from "../../assets/images.png";
-import { ActivityType, User } from "../../types";
+import { ActivityType, UserChat } from "../../types";
 import moment from "moment";
 import "./rightBar.scss";
-import { socket } from "../../socket";
-import Chat from "../Chat/Chat";
 
-const RightBar = () => {
+interface RightBarProps {
+  onlineUsers: UserChat[];
+  setOpenChats: (rooms: React.SetStateAction<UserChat[]>) => void;
+}
+
+const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
   const authCtx = useContext(AuthContext);
-  const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const { isLoading, error, data } = useQuery<ActivityType[]>({
     queryKey: ["activities"],
     queryFn: () => getActivities(authCtx?.user?.id!),
   });
 
-  useEffect(() => {
-    socket.on("get_online_users", (data: User[]) => {
-      setOnlineUsers(data);
-    });
-    return () => {
-      socket.off("get_online_users");
-    };
-  }, [socket]);
+  const joinUserChat = (chat: UserChat) => {
+    setOpenChats((prev) => [...prev, { ...chat, active: true }]);
+  };
 
   if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;
 
@@ -77,12 +74,17 @@ const RightBar = () => {
         </div>
         <div className="item">
           <span>Online users</span>
-          {onlineUsers.map(({ id, profile_picture, name }: User) => {
+          {onlineUsers.map((user: UserChat) => {
+            if (authCtx?.user?.id === user.userId) return;
             return (
-              <div className="user" key={id}>
-                <div className="user-info">
-                  <img src={profile_picture} alt="Online user" />
-                  <span>{name}</span>
+              <div
+                className="user"
+                key={user.userId}
+                onClick={() => joinUserChat(user)}
+              >
+                <div className="user-info online">
+                  <img src={user.profilePic} alt="Online user" />
+                  <span>{user.name}</span>
                   <div className="online" />
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { User, AuthContextT } from "./user";
+import { User, AuthContextT, UserChat } from "./user";
 import { Login } from "./login";
 import { Register } from "./register";
 import { Post, PostCreate, PostInteraction, PostAction } from "./post";
@@ -10,6 +10,7 @@ import { RelationshipType } from "./relationship";
 
 export type {
   User,
+  UserChat,
   AuthContextT,
   Login,
   Register,

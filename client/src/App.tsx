@@ -13,9 +13,10 @@ function App() {
 
   useEffect(() => {
     if (authCtx?.user) {
-      socket.emit("user_connection", authCtx?.user);
+      socket.auth = { user: authCtx?.user };
+      socket.connect();
     }
-  }, [socket, authCtx?.user]);
+  }, [authCtx?.user]);
 
   return (
     <div className={`theme-${context?.theme}`}>

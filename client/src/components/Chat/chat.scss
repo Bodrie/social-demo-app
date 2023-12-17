@@ -1,7 +1,7 @@
 @import "../../theme/theme.scss";
 
 .chats {
-  // position: fixed; Temporary
+  position: fixed;
   bottom: 30px;
   right: 30px;
   display: flex;
@@ -23,7 +23,7 @@
       .chat-container {
         display: flex;
         flex-direction: column;
-        height: -webkit-fill-available;
+        height: inherit;
 
         .user {
           display: flex;

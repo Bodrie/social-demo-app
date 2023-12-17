@@ -1,126 +1,97 @@
-import React, { useContext, useState } from "react";
-import src from "../../assets/images.png";
+import React, { useContext, useEffect, useState } from "react";
 import { Send, Close, Add } from "@mui/icons-material";
-import "./chat.scss";
 import { AuthContext } from "../../context/authContext";
+import { UserChat } from "../../types";
+import { socket } from "../../socket";
+import "./chat.scss";
 
-const myArray = [
-  { id: 8, text: "Hey, how's it going?" },
-  { id: 35, text: "Not bad, just finished some work. You?" },
-  {
-    id: 8,
-    text: "Same here, working on a project. Got any exciting plans for the weekend?",
-  },
-  { id: 35, text: "Thinking of catching a movie. Any recommendations?" },
-  {
-    id: 8,
-    text: "I heard the new action film is good. Let's check it out together!",
-  },
-  { id: 35, text: "Sounds like a plan! What time works for you?" },
-  { id: 8, text: "How about 7 PM? We can grab dinner before the movie." },
-  { id: 35, text: "Perfect! Let's meet at our usual spot." },
-  // Add more objects as needed
-];
+interface ChatProps {
+  onlineUsers: UserChat[];
+  openChats: UserChat[];
+  setOpenChats: (openChat: React.SetStateAction<UserChat[]>) => void;
+}
 
-const Chat = () => {
-  const [messagess, setMessagess] = useState(myArray);
-  const [msg, setMsg] = useState("");
+const Chat = ({ onlineUsers, openChats, setOpenChats }: ChatProps) => {
+  const [inputValue, setInputValue] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const authCtx = useContext(AuthContext);
-  const currUser = authCtx.user.id;
 
-  const handleSend = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setMessagess((prev) => [...prev, { id: currUser, text: msg }]);
-    setMsg("");
+  const sendMessage = (chat: UserChat) => {
+    socket.emit("private_message", {
+      content: inputValue,
+      to: chat.socketId,
+    });
+
+    if (chat.messages) {
+      chat.messages.push({ content: inputValue, from: socket.id });
+    } else {
+      chat.messages = [{ content: inputValue, from: socket.id }];
+    }
+
+    if (openChats.length > 1) {
+      setOpenChats((prev) => [...prev, chat]);
+    } else {
+      setOpenChats([chat]);
+    }
+
+    setInputValue("");
   };
 
-  console.log(messagess);
+  const closeChat = (userChat: UserChat) => {
+    const restChats = openChats.filter(
+      (chat) => chat.userId !== userChat.userId
+    );
+    setOpenChats(restChats);
+  };
 
   return (
     <div className="chats">
-      <div className="chat">
-        <div className="chat-container">
-          <div className="user">
-            <img src={src} alt="Online user" />
-            <span>Curr name</span>
-            <Close />
-          </div>
-          <div className="msg-container">
-            {messagess
-              // .slice(0)
-              // .reverse()
-              .map(({ id, text }, idx) => {
-                const msgClassName = currUser === id ? "msg" : "msg in";
-                return (
-                  <div className={msgClassName} key={`${id}-${idx}`}>
-                    {text}
-                  </div>
-                );
-              })}
-          </div>
-          <div className="send">
-            <input
-              type="file"
-              id="file"
-              onChange={(e) =>
-                setFile(e.currentTarget.files ? e.currentTarget.files[0] : null)
-              }
-            />
-            <label htmlFor="file">
-              <Add />
-            </label>
+      {openChats.map((chat) => {
+        return (
+          <div className="chat" key={chat?.userId}>
+            <div className="chat-container">
+              <div className="user">
+                <img src={chat?.profilePic} alt="Online user" />
+                <span>{chat?.name}</span>
+                <Close onClick={() => closeChat(chat)} />
+              </div>
+              <div className="msg-container">
+                {chat.messages?.map(({ content, from }, idx) => {
+                  const msgClassName = socket.id !== from ? "msg in" : "msg";
+                  console.log(socket.id , from);
+                  
+                  return (
+                    <div className={msgClassName} key={`${from}-${idx}`}>
+                      {content}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="send">
+                <input
+                  type="file"
+                  id="file"
+                  onChange={(e) =>
+                    setFile(
+                      e.currentTarget.files ? e.currentTarget.files[0] : null
+                    )
+                  }
+                />
+                <label htmlFor="file">
+                  <Add />
+                </label>
 
-            <input
-              type="text"
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-            />
-            <Send onClick={handleSend} />
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                />
+                <Send onClick={() => sendMessage(chat)} />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div className="chat">
-        <div className="chat-container">
-          <div className="user">
-            <img src={src} alt="Online user" />
-            <span>Curr name</span>
-            <Close />
-          </div>
-          <div className="msg-container">
-            {messagess
-              // .slice(0)
-              // .reverse()
-              .map(({ id, text }, idx) => {
-                const msgClassName = currUser === id ? "msg" : "msg in";
-                return (
-                  <div className={msgClassName} key={`${id}-${idx}`}>
-                    {text}
-                  </div>
-                );
-              })}
-          </div>
-          <div className="send">
-            <input
-              type="file"
-              id="file"
-              onChange={(e) =>
-                setFile(e.currentTarget.files ? e.currentTarget.files[0] : null)
-              }
-            />
-            <label htmlFor="file">
-              <Add />
-            </label>
-
-            <input
-              type="text"
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-            />
-            <Send onClick={handleSend} />
-          </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 };
