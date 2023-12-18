@@ -7,7 +7,6 @@ import { socket } from "../../socket";
 import "./main.scss";
 
 const Main = () => {
-  const authCtx = useContext(AuthContext);
   const [openChats, setOpenChats] = useState<UserChat[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<UserChat[]>([]);
 
@@ -49,10 +48,11 @@ const Main = () => {
         }
       }
     );
+
     return () => {
       socket.off("private_message");
     };
-  }, [onlineUsers, socket, openChats]);
+  }, [socket, openChats, onlineUsers]);
 
   return (
     <>
@@ -63,11 +63,7 @@ const Main = () => {
           <Outlet />
         </div>
         <RightBar onlineUsers={onlineUsers} setOpenChats={setOpenChats} />
-        <Chat
-          onlineUsers={onlineUsers}
-          openChats={openChats}
-          setOpenChats={setOpenChats}
-        />
+        <Chat openChats={openChats} setOpenChats={setOpenChats} />
       </div>
     </>
   );

@@ -21,7 +21,6 @@ export type UserChat = {
   name: string;
   profilePic: string;
   userId: number;
-  active?: boolean;
   messages: {
     from: string;
     content: string;

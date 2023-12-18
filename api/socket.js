@@ -52,12 +52,12 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
 
     socket.on("user_logout", (user) => {
       users = users.filter((onlineUser) => onlineUser.userId !== user.id);
-      socket.disconnect(
-        socket.id
-      );
+      socket.disconnect(socket.id);
     });
 
     socket.on("disconnect", () => {
+      users = users.filter((onlineUser) => onlineUser.socketId !== socket.id);
+      socket.disconnect(socket.id);
       io.emit("online_users", users);
     });
 

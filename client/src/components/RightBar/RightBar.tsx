@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext } from "react";
 import { AuthContext } from "../../context/authContext";
 import { useQuery } from "@tanstack/react-query";
 import { getActivities } from "../../services/axios";
@@ -20,7 +20,7 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
   });
 
   const joinUserChat = (chat: UserChat) => {
-    setOpenChats((prev) => [...prev, { ...chat, active: true }]);
+    setOpenChats((prev) => [...prev, { ...chat }]);
   };
 
   if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;
