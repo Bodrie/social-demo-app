@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { UserChat } from "../../types";
 import { socket } from "../../socket";
 
@@ -7,16 +7,23 @@ interface ChatMessagesProps {
 }
 
 const ChatMessages = ({ chat }: ChatMessagesProps) => {
+  const msgElRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {    
+    msgElRef.current?.scrollIntoView();
+  }, [chat.messages?.length]);
+
   return (
     <>
-      {chat.messages && chat.messages.map(({ content, from }, idx) => {
-        const msgClassName = socket.id !== from ? "msg in" : "msg";
-        return (
-          <div className={msgClassName} key={`${from}-${idx}`}>
-            {content}
-          </div>
-        );
-      })}
+      {chat.messages &&
+        chat.messages.map(({ content, from }, idx) => {
+          const msgClassName = socket.id !== from ? "msg in" : "msg";
+          return (
+            <div className={msgClassName} key={`${from}-${idx}`} ref={msgElRef}>
+              {content}
+            </div>
+          );
+        })}
     </>
   );
 };

@@ -53,10 +53,19 @@
         .msg-container {
           height: 100%;
           padding: 0.5rem;
-          overflow: scroll;
+          overflow-y: scroll;
 
           &::-webkit-scrollbar {
-            display: none;
+            width: 5px;
+          }
+
+          &::-webkit-scrollbar-track {
+            background: transparent;
+          }
+
+          &::-webkit-scrollbar-thumb {
+            background: themed("border");
+            border-radius: 5px;
           }
 
           .msg {
@@ -67,6 +76,7 @@
             padding: 0.5rem;
             margin: 0 0 0.3rem auto;
             border-radius: 10px;
+            word-break: break-word;
 
             &.in {
               margin: 0 auto 0.3rem 0;
