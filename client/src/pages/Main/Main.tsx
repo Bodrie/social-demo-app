@@ -1,18 +1,17 @@
-import React, { useEffect, useState, useContext } from "react";
-import { AuthContext } from "../../context/authContext";
+import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Header, LeftBar, RightBar, Chat } from "../../components";
-import { UserChat } from "../../types";
+import { UserChat, Messages } from "../../types";
 import { socket } from "../../socket";
 import "./main.scss";
 
 const Main = () => {
-  const [openChats, setOpenChats] = useState<UserChat[]>([]);
-  const [onlineUsers, setOnlineUsers] = useState<UserChat[]>([]);
+  const [openChats, setOpenChats] = useState<UserChat<Messages>[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<UserChat<Messages>[]>([]);
 
   useEffect(() => {
-    socket.on("online_users", (data: UserChat[]) => {
-      setOnlineUsers(data);
+    socket.on("online_users", (online: UserChat<Messages>[]) => {
+      setOnlineUsers(online);
     });
 
     return () => {
@@ -21,38 +20,41 @@ const Main = () => {
   }, [socket]);
 
   useEffect(() => {
-    socket.on(
-      "private_message",
-      ({ content, from }: { content: string; from: string }) => {
-        const chatToBeOpen = onlineUsers.find((user) => user.socketId === from);
+    socket.on("private_message", ({ content, from }: Messages) => {
+      const chatToBeOpen = onlineUsers.find((user) => user.socketId === from);
 
-        if (chatToBeOpen) {
-          const findChat = openChats.find((chat) => chat.socketId === from);
+      if (chatToBeOpen) {
+        const chatIsAlreadyOpen = openChats.find(
+          (chat) => chat.socketId === from
+        );
+        if (chatIsAlreadyOpen) {
+          return setOpenChats((prevState) => {
+            return prevState.map((chat) => {
+              if (chat.socketId === from) {
+                return {
+                  ...chat,
+                  messages: [...chat.messages, { content, from }],
+                };
+              }
 
-          if (findChat) {
-            findChat.messages.push({ content, from });
-            if (openChats.length > 1) {
-              setOpenChats((prev) => [...prev, findChat]);
-            } else {
-              setOpenChats([findChat]);
-            }
-          } else {
-            setOpenChats((prev) => [
-              ...prev,
-              {
-                ...chatToBeOpen,
-                messages: [{ content, from }],
-              },
-            ]);
-          }
+              return chat;
+            });
+          });
         }
+        return setOpenChats((prevState) => [
+          ...prevState,
+          {
+            ...chatToBeOpen,
+            messages: [{ content, from }],
+          },
+        ]);
       }
-    );
+    });
 
     return () => {
       socket.off("private_message");
     };
-  }, [socket, openChats, onlineUsers]);
+  }, [socket, onlineUsers, openChats]);
 
   return (
     <>

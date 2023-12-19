@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { UserChat } from "../../types";
+import { Messages, UserChat } from "../../types";
 import { socket } from "../../socket";
 
 interface ChatMessagesProps {
-  chat: UserChat;
+  chat: UserChat<Messages>;
 }
 
 const ChatMessages = ({ chat }: ChatMessagesProps) => {
@@ -11,7 +11,7 @@ const ChatMessages = ({ chat }: ChatMessagesProps) => {
 
   useEffect(() => {    
     msgElRef.current?.scrollIntoView();
-  }, [chat.messages?.length]);
+  }, [chat.messages.length]);  
 
   return (
     <>

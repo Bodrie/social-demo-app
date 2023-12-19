@@ -16,13 +16,15 @@ export type AuthContextT = {
   ctxLogout: () => void;
 };
 
-export type UserChat = {
+export type UserChat<T> = {
   socketId: string;
   name: string;
   profilePic: string;
   userId: number;
-  messages: {
-    from: string;
-    content: string;
-  }[];
+  messages: T[];
+};
+
+export type Messages = {
+  from: string;
+  content: string;
 };

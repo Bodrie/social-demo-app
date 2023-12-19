@@ -3,13 +3,13 @@ import { AuthContext } from "../../context/authContext";
 import { useQuery } from "@tanstack/react-query";
 import { getActivities } from "../../services/axios";
 import imgSrc from "../../assets/images.png";
-import { ActivityType, UserChat } from "../../types";
+import { ActivityType, UserChat, Messages } from "../../types";
 import moment from "moment";
 import "./rightBar.scss";
 
 interface RightBarProps {
-  onlineUsers: UserChat[];
-  setOpenChats: (rooms: React.SetStateAction<UserChat[]>) => void;
+  onlineUsers: UserChat<Messages>[];
+  setOpenChats: (rooms: React.SetStateAction<UserChat<Messages>[]>) => void;
 }
 
 const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
@@ -19,7 +19,7 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
     queryFn: () => getActivities(authCtx?.user?.id!),
   });
 
-  const joinUserChat = (chat: UserChat) => {
+  const joinUserChat = (chat: UserChat<Messages>) => {    
     setOpenChats((prev) => [...prev, { ...chat }]);
   };
 
@@ -74,7 +74,7 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
         </div>
         <div className="item">
           <span>Online users</span>
-          {onlineUsers.map((user: UserChat) => {
+          {onlineUsers.map((user: UserChat<Messages>) => {
             if (authCtx?.user?.id === user.userId) return;
             return (
               <div

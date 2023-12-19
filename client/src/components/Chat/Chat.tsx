@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Send, Close, Add } from "@mui/icons-material";
-import { UserChat } from "../../types";
+import { Messages, UserChat } from "../../types";
 import { socket } from "../../socket";
 import ChatMessages from "./ChatMessages";
 import "./chat.scss";
 
 interface ChatProps {
-  openChats: UserChat[];
-  setOpenChats: (openChat: React.SetStateAction<UserChat[]>) => void;
+  openChats: UserChat<Messages>[];
+  setOpenChats: (openChat: React.SetStateAction<UserChat<Messages>[]>) => void;
 }
 
 const Chat = ({ openChats, setOpenChats }: ChatProps) => {
@@ -17,7 +17,7 @@ const Chat = ({ openChats, setOpenChats }: ChatProps) => {
   const [inputValue, setInputValue] = useState<InputValue>({ key: "" });
   const [file, setFile] = useState<File | null>(null);
 
-  const sendMessage = (chat: UserChat) => {
+  const sendMessage = (chat: UserChat<Messages>) => {
     socket.emit("private_message", {
       content: inputValue[chat.name as keyof InputValue],
       to: chat.socketId,
@@ -57,7 +57,8 @@ const Chat = ({ openChats, setOpenChats }: ChatProps) => {
     });
   };
 
-  const closeChat = (userChat: UserChat) => {
+  const closeChat = (userChat: UserChat<Messages>) => {
+    socket.emit('chat_closed', userChat)
     const restChats = openChats.filter(
       (chat) => chat.userId !== userChat.userId
     );

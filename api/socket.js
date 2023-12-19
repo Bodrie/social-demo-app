@@ -33,13 +33,14 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
 
   io.on("connection", (socket) => {
     let users = [];
+
     for (let [id, socket] of io.of("/").sockets) {
       users.push({
         userId: socket.userId,
         name: socket.name,
         profilePic: socket.profilePic,
         socketId: id,
-        key: id,
+        messages: [],
       });
     }
 
@@ -55,7 +56,11 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
       socket.disconnect(socket.id);
     });
 
-    socket.on("disconnect", () => {
+    socket.on("chat_closed", (data) => {
+      // TO DO
+    });
+
+    socket.on("disconnect", (data) => {
       users = users.filter((onlineUser) => onlineUser.socketId !== socket.id);
       socket.disconnect(socket.id);
       io.emit("online_users", users);
