@@ -24,30 +24,24 @@ const Main = () => {
       const chatToBeOpen = onlineUsers.find((user) => user.socketId === from);
 
       if (chatToBeOpen) {
-        const chatIsAlreadyOpen = openChats.find(
+        const chatIsAlreadyOpen = openChats.some(
           (chat) => chat.socketId === from
         );
-        if (chatIsAlreadyOpen) {
-          return setOpenChats((prevState) => {
-            return prevState.map((chat) => {
-              if (chat.socketId === from) {
-                return {
-                  ...chat,
-                  messages: [...chat.messages, { content, from }],
-                };
-              }
 
-              return chat;
-            });
+        if (chatIsAlreadyOpen) {
+          setOpenChats((prevState) => {
+            return prevState.map((chat) =>
+              chat.socketId === from
+                ? { ...chat, messages: [...chat.messages, { content, from }] }
+                : chat
+            );
           });
+        } else {
+          setOpenChats((prevState) => [
+            ...prevState,
+            { ...chatToBeOpen, messages: [{ content, from }] },
+          ]);
         }
-        return setOpenChats((prevState) => [
-          ...prevState,
-          {
-            ...chatToBeOpen,
-            messages: [{ content, from }],
-          },
-        ]);
       }
     });
 

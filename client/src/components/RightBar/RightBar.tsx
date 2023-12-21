@@ -19,8 +19,13 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
     queryFn: () => getActivities(authCtx?.user?.id!),
   });
 
-  const joinUserChat = (chat: UserChat<Messages>) => {    
-    setOpenChats((prev) => [...prev, { ...chat }]);
+  const joinUserChat = (newChat: UserChat<Messages>) => {
+    setOpenChats((prev) => {
+      if (prev.length === 0 || !new Set(prev).has(newChat))
+        return [...prev, newChat];
+
+      return prev;
+    });
   };
 
   if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;

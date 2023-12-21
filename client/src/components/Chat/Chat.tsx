@@ -23,25 +23,19 @@ const Chat = ({ openChats, setOpenChats }: ChatProps) => {
       to: chat.socketId,
     });
 
-    if (openChats.includes(chat)) {
-      const chatToUpdate = openChats.find(
-        (openChat) => openChat.userId === chat.userId
-      );
+    const existingChat = openChats.find(
+      (openChat) => openChat.userId === chat.userId
+    );
 
-      if (chatToUpdate?.messages) {
-        chatToUpdate.messages.push({
-          content: inputValue[chat.name as keyof InputValue],
-          from: socket.id,
-        });
-      } else {
-        chatToUpdate!.messages = [
-          {
-            content: inputValue[chat.name as keyof InputValue],
-            from: socket.id,
-          },
-        ];
-      }
-      setOpenChats([...openChats]);
+    if (existingChat) {
+      const newMessage = {
+        content: inputValue[chat.name as keyof InputValue],
+        from: socket.id,
+      };
+
+      existingChat.messages
+        ? existingChat.messages.push(newMessage)
+        : (existingChat.messages = [newMessage]);
     } else {
       setOpenChats((prev) => [...prev, chat]);
     }
@@ -58,7 +52,7 @@ const Chat = ({ openChats, setOpenChats }: ChatProps) => {
   };
 
   const closeChat = (userChat: UserChat<Messages>) => {
-    socket.emit('chat_closed', userChat)
+    socket.emit("chat_closed", userChat);
     const restChats = openChats.filter(
       (chat) => chat.userId !== userChat.userId
     );
