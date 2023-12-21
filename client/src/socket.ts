@@ -1,13 +1,12 @@
-//@ts-nocheck
+
 import { io } from "socket.io-client";
 
-// "undefined" means the URL will be computed from the `window.location` object
-const SOCKET = process.env.REACT_APP_SOCKET;
+const SOCKET = process.env.REACT_APP_SOCKET || "http://localhost:10001";
 const URL =
   process.env.NODE_ENV === "production" ? SOCKET : "http://localhost:10001";
 
 export const socket = io(URL, { autoConnect: false });
 
 socket.onAny((event, ...args) => {
-  console.log(event, args);
+  // console.log(event, args);
 });
