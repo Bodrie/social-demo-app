@@ -51,6 +51,13 @@ const Chat = ({ openChats, setOpenChats }: ChatProps) => {
     });
   };
 
+  const handleChatsOrder = (chat: UserChat<Messages>, idx: number) => {
+    setOpenChats((prev) => {
+      const chats = [chat, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+      return chats;
+    });
+  };
+
   const closeChat = (userChat: UserChat<Messages>) => {
     socket.emit("chat_closed", userChat);
     const restChats = openChats.filter(
@@ -61,7 +68,22 @@ const Chat = ({ openChats, setOpenChats }: ChatProps) => {
 
   return (
     <div className="chats">
-      {openChats.map((chat) => {
+      {openChats.map((chat, idx) => {
+        if (idx >= 2) {
+          return (
+            <div
+              className="chat-head-only"
+              onClick={() => handleChatsOrder(chat, idx)}
+            >
+              <img
+                className="chat-head"
+                src={chat.profilePic}
+                alt="Online user"
+              />
+              <div className="online" />
+            </div>
+          );
+        }
         return (
           <div className="chat" key={chat?.userId.toString()}>
             <div className="chat-container">

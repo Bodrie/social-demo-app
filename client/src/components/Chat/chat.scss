@@ -1,11 +1,45 @@
 @import "../../theme/theme.scss";
 
 .chats {
+  width: 100%;
   position: fixed;
   bottom: 30px;
   right: 30px;
   display: flex;
+  justify-content: flex-end;
   gap: 1.5rem;
+
+  .chat-head-only {
+    align-self: flex-end;
+    position: relative;
+
+    .chat-head {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 50%;
+      -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+      cursor: pointer;
+    }
+
+    .online {
+      position: absolute;
+      top: 2px;
+      left: 35px;
+      background-color: limegreen;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+
+      @include tablet {
+        left: 22px;
+        width: 8px;
+        height: 8px;
+      }
+    }
+  }
 
   .chat {
     @include themify($themes) {
