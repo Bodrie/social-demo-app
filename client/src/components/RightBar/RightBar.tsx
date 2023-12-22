@@ -22,7 +22,7 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
   const joinUserChat = (newChat: UserChat<Messages>) => {
     setOpenChats((prev) => {
       if (prev.length === 0 || !new Set(prev).has(newChat))
-        return [...prev, newChat];
+        return [newChat, ...prev];
 
       return prev;
     });
