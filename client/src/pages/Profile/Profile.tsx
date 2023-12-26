@@ -8,7 +8,7 @@ import {
   getRelationships,
   deleteRelationship,
 } from "../../services/axios";
-import { Posts } from "../../components";
+import { Posts, UpdatePofile } from "../../components";
 import { User } from "../../types";
 import {
   FacebookTwoTone,
@@ -29,6 +29,7 @@ const Profile = () => {
   const [queryParameters] = useSearchParams();
   const userId = queryParameters.get("id") as string;
   const [user, setUser] = useState<User>(null!);
+  const [updateProfile, setUpdateProfile] = useState(false);
 
   const { isLoading, error, data } = useQuery({
     queryKey: ["users", userId],
@@ -58,19 +59,18 @@ const Profile = () => {
     mutation.mutate(relationshipData?.includes(authCtx.user.id));
   };
 
-  const handleUpdateProfile = () => {};
-
   useEffect(() => {
     if (data) {
       setUser(data[0]);
     }
   }, [data]);
 
-  if(isLoading || !user) return <p>Loading...</p>
+  if (isLoading || !user) return <p>Loading...</p>;
   const isCurrentUser = user.id === authCtx.user.id;
-  
+
   return (
     <div className="profile">
+      {updateProfile && <UpdatePofile user={authCtx.user} />}
       <div className="pictures">
         <img
           src={user.cover_picture}
@@ -116,7 +116,9 @@ const Profile = () => {
               </div>
             </div>
             {isCurrentUser ? (
-              <button onClick={handleUpdateProfile}>Update profile</button>
+              <button onClick={() => setUpdateProfile(true)}>
+                Update profile
+              </button>
             ) : (
               <button onClick={handleAddRelationship}>
                 {relationshipData?.includes(authCtx.user.id)
