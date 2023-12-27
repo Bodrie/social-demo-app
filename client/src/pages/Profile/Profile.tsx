@@ -70,69 +70,74 @@ const Profile = () => {
 
   return (
     <div className="profile">
-      {updateProfile && <UpdatePofile user={authCtx.user} />}
-      <div className="pictures">
-        <img
-          src={user.cover_picture}
-          alt="Cover picture of user profile"
-          className="cover"
-        />
-        <img
-          src={user.profile_picture}
-          alt="Main picture of user profile"
-          className="main"
-        />
-      </div>
-      <div className="profile-container">
-        <div className="general-info">
-          <div className="left">
-            <a href="">
-              <FacebookTwoTone />
-            </a>
-            <a href="">
-              <Instagram />
-            </a>
-            <a href="">
-              <Twitter />
-            </a>
-            <a href="">
-              <LinkedIn />
-            </a>
-            <a href="">
-              <Pinterest />
-            </a>
+      {updateProfile ? (
+        <UpdatePofile user={authCtx.user} setUpdateProfile={setUpdateProfile} />
+      ) : (
+        <>
+          <div className="pictures">
+            <img
+              src={user.cover_picture}
+              alt="Cover picture of user profile"
+              className="cover"
+            />
+            <img
+              src={user.profile_picture}
+              alt="Main picture of user profile"
+              className="main"
+            />
           </div>
-          <div className="center">
-            <span>{user.name}</span>
-            <span>({user.username})</span>
-            <div className="person-info">
-              <div className="item">
-                <Place />
-                <span>Bulgaria</span>
+          <div className="profile-container">
+            <div className="general-info">
+              <div className="left">
+                <a href="">
+                  <FacebookTwoTone />
+                </a>
+                <a href="">
+                  <Instagram />
+                </a>
+                <a href="">
+                  <Twitter />
+                </a>
+                <a href="">
+                  <LinkedIn />
+                </a>
+                <a href="">
+                  <Pinterest />
+                </a>
               </div>
-              <div className="item">
-                <Language />
-                <span>Some Site Name</span>
+              <div className="center">
+                <span>{user.name}</span>
+                <span>({user.username})</span>
+                <div className="person-info">
+                  <div className="item">
+                    <Place />
+                    <span>Bulgaria</span>
+                  </div>
+                  <div className="item">
+                    <Language />
+                    <span>Some Site Name</span>
+                  </div>
+                </div>
+                {isCurrentUser ? (
+                  <button onClick={() => setUpdateProfile(true)}>
+                    Update profile
+                  </button>
+                ) : (
+                  <button onClick={handleAddRelationship}>
+                    {relationshipData?.includes(authCtx.user.id)
+                      ? "Following"
+                      : "Follow"}
+                  </button>
+                )}
+              </div>
+              <div className="right">
+                {isCurrentUser ? <MoreVert /> : <EmailOutlined />}
               </div>
             </div>
-            {isCurrentUser ? (
-              <button onClick={() => setUpdateProfile(true)}>
-                Update profile
-              </button>
-            ) : (
-              <button onClick={handleAddRelationship}>
-                {relationshipData?.includes(authCtx.user.id)
-                  ? "Following"
-                  : "Follow"}
-              </button>
-            )}
+            <Posts profileId={Number(userId)} />
           </div>
-          <div className="right">
-            {isCurrentUser ? <MoreVert /> : <EmailOutlined />}
-          </div>
-        </div>
-        <Posts profileId={Number(userId)} />
-      </div>
+        </>
+      )}
     </div>
   );
 };

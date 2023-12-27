@@ -17,7 +17,7 @@ const Users = () => {
     <div className="users">
       {data.map((user: User) => {
         return (
-          <Link to={`/profile?id=${user?.id}`} className="user">
+          <Link to={`/profile?id=${user?.id}`} className="user" key={user.id}>
             <img src={user?.profile_picture} />
             <div>{user?.name}</div>
             <div>({user?.username})</div>
