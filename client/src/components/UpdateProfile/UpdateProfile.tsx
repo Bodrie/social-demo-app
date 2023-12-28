@@ -37,12 +37,12 @@ const UpdateProfile = ({ user, setUpdateProfile }: UpaderProfile) => {
 
     if (files.profile) {
       profileImgUrl = await upload(files.profile);
-      profileImgUrl = `${process.env.REACT_APP_API_REAL}/upload/${profileImgUrl}`;
+      profileImgUrl = `${process.env.REACT_APP_API}/upload/${profileImgUrl}`;
     }
 
     if (files.cover) {
       coverImgUrl = await upload(files.cover);
-      coverImgUrl = `${process.env.REACT_APP_API_REAL}/upload/${coverImgUrl}`;
+      coverImgUrl = `${process.env.REACT_APP_API}/upload/${coverImgUrl}`;
     }
 
     mutation.mutate(
