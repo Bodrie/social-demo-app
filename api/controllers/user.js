@@ -39,3 +39,41 @@ export const getAllUsers = (req, res) => {
     return res.status(200).send(data);
   });
 };
+
+export const updateUser = (req, res) => {
+  
+  // TO DO: Find a way to create query only for the changed fields;
+
+  const q = `
+    UPDATE users SET
+      username = ?,
+      name = ?,
+      email = ?,
+      profile_picture = ?,
+      cover_picture = ?,
+      city = ?
+    WHERE id = ?`;
+
+  // console.log(req.body);
+
+  // TO DO: Find a way to pass only the changed fields;
+
+  const values = [
+    req.body.username,
+    req.body.name,
+    req.body.email,
+    req.body.profile_picture,
+    req.body.cover_picture,
+    req.body.city,
+    req.body.id,
+  ];
+
+  db.query(q, [...values], (err, data) => {
+    if (err) {
+      console.log("[SERVER LOG] User UPDATE Error!");
+      console.log(err);
+      return res.status(500).send(err);
+    }
+    return res.status(200).send(data);
+  });
+};
