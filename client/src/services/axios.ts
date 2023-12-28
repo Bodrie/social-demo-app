@@ -7,6 +7,7 @@ import {
   PostInteraction,
   ActivityType,
   RelationshipType,
+  User,
 } from "../types";
 
 const API = process.env.REACT_APP_API;
@@ -77,6 +78,19 @@ export const getAllUsers = () => {
 export const getUserById = (id: number | string) => {
   const response = makeRequest
     .get(`/users/${id}`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
+export const updateUser = (userData: User) => {
+  const response = makeRequest
+    .patch("/users", userData)
     .then((res) => {
       return res.data;
     })
