@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
+import { AuthContext } from "../../context/authContext";
 import { AddCircleOutline } from "@mui/icons-material";
-import "./updateProfile.scss";
 import { User } from "../../types";
-import { updateUser } from "../../services/axios";
+import { updateUser, upload } from "../../services/axios";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import "./updateProfile.scss";
 
 interface UpaderProfile {
   user: User;
@@ -10,17 +12,61 @@ interface UpaderProfile {
 }
 
 const UpdateProfile = ({ user, setUpdateProfile }: UpaderProfile) => {
+  const queryClient = useQueryClient();
+  const authCtx = useContext(AuthContext);
   const [inputValues, setInputValues] = useState<User>({ ...user });
   const [files, setFiles] = useState<Record<string, File | null>>({
     cover: null,
     profile: null,
   });
 
-  const handleSaveChanges = () => {
-    // TO DO: Handle the possible image change, then execute the request;
-    updateUser(inputValues)
-    // TO DO: Update local storage user info when or if the req is successful;
-    // TO DO: Redirect to user profile;
+  const mutation = useMutation({
+    mutationFn: (userData: User) => {
+      return updateUser(userData);
+      // TO DO: Add activity for updated profile
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      // TO DO: Inavalidate activities
+    },
+  });
+
+  const handleSaveChanges = async () => {
+    let profileImgUrl = inputValues.profile_picture;
+    let coverImgUrl = inputValues.cover_picture;
+
+    if (files.profile) {
+      profileImgUrl = await upload(files.profile);
+      profileImgUrl = `${process.env.REACT_APP_API_REAL}/upload/${profileImgUrl}`;
+    }
+
+    if (files.cover) {
+      coverImgUrl = await upload(files.cover);
+      coverImgUrl = `${process.env.REACT_APP_API_REAL}/upload/${coverImgUrl}`;
+    }
+
+    mutation.mutate(
+      {
+        ...inputValues,
+        profile_picture: profileImgUrl,
+        cover_picture: coverImgUrl,
+      },
+      {
+        onSuccess: () => {
+          authCtx.setCurrentUser({
+            ...inputValues,
+            profile_picture: profileImgUrl,
+            cover_picture: coverImgUrl,
+          });
+          setFiles({
+            cover: null,
+            profile: null,
+          });
+          setUpdateProfile(false);
+          window.location.reload();
+        },
+      }
+    );
     // TO DO: General pop up for confirmation or something like that...;
   };
 
