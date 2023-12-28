@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { AddCircleOutline } from "@mui/icons-material";
 import "./updateProfile.scss";
 import { User } from "../../types";
+import { updateUser } from "../../services/axios";
 
 interface UpaderProfile {
   user: User;
@@ -15,7 +16,13 @@ const UpdateProfile = ({ user, setUpdateProfile }: UpaderProfile) => {
     profile: null,
   });
 
-  const handleSaveChanges = () => {};
+  const handleSaveChanges = () => {
+    // TO DO: Handle the possible image change, then execute the request;
+    updateUser(inputValues)
+    // TO DO: Update local storage user info when or if the req is successful;
+    // TO DO: Redirect to user profile;
+    // TO DO: General pop up for confirmation or something like that...;
+  };
 
   const handleDiscardChanges = () => {
     setFiles({ cover: null, profile: null });
