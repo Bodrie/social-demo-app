@@ -14,6 +14,7 @@ export type AuthContextT = {
   user: User;
   ctxLogin: (data: Login) => Promise<string>;
   ctxLogout: () => void;
+  setCurrentUser: (user: User) => void;
 };
 
 export type UserChat<T> = {
