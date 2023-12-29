@@ -28,8 +28,8 @@ const SOCKET = NODE_ENV === "prod" ? SOCKET_PROD : SOCKET_DEV;
 const options =
   NODE_ENV === "prod"
     ? {
-        key: fs.readFileSync("ssl/pk.pem"),
-        cert: fs.readFileSync("ssl/s.pem"),
+        key: fs.readFileSync("ssl/privkey.pem"),
+        cert: fs.readFileSync("ssl/cert.pem"),
       }
     : {};
 
@@ -56,7 +56,7 @@ if (NODE_ENV === "dev") {
     );
   });
 } else if (NODE_ENV === "prod") {
-  https.createServer(app).listen(PORT, () => {
+  https.createServer(options, app).listen(PORT, () => {
     console.log(
       chalk.blue(
         `\n[SERVER LOG] PRODUCTION ENV.\n[SERVER LOG] API is running on port ${PORT}\n`
