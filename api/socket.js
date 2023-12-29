@@ -15,7 +15,7 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
     cors: {
       origin:
         NODE_ENV === "prod"
-          ? ["https://social-demo-app.vercel.app"]
+          ? ["https://the-mesh.eu"]
           : ["http://localhost:3000"],
       methods: ["GET", "POST"],
     },

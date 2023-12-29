@@ -42,7 +42,7 @@ app.use(
     credentials: true,
     origin:
       NODE_ENV === "prod"
-        ? "https://social-demo-app.vercel.app"
+        ? "https://the-mesh.eu"
         : ["http://localhost:3000", "http://192.168.0.146:3000"],
   })
 );
@@ -56,7 +56,7 @@ if (NODE_ENV === "dev") {
     );
   });
 } else if (NODE_ENV === "prod") {
-  https.createServer(options, app).listen(PORT, () => {
+  https.createServer(app).listen(PORT, () => {
     console.log(
       chalk.blue(
         `\n[SERVER LOG] PRODUCTION ENV.\n[SERVER LOG] API is running on port ${PORT}\n`
