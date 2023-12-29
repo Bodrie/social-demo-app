@@ -23,7 +23,7 @@ const Header = () => {
     <header className="header">
       <div className="left">
         <Link to={"/"}>
-          <span>The Network</span>
+          <span>The Mesh</span>
         </Link>
         {themeCtx?.theme === "light" ? (
           <DarkModeOutlined onClick={() => handleThemeChange("dark")} />
