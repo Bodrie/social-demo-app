@@ -8,9 +8,8 @@ export const {
   PASSWORD,
   DB,
   KEY,
-  PORT_PROD,
-  PORT_DEV,
-  SOCKET_DEV,
-  SOCKET_PROD,
+  PORT,
+  SOCKET,
+  DOMAIN,
   NODE_ENV,
 } = process.env;

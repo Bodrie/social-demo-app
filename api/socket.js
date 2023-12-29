@@ -1,6 +1,7 @@
 import http from "http";
 import https from "https";
 import { Server } from "socket.io";
+import { DOMAIN } from "./config.js";
 
 export const socketInit = (app, options, SOCKET, NODE_ENV) => {
   const protocol = NODE_ENV === "prod" ? https : http;
@@ -13,10 +14,7 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
 
   const io = new Server(server, {
     cors: {
-      origin:
-        NODE_ENV === "prod"
-          ? ["https://the-mesh.eu"]
-          : ["http://localhost:3000"],
+      origin: [DOMAIN],
       methods: ["GET", "POST"],
     },
   });
