@@ -61,7 +61,7 @@ const RegisterForm = () => {
           </form>
         </div>
         <div className="right">
-          <h1>The Network</h1>
+          <h1>The Mesh</h1>
           <p>
             Lorem ipsum dolor sit amet consectetur adipisicing elit. Libero cum,
             alias totam numquam ipsa exercitationem dignissimos, error nam,

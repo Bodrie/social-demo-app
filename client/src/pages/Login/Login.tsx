@@ -27,7 +27,7 @@ const LoginForm = () => {
     <div className="login">
       <div className="login-wrapper">
         <div className="left">
-          <h1>The Network</h1>
+          <h1>The Mesh</h1>
           <p>
             Lorem ipsum dolor sit amet consectetur adipisicing elit. Libero cum,
             alias totam numquam ipsa exercitationem dignissimos, error nam,
