@@ -23,6 +23,7 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+        border-radius: 10px;
       }
 
       .main {
@@ -50,7 +51,7 @@
       }
 
       .general-info {
-        border-radius: 20px;
+        border-radius: 10px;
         background-color: themed("bg");
         color: themed("textColor");
         -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
