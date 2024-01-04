@@ -54,8 +54,6 @@ export const updateUser = (req, res) => {
       city = ?
     WHERE id = ?`;
 
-  // console.log(req.body);
-
   // TO DO: Find a way to pass only the changed fields;
 
   const values = [

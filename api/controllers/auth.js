@@ -20,7 +20,7 @@ export const login = (req, res) => {
     if (data.length === 0) {
       console.log("[SERVER LOG] User LOGIN Error!");
       console.log("[SERVER LOG] User not found!\n");
-      return res.status(404).send("User not found!");
+      return res.status(404).send({ error: "User not found!", code: 404 });
     }
 
     const checkPassword = bcrypt.compareSync(
@@ -31,7 +31,9 @@ export const login = (req, res) => {
     if (!checkPassword) {
       console.log("[SERVER LOG] User LOGIN Error!");
       console.log("[SERVER LOG] Wrong password or email!\n");
-      return res.status(400).send("Wrong password or email!");
+      return res
+        .status(400)
+        .send({ error: "Wrong password or email!", code: 400 });
     }
 
     const token = jwt.sign({ id: data[0].id }, KEY);
@@ -56,8 +58,16 @@ export const login = (req, res) => {
 export const register = (req, res) => {
   const q = "SELECT * FROM users WHERE username = ?";
   db.query(q, [req.body.username], (err, data) => {
-    if (err) return res.status(500).send(err);
-    if (data.length) return res.status(409).send("User already registred!");
+    if (err) return res.status(500).send({ error: err, code: 500 });
+    if (data.length)
+      return res
+        .status(409)
+        .send({ error: "User already registred!", code: 409 });
+
+    if (req.body.password.length < 6)
+      return res
+        .status(400)
+        .send({ error: "Password must be at least 6 characters long!", code: 400 });
 
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(req.body.password, salt);
@@ -70,7 +80,7 @@ export const register = (req, res) => {
       req.body.name,
     ];
     db.query(q, [values], (err, data) => {
-      if (err) return res.status(500).send(err);
+      if (err) return res.status(500).send({ error: err, code: 500 });
       console.log(
         `[SERVER LOG] User REGISTER ${moment(Date.now()).format(
           "HH:mm / DD-MM-YYYY"
