@@ -128,17 +128,38 @@
           }
         }
 
-        input {
-          border: none;
-          border-bottom: 2px solid themed("logo");
-          padding: 1rem;
-          margin-bottom: 1rem;
-          font-size: 16px;
-          color: themed("textColorSoft");
-          background-color: themed("bg");
+        .input-container {
+          position: relative;
+          display: flex;
 
-          @include mobile {
-            font-size: 12px;
+          .input {
+            flex: 1;
+            border: none;
+            border-bottom: 2px solid themed("logo");
+            padding: 0.9rem;
+            margin-bottom: 1.1rem;
+            font-size: 16px;
+            color: themed("textColorSoft");
+            background-color: themed("bg");
+
+            &.error {
+              border-bottom: 2px solid themed("danger");
+            }
+
+            @include mobile {
+              font-size: 12px;
+            }
+          }
+
+          .error-msg {
+            position: absolute;
+            top: 51px;
+            font-size: 10px;
+            color: themed("danger");
+
+            @include mobile {
+              top: 46px;
+            }
           }
         }
       }
