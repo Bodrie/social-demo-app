@@ -7,6 +7,7 @@ import { Story } from "./story";
 import { Comment, CommentCreate } from "./comment";
 import { ActivityType, ActivityTypes } from "./activity";
 import { RelationshipType } from "./relationship";
+import { BasicError } from "./errors";
 
 export type {
   User,
@@ -26,4 +27,5 @@ export type {
   ActivityTypes,
   RelationshipType,
   ThemeContextT,
+  BasicError,
 };

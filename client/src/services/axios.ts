@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from "axios";
+import axios, { AxiosError, AxiosResponse } from "axios";
 import {
   Register,
   Login,
@@ -8,6 +8,7 @@ import {
   ActivityType,
   RelationshipType,
   User,
+  BasicError,
 } from "../types";
 
 const API = process.env.REACT_APP_API;
@@ -25,11 +26,11 @@ export const register = (
 
   const response = makeRequest
     .post("/auth/register", registerData)
-    .then((res: AxiosResponse) => {
+    .then((res: AxiosResponse<string>) => {
       return res;
     })
-    .catch((e) => {
-      throw Error(e);
+    .catch((error: AxiosError<BasicError>) => {
+      return error;
     });
 
   return response;
@@ -73,7 +74,6 @@ export const getAllUsers = () => {
 
   return response;
 };
-
 
 export const getUserById = (id: number | string) => {
   const response = makeRequest
