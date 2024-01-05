@@ -1,1 +1,13 @@
-<?xml version="1.0" standalone="no"?><svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000.0000000000001" preserveAspectRatio="xMaxYMax slice"><g transform="scale(1.5313935681470139)"><rect x="0" y="0" width="653" height="653" fill="#fcfcfc"/><g transform="translate(0,0) scale(32.65) rotate(0)"><path d="M5 0H10L5 5L0 10V5L5 0Z" fill="#c2e9fd"/><path d="M20 15V20H15L20 15Z" fill="#c2e9fd"/><path d="M20 5V10L15 15L10 20H5L20 5Z" fill="#c2e9fd"/><path d="M15 0H20L5 15.0002L0 20.0002V15.0002L15 0Z" fill="#c2e9fd"/></g></g></svg>
+<?xml version="1.0" standalone="no"?>
+<svg xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000.0000000000001" preserveAspectRatio="xMaxYMax slice">
+    <g transform="scale(1.5313935681470139)">
+        <rect x="0" y="0" width="653" height="653" fill="#fcfcfc"/>
+        <g transform="translate(0,0) scale(32.65) rotate(0)">
+            <path d="M5 0H10L5 5L0 10V5L5 0Z" fill="#c2e9fd"/>
+            <path d="M20 15V20H15L20 15Z" fill="#c2e9fd"/>
+            <path d="M20 5V10L15 15L10 20H5L20 5Z" fill="#c2e9fd"/>
+            <path d="M15 0H20L5 15.0002L0 20.0002V15.0002L15 0Z" fill="#c2e9fd"/>
+        </g>
+    </g>
+</svg>

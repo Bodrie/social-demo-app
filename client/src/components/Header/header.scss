@@ -35,12 +35,19 @@
         gap: 1rem;
       }
 
-      a {
-        font-size: 20px;
-        font-weight: bold;
-        color: themed("logo");
-        text-decoration: none;
-        letter-spacing: 2px;
+      .logo {
+        background: url(themed('logoSvg')) no-repeat center center;
+        -webkit-background-size: contain;
+        -moz-background-size: contain;
+        -ms-background-size: contain;
+        -o-background-size: contain;
+        background-size: contain;
+        width: 100%;
+        height: 100%;
+
+        @include smallerThanDesktop {
+          width: 100px;
+        }
       }
     }
 

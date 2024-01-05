@@ -9,6 +9,7 @@ import {
   WbSunnyOutlined,
 } from "@mui/icons-material";
 import HeaderMobile from "./HeaderMobile";
+import LogoSrc from "../../assets/logo-white.svg";
 import "./header.scss";
 
 const Header = () => {
@@ -22,9 +23,7 @@ const Header = () => {
   return (
     <header className="header">
       <div className="left">
-        <Link to={"/"}>
-          <span>The Mesh</span>
-        </Link>
+        <Link to={"/"} className="logo" />
         {themeCtx?.theme === "light" ? (
           <DarkModeOutlined onClick={() => handleThemeChange("dark")} />
         ) : (
