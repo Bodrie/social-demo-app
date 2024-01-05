@@ -1,3 +1,4 @@
+import { AxiosError, AxiosResponse } from "axios";
 import { Login } from "./login";
 
 export type User = {
@@ -12,7 +13,7 @@ export type User = {
 
 export type AuthContextT = {
   user: User;
-  ctxLogin: (data: Login) => Promise<string>;
+  ctxLogin: (data: Login) => Promise<AxiosResponse<User, any> | AxiosError<Login>>;
   ctxLogout: () => void;
   setCurrentUser: (user: User) => void;
 };

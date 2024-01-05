@@ -39,11 +39,11 @@ export const register = (
 export const login = (loginData: Login) => {
   const response = makeRequest
     .post("/auth/login", loginData)
-    .then((res: AxiosResponse) => {
+    .then((res: AxiosResponse<User>) => {
       return res;
     })
-    .catch((e) => {
-      throw Error(e);
+    .catch((error) => {
+      return error;
     });
 
   return response;
