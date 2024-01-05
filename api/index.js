@@ -30,7 +30,7 @@ socketInit(app, options, SOCKET, NODE_ENV);
 app.use(
   cors({
     credentials: true,
-    origin: [DOMAIN],
+    origin: DOMAIN,
   })
 );
 
