@@ -11,17 +11,30 @@ export const login = (req, res) => {
       "HH:mm / DD-MM-YYYY"
     )}`
   );
+
   const q = "SELECT * FROM users WHERE email = ?";
+
+  let fields = {};
+
   db.query(q, [req.body.email], (err, data) => {
     if (err) {
       console.log("[SERVER LOG] User LOGIN Error!");
       console.log(err);
       return res.status(500).send(err);
     }
+
     if (data.length === 0) {
       console.log("[SERVER LOG] User LOGIN Error!");
       console.log("[SERVER LOG] User not found!\n");
-      return res.status(404).send({ error: "User not found!", code: 404 });
+      fields.email = "User not found!";
+    }
+
+    if (!req.body.email.length) fields.email = "Email is required!";
+
+    if (!req.body.password.length) fields.password = "Password is required!";
+
+    if (Object.keys(fields).length) {
+      return res.status(400).send(fields);
     }
 
     const checkPassword = bcrypt.compareSync(
@@ -32,9 +45,8 @@ export const login = (req, res) => {
     if (!checkPassword) {
       console.log("[SERVER LOG] User LOGIN Error!");
       console.log("[SERVER LOG] Wrong password or email!\n");
-      return res
-        .status(400)
-        .send({ error: "Wrong password or email!", code: 400 });
+      fields.password = "Wrong password!";
+      return res.status(400).send(fields);
     }
 
     const token = jwt.sign({ id: data[0].id }, KEY);
