@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { KEY } from "../config.js";
 import moment from "moment";
+import { emailValidation } from "../utils/utils.js";
 
 export const login = (req, res) => {
   console.log(
@@ -56,29 +57,40 @@ export const login = (req, res) => {
 };
 
 export const register = (req, res) => {
-  const q = "SELECT * FROM users WHERE username = ?";
-  db.query(q, [req.body.username], (err, data) => {
+  const q = "SELECT * FROM users WHERE email = ?";
+  let fields = {};
+  db.query(q, [req.body.email], (err, data) => {
     if (err) return res.status(500).send({ error: err, code: 500 });
-    if (data.length)
-      return res
-        .status(409)
-        .send({ error: "User already registred!", code: 409 });
+
+    if (data.length) fields.email = "User already registred!";
+
+    if (!emailValidation(req.body.email))
+      fields.email = "This email does not look right.";
+
+    if (!req.body.email.length) fields.email = "Email is required!";
+
+    if (!req.body.username.length) fields.username = "Username is required!";
+
+    if (!req.body.name.length) fields.name = "Name is required!";
 
     if (req.body.password.length < 6)
-      return res
-        .status(400)
-        .send({ error: "Password must be at least 6 characters long!", code: 400 });
+      fields.password = "Password must be at least 6 characters long!";
+
+    if (Object.keys(fields).length) {
+      return res.status(400).send(fields);
+    }
 
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(req.body.password, salt);
 
-    const q = "INSERT INTO users (username, email, password, name) VALUE (?)";
     const values = [
       req.body.username,
       req.body.email,
       hashedPassword,
       req.body.name,
     ];
+
+    const q = "INSERT INTO users (username, email, password, name) VALUE (?)";
     db.query(q, [values], (err, data) => {
       if (err) return res.status(500).send({ error: err, code: 500 });
       console.log(
