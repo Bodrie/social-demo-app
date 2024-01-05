@@ -34,7 +34,7 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
     <div className="right-bar">
       <div className="container">
         <div className="item">
-          <span>Suggestions for you</span>
+          <span>Suggestions for you (WIP)</span>
           <div className="user">
             <div className="user-info">
               <img src={imgSrc} alt="Recommended user" />
