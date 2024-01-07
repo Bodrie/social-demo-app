@@ -1,5 +1,3 @@
-# Currently the server is down, until 07.01.2024 - 06:00 PM
-
 # The Mesh - Social network demo app
 
 This repo contains server side and client side code for the project.
