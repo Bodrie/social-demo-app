@@ -1,9 +1,8 @@
 import http from "http";
 import https from "https";
 import { Server } from "socket.io";
-import { DOMAIN } from "./config.js";
 
-export const socketInit = (app, options, SOCKET, NODE_ENV) => {
+export const socketInit = (app, options, SOCKET, NODE_ENV, allowedDomains) => {
   const protocol = NODE_ENV === "prod" ? https : http;
 
   const server = protocol.createServer(options, app).listen(SOCKET, () => {
@@ -14,7 +13,7 @@ export const socketInit = (app, options, SOCKET, NODE_ENV) => {
 
   const io = new Server(server, {
     cors: {
-      origin: [DOMAIN],
+      origin: allowedDomains,
       methods: ["GET", "POST"],
     },
   });

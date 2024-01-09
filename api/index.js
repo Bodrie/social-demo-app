@@ -12,7 +12,7 @@ import likeRoutes from "./routes/likes.js";
 import uploadRoutes from "./routes/uploads.js";
 import activitiesRoutes from "./routes/activities.js";
 import relationshipsRoutes from "./routes/relationships.js";
-import { PORT, SOCKET, DOMAIN, NODE_ENV } from "./config.js";
+import { PORT, SOCKET, DOMAINS, NODE_ENV } from "./config.js";
 import { socketInit } from "./socket.js";
 
 const options =
@@ -23,16 +23,11 @@ const options =
       }
     : {};
 
+const allowedDomains = DOMAINS.split(", ");
+
 const app = express();
 
-socketInit(app, options, SOCKET, NODE_ENV);
-
-app.use(
-  cors({
-    credentials: true,
-    origin: DOMAIN,
-  })
-);
+socketInit(app, options, SOCKET, NODE_ENV, allowedDomains);
 
 if (NODE_ENV === "dev") {
   http.createServer(app).listen(PORT, () => {
@@ -48,11 +43,12 @@ if (NODE_ENV === "dev") {
   });
 }
 
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Credentials", true);
-  if (NODE_ENV === "dev") res.header("Access-Control-Allow-Origin", DOMAIN);
-  next();
-});
+app.use(
+  cors({
+    credentials: true,
+    origin: allowedDomains,
+  })
+);
 
 app.use(express.json());
 

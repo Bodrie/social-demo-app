@@ -2,6 +2,10 @@ import { config } from "dotenv";
 
 config({ path: "./.env.local" });
 
+process.argv.forEach((val, idx, arr) => {
+  if (idx === 2) console.log(val, " : ", idx);
+});
+
 export const {
   HOST,
   USER,
@@ -10,6 +14,6 @@ export const {
   KEY,
   PORT,
   SOCKET,
-  DOMAIN,
+  DOMAINS,
   NODE_ENV,
 } = process.env;
