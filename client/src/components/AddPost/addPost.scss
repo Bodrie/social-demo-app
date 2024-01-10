@@ -10,25 +10,52 @@
     .content {
       display: flex;
       align-items: center;
+      position: relative;
 
-      img {
+      .user-profile {
         width: 40px;
         height: 40px;
         border-radius: 50%;
         object-fit: cover;
+        align-self: start;
       }
 
       textarea {
         width: 100%;
         max-height: 65px;
-        margin-left: 1rem;
+        margin: 0 0 1rem 1rem;
+        padding: 0.5rem;
         color: themed("textColor");
         background-color: transparent;
-        border: none;
+        border: 1px solid themed('border');
+        border-radius: 10px;
         resize: none;
+
         &::-webkit-scrollbar {
           display: none;
         }
+      }
+
+      .char-left {
+        position: absolute;
+        right: 5px;
+        bottom: 18px;
+        font-size: 10px;
+        color: themed('textColor');
+      }
+    }
+
+    .post-img {
+      cursor: pointer;
+      width: 100%;
+      max-height: 500px;
+
+      &.cover {
+        object-fit: cover;
+      }
+
+      &.contain {
+        object-fit: contain;
       }
     }
 

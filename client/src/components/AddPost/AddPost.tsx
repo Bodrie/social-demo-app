@@ -11,6 +11,7 @@ const AddPost = () => {
   const authCtx = useContext(AuthContext);
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [fit, setFit] = useState(false);
 
   const mutation = useMutation({
     mutationFn: (newPost: PostCreate) => {
@@ -42,7 +43,11 @@ const AddPost = () => {
   return (
     <div className="add-post">
       <div className="content">
-        <img src={authCtx?.user?.profile_picture} alt="Current user" />
+        <img
+          className="user-profile"
+          src={authCtx?.user?.profile_picture}
+          alt="Current user"
+        />
         <textarea
           name="post"
           id="post"
@@ -50,8 +55,24 @@ const AddPost = () => {
           rows={10}
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          maxLength={500}
         />
+        {content.length ? (
+          <span className="char-left">
+            Symbols left: {500 - content.length}
+          </span>
+        ) : (
+          ""
+        )}
       </div>
+      {file && (
+        <img
+          className={`post-img ${fit ? "contain" : "cover"}`}
+          src={URL.createObjectURL(file)}
+          alt="Post content"
+          onClick={() => setFit(!fit)}
+        />
+      )}
       <hr />
       <div className="add">
         <input
