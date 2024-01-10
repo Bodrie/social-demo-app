@@ -81,7 +81,7 @@ const SinglePost = ({
     (event) => {
       handlePostInteraction(event);
     },
-    250,
+    200,
     {
       onSingleTap: () => {
         handleImgFit();
