@@ -8,3 +8,4 @@ export { default as Comments } from "./Comments/Comments";
 export { default as AddPost } from "./AddPost/AddPost";
 export { default as Chat } from "./Chat/Chat";
 export { default as UpdatePofile } from "./UpdateProfile/UpdateProfile";
+export { default as CookieBanner } from "./CookieBanner/CookieBanner";

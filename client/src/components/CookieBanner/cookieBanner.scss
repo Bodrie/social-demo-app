@@ -1,0 +1,68 @@
+@import "../../theme/theme.scss";
+
+.cookie {
+  @include themify($themes) {
+    position: fixed;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+    background-color: themed("bgSoft");
+    border-top: 1px solid themed("border");
+    color: themed("textColor");
+    animation: moveUp 1s ease-in-out;
+    visibility: visible;
+    transition: visibility 1s;
+
+    -webkit-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+    -moz-box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+    box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.09);
+
+    @keyframes moveUp {
+      from {
+        transform: translateY(15rem);
+      }
+      to {
+        transform: translateY(0rem);
+      }
+    }
+
+    &.accepted {
+      visibility: hidden;
+      animation: moveDown 1s ease-in-out;
+
+      @keyframes moveDown {
+        from {
+          transform: translateY(0rem);
+        }
+        to {
+          transform: translateY(15rem);
+        }
+      }
+    }
+
+    .heading {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .content {
+      font-size: 12px;
+      margin-bottom: 0.5rem;
+    }
+
+    .accept {
+      border: none;
+      border-radius: 5px;
+      padding: 0.5rem;
+      cursor: pointer;
+      background-color: themed("logo");
+      width: fit-content;
+
+      @include tablet {
+        font-size: 12px;
+        padding: 0.3rem;
+      }
+    }
+  }
+}

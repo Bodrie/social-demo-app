@@ -4,6 +4,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import { Login, Register, Main, Home, Profile, Users, Draft } from "../pages";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { CookieBanner } from "../components";
 
 const RouterComponent = () => {
   const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const RouterComponent = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <CookieBanner />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
