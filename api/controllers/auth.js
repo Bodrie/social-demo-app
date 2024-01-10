@@ -61,7 +61,6 @@ export const login = (req, res) => {
       .cookie("accessToken", token, {
         httpOnly: true,
         secure: true,
-        sameSite: "none", // For now, but unsafe...
         expires: new Date(Date.now() + oneWeek),
       })
       .send(user);
