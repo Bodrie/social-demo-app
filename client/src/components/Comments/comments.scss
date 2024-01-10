@@ -33,13 +33,10 @@
         background-color: transparent;
         color: themed("textColor");
       }
-      button {
-        border: none;
-        border-radius: 5px;
-        padding: 0.5rem;
-        color: white;
+
+      .send {
         cursor: pointer;
-        background-color: themed("logo");
+        color: themed("logo");
       }
     }
 

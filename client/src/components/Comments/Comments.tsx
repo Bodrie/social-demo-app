@@ -3,6 +3,7 @@ import { AuthContext } from "../../context/authContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Comment, CommentCreate } from "../../types";
 import { getPostComments, addComment, addActivity } from "../../services/axios";
+import { Send } from "@mui/icons-material";
 import moment from "moment";
 import "./comments.scss";
 
@@ -40,7 +41,7 @@ const Comments = ({ postId }: CommentsProps) => {
     },
   });
 
-  const handleCommentShare = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleCommentShare = (e: React.MouseEvent) => {
     e.preventDefault();
     mutation.mutate({ content, postId });
   };
@@ -56,7 +57,7 @@ const Comments = ({ postId }: CommentsProps) => {
           value={content}
           onChange={(e) => setContentValue(e.target.value)}
         />
-        <button onClick={handleCommentShare}>Send</button>
+        <Send className="send" onClick={handleCommentShare} />
       </div>
       {isLoading
         ? "Loading..."
