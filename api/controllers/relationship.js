@@ -1,6 +1,6 @@
 import { db } from "../connect.js";
 import jwt from "jsonwebtoken";
-import { KEY, NODE_ENV } from "../config.js";
+import { KEY } from "../config.js";
 
 export const getRelationships = (req, res) => {
   const q =
@@ -27,19 +27,15 @@ export const addRelationship = (req, res) => {
 
 export const deleteRelationship = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === "prod")
-    return res.status(401).json("Not logged in!");
+  if (!token) return res.status(401).json("Not logged in!");
 
   jwt.verify(token, KEY, (err, user) => {
-    if (err && NODE_ENV === "prod")
-      return res.status(403).json("Token is not valid!");
+    if (err) return res.status(403).json("Token is not valid!");
 
     const q =
       "DELETE FROM relationships WHERE follower_user_id = ? AND followed_user_id = ?";
 
-    const userId = NODE_ENV === "prod" ? user.id : 8;
-
-    db.query(q, [userId, req.query.id], (err, data) => {
+    db.query(q, [user.id, req.query.id], (err, data) => {
       if (err) return res.status(500).json(err);
       return res.status(200).json("Unfollow");
     });

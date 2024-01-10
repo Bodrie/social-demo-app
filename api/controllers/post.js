@@ -1,16 +1,14 @@
 import { db } from "../connect.js";
 import jwt from "jsonwebtoken";
 import moment from "moment";
-import { KEY, NODE_ENV } from "../config.js";
+import { KEY } from "../config.js";
 
 export const getPosts = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === "prod")
-    return res.status(401).send("401 Unauthorized");
+  if (!token) return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
-    if (err && NODE_ENV === "prod")
-      return res.status(403).send("Invalid token!");
+    if (err) return res.status(403).send("Invalid token!");
 
     const q = `
       SELECT DISTINCT
@@ -30,9 +28,7 @@ export const getPosts = (req, res) => {
       WHERE r.follower_user_id = ? OR p.user_id = ?
       ORDER BY p.created_at DESC`;
 
-    const userId = NODE_ENV === "prod" ? user.id : 8;
-
-    db.query(q, [userId, userId], (err, data) => {
+    db.query(q, [user.id, user.id], (err, data) => {
       if (err) {
         console.log("[SERVER LOG] Posts GET Error!");
         console.log(err);
@@ -45,21 +41,17 @@ export const getPosts = (req, res) => {
 
 export const addPost = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === "prod")
-    return res.status(401).send("401 Unauthorized");
+  if (!token) return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
-    if (err && NODE_ENV === "prod")
-      return res.status(403).send("Invalid token!");
+    if (err) return res.status(403).send("Invalid token!");
 
     const q = `INSERT INTO posts (description, image, user_id, created_at, likes) VALUES (?)`;
-
-    const userId = NODE_ENV === "prod" ? user.id : 8;
 
     const values = [
       req.body.content,
       req.body.contentImg,
-      userId,
+      user.id,
       moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
       "",
     ];
@@ -73,12 +65,10 @@ export const addPost = (req, res) => {
 
 export const getUserPosts = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === "prod")
-    return res.status(401).send("401 Unauthorized");
+  if (!token) return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
-    if (err && NODE_ENV === "prod")
-      return res.status(403).send("Invalid token!");
+    if (err) return res.status(403).send("Invalid token!");
 
     const q = `
       SELECT

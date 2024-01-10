@@ -1,15 +1,13 @@
 import { db } from "../connect.js";
-import { NODE_ENV, KEY } from "../config.js";
+import { KEY } from "../config.js";
 import jwt from "jsonwebtoken";
 
 export const getUser = (req, res) => {
   const token = req.cookies.accessToken;
-  if (!token && NODE_ENV === "prod")
-    return res.status(401).send("401 Unauthorized");
+  if (!token) return res.status(401).send("401 Unauthorized");
 
   jwt.verify(token, KEY, (err, user) => {
-    if (err && NODE_ENV === "prod")
-      return res.status(403).send("Invalid token!");
+    if (err) return res.status(403).send("Invalid token!");
 
     const q = `SELECT * FROM users WHERE id = ?`;
     db.query(q, [req.params.userId], (err, data) => {
@@ -41,7 +39,6 @@ export const getAllUsers = (req, res) => {
 };
 
 export const updateUser = (req, res) => {
-  
   // TO DO: Find a way to create query only for the changed fields;
 
   const q = `
