@@ -120,7 +120,6 @@ const AddPost = () => {
               theme={themeCtx?.theme === "dark" ? Theme.DARK : Theme.LIGHT}
             />
           </div>
-          <span>Emojis</span>
         </div>
         <button className="share" onClick={handlePostShare}>
           Share

@@ -75,7 +75,7 @@
         cursor: pointer;
 
         .emoji-picker-icon {
-          @include mobile {
+          @include smallerThanDesktop {
             display: none;
           }
         }
@@ -113,7 +113,7 @@
             }
           }
 
-          @include mobile {
+          @include smallerThanDesktop {
             display: none;
           }
         }
