@@ -35,6 +35,21 @@ const Posts = ({ profileId }: PostsProps) => {
     }
   }, [error]);
 
+  const NewUser = () => {
+    return (
+      <>
+        {data?.length === 0 && (
+          <div className="new-user">
+            <p>Seems that your feed is empty...</p>
+            <p>
+              You can start by checking the 'All users' tab in the left sidebar.
+            </p>
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="posts">
       {isLoading
@@ -48,6 +63,7 @@ const Posts = ({ profileId }: PostsProps) => {
               />
             );
           })}
+      <NewUser />
     </div>
   );
 };

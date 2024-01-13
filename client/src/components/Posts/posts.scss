@@ -1,11 +1,26 @@
 @import "../../theme/theme.scss";
 
 .posts {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+  @include themify($themes) {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
 
-  @include mobile {
-    gap: 1rem;
+    @include mobile {
+      gap: 1rem;
+    }
+
+    .new-user {
+      color: themed("textColor");
+      border: 1px solid themed("border");
+      border-radius: 10px;
+      background-color: themed("bg");
+      padding: 1rem;
+      font-weight: 500;
+
+      :first-child {
+        margin-bottom: 0.5rem;
+      }
+    }
   }
 }
