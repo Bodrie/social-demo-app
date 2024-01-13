@@ -42,7 +42,7 @@ const Posts = ({ profileId }: PostsProps) => {
           <div className="new-user">
             <p>Seems that your feed is empty...</p>
             <p>
-              You can start by checking the 'All users' tab in the left sidebar.
+              You can start by writing new post or by checking the 'All users' tab in the left sidebar.
             </p>
           </div>
         )}
