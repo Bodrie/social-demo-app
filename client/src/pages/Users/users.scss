@@ -7,18 +7,20 @@
     padding: 0.5rem;
 
     .user {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem;
-        margin-bottom: 1rem;
-        gap: 1rem;
-        text-decoration: none;
-        color: themed('textColor');
-        border-radius: 10px;
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      gap: 1rem;
+      text-decoration: none;
+      color: themed("textColor");
+      border: 1px solid themed("border");
+      border-radius: 10px;
+      background-color: themed("bg");
 
-        &:hover {
-            background-color: themed('bg');
-        }
+      &:hover {
+        transform: scale(1.01);
+      }
 
       img {
         width: 50px;

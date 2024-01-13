@@ -24,6 +24,7 @@
         height: 100%;
         object-fit: cover;
         border-radius: 10px;
+        border: 1px solid themed("border");
       }
 
       .main {
@@ -36,6 +37,7 @@
         right: 0;
         top: 200px;
         margin: auto;
+        border: 1px solid themed("border");
       }
     }
 
@@ -62,6 +64,7 @@
         align-items: center;
         justify-content: space-between;
         margin-bottom: 2rem;
+        border: 1px solid themed("border");
 
         @include mobile {
           flex-direction: column;
