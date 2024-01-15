@@ -7,3 +7,15 @@ export const db = mysql.createConnection({
   password: PASSWORD,
   database: DB,
 });
+
+export const createTenantConnection = (tenantID) => {
+  console.log(tenantID, 'createTenantConnection FUNC');
+  const db2 = mysql.createConnection({
+    host: HOST,
+    user: USER,
+    password: PASSWORD,
+    database: tenantID,
+  });
+
+  return db2
+};
