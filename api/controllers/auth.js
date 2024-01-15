@@ -1,4 +1,4 @@
-import { db, createTenantConnection } from "../connect.js";
+import { db } from "../connect.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { KEY } from "../config.js";
@@ -12,14 +12,11 @@ export const login = (req, res) => {
     )}`
   );
   
-  const subdomainOrigin = req.headers.origin.split("//")[1].split(".")[0];
-
-  const db2 = createTenantConnection(subdomainOrigin);
   const q = "SELECT * FROM users WHERE email = ?";
 
   let fields = {};
 
-  db2.query(q, [req.body.email], (err, data) => {
+  db.query(q, [req.body.email], (err, data) => {
     if (err) {
       console.log("[SERVER LOG] User LOGIN Error!");
       console.log(err);
@@ -71,12 +68,9 @@ export const login = (req, res) => {
 };
 
 export const register = (req, res) => {
-  const subdomainOrigin = req.headers.origin.split("//")[1].split(".")[0];
-
-  const db2 = createTenantConnection(subdomainOrigin);
   const q = "SELECT * FROM users WHERE email = ?";
   let fields = {};
-  db2.query(q, [req.body.email], (err, data) => {
+  db.query(q, [req.body.email], (err, data) => {
     if (err) return res.status(500).send({ error: err, code: 500 });
 
     if (data.length) fields.email = "User already registred!";
@@ -108,7 +102,7 @@ export const register = (req, res) => {
     ];
 
     const q = "INSERT INTO users (username, email, password, name) VALUE (?)";
-    db2.query(q, [values], (err, data) => {
+    db.query(q, [values], (err, data) => {
       if (err) return res.status(500).send({ error: err, code: 500 });
       console.log(
         `[SERVER LOG] User REGISTER ${moment(Date.now()).format(
