@@ -12,6 +12,8 @@ export const login = (req, res) => {
     )}`
   );
   console.log(req);
+  console.log(req.header('Origin'));
+  console.log(req.headers.origin);
   console.log(req.subdomains);
   console.log(req.subdomains[0]);
 
@@ -73,6 +75,8 @@ export const login = (req, res) => {
 
 export const register = (req, res) => {
   console.log(req);
+  console.log(req.header('Origin'));
+  console.log(req.headers.origin);
   console.log(req.subdomains);
   console.log(req.subdomains[0]);
 
