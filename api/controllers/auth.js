@@ -11,13 +11,10 @@ export const login = (req, res) => {
       "HH:mm / DD-MM-YYYY"
     )}`
   );
-  console.log(req);
-  console.log(req.header('Origin'));
-  console.log(req.headers.origin);
-  console.log(req.subdomains);
-  console.log(req.subdomains[0]);
+  
+  const subdomainOrigin = req.headers.origin.split("//")[1].split(".")[0];
 
-  const db2 = createTenantConnection(req.subdomains[0]);
+  const db2 = createTenantConnection(subdomainOrigin);
   const q = "SELECT * FROM users WHERE email = ?";
 
   let fields = {};
@@ -74,13 +71,9 @@ export const login = (req, res) => {
 };
 
 export const register = (req, res) => {
-  console.log(req);
-  console.log(req.header('Origin'));
-  console.log(req.headers.origin);
-  console.log(req.subdomains);
-  console.log(req.subdomains[0]);
+  const subdomainOrigin = req.headers.origin.split("//")[1].split(".")[0];
 
-  const db2 = createTenantConnection(req.subdomains[0]);
+  const db2 = createTenantConnection(subdomainOrigin);
   const q = "SELECT * FROM users WHERE email = ?";
   let fields = {};
   db2.query(q, [req.body.email], (err, data) => {
