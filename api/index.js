@@ -54,6 +54,8 @@ app.use(express.json());
 
 app.use(cookieParser());
 
+app.set('subdomain offset', 1)
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
