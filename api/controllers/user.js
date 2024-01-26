@@ -72,3 +72,37 @@ export const updateUser = (req, res) => {
     return res.status(200).send(data);
   });
 };
+
+export const getSuggestions = (req, res) => {
+  const token = req.cookies.accessToken;
+  if (!token) return res.status(401).send("401 Unauthorized");
+
+  jwt.verify(token, KEY, (err, user) => {
+    if (err) return res.status(403).send("Invalid token!");
+
+    const q = `
+      SELECT u.id, u.name, u.profile_picture
+      FROM users u
+      WHERE u.id <> ?
+      AND NOT EXISTS (
+          SELECT 1
+          FROM relationships fr
+          WHERE fr.followed_user_id = u.id AND fr.follower_user_id = ?
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM relationships fo
+          WHERE fo.follower_user_id = u.id AND fo.followed_user_id = ?
+      );
+    `;
+
+    db.query(q, [user.id, user.id, user.id], (err, data) => {
+      if (err) {
+        console.log("[SERVER LOG] User UPDATE Error!");
+        console.log(err);
+        return res.status(500).send(err);
+      }
+      return res.status(200).send(data);
+    });
+  });
+};
