@@ -87,29 +87,36 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
             })}
           </div>
         </div>
-        <div className="item">
-          <span>Latest activities</span>
-          {data.map(
-            (
-              { profilePic, user, activity, createdAt }: ActivityType,
-              idx: number
-            ) => {
-              if (idx > 3) return;
-              return (
-                <div className="user">
-                  <div className="user-info">
-                    <img src={profilePic} alt="User activity on something" />
-                    <span>{user}</span>
-                    <p>{activity}</p>
+        {data.length ? (
+          <div className="item">
+            <span>Latest activities</span>
+            {data.map(
+              (
+                { profilePic, user, activity, createdAt }: ActivityType,
+                idx: number
+              ) => {
+                if (idx > 3) return;
+                return (
+                  <div className="user">
+                    <div className="user-info">
+                      <img src={profilePic} alt="User activity on something" />
+                      <span>{user}</span>
+                      <p>{activity}</p>
+                    </div>
+                    <span className="when">{moment(createdAt).fromNow()}</span>
                   </div>
-                  <span className="when">{moment(createdAt).fromNow()}</span>
-                </div>
-              );
-            }
-          )}
-        </div>
+                );
+              }
+            )}
+          </div>
+        ) : (
+          <></>
+        )}
+
         <div className="item">
-          <span>{onlineUsers.length ? "Online users" : "Nobody's online"}</span>
+          <span>
+            {onlineUsers.length > 1 ? "Online users" : "Nobody's online"}
+          </span>
           {onlineUsers.map((user: UserChat<Messages>) => {
             if (authCtx?.user?.id === user.userId) return;
             return (
