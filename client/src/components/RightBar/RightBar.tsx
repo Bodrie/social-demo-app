@@ -64,7 +64,11 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
     <div className="right-bar">
       <div className="container">
         <div className="item">
-          <span>Suggestions for you</span>
+          <span>
+            {suggestions.length
+              ? "Suggestions for you"
+              : "No current sugestions"}
+          </span>
           <div className="suggestions">
             {suggestions.map((user) => {
               return (
@@ -105,7 +109,7 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
           )}
         </div>
         <div className="item">
-          <span>Online users</span>
+          <span>{onlineUsers.length ? "Online users" : "Nobody's online"}</span>
           {onlineUsers.map((user: UserChat<Messages>) => {
             if (authCtx?.user?.id === user.userId) return;
             return (
