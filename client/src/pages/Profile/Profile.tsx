@@ -52,6 +52,7 @@ const Profile = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relationships"] });
+      queryClient.invalidateQueries({ queryKey: ["suggestions"] });
     },
   });
 
