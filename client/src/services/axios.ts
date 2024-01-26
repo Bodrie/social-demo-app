@@ -114,6 +114,19 @@ export const getUserPosts = (id: number) => {
   return response;
 };
 
+export const getUserSuggestions = () => {
+  const response = makeRequest
+    .get(`/users/suggestions`)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      throw Error(e);
+    });
+
+  return response;
+};
+
 export const getPosts = () => {
   const response = makeRequest
     .get("/posts")
