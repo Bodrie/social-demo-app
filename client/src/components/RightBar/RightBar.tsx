@@ -1,8 +1,12 @@
 import React, { useContext } from "react";
+import { Link } from "react-router-dom";
 import { AuthContext } from "../../context/authContext";
-import { useQuery } from "@tanstack/react-query";
-import { getActivities } from "../../services/axios";
-import imgSrc from "../../assets/images.png";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getActivities,
+  getUserSuggestions,
+  addRelationship,
+} from "../../services/axios";
 import { ActivityType, UserChat, Messages } from "../../types";
 import moment from "moment";
 import "./rightBar.scss";
@@ -13,10 +17,19 @@ interface RightBarProps {
 }
 
 const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
+  const queryClient = useQueryClient();
   const authCtx = useContext(AuthContext);
+
   const { isLoading, error, data } = useQuery<ActivityType[]>({
     queryKey: ["activities"],
     queryFn: () => getActivities(authCtx?.user?.id!),
+  });
+
+  const { isLoading: suggestionsLoading, data: suggestions } = useQuery<
+    Record<string, string>[]
+  >({
+    queryKey: ["suggestions"],
+    queryFn: () => getUserSuggestions(),
   });
 
   const joinUserChat = (newChat: UserChat<Messages>) => {
@@ -28,32 +41,46 @@ const RightBar = ({ onlineUsers, setOpenChats }: RightBarProps) => {
     });
   };
 
-  if (isLoading || !data || !onlineUsers) return <p>Loading...</p>;
+  const mutation = useMutation({
+    mutationFn: (userId: string) => {
+      return addRelationship({
+        currUserId: authCtx.user.id,
+        foreignUserId: userId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["relationships"] });
+      queryClient.invalidateQueries({ queryKey: ["suggestions"] });
+    },
+  });
+  const handleFollow = (userId: string) => {
+    mutation.mutate(userId);
+  };
+
+  if (isLoading || !data || !onlineUsers || suggestionsLoading || !suggestions)
+    return <p>Loading...</p>;
 
   return (
     <div className="right-bar">
       <div className="container">
         <div className="item">
-          <span>Suggestions for you (WIP)</span>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="Recommended user" />
-              <span>User Name</span>
-            </div>
-            <div className="buttons">
-              <button>Follow</button>
-              <button>Dismiss</button>
-            </div>
-          </div>
-          <div className="user">
-            <div className="user-info">
-              <img src={imgSrc} alt="Recommended user" />
-              <span>User Name</span>
-            </div>
-            <div className="buttons">
-              <button>Follow</button>
-              <button>Dismiss</button>
-            </div>
+          <span>Suggestions for you</span>
+          <div className="suggestions">
+            {suggestions.map((user) => {
+              return (
+                <div className="user" key={user.id}>
+                  <Link className="user-info" to={`/profile?id=${user.id}`}>
+                    <img src={user.profile_picture} alt="Recommended user" />
+                    <span>{user.name}</span>
+                  </Link>
+                  <div className="buttons">
+                    <button onClick={() => handleFollow(user.id)}>
+                      Follow
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="item">
