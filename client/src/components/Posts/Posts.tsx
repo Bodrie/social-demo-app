@@ -1,6 +1,6 @@
-import React, { useContext, useEffect } from "react";
+import { useContext, useEffect } from "react";
 import { AuthContext } from "../../context/authContext";
-import { SinglePost } from "../../components";
+import { SinglePost, LoadingSpinner } from "../../components";
 import { useQuery } from "@tanstack/react-query";
 import {
   getPosts,
@@ -42,7 +42,8 @@ const Posts = ({ profileId }: PostsProps) => {
           <div className="new-user">
             <p>Seems that your feed is empty...</p>
             <p>
-              You can start by writing new post or by checking the 'All users' tab in the left sidebar.
+              You can start by writing new post or by checking the 'All users'
+              tab in the left sidebar.
             </p>
           </div>
         )}
@@ -52,17 +53,15 @@ const Posts = ({ profileId }: PostsProps) => {
 
   return (
     <div className="posts">
-      {isLoading
-        ? "Loading..."
-        : data?.map((post) => {
-            return (
-              <SinglePost
-                {...post}
-                key={post.id}
-                commentsCount={commentsCount}
-              />
-            );
-          })}
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : (
+        data?.map((post) => {
+          return (
+            <SinglePost {...post} key={post.id} commentsCount={commentsCount} />
+          );
+        })
+      )}
       <NewUser />
     </div>
   );

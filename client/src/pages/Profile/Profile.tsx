@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/authContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -8,7 +8,7 @@ import {
   getRelationships,
   deleteRelationship,
 } from "../../services/axios";
-import { Posts, UpdatePofile } from "../../components";
+import { LoadingSpinner, Posts, UpdatePofile } from "../../components";
 import { User } from "../../types";
 import {
   FacebookTwoTone,
@@ -66,7 +66,7 @@ const Profile = () => {
     }
   }, [data]);
 
-  if (isLoading || !user) return <p>Loading...</p>;
+  if (isLoading || !user) return <LoadingSpinner />;
   const isCurrentUser = user.id === authCtx.user.id;
 
   return (
