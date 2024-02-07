@@ -83,7 +83,7 @@ export const getSuggestions = (req, res) => {
     const q = `
       SELECT u.id, u.name, u.profile_picture
       FROM users u
-      WHERE u.id <> ?
+      WHERE u.id != ?
       AND NOT EXISTS (
           SELECT 1
           FROM relationships fr
