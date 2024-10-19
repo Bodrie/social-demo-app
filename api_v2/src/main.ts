@@ -7,8 +7,11 @@ async function bootstrap() {
   const ORIGINS = process.env.ORIGINS || 'http://localhost:3000';
   const app = await NestFactory.create(AppModule, {
     cors: { origin: ORIGINS },
-    logger: new LoggerCall(),
+    // logger: new LoggerCall(),
   });
+
+  app.setGlobalPrefix('api/v2');
+
   await app.listen(PORT);
 }
 bootstrap();
