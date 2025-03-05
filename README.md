@@ -44,6 +44,8 @@ This repository contains two shell scripts for deploying the code:
 
 - [ ] Migrate / Swithch from ExpressJS to NestJS on the server-side
 
+- [ ] Migrate / Swithch from CRA to Vite
+
 - [ ] Extract reusable components from the existing code on the client-side
 
 - [ ] General refactoring, fixing and polishing of the code base
