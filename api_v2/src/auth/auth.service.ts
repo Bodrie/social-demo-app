@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { UserService } from 'src/user/user.service';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
@@ -15,9 +15,7 @@ export class AuthService {
   private saltRounds = this.configService.get<number>('SALT');
 
   async hashPassword(password: string): Promise<string> {
-    console.log('this.saltRounds', this.saltRounds);
     const salt = await bcrypt.genSalt(Number(this.saltRounds));
-    console.log('salt', salt);
     return bcrypt.hash(password, salt);
   }
 
@@ -44,7 +42,6 @@ export class AuthService {
     );
     try {
       const hashedPassword = await this.hashPassword(password);
-      console.log('hashedPassword', hashedPassword);
       const user = await this.userService.createUser({
         email,
         password: hashedPassword,
@@ -101,6 +98,7 @@ export class AuthService {
         });
       }
     } catch (error) {
+      console.log('error', error);
       throw new BadRequestException({
         error: error,
         message: 'User login error!',
