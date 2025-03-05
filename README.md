@@ -6,14 +6,14 @@ This repository contains the server-side and client-side code for the project.
 
 ## 🚨 Development Status: Frozen
 
-As of now, active development on this project is **on hold**. No new features or updates are planned until further notice.
+For long time active development on this project is **on hold**. No new features or updates are planned.
 
 ---
 
 ## 🌍 Environments
 
-- **Production:** [~~https://the-mesh.eu~~](https://the-mesh.eu)
-- **Development:** [https://dev-the-mesh.vercel.app](https://dev-the-mesh.vercel.app) _(Currently inactive)_
+- **Production:** [~~https://the-mesh.eu~~](https://the-mesh.eu) _(Currently inactive)_
+- **Development:** [https://dev-the-mesh.vercel.app](https://dev-the-mesh.vercel.app)
 
 ---
 
