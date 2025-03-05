@@ -1,25 +1,47 @@
-# The Mesh - Social network demo app
+# The Mesh - Social Network Demo App
 
-This repo contains server side and client side code for the project.
+This repository contains the server-side and client-side code for the project.
 
-# Production environment
+---
 
-[https://the-mesh.eu](https://the-mesh.eu)
+## 🚨 Development Status: Frozen
 
-# Development environment
+As of now, active development on this project is **on hold**. No new features or updates are planned until further notice.
 
-[https://dev-the-mesh.vercel.app](https://dev-the-mesh.vercel.app)
+---
 
-## Server and DB
+## 🌍 Environments
 
-The code lives on physical machine which runs on Ubuntu Server v23.10.\
-`Nginx` serves the front-end part and `PM2` manages the NodeJS server instance.\
-The database is `MySQL`, but the connection in the NodeJS is with package `mysql2` and not `mysql`, this resolves an issue with making query requests to the DB.
+- **Production:** [~~https://the-mesh.eu~~](https://the-mesh.eu)
+- **Development:** [https://dev-the-mesh.vercel.app](https://dev-the-mesh.vercel.app) _(Currently inactive)_
 
-## Deploy scripts
+---
 
-This directory contains two shell scripts which are pushing the code respectively to the production and development environment. There is no actual development environment, but if the code is pushed to the main branch it will be automatically deployed to Vercel. And if we want to deploy to production the script is building the app locally and then uploading it to the server.
+## 🖥 Server & Database
 
-## TO DO
+- Hosted on a **physical machine** running **Ubuntu Server v23.10**.
+- **Nginx** serves the front-end, and **PM2** manages the **Node.js** server instance.
+- **Database:** MySQL, but using the `mysql2` package instead of `mysql` in Node.js to avoid query-related issues.
 
-Add Docker container...
+---
+
+## 🚀 Deployment
+
+### Deploy Scripts
+
+This repository contains two shell scripts for deploying the code:
+
+1. **Development Deployment:**
+
+   - While there's no separate development environment, pushing to the `main` branch triggers an automatic deployment to **Vercel**.
+
+2. **Production Deployment:**
+   - The script builds the app locally and then uploads it to the **production server** manually.
+
+---
+
+## 📌 To-Do _(Paused)_
+
+- [ ] Add Docker containerization
+
+---
