@@ -6,6 +6,6 @@ cd client
 npm run build
 
 echo "Deploying to server..."
-scp -r build/* bodrie-server@79.100.23.39:/var/www/the-mesh.eu
+scp -r build/* $DEPLOY_USER@$DEPLOY_HOST:/var/www/the-mesh.eu
 
 echo "Done!"
