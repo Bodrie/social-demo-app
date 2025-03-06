@@ -46,6 +46,8 @@ This repository contains two shell scripts for deploying the code:
 
 - [ ] Migrate / Swithch from CRA to Vite
 
+- [ ] Utilize TanStack Query for the network / server calls
+
 - [ ] Extract reusable components from the existing code on the client-side
 
 - [ ] General refactoring, fixing and polishing of the code base
