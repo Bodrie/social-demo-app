@@ -37,6 +37,15 @@ export const bob = makeUser({
   username: 'bob',
   name: 'Bob Brown',
   email: 'bob@example.com',
+  city: 'Plovdiv',
+  bio: 'Builds things.',
+});
+export const carol = makeUser({
+  id: testId('user', 3),
+  username: 'carol',
+  name: 'Carol Clark',
+  email: 'carol@example.com',
+  city: 'Varna',
 });
 
 export function summaryOf(user: UserPrivate): UserSummary {

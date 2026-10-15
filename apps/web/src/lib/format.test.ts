@@ -1,4 +1,4 @@
-import { formatDateTime, formatRelativeTime } from './format';
+import { displayUrl, formatDateTime, formatRelativeTime } from './format';
 
 const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -24,5 +24,12 @@ describe('formatRelativeTime', () => {
 describe('formatDateTime', () => {
   it('formats a full timestamp', () => {
     expect(formatDateTime('2026-10-15T09:05:00.000Z')).toMatch(/^Oct 15, 2026 at \d{2}:\d{2}$/);
+  });
+});
+
+describe('displayUrl', () => {
+  it('drops the scheme and a trailing slash', () => {
+    expect(displayUrl('https://example.com/')).toBe('example.com');
+    expect(displayUrl('http://example.com/path/')).toBe('example.com/path');
   });
 });

@@ -1,14 +1,19 @@
 /**
  * Query key factory. Every key starts with its feature so invalidation can be scoped,
- * and `endSession` can drop everything except `me`. Post lists share the
- * `['posts', 'list']` prefix so cache updates (likes, deletes) reach every list.
+ * and `endSession` can drop everything except `me`. Post and user lists share the
+ * `[feature, 'list']` prefix so cache updates (likes, follows, deletes) reach every list.
  */
 export const queryKeys = {
   me: ['me'] as const,
   users: {
     all: ['users'] as const,
-    byUsername: (username: string) => ['users', 'by-username', username] as const,
-    byId: (id: string) => ['users', id] as const,
+    profiles: ['users', 'profile'] as const,
+    profile: (username: string) => ['users', 'profile', username] as const,
+    lists: ['users', 'list'] as const,
+    followers: (userId: string) => ['users', 'list', 'followers', userId] as const,
+    following: (userId: string) => ['users', 'list', 'following', userId] as const,
+    search: (q: string) => ['users', 'list', 'search', q] as const,
+    suggestions: ['users', 'list', 'suggestions'] as const,
   },
   posts: {
     lists: ['posts', 'list'] as const,

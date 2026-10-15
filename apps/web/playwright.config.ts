@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { STORAGE_STATE } from './e2e/helpers.js';
 
 const WEB_PORT = 4173;
 const API_PORT = 3000;
@@ -20,7 +21,15 @@ export default defineConfig({
     baseURL: `http://localhost:${WEB_PORT}`,
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // Signs in once and saves the cookies; specs that need an anonymous start opt out per file.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+    },
+  ],
   webServer: [
     {
       command: 'node dist/main.js',

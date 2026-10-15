@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
+import { toast } from 'sonner';
 import { MockIntersectionObserver } from './intersection-observer';
 import { resetMocks } from './msw/handlers';
 import { server } from './msw/server';
@@ -69,6 +70,8 @@ beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   resetMocks();
+  // Sonner keeps toasts in a module-level store and replays active ones to the next Toaster.
+  toast.dismiss();
   window.localStorage.clear();
   document.documentElement.className = '';
 });
