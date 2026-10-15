@@ -27,11 +27,12 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="gap-2 px-2" aria-label="Account menu">
+        <Button variant="ghost" className="gap-2 px-2">
           <UserAvatar user={user} className="size-8" />
           <span className="hidden max-w-40 truncate text-sm font-medium md:inline">
             {user.name}
           </span>
+          <span className="sr-only">, account menu</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

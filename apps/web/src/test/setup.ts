@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { configure } from '@testing-library/react';
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { toast } from 'sonner';
 import { MockIntersectionObserver } from './intersection-observer';
@@ -69,6 +70,9 @@ window.requestAnimationFrame ??= (callback: FrameRequestCallback) =>
 
 // The chat socket never leaves jsdom: every `io()` call returns the shared fake.
 vi.mock('socket.io-client', () => ({ io: () => fakeSocket }));
+
+// Dialogs and lazy route chunks take longer when the API and web suites run side by side (CI, `pnpm check`).
+configure({ asyncUtilTimeout: 3000 });
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {

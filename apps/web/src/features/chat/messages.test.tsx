@@ -6,6 +6,9 @@ import { mockDb, signedInAs } from '@/test/msw/handlers';
 import { renderApp } from '@/test/render';
 import { fakeSocket } from '@/test/socket-mock';
 
+const rowsOf = () =>
+  within(screen.getByRole('list', { name: 'Conversations' })).getAllByRole('listitem');
+
 function seedChats() {
   mockDb.messages.push(
     makeMessage(alice.id, carol.id, 'Hi Carol', { readAt: '2026-10-15T09:30:00.000Z' }),
@@ -74,8 +77,6 @@ describe('messages', () => {
     await within(log).findByText('At noon?');
 
     // Carol writes while Bob's thread is open: her row moves up with an unread badge.
-    const rowsOf = () =>
-      within(screen.getByRole('list', { name: 'Conversations' })).getAllByRole('listitem');
     act(() =>
       fakeSocket.serverEmit(SOCKET_EVENTS.messageNew, makeMessage(carol.id, alice.id, 'Ping')),
     );
@@ -117,7 +118,9 @@ describe('messages', () => {
     expect(
       await screen.findByRole('log', { name: 'Conversation with Carol Clark' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/beginning of your conversation with Carol Clark/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/beginning of your conversation with Carol Clark/),
+    ).toBeInTheDocument();
   });
 
   it('shows who is online and reconnects with a fresh token after a server disconnect', async () => {

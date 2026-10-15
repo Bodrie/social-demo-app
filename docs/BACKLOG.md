@@ -40,3 +40,4 @@ Items the API review (2026-10-15) surfaced that are real but not needed for v2.0
 - Profile: a "Message" button once chat lands (4f), cover/avatar cropping, and blocking/reporting (not in the legacy app either).
 - Activity: realtime updates for the sidebar card (push from the socket once 4f lands, or light polling), and linking excerpts to a post permalink.
 - Chat: typing indicators and message deletion need API support; browser notifications and a sound for new messages; a "new messages" pill when the reader has scrolled up; per-tab unread title badge.
+- Performance (Lighthouse mobile: feed 64, profile 74): `zod/mini` build of the shared schemas for the browser (≈ 25 kB gz of the first paint), width/height and `srcset` for post images from the upload metadata (CLS, LCP), `fetchpriority="high"` on the first feed image, `<link rel=preload>` for the Latin Inter subset, prefetching route chunks on link hover.

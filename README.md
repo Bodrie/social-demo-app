@@ -15,7 +15,7 @@ pnpm db:deploy && pnpm db:seed   # migrations + demo data (alice/bob/carol, Pass
 pnpm dev        # shared (watch) + api (nest --watch, :3000) + web (vite, :5173 proxying /api)
 pnpm check      # lint, typecheck, test, build – the same as CI
 pnpm test:int   # API integration tests (HTTP level)
-pnpm --filter @the-mesh/web e2e   # Playwright smoke tests (after pnpm build; browsers: … exec playwright install chromium)
+pnpm --filter @the-mesh/web e2e   # Playwright: smoke, feed, profile, people, chat, axe a11y (after pnpm build; browsers: … exec playwright install chromium)
 ```
 
 

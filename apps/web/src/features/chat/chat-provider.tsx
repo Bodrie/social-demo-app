@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { ApiClientError, notifySessionLost, refreshSession } from '@/lib/api/client';
 import { markReadHttp, sendMessageHttp } from '@/lib/api/messages';
-import { getChatSocket } from '@/lib/socket';
+import type { ChatSocket } from '@/lib/socket';
 import { ChatContext, type ChatContextValue } from './chat-context';
 import {
   appendToThread,
@@ -24,8 +24,19 @@ import {
 
 const ACK_TIMEOUT_MS = 8000;
 
+const onException = (error: { message: string }) => toast.error(error.message);
+
+/** socket.io keeps retrying by itself; a refreshed cookie makes the next attempt succeed. */
+const onConnectError = (error: Error) => {
+  if (error.message === 'Unauthorized') {
+    void (async () => {
+      if (!(await refreshSession())) notifySessionLost();
+    })();
+  }
+};
+
 /** After the server closed the socket (token expiry, revoked sessions), only a fresh token helps. */
-async function reconnectWithFreshToken(socket: ReturnType<typeof getChatSocket>): Promise<void> {
+async function reconnectWithFreshToken(socket: ChatSocket): Promise<void> {
   if (await refreshSession()) socket.connect();
   else notifySessionLost();
 }
@@ -40,13 +51,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [online, setOnline] = useState<UserSummary[]>([]);
   const activePeer = useRef<string | null>(null);
+  const socketRef = useRef<ChatSocket | null>(null);
 
   const markRead = useCallback(
     async (peerId: string) => {
       markReceivedRead(queryClient, peerId, new Date().toISOString());
-      const socket = getChatSocket();
+      const socket = socketRef.current;
       try {
-        if (socket.connected) {
+        if (socket?.connected) {
           const ack = await socket
             .timeout(ACK_TIMEOUT_MS)
             .emitWithAck(SOCKET_EVENTS.messageRead, { userId: peerId });
@@ -62,21 +74,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const socket = getChatSocket();
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+
     const onConnect = () => setConnected(true);
-    const onDisconnect = (reason: Socket.DisconnectReason) => {
-      setConnected(false);
-      setOnline([]);
-      if (reason === 'io server disconnect') void reconnectWithFreshToken(socket);
-    };
-    const onConnectError = (error: Error) => {
-      // socket.io keeps retrying by itself; a refreshed cookie makes the next attempt succeed.
-      if (error.message === 'Unauthorized') {
-        void (async () => {
-          if (!(await refreshSession())) notifySessionLost();
-        })();
-      }
-    };
     const onPresence = (users: PresenceUpdate) => setOnline(users);
     const onMessage = (message: Message) => {
       const peerId = peerOf(message, me.id);
@@ -89,34 +90,52 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
     const onRead = ({ userId, readAt }: ConversationReadPayload) =>
       markSentRead(queryClient, userId, me.id, readAt);
-    const onException = (error: { message: string }) => toast.error(error.message);
 
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
-    socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
-    socket.on(SOCKET_EVENTS.messageNew, onMessage);
-    socket.on(SOCKET_EVENTS.conversationRead, onRead);
-    socket.on(SOCKET_EVENTS.exception, onException);
-    socket.connect();
+    // socket.io-client is its own chunk; it loads once the shell is already on screen.
+    void (async () => {
+      const { getChatSocket } = await import('@/lib/socket');
+      if (disposed) return;
+      const socket = getChatSocket();
+      socketRef.current = socket;
+      const onDisconnect = (reason: Socket.DisconnectReason) => {
+        setConnected(false);
+        setOnline([]);
+        if (reason === 'io server disconnect') void reconnectWithFreshToken(socket);
+      };
+
+      socket.on('connect', onConnect);
+      socket.on('disconnect', onDisconnect);
+      socket.on('connect_error', onConnectError);
+      socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
+      socket.on(SOCKET_EVENTS.messageNew, onMessage);
+      socket.on(SOCKET_EVENTS.conversationRead, onRead);
+      socket.on(SOCKET_EVENTS.exception, onException);
+      socket.connect();
+
+      cleanup = () => {
+        socket.off('connect', onConnect);
+        socket.off('disconnect', onDisconnect);
+        socket.off('connect_error', onConnectError);
+        socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
+        socket.off(SOCKET_EVENTS.messageNew, onMessage);
+        socket.off(SOCKET_EVENTS.conversationRead, onRead);
+        socket.off(SOCKET_EVENTS.exception, onException);
+        socket.disconnect();
+        socketRef.current = null;
+      };
+    })();
 
     return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-      socket.off('connect_error', onConnectError);
-      socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
-      socket.off(SOCKET_EVENTS.messageNew, onMessage);
-      socket.off(SOCKET_EVENTS.conversationRead, onRead);
-      socket.off(SOCKET_EVENTS.exception, onException);
-      socket.disconnect();
+      disposed = true;
+      cleanup?.();
       setConnected(false);
       setOnline([]);
     };
   }, [me.id, queryClient, markRead]);
 
   const sendMessage = useCallback(async (recipientId: string, content: string) => {
-    const socket = getChatSocket();
-    if (!socket.connected) return sendMessageHttp(recipientId, { content });
+    const socket = socketRef.current;
+    if (!socket?.connected) return sendMessageHttp(recipientId, { content });
     const ack = await socket
       .timeout(ACK_TIMEOUT_MS)
       .emitWithAck(SOCKET_EVENTS.messageSend, { recipientId, content });

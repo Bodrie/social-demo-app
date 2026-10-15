@@ -145,7 +145,8 @@ export function Thread({ peer }: { peer: UserSummary }) {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+        tabIndex={0}
         role="log"
         aria-label={`Conversation with ${peer.name}`}
         aria-live="polite"

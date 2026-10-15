@@ -52,6 +52,7 @@ export function PostCard({ post }: { post: Post }) {
             src={post.imageUrl}
             alt={`Posted by ${post.author.name}`}
             loading="lazy"
+            decoding="async"
             className="mt-3 max-h-[32rem] w-full rounded-lg border object-cover"
           />
         ) : null}

@@ -1,21 +1,32 @@
-import { createBrowserRouter, createMemoryRouter, type RouteObject } from 'react-router';
+import { type RouteObject, createBrowserRouter, createMemoryRouter } from 'react-router';
+import { FullPageSpinner } from '@/components/full-page-spinner';
 import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
-import { ActivityPage } from '@/features/activities/activity-page';
-import { MessagesIndex, MessagesPage } from '@/features/chat/messages-page';
-import { ThreadPage } from '@/features/chat/thread-page';
 import { HomePage } from '@/features/feed/home-page';
-import { ProfileFollowers, ProfileFollowing } from '@/features/profile/profile-followers';
-import { ProfilePage } from '@/features/profile/profile-page';
-import { ProfilePosts } from '@/features/profile/profile-posts';
-import { UsersPage } from '@/features/users/users-page';
 import { RedirectIfAuthenticated, RequireAuth } from './routes/require-auth';
 import { RouteError } from './routes/route-error';
 
+type ProfileRoutes = typeof import('@/features/profile/routes');
+type ChatRoutes = typeof import('@/features/chat/routes');
+
+/** Picks one component out of a feature's route module; the module itself is one shared chunk. */
+const profile = (name: keyof ProfileRoutes) => async () => ({
+  Component: (await import('@/features/profile/routes'))[name],
+});
+const chat = (name: keyof ChatRoutes) => async () => ({
+  Component: (await import('@/features/chat/routes'))[name],
+});
+
+/**
+ * The shell, the home feed and the auth pages ship in the entry chunk; every other
+ * page is loaded on first visit (`lazy`). The spinner covers a direct load of a lazy
+ * address; later navigations keep the current page until the chunk is ready.
+ */
 export const routes: RouteObject[] = [
   {
     errorElement: <RouteError />,
+    hydrateFallbackElement: <FullPageSpinner label="Loading" />,
     children: [
       {
         element: <RequireAuth />,
@@ -24,25 +35,41 @@ export const routes: RouteObject[] = [
             element: <AppShell />,
             children: [
               { index: true, element: <HomePage /> },
-              { path: 'users', element: <UsersPage /> },
-              { path: 'activity', element: <ActivityPage /> },
+              {
+                path: 'users',
+                lazy: async () => ({
+                  Component: (await import('@/features/users/users-page')).UsersPage,
+                }),
+              },
+              {
+                path: 'activity',
+                lazy: async () => ({
+                  Component: (await import('@/features/activities/activity-page')).ActivityPage,
+                }),
+              },
               {
                 path: 'messages',
-                element: <MessagesPage />,
+                lazy: chat('MessagesPage'),
                 handle: { wide: true },
                 children: [
-                  { index: true, element: <MessagesIndex /> },
-                  { path: ':username', element: <ThreadPage /> },
+                  { index: true, lazy: chat('MessagesIndex') },
+                  { path: ':username', lazy: chat('ThreadPage') },
                 ],
               },
               {
                 path: 'u/:username',
-                element: <ProfilePage />,
+                lazy: profile('ProfilePage'),
                 children: [
-                  { index: true, element: <ProfilePosts /> },
-                  { path: 'followers', element: <ProfileFollowers /> },
-                  { path: 'following', element: <ProfileFollowing /> },
+                  { index: true, lazy: profile('ProfilePosts') },
+                  { path: 'followers', lazy: profile('ProfileFollowers') },
+                  { path: 'following', lazy: profile('ProfileFollowing') },
                 ],
+              },
+              {
+                path: '*',
+                lazy: async () => ({
+                  Component: (await import('@/features/not-found/not-found-page')).NotFoundPage,
+                }),
               },
             ],
           },
