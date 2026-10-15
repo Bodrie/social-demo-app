@@ -1,10 +1,11 @@
 import { parseOrigins, validateEnv } from './env.js';
 
 const DATABASE_URL = 'postgresql://mesh:mesh@localhost:5433/mesh';
+const JWT_SECRET = 'unit-test-secret-unit-test-secret-unit-test';
 
 describe('validateEnv', () => {
   it('applies defaults when only DATABASE_URL is provided', () => {
-    const env = validateEnv({ DATABASE_URL });
+    const env = validateEnv({ DATABASE_URL, JWT_SECRET });
 
     expect(env).toMatchObject({
       NODE_ENV: 'development',
@@ -20,6 +21,7 @@ describe('validateEnv', () => {
   it('coerces strings from the environment', () => {
     const env = validateEnv({
       DATABASE_URL,
+      JWT_SECRET,
       PORT: '8080',
       TRUST_PROXY: 'true',
       WEB_ORIGINS: 'https://the-mesh.example, https://www.the-mesh.example',
@@ -33,12 +35,16 @@ describe('validateEnv', () => {
   });
 
   it('refuses to start without a valid DATABASE_URL', () => {
-    expect(() => validateEnv({})).toThrow(/DATABASE_URL/);
-    expect(() => validateEnv({ DATABASE_URL: 'not a url' })).toThrow(/DATABASE_URL/);
+    expect(() => validateEnv({ JWT_SECRET })).toThrow(/DATABASE_URL/);
+    expect(() => validateEnv({ DATABASE_URL: 'not a url', JWT_SECRET })).toThrow(/DATABASE_URL/);
   });
 
   it('rejects unknown log levels', () => {
-    expect(() => validateEnv({ DATABASE_URL, LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/);
+    expect(() => validateEnv({ DATABASE_URL, JWT_SECRET, LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/);
+  });
+
+  it('requires a strong JWT secret', () => {
+    expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
   });
 });
 
