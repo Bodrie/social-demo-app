@@ -1,6 +1,6 @@
 # The Mesh – Rebuild & Rewrite Plan
 
-**Status:** v0.3 (2026-10-15). All decisions D1–D23 made (log in §6). Phases 0–1 merged (PR #3). Phase 2 complete on branch `rebuild/phase-2-database`.
+**Status:** v0.3 (2026-10-15). All decisions D1–D23 made (log in §6). Phases 0–2 merged (PRs #3, #4). Phase 3a complete on branch `rebuild/phase-3a-api-platform`.
 **Scope:** full rewrite of client, API and database; CI/CD; containerisation. Deployment target is deliberately left open until a domain/hosting is chosen.
 
 ---
@@ -240,7 +240,7 @@ GET    /docs                     (Swagger, non-prod)
 WS     presence:update, message:new, message:send, (optional) feed:invalidate
 ```
 
-Conventions: cursor pagination (`createdAt,id`) for feeds; one error envelope `{ statusCode, code, message, fields? }` from a global filter so forms can map field errors; post list items carry `author {id, name, username, avatarUrl}`, `likeCount`, `commentCount`, `likedByMe`; authorisation in services (owner checks), never trusting ids from the body.
+Conventions: cursor pagination (`createdAt,id`) for feeds; one error envelope `{ statusCode, code, message, fields?, requestId? }` (`apiErrorSchema` in `packages/shared`) from a global filter so forms can map field errors, with `code` from a fixed list (`ERROR_CODES`); every response carries `X-Request-Id`; post list items carry `author {id, name, username, avatarUrl}`, `likeCount`, `commentCount`, `likedByMe`; authorisation in services (owner checks), never trusting ids from the body.
 
 ### 2.5 Security baseline
 
@@ -434,7 +434,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 | **0. Decide & tidy** ✅ 2026-10-15 | Decisions in §6 recorded as ADRs in `docs/adr/`. Still with the owner: delete branches `test`, `update/readme`, `nest-migration`; check the old server. | – | S |
 | **1. Workspace + CI skeleton** ✅ 2026-10-15 | pnpm workspace, Turbo, Node pin, root ESLint/Prettier/editorconfig, TypeScript 6 + `typecheck` scripts (§2.12), `packages/shared` + `packages/config` stubs, empty `apps/api` (Nest scaffold) and `apps/web` (Vite scaffold) that lint/typecheck/build/test (one trivial test each), `docker-compose.yml` with Postgres, `ci.yml` green, branch protection. | 0 | S–M |
 | **2. Database** ✅ 2026-10-15 | `schema.prisma` per §2.3, initial migration (`20261015091302_init`, incl. a hand-written self-follow CHECK), deterministic faker seed with fixed accounts alice/bob/carol (`Password123!`), global `PrismaModule`/`PrismaService` (Prisma 7.10, `@prisma/adapter-pg`), zod-validated env via `@nestjs/config`, `pnpm db:*` scripts, integration-test harness (Testcontainers locally, service container in CI via `TEST_DATABASE_URL`), CI `integration` job (migrate deploy → drift check → seed → `test:int`). Prisma 8 skipped while it is an RC. | 1 | S |
-| **3. API** | 3a platform: zod-validated config, pino, global ValidationPipe (nestjs-zod), exception filter + error envelope, helmet/CORS/throttler, health, Swagger, test harness (Jest unit + Testcontainers integration) with one example of each. 3b auth + users (register/login/refresh/logout/me, profile read/update, search, suggestions). 3c uploads (StorageService, sharp, limits). 3d posts + likes (feed with cursor, counts, likedByMe, delete). 3e comments. 3f follows (+ followers/following lists). 3g activities via `@nestjs/event-emitter`. 3h WebSocket gateway (auth, presence, DMs, persistence if D8). Each slice ships with DTOs in `packages/shared`, unit tests and integration tests. | 2 | L |
+| **3. API** | 3a platform ✅ 2026-10-15: zod-validated config, pino logging with `X-Request-Id`, global `ZodValidationPipe` + `ZodSerializerInterceptor` (nestjs-zod 5.5 on Nest 12 via peer override), catch-all exception filter producing the shared `ApiError` envelope (zod → `fields`, Prisma P2002/P2025/P2003 mapped, 5xx masked), helmet, CORS allow-list from `WEB_ORIGINS`, `@nestjs/throttler` as global guard, terminus `GET /health` (outside the `/api/v1` prefix, DB ping), Swagger at `/api/docs` (+ `/api/docs/openapi.json`) outside production, `configureApp()` shared by `main.ts` and tests, `test/platform.int-spec.ts` covering all of it. 3b auth + users (register/login/refresh/logout/me, profile read/update, search, suggestions). 3c uploads (StorageService, sharp, limits). 3d posts + likes (feed with cursor, counts, likedByMe, delete). 3e comments. 3f follows (+ followers/following lists). 3g activities via `@nestjs/event-emitter`. 3h WebSocket gateway (auth, presence, DMs, persistence if D8). Each slice ships with DTOs in `packages/shared`, unit tests and integration tests. | 2 | L |
 | **4. Web** | 4a shell: Tailwind/shadcn theme ported from the current palette, AppShell (header/left/right bars, responsive), QueryClient/Router/Auth providers, typed http client, `useMe`, protected routes, error boundaries, toasts, Vitest+RTL+MSW harness with first tests; Playwright harness with one smoke test wired into CI now. 4b auth pages (RHF + zod). 4c feed: infinite posts, create post (upload + emoji), like (optimistic), comments. 4d profile: view, posts, follow, followers/following, edit dialog with avatar/cover. 4e users list + search, suggestions, activities. 4f chat: presence, DM windows, history. 4g polish: a11y pass, empty/loading/error states, code splitting, bundle check. | 3 (3a–3b minimum; later slices can overlap with 3d–3h if you want to interleave) | XL |
 | **5. E2E** | Playwright specs per §2.8 grown alongside 4b–4f; `e2e` CI job green with seeded Postgres. | 4 | M |
 | **6. Containers + release pipeline** | Dockerfiles, `docker-compose.prod.yml` with Caddy, `docker.yml` pushing to GHCR, `deploy.yml` scaffold behind a protected environment, runbook in `docs/`. Domain-specific values are env only. | 3, 4 | M |
@@ -452,7 +452,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 |---|---|
 | M1 | `main` protected, `ci.yml` green on scaffolds, `pnpm dev` boots both apps against Docker Postgres. |
 | M2 ✅ | `prisma migrate deploy` + drift check + seed + integration tests run in CI (`integration` job); schema ADR merged. |
-| M3 | All §2.4 endpoints implemented; integration tests cover each; Swagger browsable; no `any` in services. |
+| M3 | All §2.4 endpoints implemented; integration tests cover each; Swagger browsable; no `any` in services. (3a done: platform layer + conventions in place.) |
 | M4 | §5 parity items ticked in the web app; Vitest suite green; Lighthouse a11y ≥ 90 on home/profile. |
 | M5 | Playwright suite green in CI on Chromium; chat tested with two contexts. |
 | M6 | `docker compose -f docker-compose.prod.yml up` serves the app on an IP; images on GHCR. |

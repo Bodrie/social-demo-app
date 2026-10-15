@@ -1,14 +1,12 @@
-import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { healthResponseSchema } from '@the-mesh/shared';
-import request from 'supertest';
-import type { App } from 'supertest/types.js';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module.js';
+import { configureApp } from '../src/app.setup.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { resetDatabase } from './setup/database.js';
 
 describe('app bootstrap', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
 
   beforeAll(async () => {
@@ -16,7 +14,7 @@ describe('app bootstrap', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = configureApp(moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }));
     await app.init();
 
     prisma = app.get(PrismaService);
@@ -25,12 +23,6 @@ describe('app bootstrap', () => {
 
   afterAll(async () => {
     await app.close();
-  });
-
-  it('GET /health responds with a payload matching the shared schema', async () => {
-    const response = await request(app.getHttpServer()).get('/health').expect(200);
-
-    expect(healthResponseSchema.safeParse(response.body).success).toBe(true);
   });
 
   it('reaches the database through PrismaService', async () => {
