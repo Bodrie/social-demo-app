@@ -20,16 +20,16 @@ This repository contains the server-side and client-side code for the project.
 
 ---
 
-## 🚨 Development Status: Frozen
+## 🚨 Legacy code status: Frozen
 
-For long time active development on this project is **on hold**. No new features or updates are planned.
+The legacy app described below (`api/`, `client/`) is **frozen**: no fixes or features. All active work happens in the v2 rebuild (see the section above).
 
 ---
 
 ## 🌍 Environments
 
 - **Production:** [~~https://the-mesh.eu~~](https://the-mesh.eu) _(Currently inactive)_
-- **Development:** [https://dev-the-mesh.vercel.app](https://dev-the-mesh.vercel.app)
+- **Development:** ~~https://dev-the-mesh.vercel.app~~ _(removed 2026-10-15; the Vercel project and its GitHub integration were deleted)_
 
 ---
 
@@ -45,11 +45,11 @@ For long time active development on this project is **on hold**. No new features
 
 ### Deploy Scripts
 
-This repository contains two shell scripts for deploying the code:
+This repository contains two shell scripts for deploying the legacy code. Both are **obsolete** and will be removed at the v2 cutover:
 
 1. **Development Deployment:**
 
-   - While there's no separate development environment, pushing to the `main` branch triggers an automatic deployment to **Vercel**.
+   - Pushing to the `main` branch used to trigger an automatic deployment to **Vercel**. That integration no longer exists.
 
 2. **Production Deployment:**
    - The script builds the app locally and then uploads it to the **production server** manually.
