@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CommentsModule } from './comments/comments.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { type Env, validateEnv } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     UploadsModule,
     PostsModule,
+    CommentsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
