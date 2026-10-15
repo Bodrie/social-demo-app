@@ -1,7 +1,7 @@
 import type { UserSummary } from '@the-mesh/shared';
 import { cn } from 'cn';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { initials } from '@/lib/initials';
+import { initials } from '@/lib/names';
 
 type UserAvatarProps = {
   user: Pick<UserSummary, 'name' | 'avatarUrl'>;

@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { alice } from '@/test/fixtures';
 import { signedInAs } from '@/test/msw/handlers';
 import { renderApp } from '@/test/render';
 
@@ -17,20 +18,23 @@ describe('route protection', () => {
   });
 
   it('shows the shell to signed-in users', async () => {
-    signedInAs();
+    signedInAs(alice);
     renderApp('/');
-    expect(await screen.findByRole('heading', { name: /Welcome back, Alice/ })).toBeInTheDocument();
+    expect(await screen.findByLabelText('New post')).toHaveAttribute(
+      'placeholder',
+      "What's on your mind, Alice?",
+    );
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
   });
 
   it('keeps signed-in users away from the auth pages', async () => {
-    signedInAs();
+    signedInAs(alice);
     renderApp('/login');
-    expect(await screen.findByRole('heading', { name: /Welcome back/ })).toBeInTheDocument();
+    expect(await screen.findByLabelText('New post')).toBeInTheDocument();
   });
 
   it('renders a friendly page for unknown routes', async () => {
-    signedInAs();
+    signedInAs(alice);
     renderApp('/does-not-exist');
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
   });

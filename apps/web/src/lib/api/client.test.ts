@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw/http';
 import { z } from 'zod';
-import { mockSession, unauthorized } from '@/test/msw/handlers';
+import { mockDb, unauthorized } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { ApiClientError, api, isApiClientError, onSessionLost } from './client';
 
@@ -23,7 +23,7 @@ beforeEach(() => {
   server.use(
     http.get('*/api/v1/ping', () => {
       pingCalls += 1;
-      return pingCalls === 1 && mockSession.refreshable ? unauthorized() : HttpResponse.json({ ok: true });
+      return pingCalls === 1 && mockDb.refreshable ? unauthorized() : HttpResponse.json({ ok: true });
     }),
   );
 });
@@ -34,17 +34,17 @@ describe('api client', () => {
   });
 
   it('refreshes once and retries when a request is unauthorized', async () => {
-    mockSession.refreshable = true;
+    mockDb.refreshable = true;
     await expect(api.get('/ping', pingSchema)).resolves.toEqual({ ok: true });
-    expect(mockSession.calls.refresh).toBe(1);
+    expect(mockDb.calls.refresh).toBe(1);
     expect(pingCalls).toBe(2);
   });
 
   it('shares one refresh between concurrent unauthorized requests', async () => {
-    mockSession.refreshable = true;
-    server.use(http.get('*/api/v1/ping', () => (mockSession.calls.refresh === 0 ? unauthorized() : HttpResponse.json({ ok: true }))));
+    mockDb.refreshable = true;
+    server.use(http.get('*/api/v1/ping', () => (mockDb.calls.refresh === 0 ? unauthorized() : HttpResponse.json({ ok: true }))));
     await Promise.all([api.get('/ping', pingSchema), api.get('/ping', pingSchema), api.get('/ping', pingSchema)]);
-    expect(mockSession.calls.refresh).toBe(1);
+    expect(mockDb.calls.refresh).toBe(1);
   });
 
   it('reports a lost session when the refresh fails and surfaces the envelope', async () => {
@@ -53,7 +53,7 @@ describe('api client', () => {
     server.use(http.get('*/api/v1/ping', () => unauthorized()));
 
     await expect(api.get('/ping', pingSchema)).rejects.toBeInstanceOf(ApiClientError);
-    expect(mockSession.calls.refresh).toBe(1);
+    expect(mockDb.calls.refresh).toBe(1);
     expect(lost).toHaveBeenCalledTimes(1);
     unsubscribe();
   });

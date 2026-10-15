@@ -1,7 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { mockSession, signedInAs } from '@/test/msw/handlers';
+import { alice } from '@/test/fixtures';
+import { mockDb, signedInAs } from '@/test/msw/handlers';
 import { createTestQueryClient } from '@/test/render';
 import { useMe } from './use-me';
 
@@ -14,11 +15,11 @@ describe('useMe', () => {
     const { result } = renderHook(() => useMe(), { wrapper });
     expect(result.current.status).toBe('loading');
     await waitFor(() => expect(result.current.status).toBe('anonymous'));
-    expect(mockSession.calls.refresh).toBe(1);
+    expect(mockDb.calls.refresh).toBe(1);
   });
 
   it('reports the signed-in user', async () => {
-    const user = signedInAs();
+    const user = signedInAs(alice);
     const { result } = renderHook(() => useMe(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
     expect(result.current.user?.username).toBe(user.username);

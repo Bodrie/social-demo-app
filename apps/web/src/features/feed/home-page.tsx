@@ -1,12 +1,14 @@
-import { useCurrentUser } from '@/features/auth/current-user';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { PostComposer } from '@/features/posts/post-composer';
+import { usePageTitle } from '@/lib/use-page-title';
+import { Feed } from './feed';
 
 export function HomePage() {
-  const user = useCurrentUser();
+  usePageTitle('Home');
   return (
-    <PagePlaceholder
-      title={`Welcome back, ${user.name}`}
-      description="Your feed will appear here."
-    />
+    <div className="space-y-4">
+      <h1 className="sr-only">Home</h1>
+      <PostComposer />
+      <Feed />
+    </div>
   );
 }
