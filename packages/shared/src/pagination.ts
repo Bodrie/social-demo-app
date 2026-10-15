@@ -9,3 +9,10 @@ export function paginatedSchema<T extends z.ZodType>(item: T) {
 }
 
 export type Paginated<T> = { items: T[]; nextCursor: string | null };
+
+/** Query parameters shared by every cursor-paginated list. */
+export const cursorQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().min(1).max(200).optional(),
+});
+export type CursorQuery = z.output<typeof cursorQuerySchema>;

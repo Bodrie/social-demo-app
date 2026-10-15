@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginatedSchema } from './pagination.js';
+import { cursorQuerySchema, paginatedSchema } from './pagination.js';
 import { uploadKeySchema } from './uploads.js';
 
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
@@ -76,10 +76,8 @@ export const updateProfileSchema = z.object({
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type UpdateProfileData = z.output<typeof updateProfileSchema>;
 
-export const listUsersQuerySchema = z.object({
+export const listUsersQuerySchema = cursorQuerySchema.extend({
   q: z.string().trim().max(80).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-  cursor: z.string().min(1).max(200).optional(),
 });
 export type ListUsersQuery = z.output<typeof listUsersQuerySchema>;
 

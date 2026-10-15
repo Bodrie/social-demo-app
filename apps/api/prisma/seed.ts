@@ -14,7 +14,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { ActivityType } from '../src/generated/prisma/enums.js';
-import { placeholderAvatar } from '../src/uploads/placeholder-avatar.js';
+import { placeholderAvatar, placeholderPostImage } from '../src/uploads/placeholder-avatar.js';
 
 const FAKER_SEED = 20261015;
 const FAKE_USER_COUNT = 20;
@@ -34,12 +34,12 @@ if (!databaseUrl) {
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
 
-/** Writes a generated avatar into the uploads dir and returns its storage key. */
-async function seedAvatar(name: string, seed: string): Promise<string> {
-  const key = `avatar/${randomUUID()}.webp`;
+/** Writes a generated file into the uploads dir and returns its storage key. */
+async function seedFile(kind: 'avatar' | 'post', data: Buffer): Promise<string> {
+  const key = `${kind}/${randomUUID()}.webp`;
   const file = path.join(uploadsDir, key);
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, await placeholderAvatar(name, seed));
+  await writeFile(file, data);
   return key;
 }
 
@@ -84,7 +84,7 @@ async function seed(): Promise<void> {
   for (const user of users) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { avatarKey: await seedAvatar(user.username, user.id) },
+      data: { avatarKey: await seedFile('avatar', await placeholderAvatar(user.username, user.id)) },
     });
   }
 
@@ -119,6 +119,12 @@ async function seed(): Promise<void> {
     ),
     select: { id: true, authorId: true, createdAt: true },
   });
+  for (const post of posts) {
+    if (faker.number.int({ min: 1, max: 10 }) <= 3) {
+      const image = await placeholderPostImage(faker.word.words(2), post.id);
+      await prisma.post.update({ where: { id: post.id }, data: { imageKey: await seedFile('post', image) } });
+    }
+  }
   await prisma.activity.createMany({
     data: posts.map((p) => ({
       actorId: p.authorId,
