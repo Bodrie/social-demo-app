@@ -1,40 +1,54 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  ListUsersQuery,
-  Paginated,
-  UpdateProfileData,
-  UserPrivate,
-  UserPublic,
-} from '@the-mesh/shared';
-import { decodeCursor, paginate } from '../common/pagination.js';
-import type { Env } from '../config/env.js';
+import type { ListUsersQuery, Paginated, UpdateProfileData, UserPrivate, UserPublic, UserSummary } from '@the-mesh/shared';
+import { AssetsService } from '../assets/assets.service.js';
+import { conflict, notFound } from '../common/errors.js';
+import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
-import { toUserPrivate, toUserPublic, userPrivateSelect, userPublicSelect } from './users.mapper.js';
+import {
+  toUserPrivate,
+  toUserPublic,
+  toUserSummary,
+  userPrivateSelect,
+  userPublicSelect,
+  userSummarySelect,
+} from './users.mapper.js';
 
 export type UniqueFields = { email?: string; username?: string };
 
+type ProfileField = 'username' | 'name' | 'email' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
+
+/** Escapes LIKE wildcards so `q=%` does not match everyone. */
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 @Injectable()
 export class UsersService {
-  private readonly assetsBase: string;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
     private readonly uploads: UploadsService,
-    config: ConfigService<Env, true>,
-  ) {
-    this.assetsBase = config.get('PUBLIC_ASSETS_URL', { infer: true });
+    private readonly assets: AssetsService,
+  ) {}
+
+  async assertExists(id: string): Promise<void> {
+    const count = await this.prisma.user.count({ where: { id } });
+    if (count === 0) throw notFound('User not found');
+  }
+
+  async summary(id: string): Promise<UserSummary | null> {
+    const row = await this.prisma.user.findUnique({ where: { id }, select: userSummarySelect });
+    return row ? toUserSummary(row, this.assets.base) : null;
   }
 
   async getPublicById(viewerId: string, id: string): Promise<UserPublic> {
     const row = await this.prisma.user.findUnique({ where: { id }, select: userPublicSelect(viewerId) });
-    if (!row) throw this.notFound();
-    return toUserPublic(row, this.assetsBase);
+    if (!row) throw notFound('User not found');
+    return toUserPublic(row, this.assets.base);
   }
 
   async getPublicByUsername(viewerId: string, username: string): Promise<UserPublic> {
@@ -42,76 +56,89 @@ export class UsersService {
       where: { username: username.trim().toLowerCase() },
       select: userPublicSelect(viewerId),
     });
-    if (!row) throw this.notFound();
-    return toUserPublic(row, this.assetsBase);
+    if (!row) throw notFound('User not found');
+    return toUserPublic(row, this.assets.base);
+  }
+
+  async findPrivateById(id: string): Promise<UserPrivate | null> {
+    const row = await this.prisma.user.findUnique({ where: { id }, select: userPrivateSelect(id) });
+    return row ? toUserPrivate(row, this.assets.base) : null;
   }
 
   async getPrivateById(id: string): Promise<UserPrivate> {
-    const row = await this.prisma.user.findUnique({ where: { id }, select: userPrivateSelect(id) });
-    if (!row) throw this.notFound();
-    return toUserPrivate(row, this.assetsBase);
+    const user = await this.findPrivateById(id);
+    if (!user) throw notFound('User not found');
+    return user;
   }
 
   async updateProfile(id: string, patch: UpdateProfileData): Promise<UserPrivate> {
+    const previous = await this.prisma.user.findUnique({
+      where: { id },
+      select: { username: true, name: true, email: true, bio: true, city: true, website: true, avatarKey: true, coverKey: true },
+    });
+    if (!previous) throw notFound('User not found');
+
+    // Only fields whose value actually changes are written and reported.
     const data: Prisma.UserUpdateInput = {};
-    if (patch.username !== undefined) data.username = patch.username;
-    if (patch.name !== undefined) data.name = patch.name;
-    if (patch.email !== undefined) data.email = patch.email;
-    if (patch.bio !== undefined) data.bio = patch.bio;
-    if (patch.city !== undefined) data.city = patch.city;
-    if (patch.website !== undefined) data.website = patch.website;
-    if (patch.avatarKey !== undefined) data.avatarKey = patch.avatarKey;
-    if (patch.coverKey !== undefined) data.coverKey = patch.coverKey;
+    const changed: ProfileField[] = [];
+    const changes: Array<[ProfileField, () => void]> = [
+      ['username', () => (data.username = patch.username)],
+      ['name', () => (data.name = patch.name)],
+      ['email', () => (data.email = patch.email)],
+      ['bio', () => (data.bio = patch.bio)],
+      ['city', () => (data.city = patch.city)],
+      ['website', () => (data.website = patch.website)],
+      ['avatarKey', () => (data.avatarKey = patch.avatarKey)],
+      ['coverKey', () => (data.coverKey = patch.coverKey)],
+    ];
+    for (const [field, apply] of changes) {
+      if (patch[field] !== undefined && patch[field] !== previous[field]) {
+        apply();
+        changed.push(field);
+      }
+    }
+    if (changed.length === 0) return this.getPrivateById(id);
 
     if (data.username !== undefined || data.email !== undefined) {
       await this.assertAvailable({ email: patch.email, username: patch.username }, id);
     }
-    if (patch.avatarKey) await this.uploads.assertExists(patch.avatarKey, 'avatarKey');
-    if (patch.coverKey) await this.uploads.assertExists(patch.coverKey, 'coverKey');
-
-    const replacesPicture = patch.avatarKey !== undefined || patch.coverKey !== undefined;
-    const previous = replacesPicture
-      ? await this.prisma.user.findUnique({ where: { id }, select: { avatarKey: true, coverKey: true } })
-      : null;
+    if (typeof data.avatarKey === 'string') {
+      await this.uploads.assertOwned(data.avatarKey, { ownerId: id, kind: 'avatar', field: 'avatarKey' });
+    }
+    if (typeof data.coverKey === 'string') {
+      await this.uploads.assertOwned(data.coverKey, { ownerId: id, kind: 'cover', field: 'coverKey' });
+    }
 
     const row = await this.prisma.user.update({ where: { id }, data, select: userPrivateSelect(id) });
-    await this.events.emitAsync(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, Object.keys(data)));
+    await this.events.emitAsync(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, changed));
 
-    if (previous) {
-      if (patch.avatarKey !== undefined && previous.avatarKey !== patch.avatarKey) {
-        await this.uploads.discard(previous.avatarKey);
-      }
-      if (patch.coverKey !== undefined && previous.coverKey !== patch.coverKey) {
-        await this.uploads.discard(previous.coverKey);
-      }
-    }
-    return toUserPrivate(row, this.assetsBase);
+    if (changed.includes('avatarKey')) await this.uploads.discard(previous.avatarKey);
+    if (changed.includes('coverKey')) await this.uploads.discard(previous.coverKey);
+    return toUserPrivate(row, this.assets.base);
   }
 
   async list(viewerId: string, query: ListUsersQuery): Promise<Paginated<UserPublic>> {
-    const cursorId = decodeCursor(query.cursor);
-    const where: Prisma.UserWhereInput = query.q
+    const cursor = decodeCursor(query.cursor);
+    const search: Prisma.UserWhereInput = query.q
       ? {
           OR: [
-            { username: { contains: query.q, mode: 'insensitive' } },
-            { name: { contains: query.q, mode: 'insensitive' } },
+            { username: { contains: escapeLike(query.q), mode: 'insensitive' } },
+            { name: { contains: escapeLike(query.q), mode: 'insensitive' } },
           ],
         }
       : {};
 
     const rows = await this.prisma.user.findMany({
-      where,
+      where: { AND: [search, cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {}] },
       select: userPublicSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
-      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
     });
-
-    return paginate(rows, query.limit, (row) => toUserPublic(row, this.assetsBase));
+    return paginate(rows, query.limit, (row) => toUserPublic(row, this.assets.base));
   }
 
   /** Users the viewer neither follows nor is followed by. */
-  async suggestions(viewerId: string, limit: number): Promise<UserPublic[]> {
+  async suggestions(viewerId: string, limit: number): Promise<Paginated<UserPublic>> {
     const rows = await this.prisma.user.findMany({
       where: {
         id: { not: viewerId },
@@ -122,7 +149,7 @@ export class UsersService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
     });
-    return rows.map((row) => toUserPublic(row, this.assetsBase));
+    return { items: rows.map((row) => toUserPublic(row, this.assets.base)), nextCursor: null };
   }
 
   /** Throws 409 with per-field messages when the email or username is taken by another user. */
@@ -145,10 +172,6 @@ export class UsersService {
     if (username !== undefined && clashes.some((row) => row.username === username)) {
       fields.username = 'This username is taken';
     }
-    throw new ConflictException({ code: 'CONFLICT', message: 'Already in use', fields });
-  }
-
-  private notFound(): NotFoundException {
-    return new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
+    throw conflict('Already in use', fields);
   }
 }

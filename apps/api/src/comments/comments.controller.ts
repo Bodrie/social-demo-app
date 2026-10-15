@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Comment, Paginated } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { IdParamDto, PostIdParamDto } from '../common/params.dto.js';
 import { CommentsQueryDto, CreateCommentDto } from './comments.dto.js';
 import { CommentsService } from './comments.service.js';
 
@@ -13,11 +14,8 @@ export class PostCommentsController {
   constructor(private readonly comments: CommentsService) {}
 
   @Get()
-  list(
-    @Param('postId', ParseUUIDPipe) postId: string,
-    @Query() query: CommentsQueryDto,
-  ): Promise<Paginated<Comment>> {
-    return this.comments.listForPost(postId, query);
+  list(@Param() params: PostIdParamDto, @Query() query: CommentsQueryDto): Promise<Paginated<Comment>> {
+    return this.comments.listForPost(params.postId, query);
   }
 
   @Post()
@@ -25,10 +23,10 @@ export class PostCommentsController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   create(
     @CurrentUser() user: AuthUser,
-    @Param('postId', ParseUUIDPipe) postId: string,
+    @Param() params: PostIdParamDto,
     @Body() body: CreateCommentDto,
   ): Promise<Comment> {
-    return this.comments.create(user.id, postId, body);
+    return this.comments.create(user.id, params.postId, body);
   }
 }
 
@@ -39,7 +37,7 @@ export class CommentsController {
 
   @Delete(':id')
   @HttpCode(204)
-  remove(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.comments.delete(user.id, id);
+  remove(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.comments.delete(user.id, params.id);
   }
 }

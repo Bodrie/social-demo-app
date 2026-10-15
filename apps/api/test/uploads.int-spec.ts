@@ -1,4 +1,4 @@
-import { apiErrorSchema, uploadResponseSchema, userPrivateSchema } from '@the-mesh/shared';
+import { apiErrorSchema, meResponseSchema, postSchema, uploadResponseSchema } from '@the-mesh/shared';
 import sharp from 'sharp';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
@@ -82,26 +82,58 @@ describe('uploads', () => {
         (await agent.post('/api/v1/uploads?kind=avatar').attach('file', await png(), 'two.png').expect(201)).body,
       );
 
-      const withFirst = userPrivateSchema.parse((await agent.patch('/api/v1/users/me').send({ avatarKey: first.key }).expect(200)).body);
+      const withFirst = meResponseSchema.parse((await agent.patch('/api/v1/users/me').send({ avatarKey: first.key }).expect(200)).body).user;
       expect(withFirst.avatarUrl).toBe(first.url);
 
-      const withSecond = userPrivateSchema.parse((await agent.patch('/api/v1/users/me').send({ avatarKey: second.key }).expect(200)).body);
+      const withSecond = meResponseSchema.parse((await agent.patch('/api/v1/users/me').send({ avatarKey: second.key }).expect(200)).body).user;
       expect(withSecond.avatarUrl).toBe(second.url);
       await request(t.server).get(`/api/v1/uploads/${first.key}`).expect(404);
       await request(t.server).get(`/api/v1/uploads/${second.key}`).expect(200);
 
-      const cleared = userPrivateSchema.parse((await agent.patch('/api/v1/users/me').send({ avatarKey: null }).expect(200)).body);
+      const cleared = meResponseSchema.parse((await agent.patch('/api/v1/users/me').send({ avatarKey: null }).expect(200)).body).user;
       expect(cleared.avatarUrl).toBeNull();
       await request(t.server).get(`/api/v1/uploads/${second.key}`).expect(404);
     });
 
-    it('refuses keys that were never uploaded', async () => {
-      const response = await agent
+    it('refuses keys that were never uploaded, belong to someone else, or have the wrong kind', async () => {
+      const unknown = await agent
         .patch('/api/v1/users/me')
         .send({ coverKey: 'cover/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp' })
         .expect(400);
+      expect(apiErrorSchema.parse(unknown.body).fields).toEqual({ coverKey: 'Unknown upload' });
 
-      expect(apiErrorSchema.parse(response.body).fields).toEqual({ coverKey: 'Unknown upload' });
+      const other = await createUser(t.prisma);
+      const otherAgent = request.agent(t.server);
+      await login(otherAgent, other.email);
+      const theirs = uploadResponseSchema.parse(
+        (await otherAgent.post('/api/v1/uploads?kind=avatar').attach('file', await png(), 'theirs.png').expect(201)).body,
+      );
+      const foreign = await agent.patch('/api/v1/users/me').send({ avatarKey: theirs.key }).expect(400);
+      expect(apiErrorSchema.parse(foreign.body).fields).toEqual({ avatarKey: 'Unknown upload' });
+      await request(t.server).get(`/api/v1/uploads/${theirs.key}`).expect(200);
+
+      const wrongKind = await agent.patch('/api/v1/users/me').send({ coverKey: theirs.key }).expect(400);
+      expect(apiErrorSchema.parse(wrongKind.body).fields).toHaveProperty('coverKey');
+    });
+
+    it('keeps a file that is still referenced elsewhere', async () => {
+      const upload = uploadResponseSchema.parse(
+        (await agent.post('/api/v1/uploads?kind=post').attach('file', await png(), 'shared.png').expect(201)).body,
+      );
+      const first = postSchema.parse((await agent.post('/api/v1/posts').send({ content: 'one', imageKey: upload.key }).expect(201)).body);
+      const second = postSchema.parse((await agent.post('/api/v1/posts').send({ content: 'two', imageKey: upload.key }).expect(201)).body);
+
+      await agent.delete(`/api/v1/posts/${first.id}`).expect(204);
+      await request(t.server).get(`/api/v1/uploads/${upload.key}`).expect(200);
+      await agent.delete(`/api/v1/posts/${second.id}`).expect(204);
+      await request(t.server).get(`/api/v1/uploads/${upload.key}`).expect(404);
+    });
+
+    it('rejects a multipart request with extra fields or files', async () => {
+      const withField = await agent.post('/api/v1/uploads?kind=post').field('kind', 'post').attach('file', await png(), 'a.png');
+      expect(withField.status).toBe(400);
+      const twoFiles = await agent.post('/api/v1/uploads?kind=post').attach('file', await png(), 'a.png').attach('file', await png(), 'b.png');
+      expect(twoFiles.status).toBe(400);
     });
   });
 });

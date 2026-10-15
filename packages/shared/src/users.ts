@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { optionalText } from './common.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
-import { uploadKeySchema } from './uploads.js';
+import { avatarKeySchema, coverKeySchema } from './uploads.js';
 
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
 
@@ -25,11 +26,25 @@ export const nameSchema = z
   .trim()
   .min(1, 'Name is required')
   .max(80, 'At most 80 characters');
-export const bioSchema = z.string().trim().max(300, 'At most 300 characters');
-export const citySchema = z.string().trim().max(80, 'At most 80 characters');
-export const websiteSchema = z.url('Enter a valid URL').max(200, 'At most 200 characters');
+export const bioSchema = optionalText(300);
+export const citySchema = optionalText(80);
+/** http(s) only: a `javascript:` or `data:` URL must never reach an anchor tag. */
+export const websiteSchema = optionalText(200).pipe(
+  z
+    .url({ protocol: /^https?$/, hostname: z.regexes.domain, error: 'Enter a valid http(s) URL' })
+    .nullable(),
+);
 
 // --- outputs ------------------------------------------------------------
+/** The compact user shape embedded in posts, comments, activities, messages and presence. */
+export const userSummarySchema = z.object({
+  id: z.uuid(),
+  username: z.string(),
+  name: z.string(),
+  avatarUrl: z.string().nullable(),
+});
+export type UserSummary = z.infer<typeof userSummarySchema>;
+
 export const userCountsSchema = z.object({
   posts: z.int().nonnegative(),
   followers: z.int().nonnegative(),
@@ -37,14 +52,10 @@ export const userCountsSchema = z.object({
 });
 
 /** What anyone may see about a user. */
-export const userPublicSchema = z.object({
-  id: z.uuid(),
-  username: z.string(),
-  name: z.string(),
+export const userPublicSchema = userSummarySchema.extend({
   bio: z.string().nullable(),
   city: z.string().nullable(),
   website: z.string().nullable(),
-  avatarUrl: z.string().nullable(),
   coverUrl: z.string().nullable(),
   createdAt: z.iso.datetime(),
   counts: userCountsSchema,
@@ -55,14 +66,16 @@ export const userPublicSchema = z.object({
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
 
-export const followsQuerySchema = cursorQuerySchema;
-
 /** The user's own profile (adds private fields). */
 export const userPrivateSchema = userPublicSchema.extend({
   email: z.string(),
   updatedAt: z.iso.datetime(),
 });
 export type UserPrivate = z.infer<typeof userPrivateSchema>;
+
+/** Returned by every endpoint that yields the caller's own profile (auth + PATCH /users/me). */
+export const meResponseSchema = z.object({ user: userPrivateSchema });
+export type MeResponse = z.infer<typeof meResponseSchema>;
 
 export const userListSchema = paginatedSchema(userPublicSchema);
 export type UserList = z.infer<typeof userListSchema>;
@@ -76,8 +89,8 @@ export const updateProfileSchema = z.object({
   city: citySchema.nullable().optional(),
   website: websiteSchema.nullable().optional(),
   /** Keys returned by POST /uploads?kind=avatar|cover; null removes the picture. */
-  avatarKey: uploadKeySchema.nullable().optional(),
-  coverKey: uploadKeySchema.nullable().optional(),
+  avatarKey: avatarKeySchema.nullable().optional(),
+  coverKey: coverKeySchema.nullable().optional(),
 });
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type UpdateProfileData = z.output<typeof updateProfileSchema>;
@@ -91,3 +104,5 @@ export const suggestionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(5),
 });
 export type SuggestionsQuery = z.output<typeof suggestionsQuerySchema>;
+
+export const followsQuerySchema = cursorQuerySchema;

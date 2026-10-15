@@ -1,42 +1,39 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Comment, CreateCommentData, CursorQuery, Paginated } from '@the-mesh/shared';
-import { decodeCursor, paginate } from '../common/pagination.js';
-import type { Env } from '../config/env.js';
+import { AssetsService } from '../assets/assets.service.js';
+import { forbidden, notFound } from '../common/errors.js';
+import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { CommentCreatedEvent } from '../events/comment.events.js';
+import { PostsService } from '../posts/posts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { commentSelect, toComment } from './comments.mapper.js';
 
 @Injectable()
 export class CommentsService {
-  private readonly assetsBase: string;
-
   constructor(
     private readonly prisma: PrismaService,
+    private readonly posts: PostsService,
     private readonly events: EventEmitter2,
-    config: ConfigService<Env, true>,
-  ) {
-    this.assetsBase = config.get('PUBLIC_ASSETS_URL', { infer: true });
-  }
+    private readonly assets: AssetsService,
+  ) {}
 
   /** Newest first, so a freshly written comment appears right under the input. */
   async listForPost(postId: string, query: CursorQuery): Promise<Paginated<Comment>> {
-    await this.assertPostExists(postId);
-    const cursorId = decodeCursor(query.cursor);
+    await this.posts.assertExists(postId);
+    const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.comment.findMany({
-      where: { postId },
+      where: { AND: [{ postId }, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}] },
       select: commentSelect,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
-      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
     });
-    return paginate(rows, query.limit, (row) => toComment(row, this.assetsBase));
+    return paginate(rows, query.limit, (row) => toComment(row, this.assets.base));
   }
 
   async create(authorId: string, postId: string, input: CreateCommentData): Promise<Comment> {
     const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { authorId: true } });
-    if (!post) throw this.postNotFound();
+    if (!post) throw notFound('Post not found');
 
     const row = await this.prisma.comment.create({
       data: { postId, authorId, content: input.content },
@@ -46,7 +43,7 @@ export class CommentsService {
       CommentCreatedEvent.EVENT,
       new CommentCreatedEvent(row.id, postId, authorId, post.authorId),
     );
-    return toComment(row, this.assetsBase);
+    return toComment(row, this.assets.base);
   }
 
   /** The comment's author and the post's author may delete a comment. */
@@ -55,24 +52,10 @@ export class CommentsService {
       where: { id: commentId },
       select: { authorId: true, post: { select: { authorId: true } } },
     });
-    if (!comment) {
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Comment not found' });
-    }
+    if (!comment) throw notFound('Comment not found');
     if (viewerId !== comment.authorId && viewerId !== comment.post.authorId) {
-      throw new ForbiddenException({
-        code: 'FORBIDDEN',
-        message: 'Only the comment author or the post author can delete a comment',
-      });
+      throw forbidden('Only the comment author or the post author can delete a comment');
     }
     await this.prisma.comment.delete({ where: { id: commentId } });
-  }
-
-  private async assertPostExists(postId: string): Promise<void> {
-    const count = await this.prisma.post.count({ where: { id: postId } });
-    if (count === 0) throw this.postNotFound();
-  }
-
-  private postNotFound(): NotFoundException {
-    return new NotFoundException({ code: 'NOT_FOUND', message: 'Post not found' });
   }
 }

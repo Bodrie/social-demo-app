@@ -1,11 +1,12 @@
-import { type CanActivate, type ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import type { AccessTokenPayload, AuthenticatedRequest } from './auth.types.js';
+import { unauthorized } from '../common/errors.js';
+import { type AuthenticatedRequest, accessTokenPayloadSchema } from './auth.types.js';
 import { ACCESS_COOKIE, readCookie } from './cookies.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 
-/** Global guard: every route requires a valid access token unless marked @Public(). */
+/** Global guard: every HTTP route requires a valid access token unless marked @Public(). */
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
@@ -25,17 +26,22 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = extractAccessToken(request);
-    if (!token) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Authentication required' });
-    }
+    if (!token) throw unauthorized('Authentication required');
 
-    try {
-      const payload = await this.jwt.verifyAsync<AccessTokenPayload>(token);
-      request.user = { id: payload.sub };
-      return true;
-    } catch {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Invalid or expired session' });
-    }
+    const payload = await verifyAccessToken(this.jwt, token);
+    if (!payload) throw unauthorized('Invalid or expired session');
+    request.user = { id: payload.sub };
+    return true;
+  }
+}
+
+/** Verifies signature, issuer and expiry, then the claim shape; undefined when any of it fails. */
+export async function verifyAccessToken(jwt: JwtService, token: string) {
+  try {
+    const parsed = accessTokenPayloadSchema.safeParse(await jwt.verifyAsync<object>(token));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
   }
 }
 

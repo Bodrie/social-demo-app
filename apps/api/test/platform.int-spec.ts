@@ -114,6 +114,21 @@ describe('API platform', () => {
       expect(apiErrorSchema.parse(response.body)).toMatchObject({ code: 'CONFLICT', fields: { email: 'Already in use' } });
     });
 
+    it('maps body-parser limits to the envelope instead of a masked 500', async () => {
+      const response = await request(server)
+        .post('/api/v1/_platform/validate')
+        .set('Content-Type', 'application/json')
+        .send(JSON.stringify({ email: 'ok@example.com', age: 30, padding: 'x'.repeat(200_000) }))
+        .expect(413);
+      expect(apiErrorSchema.parse(response.body).code).toBe('PAYLOAD_TOO_LARGE');
+    });
+
+    it('replaces malformed incoming request ids instead of echoing them', async () => {
+      const response = await request(server).get('/api/v1/_platform/not-found').set('x-request-id', '<script>alert(1)</script>').expect(404);
+      expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+      expect(response.body.requestId).toBe(response.headers['x-request-id']);
+    });
+
     it('echoes a well-formed incoming X-Request-Id in header and body', async () => {
       const response = await request(server)
         .get('/api/v1/_platform/not-found')

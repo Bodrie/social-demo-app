@@ -1,4 +1,9 @@
-import { messageAckSchema, sendMessageEventSchema, sendMessageSchema } from './messages.js';
+import {
+  markReadAckSchema,
+  messageAckSchema,
+  sendMessagePayloadSchema,
+  sendMessageSchema,
+} from './messages.js';
 
 describe('sendMessageSchema', () => {
   it('trims and bounds content', () => {
@@ -8,9 +13,9 @@ describe('sendMessageSchema', () => {
   });
 
   it('requires a recipient on the socket event', () => {
-    expect(sendMessageEventSchema.safeParse({ content: 'hi' }).success).toBe(false);
+    expect(sendMessagePayloadSchema.safeParse({ content: 'hi' }).success).toBe(false);
     expect(
-      sendMessageEventSchema.safeParse({
+      sendMessagePayloadSchema.safeParse({
         content: 'hi',
         recipientId: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       }).success,
@@ -26,5 +31,12 @@ describe('messageAckSchema', () => {
     };
     expect(messageAckSchema.parse(failure)).toEqual(failure);
     expect(messageAckSchema.safeParse({ ok: true }).success).toBe(false);
+  });
+});
+
+describe('markReadAckSchema', () => {
+  it('carries a count on success and an error envelope on failure', () => {
+    expect(markReadAckSchema.safeParse({ ok: true, count: 2 }).success).toBe(true);
+    expect(markReadAckSchema.safeParse({ ok: false }).success).toBe(false);
   });
 });

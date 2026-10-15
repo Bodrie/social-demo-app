@@ -1,16 +1,24 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { unauthorized } from '../common/errors.js';
 import type { Env } from '../config/env.js';
+import { SessionsRevokedEvent } from '../events/auth.events.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { RequestMeta } from './auth.types.js';
 
 export type IssuedRefreshToken = { raw: string; expiresAt: Date };
 
+type Writer = Pick<PrismaService, 'refreshToken'> | Prisma.TransactionClient;
+
 /**
  * Opaque, single-use refresh tokens. Only a SHA-256 hash is stored. Rotation
- * claims the old token atomically; presenting an already-rotated token is
- * treated as theft and revokes every session of that user.
+ * claims the old token and issues the new one in one transaction; presenting
+ * an already-rotated token is treated as theft and revokes every session of
+ * that user. Logout deletes the row outright, so a logged-out token replayed
+ * later is merely invalid and cannot be used to log the user out everywhere.
  */
 @Injectable()
 export class RefreshTokensService {
@@ -18,6 +26,7 @@ export class RefreshTokensService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
     config: ConfigService<Env, true>,
   ) {
     this.ttlMs = config.get('REFRESH_TTL_SECONDS', { infer: true }) * 1000;
@@ -27,14 +36,8 @@ export class RefreshTokensService {
     return createHash('sha256').update(raw).digest('hex');
   }
 
-  async issue(userId: string, meta: RequestMeta): Promise<IssuedRefreshToken> {
-    const raw = randomBytes(32).toString('base64url');
-    const expiresAt = new Date(Date.now() + this.ttlMs);
-    await this.prisma.refreshToken.create({
-      data: { userId, tokenHash: this.hash(raw), expiresAt, userAgent: meta.userAgent, ip: meta.ip },
-    });
-    await this.prisma.refreshToken.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
-    return { raw, expiresAt };
+  issue(userId: string, meta: RequestMeta): Promise<IssuedRefreshToken> {
+    return this.issueWith(this.prisma, userId, meta);
   }
 
   async rotate(raw: string, meta: RequestMeta): Promise<IssuedRefreshToken & { userId: string }> {
@@ -42,32 +45,33 @@ export class RefreshTokensService {
       where: { tokenHash: this.hash(raw) },
       select: { id: true, userId: true, expiresAt: true, revokedAt: true },
     });
-    if (!existing) throw this.unauthorized('Invalid refresh token');
+    if (!existing) throw unauthorized('Invalid refresh token');
 
     if (existing.revokedAt !== null) {
       await this.revokeAll(existing.userId);
-      throw this.unauthorized('Refresh token was already used; all sessions have been revoked');
+      throw unauthorized('Refresh token was already used; all sessions have been revoked');
     }
-    if (existing.expiresAt <= new Date()) throw this.unauthorized('Refresh token expired');
+    if (existing.expiresAt <= new Date()) throw unauthorized('Refresh token expired');
 
-    const claimed = await this.prisma.refreshToken.updateMany({
-      where: { id: existing.id, revokedAt: null },
-      data: { revokedAt: new Date() },
+    const issued = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.refreshToken.updateMany({
+        where: { id: existing.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      if (claimed.count !== 1) return null;
+      return this.issueWith(tx, existing.userId, meta);
     });
-    if (claimed.count !== 1) {
+    if (!issued) {
       await this.revokeAll(existing.userId);
-      throw this.unauthorized('Refresh token was already used; all sessions have been revoked');
+      throw unauthorized('Refresh token was already used; all sessions have been revoked');
     }
 
-    const issued = await this.issue(existing.userId, meta);
     return { userId: existing.userId, ...issued };
   }
 
+  /** Logout: the token simply ceases to exist. */
   async revoke(raw: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
-      where: { tokenHash: this.hash(raw), revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.prisma.refreshToken.deleteMany({ where: { tokenHash: this.hash(raw) } });
   }
 
   async revokeAll(userId: string): Promise<void> {
@@ -75,9 +79,16 @@ export class RefreshTokensService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    await this.events.emitAsync(SessionsRevokedEvent.EVENT, new SessionsRevokedEvent(userId));
   }
 
-  private unauthorized(message: string): UnauthorizedException {
-    return new UnauthorizedException({ code: 'UNAUTHORIZED', message });
+  private async issueWith(writer: Writer, userId: string, meta: RequestMeta): Promise<IssuedRefreshToken> {
+    const raw = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + this.ttlMs);
+    await writer.refreshToken.create({
+      data: { userId, tokenHash: this.hash(raw), expiresAt, userAgent: meta.userAgent, ip: meta.ip },
+    });
+    await writer.refreshToken.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
+    return { raw, expiresAt };
   }
 }

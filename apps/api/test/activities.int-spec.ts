@@ -1,4 +1,5 @@
-import { activityListSchema, commentSchema, postSchema } from '@the-mesh/shared';
+import { activityListSchema, commentSchema, postSchema, uploadResponseSchema } from '@the-mesh/shared';
+import sharp from 'sharp';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';
@@ -64,7 +65,7 @@ describe('activities', () => {
     expect(page1.items).toHaveLength(3);
     expect(page1.nextCursor).not.toBeNull();
     const page2 = await feed(myAgent, `?limit=3&cursor=${page1.nextCursor}`);
-    expect(page2.items.length).toBeGreaterThanOrEqual(1);
+    expect(page2.items).toHaveLength(1);
     expect(new Set([...page1.items, ...page2.items].map((a) => a.id)).size).toBe(page1.items.length + page2.items.length);
   });
 
@@ -96,6 +97,17 @@ describe('activities', () => {
 
     const types = (await feed(myAgent)).items.filter((a) => a.actor.id === newcomerId).map((a) => a.type);
     expect(types).toEqual(['USER_REGISTERED']);
+
+    // Changing the avatar is an activity; re-sending the same key or editing the bio is not.
+    const newcomerAgent = request.agent(t.server);
+    await newcomerAgent.post('/api/v1/auth/login').send({ email: 'newcomer@example.com', password: 'Password123!' }).expect(200);
+    const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#123456' } }).png().toBuffer();
+    const avatar = uploadResponseSchema.parse((await newcomerAgent.post('/api/v1/uploads?kind=avatar').attach('file', image, 'a.png').expect(201)).body);
+    await newcomerAgent.patch('/api/v1/users/me').send({ avatarKey: avatar.key }).expect(200);
+    await newcomerAgent.patch('/api/v1/users/me').send({ avatarKey: avatar.key, bio: 'hello' }).expect(200);
+
+    const after = (await feed(myAgent)).items.filter((a) => a.actor.id === newcomerId).map((a) => a.type);
+    expect(after).toEqual(['PROFILE_UPDATED', 'USER_REGISTERED']);
   });
 
   it('requires a session', async () => {

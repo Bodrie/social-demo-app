@@ -7,7 +7,8 @@ import {
 import { ZodValidationException } from 'nestjs-zod';
 import { z } from 'zod';
 import { Prisma } from '../../generated/prisma/client.js';
-import { HttpExceptionFilter, fieldsFromIssues, toApiError } from './http-exception.filter.js';
+import { fieldsFromIssues, toApiError } from '../errors.js';
+import { HttpExceptionFilter } from './http-exception.filter.js';
 
 function zodFailure(): ZodValidationException {
   const result = z.object({ email: z.email(), age: z.number().min(18) }).safeParse({ email: 'x', age: 1 });
@@ -60,6 +61,19 @@ describe('toApiError', () => {
     });
 
     expect(toApiError(prismaError).statusCode).toBe(404);
+  });
+
+  it('maps body-parser style http-errors by their status and keeps the message', () => {
+    const tooLarge = Object.assign(new Error('request entity too large'), { status: 413, expose: true });
+
+    expect(toApiError(tooLarge)).toMatchObject({ statusCode: 413, code: 'PAYLOAD_TOO_LARGE', message: 'request entity too large' });
+  });
+
+  it('never trusts http-errors marked as not exposable or with 5xx status', () => {
+    const internal = Object.assign(new Error('db password leaked'), { status: 502, expose: true });
+    expect(toApiError(internal).statusCode).toBe(500);
+    const hidden = Object.assign(new Error('hidden'), { status: 400, expose: false });
+    expect(toApiError(hidden).statusCode).toBe(500);
   });
 
   it('hides internals of unexpected errors', () => {

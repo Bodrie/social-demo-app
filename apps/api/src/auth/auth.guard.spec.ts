@@ -33,11 +33,16 @@ describe('AuthGuard', () => {
   });
 
   it('attaches the user id from a valid cookie token', async () => {
-    const token = await jwt.signAsync({ sub: 'user-1' });
+    const token = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9' });
     const request: Partial<AuthenticatedRequest> = { headers: {}, cookies: { access_token: token } };
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
-    expect(request.user).toEqual({ id: 'user-1' });
+    expect(request.user).toEqual({ id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9' });
+  });
+
+  it('rejects a correctly signed token without a usable subject', async () => {
+    const token = await jwt.signAsync({ role: 'admin' });
+    await expect(guard.canActivate(contextFor({ headers: {}, cookies: { access_token: token } }))).rejects.toMatchObject({ status: 401 });
   });
 
   it('rejects missing and tampered tokens', async () => {

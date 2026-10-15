@@ -60,7 +60,7 @@ describe('follows', () => {
     const fans = [await createUser(t.prisma), await createUser(t.prisma), await createUser(t.prisma)];
     const starAgent = await agentFor(t, star);
     for (const fan of fans) {
-      // eslint-disable-next-line no-await-in-loop -- sequential so createdAt ordering is deterministic
+      // oxlint-disable-next-line no-await-in-loop -- sequential so createdAt ordering is deterministic
       await (await agentFor(t, fan)).put(`/api/v1/users/${star.id}/follow`).expect(204);
     }
 
@@ -78,6 +78,13 @@ describe('follows', () => {
     const following = userListSchema.parse((await starAgent.get(`/api/v1/users/${fans[0]!.id}/following`).expect(200)).body);
     expect(following.items.map((u) => u.id)).toEqual([star.id]);
     expect(following.items[0]).toMatchObject({ followedByMe: false, followsMe: false });
+
+    // The cursor still works after the row it points at disappears.
+    await (await agentFor(t, fans[1]!)).delete(`/api/v1/users/${star.id}/follow`).expect(204);
+    const afterUnfollow = userListSchema.parse(
+      (await starAgent.get(`/api/v1/users/${star.id}/followers?limit=2&cursor=${page1.nextCursor}`).expect(200)).body,
+    );
+    expect(afterUnfollow.items.map((u) => u.id)).toEqual([fans[0]!.id]);
   });
 
   it('shows follow flags in search results and suggestions', async () => {
@@ -89,7 +96,7 @@ describe('follows', () => {
     const search = userListSchema.parse((await myAgent.get('/api/v1/users?q=flagged_user').expect(200)).body);
     expect(search.items[0]).toMatchObject({ id: followed.id, followedByMe: true });
 
-    const suggestions = (await myAgent.get('/api/v1/users/suggestions?limit=20').expect(200)).body as Array<{ id: string }>;
-    expect(suggestions.map((u) => u.id)).not.toContain(followed.id);
+    const suggestions = userListSchema.parse((await myAgent.get('/api/v1/users/suggestions?limit=20').expect(200)).body);
+    expect(suggestions.items.map((u) => u.id)).not.toContain(followed.id);
   });
 });

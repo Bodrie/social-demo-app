@@ -5,8 +5,10 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { ActivitiesModule } from './activities/activities.module.js';
+import { AssetsModule } from './assets/assets.module.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CREDENTIAL_THROTTLERS } from './auth/credential-throttle.js';
 import { ChatModule } from './chat/chat.module.js';
 import { CommentsModule } from './comments/comments.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
@@ -23,7 +25,12 @@ import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+      // Tests pin every variable they need; a developer's .env must not leak into them.
+      ignoreEnvFile: process.env.NODE_ENV === 'test',
+    }),
     AppLoggerModule,
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRootAsync({
@@ -35,10 +42,12 @@ import { UsersModule } from './users/users.module.js';
             ttl: config.get('THROTTLE_TTL_MS', { infer: true }),
             limit: config.get('THROTTLE_LIMIT', { infer: true }),
           },
+          ...CREDENTIAL_THROTTLERS,
         ],
       }),
     }),
     PrismaModule,
+    AssetsModule,
     HealthModule,
     AuthModule,
     UsersModule,

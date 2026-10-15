@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { PostAuthor } from '@the-mesh/shared';
+import type { UserSummary } from '@the-mesh/shared';
 
-type Entry = { user: PostAuthor; sockets: Set<string> };
+type Entry = { user: UserSummary; sockets: Set<string> };
 
 /**
  * Who is online, deduplicated per user (several tabs = one entry).
@@ -13,7 +13,7 @@ export class PresenceService {
   private readonly online = new Map<string, Entry>();
 
   /** Returns true when the user just came online. */
-  add(user: PostAuthor, socketId: string): boolean {
+  add(user: UserSummary, socketId: string): boolean {
     const entry = this.online.get(user.id);
     if (entry) {
       entry.user = user;
@@ -34,11 +34,19 @@ export class PresenceService {
     return true;
   }
 
-  isOnline(userId: string): boolean {
-    return this.online.has(userId);
+  /** Refreshes the cached profile of an online user (name/avatar changed). */
+  refresh(user: UserSummary): boolean {
+    const entry = this.online.get(user.id);
+    if (!entry) return false;
+    entry.user = user;
+    return true;
   }
 
-  list(): PostAuthor[] {
+  socketCount(userId: string): number {
+    return this.online.get(userId)?.sockets.size ?? 0;
+  }
+
+  list(): UserSummary[] {
     return [...this.online.values()].map((entry) => entry.user);
   }
 }

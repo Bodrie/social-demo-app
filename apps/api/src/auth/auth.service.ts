@@ -1,13 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import type { LoginData, RegisterData, UserPrivate } from '@the-mesh/shared';
+import { unauthorized } from '../common/errors.js';
 import type { Env } from '../config/env.js';
 import { UserRegisteredEvent } from '../events/user.events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
-import type { AccessTokenPayload, IssuedTokens, RequestMeta } from './auth.types.js';
+import type { AccessTokenClaims, IssuedTokens, RequestMeta } from './auth.types.js';
 import type { CookieSettings } from './cookies.js';
 import { dummyPasswordHash, hashPassword, verifyPassword } from './password.js';
 import { RefreshTokensService } from './refresh-tokens.service.js';
@@ -53,19 +54,17 @@ export class AuthService {
     });
     // Always run a verification so response time does not reveal whether the email exists.
     const valid = await verifyPassword(user?.passwordHash ?? (await dummyPasswordHash()), input.password);
-    if (!user || !valid) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Invalid email or password' });
-    }
+    if (!user || !valid) throw unauthorized('Invalid email or password');
     return this.session(user.id, meta);
   }
 
   async refresh(rawRefreshToken: string | undefined, meta: RequestMeta): Promise<AuthResult> {
-    if (!rawRefreshToken) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'No refresh token' });
-    }
+    if (!rawRefreshToken) throw unauthorized('No refresh token');
     const rotated = await this.refreshTokens.rotate(rawRefreshToken, meta);
+    const user = await this.users.findPrivateById(rotated.userId);
+    if (!user) throw unauthorized('This account no longer exists');
     return {
-      user: await this.users.getPrivateById(rotated.userId),
+      user,
       tokens: {
         accessToken: await this.signAccessToken(rotated.userId),
         refreshToken: rotated.raw,
@@ -82,6 +81,13 @@ export class AuthService {
     return this.refreshTokens.revokeAll(userId);
   }
 
+  /** The caller's profile for GET /auth/me; a token for a deleted account is treated as no session. */
+  async me(userId: string): Promise<UserPrivate> {
+    const user = await this.users.findPrivateById(userId);
+    if (!user) throw unauthorized('This account no longer exists');
+    return user;
+  }
+
   private async session(userId: string, meta: RequestMeta): Promise<AuthResult> {
     const [user, accessToken, refresh] = await Promise.all([
       this.users.getPrivateById(userId),
@@ -95,7 +101,7 @@ export class AuthService {
   }
 
   private signAccessToken(userId: string): Promise<string> {
-    const payload: AccessTokenPayload = { sub: userId };
-    return this.jwt.signAsync(payload);
+    const claims: AccessTokenClaims = { sub: userId };
+    return this.jwt.signAsync(claims);
   }
 }

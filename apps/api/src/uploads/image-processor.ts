@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, UnsupportedMediaTypeException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { UploadKind } from '@the-mesh/shared';
 import sharp from 'sharp';
+import { badRequest, unsupportedMedia } from '../common/errors.js';
 import type { Env } from '../config/env.js';
 
 /** Formats sharp may decode for us. SVG is deliberately absent (scripts, external refs). */
@@ -33,11 +34,7 @@ export class ImageProcessor {
   async process(input: Buffer, kind: UploadKind): Promise<ProcessedImage> {
     const format = await this.detectFormat(input);
     if (format === undefined || !ACCEPTED_FORMATS.has(format)) {
-      throw new UnsupportedMediaTypeException({
-        code: 'UNSUPPORTED_MEDIA_TYPE',
-        message: 'Unsupported image type',
-        fields: { file: 'Use a JPEG, PNG, WebP, GIF or AVIF image' },
-      });
+      throw unsupportedMedia('Unsupported image type', { file: 'Use a JPEG, PNG, WebP, GIF or AVIF image' });
     }
 
     const preset = PRESETS[kind];
@@ -68,19 +65,13 @@ export class ImageProcessor {
     }
   }
 
-  private toException(error: unknown): BadRequestException | UnsupportedMediaTypeException {
+  private toException(error: unknown): Error {
     const message = error instanceof Error ? error.message : '';
     if (message.includes('pixel limit')) {
-      return new BadRequestException({
-        code: 'BAD_REQUEST',
-        message: 'Image is too large',
-        fields: { file: `Images must be below ${Math.round(this.maxPixels / 1_000_000)} megapixels` },
+      return badRequest('Image is too large', {
+        file: `Images must be below ${Math.round(this.maxPixels / 1_000_000)} megapixels`,
       });
     }
-    return new UnsupportedMediaTypeException({
-      code: 'UNSUPPORTED_MEDIA_TYPE',
-      message: 'The file is not a valid image',
-      fields: { file: 'The file could not be decoded as an image' },
-    });
+    return unsupportedMedia('The file is not a valid image', { file: 'The file could not be decoded as an image' });
   }
 }

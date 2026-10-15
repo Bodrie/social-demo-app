@@ -1,6 +1,6 @@
 # The Mesh – Rebuild & Rewrite Plan
 
-**Status:** v0.3 (2026-10-15). All decisions D1–D23 made (log in §6). Phases 0–3g merged (PRs #3–#11). Phase 3h complete on branch `rebuild/phase-3h-chat`; the API (phase 3) is feature-complete.
+**Status:** v0.3 (2026-10-15). All decisions D1–D23 made (log in §6). Phases 0–3h merged (PRs #3–#12); the API is feature-complete. API review pass (six review agents, 2026-10-15) applied on branch `rebuild/api-review`; deferred items in `docs/BACKLOG.md`.
 **Scope:** full rewrite of client, API and database; CI/CD; containerisation. Deployment target is deliberately left open until a domain/hosting is chosen.
 
 ---
@@ -222,8 +222,8 @@ POST   /auth/register            POST /auth/login     POST /auth/logout   POST /
 POST   /auth/refresh             GET  /auth/me
 
 GET    /users?q=&limit=&cursor=  GET  /users/:id      GET /users/by-username/:username
-GET    /users/me                 PATCH /users/me
-GET    /users/suggestions        GET  /users/:id/followers?limit=&cursor=   GET /users/:id/following?limit=&cursor=
+PATCH  /users/me                 → { user }  (GET /auth/me reads it)
+GET    /users/suggestions?limit= (list envelope)   GET  /users/:id/followers?limit=&cursor=   GET /users/:id/following?limit=&cursor=
 PUT    /users/:id/follow         DELETE /users/:id/follow   (idempotent; 400 on self-follow)
 GET    /users/:id/posts?cursor=
 
@@ -234,7 +234,7 @@ GET    /posts/:id/comments?limit=&cursor=   POST /posts/:id/comments   DELETE /c
 GET    /activities?limit=&cursor=   (actors the caller follows; actor + post/comment excerpt + target user)
 POST   /uploads?kind=avatar|cover|post   (multipart `file`; returns { key, url, width, height, bytes })
 GET    /uploads/:kind/:file      (public, immutable)
-GET    /messages                 (conversations: peer, last message, unread count)
+GET    /messages                 (conversations: { items: [{ peer, lastMessage, unreadCount }], nextCursor: null })
 GET    /messages/:userId?limit=&cursor=   POST /messages/:userId   POST /messages/:userId/read
 
 GET    /health                   (terminus; DB check)
@@ -472,6 +472,20 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 - Residential hosting: ISP outages and a single box mean no HA; acceptable for a demo. Backups off the box are the one non-negotiable.
 
 ---
+
+## 4.6 API review pass (2026-10-15)
+
+Six independent review agents (security, correctness, data layer, platform/ops, tests, contract/code quality) read the finished API. Verified solid: auth core, authorisation on every route and socket event, parameterised SQL, upload pipeline, schema and cascades, event wiring. Fixed in `rebuild/api-review`:
+
+- **Throttling**: login/register now stack three limits (global per address, 10/min per address+account, 30/min per address for any account); the previous per-route override had replaced the per-address limit, so one address could try unlimited accounts at full argon2 cost. Socket `message:send`/`message:read` are rate limited per user; at most 5 sockets per user; public upload serving is no longer throttled.
+- **Uploads have owners**: new `uploads` table (key, owner, kind). A key can only be attached by its uploader and only where its kind fits; files are deleted only when nothing references them. `avatarKey`/`coverKey` are kind-restricted in the shared schema.
+- **Pagination**: cursors now carry `(createdAt, id)` and lists use explicit keyset predicates. Deleting the cursor row no longer ends a list early, and follows lists keep their SQL `LIMIT` (Prisma dropped it for the composite key).
+- **Data layer**: `relationJoins` so `_count` and viewer-relative flags compile to lateral joins instead of whole-table aggregates; sort-covering indexes on activities, follows, comments and posts-by-author; refresh rotation claims and issues inside one transaction; pool timeouts and `statement_timeout`; `%`/`_` escaped in search; a `messages_no_self_message` CHECK.
+- **Sessions**: logout deletes the refresh row (a replayed logged-out token is merely invalid, not "theft"); `logout-all`/reuse detection emit `auth.sessionsRevoked`, which disconnects the user's sockets; a socket never outlives its access token; JWT claims are validated (`sub` must be a UUID); `GET /auth/me` for a deleted account is a 401.
+- **Contract**: every list (incl. suggestions and conversations) uses `{ items, nextCursor }`; `GET /users/me` removed, `PATCH /users/me` returns `{ user }` like the auth endpoints; route params validated by zod DTOs (`VALIDATION_ERROR` keyed by parameter); `userSummarySchema` replaces `postAuthorSchema`; blank optional text becomes `null`; `website` is http(s)-only; typed socket event maps and ack schemas in shared; `API_BASE_PATH` constant.
+- **Platform**: `TRUST_PROXY` accepts hop counts or address lists; production refuses development defaults (`PUBLIC_ASSETS_URL`, `WEB_ORIGINS`, `TRUST_PROXY`, placeholder `JWT_SECRET`, `COOKIE_SECURE=false`); body-parser/multer `http-errors` map to their status instead of a masked 500; Prisma disconnects after the HTTP server drains; 4xx logged at warn, request logs reduced to id/method/url/address/user-agent; health failures and socket handler errors are logged; `StreamableFile` errors use the envelope; OpenAPI has auth requirements and stable operation ids.
+- **Tests**: 91 integration tests (was 74) incl. logout revocation, per-address throttle, forged-claim tokens, deleted-cursor paging, foreign upload keys, socket isolation, expired/forged handshakes, socket cap, revoked sessions, oversized bodies, picture-update activities; `.env` no longer leaks into test runs; `packages/config` is part of the turbo hash; CI cache keyed on the lockfile.
+- **Seed**: usernames obey the shared rule, upload rows are recorded, previous generated files are removed.
 
 ## 5. Parity checklist (gate for deleting the old code)
 

@@ -36,8 +36,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
           restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             turbo-${{ runner.os }}-
 
       - run: pnpm format:check
@@ -94,8 +95,9 @@ jobs:
       - name: Verify migrations match the schema
         run: pnpm db:check
 
-      - name: Seed
-        run: pnpm db:seed
-
       - name: Integration tests
         run: pnpm turbo run test:int
+
+      # Smoke test of the seed script against the migrated schema (tests truncate the tables anyway).
+      - name: Seed
+        run: pnpm db:seed

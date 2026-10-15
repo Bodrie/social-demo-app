@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
-import { postAuthorSchema } from './posts.js';
+import { userSummarySchema } from './users.js';
 
 export const COMMENT_MAX_LENGTH = 500;
 
@@ -8,7 +8,7 @@ export const commentSchema = z.object({
   id: z.uuid(),
   postId: z.uuid(),
   content: z.string(),
-  author: postAuthorSchema,
+  author: userSummarySchema,
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

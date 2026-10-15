@@ -12,10 +12,19 @@ describe('PresenceService', () => {
     expect(presence.add(bob, 's3')).toBe(true);
     expect(presence.list().map((u) => u.id)).toEqual(['a', 'b']);
 
+    expect(presence.socketCount('a')).toBe(2);
     expect(presence.remove('a', 's1')).toBe(false);
-    expect(presence.isOnline('a')).toBe(true);
+    expect(presence.socketCount('a')).toBe(1);
     expect(presence.remove('a', 's2')).toBe(true);
-    expect(presence.isOnline('a')).toBe(false);
+    expect(presence.socketCount('a')).toBe(0);
     expect(presence.remove('a', 'unknown')).toBe(false);
+  });
+
+  it('refreshes the cached profile of an online user only', () => {
+    const presence = new PresenceService();
+    presence.add(alice, 's1');
+    expect(presence.refresh({ ...alice, name: 'Alicia' })).toBe(true);
+    expect(presence.list()[0]?.name).toBe('Alicia');
+    expect(presence.refresh(bob)).toBe(false);
   });
 });

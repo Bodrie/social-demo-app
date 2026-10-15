@@ -25,8 +25,12 @@ describe('handshakeToken', () => {
 
 describe('authenticateSocket', () => {
   it('resolves the user id for a valid token and refuses anything else', async () => {
-    const token = await jwt.signAsync({ sub: 'user-1' });
-    await expect(authenticateSocket(socketWith({}, { token }), jwt)).resolves.toBe('user-1');
+    const token = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9' });
+    const session = await authenticateSocket(socketWith({}, { token }), jwt);
+    expect(session?.userId).toBe('01a13ed6-d3ec-71cb-b39f-fbc256a293b9');
+    expect(session?.expiresAt?.getTime()).toBeGreaterThan(Date.now());
+    const noSub = await jwt.signAsync({ role: 'admin' });
+    await expect(authenticateSocket(socketWith({}, { token: noSub }), jwt)).resolves.toBeUndefined();
     await expect(authenticateSocket(socketWith({}, { token: 'nope' }), jwt)).resolves.toBeUndefined();
     await expect(authenticateSocket(socketWith({}), jwt)).resolves.toBeUndefined();
   });

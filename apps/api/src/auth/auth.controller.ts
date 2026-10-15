@@ -1,59 +1,36 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { AuthResponse } from '@the-mesh/shared';
 import type { Request, Response } from 'express';
-import { AuthResponseDto, LoginDto, RegisterDto } from './auth.dto.js';
+import { LoginDto, RegisterDto } from './auth.dto.js';
 import { AuthService } from './auth.service.js';
 import { type AuthUser, requestMeta } from './auth.types.js';
 import { REFRESH_COOKIE, clearAuthCookies, readCookie, setAuthCookies } from './cookies.js';
+import { CredentialRoute } from './credential-throttle.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
-import { isRecord } from '../common/guards.js';
-import { UsersService } from '../users/users.service.js';
-
-/**
- * Credential endpoints are limited per client address *and* account: brute
- * forcing one account from one address is capped, while different accounts
- * behind one NAT (or a test suite) are not punished for each other.
- */
-const CREDENTIAL_THROTTLE = {
-  default: {
-    limit: 10,
-    ttl: 60_000,
-    getTracker: (req: Record<string, unknown>): string => {
-      const body = isRecord(req.body) ? req.body : {};
-      const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const ip = typeof req.ip === 'string' ? req.ip : '';
-      return `${ip}:${email}`;
-    },
-  },
-};
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly auth: AuthService,
-    private readonly users: UsersService,
-  ) {}
+  constructor(private readonly auth: AuthService) {}
 
   @Public()
-  @Throttle(CREDENTIAL_THROTTLE)
+  @CredentialRoute()
   @Post('register')
   @HttpCode(201)
   async register(
     @Body() body: RegisterDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponseDto> {
+  ): Promise<AuthResponse> {
     const { user, tokens } = await this.auth.register(body, requestMeta(req));
     setAuthCookies(res, tokens, this.auth.cookieSettings);
     return { user };
   }
 
   @Public()
-  @Throttle(CREDENTIAL_THROTTLE)
+  @CredentialRoute()
   @Post('login')
   @HttpCode(200)
   async login(
@@ -75,7 +52,8 @@ export class AuthController {
       setAuthCookies(res, tokens, this.auth.cookieSettings);
       return { user };
     } catch (error) {
-      clearAuthCookies(res, this.auth.cookieSettings);
+      // Only a rejected token ends the session; a transient failure keeps the cookies for a retry.
+      if (error instanceof UnauthorizedException) clearAuthCookies(res, this.auth.cookieSettings);
       throw error;
     }
   }
@@ -98,6 +76,6 @@ export class AuthController {
 
   @Get('me')
   async me(@CurrentUser() user: AuthUser): Promise<AuthResponse> {
-    return { user: await this.users.getPrivateById(user.id) };
+    return { user: await this.auth.me(user.id) };
   }
 }

@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Paginated, Post as PostItem } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { IdParamDto, UserIdParamDto } from '../common/params.dto.js';
 import { CreatePostDto, FeedQueryDto } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 
@@ -25,26 +26,26 @@ export class PostsController {
   }
 
   @Get(':id')
-  byId(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<PostItem> {
-    return this.posts.getById(user.id, id);
+  byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<PostItem> {
+    return this.posts.getById(user.id, params.id);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  remove(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.posts.delete(user.id, id);
+  remove(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.delete(user.id, params.id);
   }
 
   @Put(':id/like')
   @HttpCode(204)
-  like(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.posts.like(user.id, id);
+  like(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.like(user.id, params.id);
   }
 
   @Delete(':id/like')
   @HttpCode(204)
-  unlike(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.posts.unlike(user.id, id);
+  unlike(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unlike(user.id, params.id);
   }
 }
 
@@ -56,9 +57,9 @@ export class UserPostsController {
   @Get()
   byAuthor(
     @CurrentUser() user: AuthUser,
-    @Param('userId', ParseUUIDPipe) userId: string,
+    @Param() params: UserIdParamDto,
     @Query() query: FeedQueryDto,
   ): Promise<Paginated<PostItem>> {
-    return this.posts.byAuthor(user.id, userId, query);
+    return this.posts.byAuthor(user.id, params.userId, query);
   }
 }

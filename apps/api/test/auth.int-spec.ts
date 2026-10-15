@@ -1,4 +1,6 @@
 import { apiErrorSchema, authResponseSchema } from '@the-mesh/shared';
+import { JwtService } from '@nestjs/jwt';
+import { CREDENTIAL_THROTTLE } from '../src/auth/credential-throttle.js';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { TEST_PASSWORD, cookiesFrom, createUser, login, setCookieHeader } from './setup/factories.js';
@@ -88,6 +90,17 @@ describe('auth', () => {
       expect(apiErrorSchema.parse(response.body).code).toBe('UNAUTHORIZED');
     });
 
+    it('rejects a correctly signed token without a subject and a token for a deleted account', async () => {
+      const jwt = t.app.get(JwtService);
+      await request(t.server).get('/api/v1/auth/me').set('Authorization', `Bearer ${await jwt.signAsync({ role: 'admin' })}`).expect(401);
+
+      const ghost = await createUser(t.prisma);
+      const token = await jwt.signAsync({ sub: ghost.id });
+      await t.prisma.user.delete({ where: { id: ghost.id } });
+      const response = await request(t.server).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`).expect(401);
+      expect(apiErrorSchema.parse(response.body).code).toBe('UNAUTHORIZED');
+    });
+
     it('accepts the access token as a Bearer header too', async () => {
       const user = await createUser(t.prisma);
       const loginResponse = await request(t.server).post('/api/v1/auth/login').send({ email: user.email, password: TEST_PASSWORD });
@@ -117,6 +130,16 @@ describe('auth', () => {
       await request(t.server).post('/api/v1/auth/refresh').set('Cookie', `refresh_token=${newRefresh}`).expect(401);
     });
 
+    it('rejects an expired refresh token', async () => {
+      const user = await createUser(t.prisma);
+      const loginResponse = await request(t.server).post('/api/v1/auth/login').send({ email: user.email, password: TEST_PASSWORD });
+      const refresh = cookiesFrom(loginResponse.headers['set-cookie']).refresh_token;
+      await t.prisma.refreshToken.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+
+      const response = await request(t.server).post('/api/v1/auth/refresh').set('Cookie', `refresh_token=${refresh}`).expect(401);
+      expect(apiErrorSchema.parse(response.body).message).toBe('Refresh token expired');
+    });
+
     it('fails without a cookie and clears cookies on failure', async () => {
       const response = await request(t.server).post('/api/v1/auth/refresh').expect(401);
       expect(apiErrorSchema.parse(response.body).code).toBe('UNAUTHORIZED');
@@ -125,17 +148,23 @@ describe('auth', () => {
   });
 
   describe('logout', () => {
-    it('revokes the refresh token and clears both cookies', async () => {
+    it('deletes the refresh token and clears both cookies; a replayed logged-out token is merely invalid', async () => {
       const user = await createUser(t.prisma);
-      const agent = request.agent(t.server);
-      await login(agent, user.email);
+      const phone = request.agent(t.server);
+      const laptopLogin = await request(t.server).post('/api/v1/auth/login').send({ email: user.email, password: TEST_PASSWORD }).expect(200);
+      const laptopRefresh = cookiesFrom(laptopLogin.headers['set-cookie']).refresh_token;
+      const phoneLogin = await phone.post('/api/v1/auth/login').send({ email: user.email, password: TEST_PASSWORD }).expect(200);
+      const phoneRefresh = cookiesFrom(phoneLogin.headers['set-cookie']).refresh_token;
 
-      const response = await agent.post('/api/v1/auth/logout').expect(204);
+      const response = await phone.post('/api/v1/auth/logout').expect(204);
       expect(setCookieHeader(response.headers['set-cookie'], 'access_token')).toMatch(/Expires=Thu, 01 Jan 1970/);
       expect(setCookieHeader(response.headers['set-cookie'], 'refresh_token')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(await t.prisma.refreshToken.count({ where: { userId: user.id } })).toBe(1);
 
-      await agent.get('/api/v1/auth/me').expect(401);
-      await agent.post('/api/v1/auth/refresh').expect(401);
+      const replay = await request(t.server).post('/api/v1/auth/refresh').set('Cookie', `refresh_token=${phoneRefresh}`).expect(401);
+      expect(apiErrorSchema.parse(replay.body).message).toBe('Invalid refresh token');
+      // The laptop keeps working: logging out one device never revokes the others.
+      await request(t.server).post('/api/v1/auth/refresh').set('Cookie', `refresh_token=${laptopRefresh}`).expect(200);
     });
 
     it('logout-all ends every session of the user', async () => {
@@ -156,18 +185,41 @@ describe('auth', () => {
 describe('auth throttling', () => {
   let t: TestApp;
 
-  beforeAll(async () => {
-    t = await createTestApp();
+  beforeEach(async () => {
+    t = await createTestApp({ listen: true });
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await t.app.close();
   });
 
-  it('limits credential attempts per client', async () => {
-    const attempt = () => request(t.server).post('/api/v1/auth/login').send({ email: 'ghost@example.com', password: 'wrong-pass' });
-    await Promise.all(Array.from({ length: 10 }, () => attempt().expect(401)));
-    const blocked = await attempt().expect(429);
+  const attempt = (email: string) => request(t.server).post('/api/v1/auth/login').send({ email, password: 'wrong-pass' });
+
+  it('limits attempts against one account from one address', async () => {
+    for (let i = 0; i < CREDENTIAL_THROTTLE.perAccount.limit; i += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential on purpose
+      await attempt('ghost@example.com').expect(401);
+    }
+    const blocked = await attempt('ghost@example.com').expect(429);
     expect(apiErrorSchema.parse(blocked.body).code).toBe('TOO_MANY_REQUESTS');
+    // A different account from the same address still has its own budget...
+    await attempt('other@example.com').expect(401);
+  });
+
+  it('...but one address cannot try unlimited accounts', async () => {
+    for (let i = 0; i < CREDENTIAL_THROTTLE.perAddress.limit; i += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential on purpose
+      await attempt(`user${i}@example.com`).expect(401);
+    }
+    const blocked = await attempt('one-more@example.com').expect(429);
+    expect(apiErrorSchema.parse(blocked.body).code).toBe('TOO_MANY_REQUESTS');
+  });
+
+  it('does not let a spoofed X-Forwarded-For escape the limit when no proxy is trusted', async () => {
+    for (let i = 0; i < CREDENTIAL_THROTTLE.perAccount.limit; i += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential on purpose
+      await attempt('target@example.com').set('X-Forwarded-For', `10.0.0.${i}`).expect(401);
+    }
+    await attempt('target@example.com').set('X-Forwarded-For', '10.0.0.99').expect(429);
   });
 });
