@@ -61,6 +61,9 @@ describe('messages', () => {
     await user.type(screen.getByRole('textbox', { name: 'Message Bob Brown' }), 'Sure!{Enter}');
     expect(await within(log).findByText('Sure!')).toBeInTheDocument();
     await waitFor(() => expect(mockDb.messages.at(-1)?.content).toBe('Sure!'));
+    // The push arrives before the ack in the fake (as on the real gateway): never two bubbles.
+    expect(within(log).getAllByText('Sure!')).toHaveLength(1);
+    await waitFor(() => expect(within(log).queryByText('Sending…')).not.toBeInTheDocument());
     expect(screen.getByRole('textbox', { name: 'Message Bob Brown' })).toHaveValue('');
     const rows = within(screen.getByRole('list', { name: 'Conversations' })).getAllByRole(
       'listitem',
