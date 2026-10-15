@@ -41,5 +41,8 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**'],
     css: false,
+    // Dialog flows type into several fields; on a loaded CI runner they can pass 5 s.
+    testTimeout: 15_000,
+    hookTimeout: 15_000,
   },
 });

@@ -1,0 +1,68 @@
+# Production stack for one box: Postgres, the API, the web server and the Cloudflare
+# Tunnel. Copy this directory to the server, fill in `.env` (see .env.example) and run
+# `docker compose up -d`. Images come from GHCR (built by .github/workflows/docker.yml).
+name: the-mesh
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mesh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mesh}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-mesh} -d ${POSTGRES_DB:-mesh}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 30s
+
+  api:
+    image: ${API_IMAGE:-ghcr.io/bodrie/the-mesh-api}:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mesh}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mesh}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      WEB_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      PUBLIC_ASSETS_URL: ${PUBLIC_URL}/api/v1/uploads
+      COOKIE_SECURE: 'true'
+      # Caddy rewrites X-Forwarded-For from Cloudflare's CF-Connecting-IP: trust that one hop.
+      TRUST_PROXY: '1'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      UPLOADS_DIR: /data/uploads
+      MIGRATE_ON_START: 'true'
+    volumes:
+      - uploads:/data/uploads
+    stop_grace_period: 20s
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/bodrie/the-mesh-web}:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - api
+    volumes:
+      - uploads:/srv/uploads:ro
+    ports:
+      # Only on the box itself, for checks like `curl http://127.0.0.1:8080/`.
+      - '127.0.0.1:${WEB_PORT:-8080}:80'
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ['tunnel']
+    # Only started with `--profile tunnel`; the token is required then (cloudflared fails loudly without it).
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  uploads:

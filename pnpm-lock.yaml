@@ -317,6 +317,9 @@ importers:
       cookie-parser:
         specifier: 'catalog:'
         version: 1.4.7
+      dotenv:
+        specifier: 'catalog:'
+        version: 18.0.8
       helmet:
         specifier: 'catalog:'
         version: 8.3.0
@@ -335,6 +338,9 @@ importers:
       pino-http:
         specifier: 'catalog:'
         version: 11.0.0
+      prisma:
+        specifier: 'catalog:'
+        version: 7.10.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
       reflect-metadata:
         specifier: 'catalog:'
         version: 0.2.2
@@ -384,9 +390,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
-      dotenv:
-        specifier: 'catalog:'
-        version: 18.0.8
       oxlint:
         specifier: 'catalog:'
         version: 1.88.0(oxlint-tsgolint@7.0.2004)
@@ -396,9 +399,6 @@ importers:
       pino-pretty:
         specifier: 'catalog:'
         version: 13.2.0
-      prisma:
-        specifier: 'catalog:'
-        version: 7.10.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
       socket.io-client:
         specifier: 'catalog:'
         version: 4.8.4
