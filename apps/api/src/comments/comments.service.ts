@@ -42,7 +42,7 @@ export class CommentsService {
       data: { postId, authorId, content: input.content },
       select: commentSelect,
     });
-    this.events.emit(
+    await this.events.emitAsync(
       CommentCreatedEvent.EVENT,
       new CommentCreatedEvent(row.id, postId, authorId, post.authorId),
     );

@@ -19,3 +19,11 @@ export class UserFollowedEvent {
     readonly followeeId: string,
   ) {}
 }
+
+export class UserUnfollowedEvent {
+  static readonly EVENT = 'user.unfollowed';
+  constructor(
+    readonly followerId: string,
+    readonly followeeId: string,
+  ) {}
+}

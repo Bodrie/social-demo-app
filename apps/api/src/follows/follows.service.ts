@@ -4,7 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CursorQuery, Paginated, UserPublic } from '@the-mesh/shared';
 import { decodeCursor, paginateBy } from '../common/pagination.js';
 import type { Env } from '../config/env.js';
-import { UserFollowedEvent } from '../events/user.events.js';
+import { UserFollowedEvent, UserUnfollowedEvent } from '../events/user.events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { toUserPublic, userPublicSelect } from '../users/users.mapper.js';
 
@@ -31,13 +31,18 @@ export class FollowsService {
       skipDuplicates: true,
     });
     if (result.count === 1) {
-      this.events.emit(UserFollowedEvent.EVENT, new UserFollowedEvent(viewerId, targetId));
+      await this.events.emitAsync(UserFollowedEvent.EVENT, new UserFollowedEvent(viewerId, targetId));
     }
   }
 
   async unfollow(viewerId: string, targetId: string): Promise<void> {
     await this.assertUserExists(targetId);
-    await this.prisma.follow.deleteMany({ where: { followerId: viewerId, followeeId: targetId } });
+    const result = await this.prisma.follow.deleteMany({
+      where: { followerId: viewerId, followeeId: targetId },
+    });
+    if (result.count === 1) {
+      await this.events.emitAsync(UserUnfollowedEvent.EVENT, new UserUnfollowedEvent(viewerId, targetId));
+    }
   }
 
   /** Users following `userId`, most recent follow first. */

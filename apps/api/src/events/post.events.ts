@@ -14,3 +14,11 @@ export class PostLikedEvent {
     readonly authorId: string,
   ) {}
 }
+
+export class PostUnlikedEvent {
+  static readonly EVENT = 'post.unliked';
+  constructor(
+    readonly postId: string,
+    readonly actorId: string,
+  ) {}
+}

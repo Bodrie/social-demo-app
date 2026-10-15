@@ -1,3 +1,4 @@
+export * from './activities.js';
 export * from './auth.js';
 export * from './comments.js';
 export * from './constants.js';

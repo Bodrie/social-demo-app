@@ -4,7 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CreatePostData, CursorQuery, Paginated, Post } from '@the-mesh/shared';
 import { decodeCursor, paginate } from '../common/pagination.js';
 import type { Env } from '../config/env.js';
-import { PostCreatedEvent, PostLikedEvent } from '../events/post.events.js';
+import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
@@ -29,7 +29,7 @@ export class PostsService {
       data: { authorId, content: input.content, imageKey: input.imageKey ?? null },
       select: postSelect(authorId),
     });
-    this.events.emit(PostCreatedEvent.EVENT, new PostCreatedEvent(row.id, authorId));
+    await this.events.emitAsync(PostCreatedEvent.EVENT, new PostCreatedEvent(row.id, authorId));
     return toPost(row, this.assetsBase);
   }
 
@@ -72,14 +72,17 @@ export class PostsService {
       skipDuplicates: true,
     });
     if (result.count === 1) {
-      this.events.emit(PostLikedEvent.EVENT, new PostLikedEvent(postId, viewerId, post.authorId));
+      await this.events.emitAsync(PostLikedEvent.EVENT, new PostLikedEvent(postId, viewerId, post.authorId));
     }
   }
 
   async unlike(viewerId: string, postId: string): Promise<void> {
     const exists = await this.prisma.post.count({ where: { id: postId } });
     if (exists === 0) throw this.notFound();
-    await this.prisma.postLike.deleteMany({ where: { userId: viewerId, postId } });
+    const result = await this.prisma.postLike.deleteMany({ where: { userId: viewerId, postId } });
+    if (result.count === 1) {
+      await this.events.emitAsync(PostUnlikedEvent.EVENT, new PostUnlikedEvent(postId, viewerId));
+    }
   }
 
   private async list(

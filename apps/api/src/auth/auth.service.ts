@@ -42,7 +42,7 @@ export class AuthService {
       data: { email: input.email, username: input.username, name: input.name, passwordHash },
       select: { id: true },
     });
-    this.events.emit(UserRegisteredEvent.EVENT, new UserRegisteredEvent(created.id));
+    await this.events.emitAsync(UserRegisteredEvent.EVENT, new UserRegisteredEvent(created.id));
     return this.session(created.id, meta);
   }
 
