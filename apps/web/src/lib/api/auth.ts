@@ -2,7 +2,6 @@ import {
   type LoginInput,
   type MeResponse,
   type RegisterInput,
-  type UpdateProfileInput,
   meResponseSchema,
 } from '@the-mesh/shared';
 import { api, isApiClientError } from './client';
@@ -24,6 +23,3 @@ export const register = (input: RegisterInput) =>
   api.post('/auth/register', input, { schema: meResponseSchema, retryOnUnauthorized: false });
 
 export const logout = () => api.post('/auth/logout', undefined, { retryOnUnauthorized: false });
-
-export const updateProfile = (input: UpdateProfileInput) =>
-  api.patch('/users/me', input, { schema: meResponseSchema });

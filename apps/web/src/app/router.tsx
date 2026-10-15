@@ -4,7 +4,9 @@ import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
 import { HomePage } from '@/features/feed/home-page';
 import { MessagesPage } from '@/features/messages/messages-page';
+import { ProfileFollowers, ProfileFollowing } from '@/features/profile/profile-followers';
 import { ProfilePage } from '@/features/profile/profile-page';
+import { ProfilePosts } from '@/features/profile/profile-posts';
 import { UsersPage } from '@/features/users/users-page';
 import { RedirectIfAuthenticated, RequireAuth } from './routes/require-auth';
 import { RouteError } from './routes/route-error';
@@ -22,7 +24,15 @@ export const routes: RouteObject[] = [
               { index: true, element: <HomePage /> },
               { path: 'users', element: <UsersPage /> },
               { path: 'messages', element: <MessagesPage /> },
-              { path: 'u/:username', element: <ProfilePage /> },
+              {
+                path: 'u/:username',
+                element: <ProfilePage />,
+                children: [
+                  { index: true, element: <ProfilePosts /> },
+                  { path: 'followers', element: <ProfileFollowers /> },
+                  { path: 'following', element: <ProfileFollowing /> },
+                ],
+              },
             ],
           },
         ],

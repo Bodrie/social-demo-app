@@ -1,7 +1,7 @@
 import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { MeResponse } from '@the-mesh/shared';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { updateMe } from '@/features/auth/use-me';
 import { createPost, deletePost, likePost, unlikePost } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
 import {
@@ -13,16 +13,10 @@ import {
 } from './post-cache';
 
 function adjustMyPostCount(queryClient: QueryClient, delta: number): void {
-  queryClient.setQueryData<MeResponse | null>(queryKeys.me, (me) =>
-    me
-      ? {
-          user: {
-            ...me.user,
-            counts: { ...me.user.counts, posts: Math.max(0, me.user.counts.posts + delta) },
-          },
-        }
-      : me,
-  );
+  updateMe(queryClient, (user) => ({
+    ...user,
+    counts: { ...user.counts, posts: Math.max(0, user.counts.posts + delta) },
+  }));
   void queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
 }
 

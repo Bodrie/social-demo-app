@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { signIn } from './helpers.js';
+import { openHome } from './helpers.js';
 
 const PHOTO = path.join(import.meta.dirname, 'fixtures', 'photo.png');
 
@@ -8,7 +8,7 @@ test.describe('feed', () => {
   test('publish a post with an image, like it, comment, then delete everything', async ({
     page,
   }) => {
-    await signIn(page);
+    await openHome(page);
     const text = `Hello from Playwright ${Date.now()}`;
 
     await page.getByLabel('New post').fill(text);
@@ -49,7 +49,7 @@ test.describe('feed', () => {
   });
 
   test('loads older posts while scrolling until the end of the feed', async ({ page }) => {
-    await signIn(page);
+    await openHome(page);
     const articles = page.getByRole('feed').getByRole('article');
     await expect(articles.first()).toBeVisible();
     const firstPage = await articles.count();

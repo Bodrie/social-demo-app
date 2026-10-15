@@ -23,9 +23,19 @@ export function useMe(): MeState {
   return { status: 'authenticated', user: data.user };
 }
 
-/** Updates the cached viewer (after a profile edit, for example). */
+/** Replaces the cached viewer (after a profile edit, for example). */
 export function setMe(queryClient: QueryClient, me: MeResponse | null): void {
   queryClient.setQueryData(queryKeys.me, me);
+}
+
+/** Adjusts the cached viewer in place (counts, for example); no-op without a session. */
+export function updateMe(
+  queryClient: QueryClient,
+  update: (user: UserPrivate) => UserPrivate,
+): void {
+  queryClient.setQueryData<MeResponse | null>(queryKeys.me, (me) =>
+    me ? { user: update(me.user) } : me,
+  );
 }
 
 /** Everything cached except the session itself belongs to one viewer and must not outlive them. */

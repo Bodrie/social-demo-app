@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { ALICE, ANONYMOUS } from './helpers.js';
 
-const ALICE = { email: 'alice@example.com', password: 'Password123!' };
+test.use({ storageState: ANONYMOUS });
 
 test.describe('smoke', () => {
   test('anonymous visitors land on the sign-in page', async ({ page }) => {

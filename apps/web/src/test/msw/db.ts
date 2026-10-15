@@ -1,21 +1,29 @@
-import type { Comment, Post, UserPrivate } from '@the-mesh/shared';
-import { makePost, resetFixtureSequence } from '../fixtures';
+import type { Comment, Post, UserPrivate, UserPublic } from '@the-mesh/shared';
+import { alice, bob, carol, makePost, resetFixtureSequence } from '../fixtures';
+
+type Follow = { followerId: string; followingId: string };
 
 /** In-memory backend state for MSW handlers. Reset between tests by `resetMocks()`. */
 export const mockDb = {
-  /** The signed-in user, or null for no session. */
+  /** The signed-in user (a reference into `users`), or null for no session. */
   user: null as UserPrivate | null,
   /** Whether POST /auth/refresh succeeds. */
   refreshable: false,
+  users: [] as UserPrivate[],
+  follows: [] as Follow[],
   posts: [] as Post[],
   comments: [] as Comment[],
   uploads: 0,
   calls: { me: 0, refresh: 0, login: 0, logout: 0 },
 };
 
+const clone = (user: UserPrivate): UserPrivate => ({ ...user, counts: { ...user.counts } });
+
 export function resetMockDb(): void {
   mockDb.user = null;
   mockDb.refreshable = false;
+  mockDb.users = [alice, bob, carol].map(clone);
+  mockDb.follows = [];
   mockDb.posts = [];
   mockDb.comments = [];
   mockDb.uploads = 0;
@@ -23,9 +31,24 @@ export function resetMockDb(): void {
   resetFixtureSequence();
 }
 
+resetMockDb();
+
+/** Registers the user if needed and returns the stored copy (handlers mutate that one). */
+export function upsertUser(user: UserPrivate): UserPrivate {
+  const existing = mockDb.users.find((candidate) => candidate.id === user.id);
+  if (existing) return existing;
+  const stored = clone(user);
+  mockDb.users.push(stored);
+  return stored;
+}
+
 export function signedInAs(user: UserPrivate): UserPrivate {
-  mockDb.user = user;
-  return user;
+  mockDb.user = upsertUser(user);
+  return mockDb.user;
+}
+
+export function seedFollow(followerId: string, followingId: string): void {
+  mockDb.follows.push({ followerId, followingId });
 }
 
 /** Seeds `count` posts, newest first, and returns them in that order. */
@@ -33,6 +56,33 @@ export function seedPosts(count: number, overrides: Partial<Post> = {}): Post[] 
   const posts = Array.from({ length: count }, () => makePost(overrides));
   mockDb.posts.push(...posts);
   return posts;
+}
+
+/** The public shape of a stored user as seen by `viewerId`, with live counts and flags. */
+export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic {
+  const follows = mockDb.follows;
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    bio: user.bio,
+    city: user.city,
+    website: user.website,
+    coverUrl: user.coverUrl,
+    createdAt: user.createdAt,
+    counts: {
+      posts: mockDb.posts.filter((post) => post.author.id === user.id).length,
+      followers: follows.filter((follow) => follow.followingId === user.id).length,
+      following: follows.filter((follow) => follow.followerId === user.id).length,
+    },
+    followedByMe: viewerId
+      ? follows.some((follow) => follow.followerId === viewerId && follow.followingId === user.id)
+      : false,
+    followsMe: viewerId
+      ? follows.some((follow) => follow.followerId === user.id && follow.followingId === viewerId)
+      : false,
+  };
 }
 
 /** Index-based cursor pagination over an already sorted list, mirroring `{ items, nextCursor }`. */

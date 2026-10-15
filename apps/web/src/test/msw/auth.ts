@@ -1,7 +1,7 @@
 import { type ApiError, loginSchema, registerSchema } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
-import { TEST_PASSWORD, makeUser } from '../fixtures';
-import { mockDb } from './db';
+import { TEST_PASSWORD, makeUser, testId } from '../fixtures';
+import { mockDb, upsertUser } from './db';
 
 export const apiError = (
   statusCode: number,
@@ -23,7 +23,7 @@ export const authHandlers = [
   http.post(`${API}/auth/refresh`, () => {
     mockDb.calls.refresh += 1;
     if (!mockDb.refreshable) return unauthorized();
-    mockDb.user ??= makeUser();
+    mockDb.user ??= upsertUser(makeUser());
     return HttpResponse.json({ user: mockDb.user });
   }),
 
@@ -33,7 +33,7 @@ export const authHandlers = [
     if (body.password !== TEST_PASSWORD) {
       return apiError(401, 'UNAUTHORIZED', 'Invalid email or password');
     }
-    mockDb.user = makeUser({ email: body.email });
+    mockDb.user = upsertUser(makeUser({ email: body.email }));
     return HttpResponse.json({ user: mockDb.user });
   }),
 
@@ -42,7 +42,14 @@ export const authHandlers = [
     if (body.username === 'taken') {
       return apiError(409, 'CONFLICT', 'Already in use', { username: 'This username is taken' });
     }
-    mockDb.user = makeUser({ email: body.email, username: body.username, name: body.name });
+    mockDb.user = upsertUser(
+      makeUser({
+        id: testId('user', mockDb.users.length + 1),
+        email: body.email,
+        username: body.username,
+        name: body.name,
+      }),
+    );
     return HttpResponse.json({ user: mockDb.user }, { status: 201 });
   }),
 

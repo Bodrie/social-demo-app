@@ -22,3 +22,8 @@ export function formatRelativeTime(iso: string, now: number = Date.now()): strin
 export function formatDateTime(iso: string): string {
   return dayjs(iso).format('MMM D, YYYY [at] HH:mm');
 }
+
+/** "https://example.com/path/" → "example.com/path", for showing a website link. */
+export function displayUrl(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
