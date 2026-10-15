@@ -14,6 +14,8 @@ const row: UserPrivateRow = {
   updatedAt: new Date('2026-10-15T11:00:00.000Z'),
   email: 'alice@example.com',
   _count: { posts: 3, followers: 2, following: 1 },
+  followers: [{ followerId: 'viewer' }],
+  following: [],
 };
 
 describe('users mapper', () => {
@@ -25,6 +27,7 @@ describe('users mapper', () => {
     expect(user.coverUrl).toBeNull();
     expect(user.createdAt).toBe('2026-10-15T10:00:00.000Z');
     expect(user.counts).toEqual({ posts: 3, followers: 2, following: 1 });
+    expect(user).toMatchObject({ followedByMe: true, followsMe: false });
     expect(user).not.toHaveProperty('email');
   });
 

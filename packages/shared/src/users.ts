@@ -48,8 +48,14 @@ export const userPublicSchema = z.object({
   coverUrl: z.string().nullable(),
   createdAt: z.iso.datetime(),
   counts: userCountsSchema,
+  /** The requesting user follows this user. */
+  followedByMe: z.boolean(),
+  /** This user follows the requesting user. */
+  followsMe: z.boolean(),
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
+
+export const followsQuerySchema = cursorQuerySchema;
 
 /** The user's own profile (adds private fields). */
 export const userPrivateSchema = userPublicSchema.extend({

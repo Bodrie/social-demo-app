@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { decodeCursor, encodeCursor, paginate } from './pagination.js';
+import { decodeCursor, encodeCursor, paginate, paginateBy } from './pagination.js';
 
 const ids = [
   '01a13ed6-d3ec-71cb-b39f-fbc256a293b1',
@@ -35,5 +35,14 @@ describe('paginate', () => {
   it('returns null when the fetched rows fit the limit', () => {
     expect(paginate(rows, 3, (row) => row.id).nextCursor).toBeNull();
     expect(paginate([], 3, (row: { id: string }) => row.id)).toEqual({ items: [], nextCursor: null });
+  });
+});
+
+describe('paginateBy', () => {
+  it('derives the cursor from any field', () => {
+    const rows = ids.map((followerId) => ({ followerId }));
+    const page = paginateBy(rows, 2, (row) => row.followerId, (row) => row.followerId.slice(-1));
+    expect(page.items).toEqual(['1', '2']);
+    expect(page.nextCursor).toBe(encodeCursor(ids[1]!));
   });
 });

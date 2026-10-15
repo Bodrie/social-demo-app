@@ -12,8 +12,8 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
-  list(@Query() query: ListUsersQueryDto): Promise<Paginated<UserPublic>> {
-    return this.users.list(query);
+  list(@CurrentUser() user: AuthUser, @Query() query: ListUsersQueryDto): Promise<Paginated<UserPublic>> {
+    return this.users.list(user.id, query);
   }
 
   @Get('me')
@@ -32,12 +32,12 @@ export class UsersController {
   }
 
   @Get('by-username/:username')
-  byUsername(@Param('username') username: string): Promise<UserPublic> {
-    return this.users.getPublicByUsername(username);
+  byUsername(@CurrentUser() user: AuthUser, @Param('username') username: string): Promise<UserPublic> {
+    return this.users.getPublicByUsername(user.id, username);
   }
 
   @Get(':id')
-  byId(@Param('id', ParseUUIDPipe) id: string): Promise<UserPublic> {
-    return this.users.getPublicById(id);
+  byId(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<UserPublic> {
+    return this.users.getPublicById(user.id, id);
   }
 }

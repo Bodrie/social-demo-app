@@ -11,3 +11,11 @@ export class ProfileUpdatedEvent {
     readonly changedFields: string[],
   ) {}
 }
+
+export class UserFollowedEvent {
+  static readonly EVENT = 'user.followed';
+  constructor(
+    readonly followerId: string,
+    readonly followeeId: string,
+  ) {}
+}
