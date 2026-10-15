@@ -21,8 +21,9 @@ describe('RegisterPage', () => {
   it('signs the new member in and shows the home page', async () => {
     renderApp('/register');
     await fillForm('newbie');
-    expect(
-      await screen.findByRole('heading', { name: /Welcome back, New Person/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('New post')).toHaveAttribute(
+      'placeholder',
+      "What's on your mind, New?",
+    );
   });
 });

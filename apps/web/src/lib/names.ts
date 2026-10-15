@@ -7,3 +7,8 @@ export function initials(name: string): string {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 }
+
+/** The first word of a name, for friendly prompts ("What's on your mind, Alice?"). */
+export function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? name;
+}

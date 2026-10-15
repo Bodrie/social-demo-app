@@ -35,3 +35,6 @@ Items the API review (2026-10-15) surfaced that are real but not needed for v2.0
 - Bundle: the shell + auth alone ship ~215 kB gzipped (react-dom, radix, zod 4, react-hook-form, TanStack Query). Route-level code splitting is planned for 4g; if it still matters, build the shared schemas with `zod/mini` for the web and keep classic zod for the API.
 - The `Card` from shadcn has no `size` prop in this CLI version; placeholder pages render their own `<h1>` inside `CardHeader` so pages keep a real heading.
 - `apps/web/e2e` is a smoke suite only; the per-feature specs from plan §2.8 arrive with each 4x slice, and `storageState`-based sign-in once more than one spec needs a session.
+- Posts: linkify URLs/@mentions in post text, an image lightbox, a post permalink route (`/p/:id`) for notifications and sharing, and the legacy double-tap-to-like gesture on touch devices.
+- Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
+- E2E: sign in once per worker with `storageState` instead of through the form in every spec once the suite grows.

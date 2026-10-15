@@ -32,7 +32,10 @@ test.describe('smoke', () => {
       .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'Home' })
       .click();
-    await expect(page.getByRole('heading', { name: /Welcome back, Alice/ })).toBeVisible();
+    await expect(page.getByLabel('New post')).toHaveAttribute(
+      'placeholder',
+      "What's on your mind, Alice?",
+    );
 
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
@@ -54,7 +57,7 @@ test.describe('smoke', () => {
     await page.getByLabel('Email').fill(ALICE.email);
     await page.getByLabel('Password').fill(ALICE.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('heading', { name: /Welcome back/ })).toBeVisible();
+    await expect(page.getByLabel('New post')).toBeVisible();
 
     await page.getByRole('button', { name: 'Open navigation' }).click();
     await page.getByRole('link', { name: 'People' }).click();

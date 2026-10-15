@@ -1,8 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { usePageTitle } from '@/lib/use-page-title';
 
 type PagePlaceholderProps = { title: string; description: string };
 
 export function PagePlaceholder({ title, description }: PagePlaceholderProps) {
+  usePageTitle(title);
   return (
     <Card>
       <CardHeader>

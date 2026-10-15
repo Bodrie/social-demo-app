@@ -2,11 +2,13 @@ import { APP_NAME } from '@the-mesh/shared';
 import type { ReactNode } from 'react';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
+import { usePageTitle } from '@/lib/use-page-title';
 
 type AuthLayoutProps = { title: string; children: ReactNode; aside: ReactNode };
 
 /** Two-pane page for sign in / sign up, mirroring the legacy layout. */
 export function AuthLayout({ title, children, aside }: AuthLayoutProps) {
+  usePageTitle(title);
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex h-14 items-center justify-between px-4">
