@@ -12,9 +12,10 @@ pnpm install
 pnpm db:up      # PostgreSQL 17 on localhost:5433 (docker compose)
 cp apps/api/.env.example apps/api/.env
 pnpm db:deploy && pnpm db:seed   # migrations + demo data (alice/bob/carol, Password123!)
-pnpm dev        # shared (watch) + api (nest --watch) + web (vite)
+pnpm dev        # shared (watch) + api (nest --watch, :3000) + web (vite, :5173 proxying /api)
 pnpm check      # lint, typecheck, test, build – the same as CI
 pnpm test:int   # API integration tests (HTTP level)
+pnpm --filter @the-mesh/web e2e   # Playwright smoke tests (after pnpm build; browsers: … exec playwright install chromium)
 ```
 
 
