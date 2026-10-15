@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { CommentsModule } from './comments/comments.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { type Env, validateEnv } from './config/env.js';
+import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
 import { PostsModule } from './posts/posts.module.js';
@@ -40,6 +41,7 @@ import { UsersModule } from './users/users.module.js';
     UploadsModule,
     PostsModule,
     CommentsModule,
+    FollowsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

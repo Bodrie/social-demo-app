@@ -31,23 +31,23 @@ export class UsersService {
     this.assetsBase = config.get('PUBLIC_ASSETS_URL', { infer: true });
   }
 
-  async getPublicById(id: string): Promise<UserPublic> {
-    const row = await this.prisma.user.findUnique({ where: { id }, select: userPublicSelect });
+  async getPublicById(viewerId: string, id: string): Promise<UserPublic> {
+    const row = await this.prisma.user.findUnique({ where: { id }, select: userPublicSelect(viewerId) });
     if (!row) throw this.notFound();
     return toUserPublic(row, this.assetsBase);
   }
 
-  async getPublicByUsername(username: string): Promise<UserPublic> {
+  async getPublicByUsername(viewerId: string, username: string): Promise<UserPublic> {
     const row = await this.prisma.user.findUnique({
       where: { username: username.trim().toLowerCase() },
-      select: userPublicSelect,
+      select: userPublicSelect(viewerId),
     });
     if (!row) throw this.notFound();
     return toUserPublic(row, this.assetsBase);
   }
 
   async getPrivateById(id: string): Promise<UserPrivate> {
-    const row = await this.prisma.user.findUnique({ where: { id }, select: userPrivateSelect });
+    const row = await this.prisma.user.findUnique({ where: { id }, select: userPrivateSelect(id) });
     if (!row) throw this.notFound();
     return toUserPrivate(row, this.assetsBase);
   }
@@ -74,7 +74,7 @@ export class UsersService {
       ? await this.prisma.user.findUnique({ where: { id }, select: { avatarKey: true, coverKey: true } })
       : null;
 
-    const row = await this.prisma.user.update({ where: { id }, data, select: userPrivateSelect });
+    const row = await this.prisma.user.update({ where: { id }, data, select: userPrivateSelect(id) });
     this.events.emit(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, Object.keys(data)));
 
     if (previous) {
@@ -88,7 +88,7 @@ export class UsersService {
     return toUserPrivate(row, this.assetsBase);
   }
 
-  async list(query: ListUsersQuery): Promise<Paginated<UserPublic>> {
+  async list(viewerId: string, query: ListUsersQuery): Promise<Paginated<UserPublic>> {
     const cursorId = decodeCursor(query.cursor);
     const where: Prisma.UserWhereInput = query.q
       ? {
@@ -101,7 +101,7 @@ export class UsersService {
 
     const rows = await this.prisma.user.findMany({
       where,
-      select: userPublicSelect,
+      select: userPublicSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
@@ -118,7 +118,7 @@ export class UsersService {
         followers: { none: { followerId: viewerId } },
         following: { none: { followeeId: viewerId } },
       },
-      select: userPublicSelect,
+      select: userPublicSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
     });

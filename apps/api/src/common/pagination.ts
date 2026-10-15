@@ -16,10 +16,11 @@ export function decodeCursor(cursor: string | undefined): string | undefined {
   return id;
 }
 
-/** Given `limit + 1` rows, trims to `limit` and computes the next cursor. */
-export function paginate<Row extends { id: string }, Item>(
+/** Given `limit + 1` rows, trims to `limit` and computes the next cursor from `cursorOf(lastRow)`. */
+export function paginateBy<Row, Item>(
   rows: Row[],
   limit: number,
+  cursorOf: (row: Row) => string,
   map: (row: Row) => Item,
 ): Paginated<Item> {
   const hasMore = rows.length > limit;
@@ -27,6 +28,15 @@ export function paginate<Row extends { id: string }, Item>(
   const last = page.at(-1);
   return {
     items: page.map(map),
-    nextCursor: hasMore && last ? encodeCursor(last.id) : null,
+    nextCursor: hasMore && last !== undefined ? encodeCursor(cursorOf(last)) : null,
   };
+}
+
+/** `paginateBy` for rows that have an `id`. */
+export function paginate<Row extends { id: string }, Item>(
+  rows: Row[],
+  limit: number,
+  map: (row: Row) => Item,
+): Paginated<Item> {
+  return paginateBy(rows, limit, (row) => row.id, map);
 }
