@@ -29,3 +29,9 @@ Items the API review (2026-10-15) surfaced that are real but not needed for v2.0
 - **Access log volume** – 5xx are logged by both the filter (with stack) and pino-http; drop one if logs get noisy.
 - **Caddy `file_server` for `/api/v1/uploads/*`** from the shared volume (ETag/Content-Length, no Node in the path).
 - **Health failures** expose the driver error message in the 503 body; keep `/health` off the public route in Caddy.
+
+## Web (phase 4 inputs)
+
+- Bundle: the shell + auth alone ship ~215 kB gzipped (react-dom, radix, zod 4, react-hook-form, TanStack Query). Route-level code splitting is planned for 4g; if it still matters, build the shared schemas with `zod/mini` for the web and keep classic zod for the API.
+- The `Card` from shadcn has no `size` prop in this CLI version; placeholder pages render their own `<h1>` inside `CardHeader` so pages keep a real heading.
+- `apps/web/e2e` is a smoke suite only; the per-feature specs from plan §2.8 arrive with each 4x slice, and `storageState`-based sign-in once more than one spec needs a session.

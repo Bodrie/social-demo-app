@@ -1,11 +1,97 @@
-/* Placeholder styles; replaced by Tailwind in phase 4a. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme tokens. Values are ported from the legacy SCSS palette (client/src/theme/theme.scss):
+ * light  bg #fff, soft #ebebeb, text #000, soft text #555, border #c2c2c2, brand #00a9ff, danger #ff5f5f
+ * dark   bg #222, soft #333, text #c5c5c5, soft text lightgray, border #444, brand #a9a9a9
+ */
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+  --radius: 0.625rem;
+  --background: #ebebeb;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #00a9ff;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #111111;
+  --muted: #ebebeb;
+  --muted-foreground: #555555;
+  --accent: #e6f6ff;
+  --accent-foreground: #0b5f8c;
+  --destructive: #ff5f5f;
+  --border: #c2c2c2;
+  --input: #c2c2c2;
+  --ring: #00a9ff;
+  --online: #22c55e;
 }
 
-body {
-  margin: 0;
-  min-height: 100svh;
+.dark {
+  --background: #1b1b1b;
+  --foreground: #c5c5c5;
+  --card: #222222;
+  --card-foreground: #c5c5c5;
+  --popover: #262626;
+  --popover-foreground: #c5c5c5;
+  --primary: #38bdf8;
+  --primary-foreground: #0b1220;
+  --secondary: #333333;
+  --secondary-foreground: #d4d4d4;
+  --muted: #333333;
+  --muted-foreground: #a3a3a3;
+  --accent: #1f3340;
+  --accent-foreground: #bae6fd;
+  --destructive: #ff5f5f;
+  --border: #444444;
+  --input: #444444;
+  --ring: #38bdf8;
+  --online: #4ade80;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-online: var(--online);
+  --font-sans: 'Fira Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100svh;
+  }
 }

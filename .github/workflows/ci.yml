@@ -101,3 +101,56 @@ jobs:
       # Smoke test of the seed script against the migrated schema (tests truncate the tables anyway).
       - name: Seed
         run: pnpm db:seed
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mesh
+          POSTGRES_PASSWORD: mesh
+          POSTGRES_DB: mesh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mesh -d mesh"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://mesh:mesh@localhost:5432/mesh
+      JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret-0001
+      UPLOADS_DIR: ${{ github.workspace }}/apps/api/uploads
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare the database
+        run: pnpm db:generate && pnpm db:deploy && pnpm db:seed
+
+      - name: Build the API and the web app
+        run: pnpm turbo run build --filter=@the-mesh/api --filter=@the-mesh/web
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @the-mesh/web exec playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm --filter @the-mesh/web e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

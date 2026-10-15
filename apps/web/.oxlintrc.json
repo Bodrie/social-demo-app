@@ -18,10 +18,27 @@
   },
   "overrides": [
     {
-      "files": ["src/**/*.test.{ts,tsx}", "src/test/**", "vite.config.ts"],
+      "files": [
+        "src/**/*.test.{ts,tsx}",
+        "src/test/**",
+        "vite.config.ts",
+        "playwright.config.ts",
+        "e2e/**"
+      ],
       "env": {
         "node": true
       }
+    },
+    {
+      "files": ["src/components/ui/**"],
+      "rules": {
+        "react/only-export-components": "off",
+        "react/jsx-no-constructed-context-values": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/no-unnecessary-template-expression": "off",
+        "typescript/no-unnecessary-type-conversion": "off"
+      }
     }
-  ]
+  ],
+  "ignorePatterns": ["dist", "coverage", "node_modules", "playwright-report", "test-results"]
 }
