@@ -13,7 +13,8 @@ export const queryKeys = {
     followers: (userId: string) => ['users', 'list', 'followers', userId] as const,
     following: (userId: string) => ['users', 'list', 'following', userId] as const,
     search: (q: string) => ['users', 'list', 'search', q] as const,
-    suggestions: ['users', 'list', 'suggestions'] as const,
+    /** A flat `{ items }` list, deliberately outside `lists` (which hold infinite pages). */
+    suggestions: ['users', 'suggestions'] as const,
   },
   posts: {
     lists: ['posts', 'list'] as const,
@@ -23,5 +24,9 @@ export const queryKeys = {
   comments: {
     all: ['comments'] as const,
     forPost: (postId: string) => ['comments', postId] as const,
+  },
+  activities: {
+    all: ['activities'] as const,
+    list: ['activities', 'list'] as const,
   },
 };

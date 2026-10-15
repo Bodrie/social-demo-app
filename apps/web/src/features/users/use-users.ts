@@ -4,7 +4,13 @@ import {
   useInfiniteQuery,
   useQuery,
 } from '@tanstack/react-query';
-import { fetchFollowers, fetchFollowing, fetchProfile } from '@/lib/api/users';
+import {
+  fetchFollowers,
+  fetchFollowing,
+  fetchProfile,
+  fetchSuggestions,
+  fetchUsers,
+} from '@/lib/api/users';
 import { NO_CURSOR } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -40,4 +46,29 @@ export function useFollowers(userId: string) {
 
 export function useFollowing(userId: string) {
   return useInfiniteQuery(followingQueryOptions(userId));
+}
+
+/** Everyone, or a name/username search; the key includes the query so each search is cached. */
+export const usersQueryOptions = (q: string) =>
+  infiniteQueryOptions({
+    queryKey: queryKeys.users.search(q),
+    queryFn: ({ pageParam, signal }) =>
+      fetchUsers({ q: q || undefined, cursor: pageParam, signal }),
+    initialPageParam: NO_CURSOR,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+
+export function useUsers(q: string) {
+  return useInfiniteQuery(usersQueryOptions(q));
+}
+
+export const suggestionsQueryOptions = (limit: number) =>
+  queryOptions({
+    queryKey: [...queryKeys.users.suggestions, limit] as const,
+    queryFn: ({ signal }) => fetchSuggestions(limit, signal),
+    select: (data) => data.items,
+  });
+
+export function useSuggestions(limit = 5) {
+  return useQuery(suggestionsQueryOptions(limit));
 }

@@ -1,4 +1,11 @@
-import type { Comment, Post, UserPrivate, UserSummary } from '@the-mesh/shared';
+import type {
+  Activity,
+  ActivityType,
+  Comment,
+  Post,
+  UserPrivate,
+  UserSummary,
+} from '@the-mesh/shared';
 
 export const TEST_PASSWORD = 'Password123!';
 
@@ -6,8 +13,10 @@ const BASE_TIME = Date.UTC(2026, 9, 15, 10, 0, 0);
 let sequence = 0;
 
 /** Deterministic, valid (v7-shaped) UUIDs so failures are readable. */
-export function testId(kind: 'user' | 'post' | 'comment', n: number): string {
-  const prefix = { user: '01a13e00', post: '01a13f00', comment: '01a14000' }[kind];
+export function testId(kind: 'user' | 'post' | 'comment' | 'activity', n: number): string {
+  const prefix = { user: '01a13e00', post: '01a13f00', comment: '01a14000', activity: '01a14100' }[
+    kind
+  ];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
 
@@ -80,6 +89,20 @@ export function makeComment(postId: string, overrides: Partial<Comment> = {}): C
     author: summaryOf(bob),
     createdAt,
     updatedAt: createdAt,
+    ...overrides,
+  };
+}
+
+export function makeActivity(type: ActivityType, overrides: Partial<Activity> = {}): Activity {
+  sequence += 1;
+  return {
+    id: testId('activity', sequence),
+    type,
+    actor: summaryOf(bob),
+    post: null,
+    comment: null,
+    targetUser: null,
+    createdAt: new Date(BASE_TIME - sequence * 60_000).toISOString(),
     ...overrides,
   };
 }

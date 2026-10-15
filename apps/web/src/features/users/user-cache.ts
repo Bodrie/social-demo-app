@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserList, UserPublic } from '@the-mesh/shared';
 import { type Pages, mapItems } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -15,5 +15,13 @@ export function updateUserEverywhere(
   queryClient.setQueriesData<Pages<UserPublic>>(
     { queryKey: queryKeys.users.lists },
     (data) => data && mapItems(data, (user) => (user.id === userId ? update(user) : user)),
+  );
+  queryClient.setQueriesData<UserList>(
+    { queryKey: queryKeys.users.suggestions },
+    (data) =>
+      data && {
+        ...data,
+        items: data.items.map((user) => (user.id === userId ? update(user) : user)),
+      },
   );
 }

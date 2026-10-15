@@ -38,3 +38,4 @@ Items the API review (2026-10-15) surfaced that are real but not needed for v2.0
 - Posts: linkify URLs/@mentions in post text, an image lightbox, a post permalink route (`/p/:id`) for notifications and sharing, and the legacy double-tap-to-like gesture on touch devices.
 - Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
 - Profile: a "Message" button once chat lands (4f), cover/avatar cropping, and blocking/reporting (not in the legacy app either).
+- Activity: realtime updates for the sidebar card (push from the socket once 4f lands, or light polling), and linking excerpts to a post permalink.

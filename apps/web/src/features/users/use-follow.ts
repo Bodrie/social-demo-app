@@ -48,6 +48,7 @@ export function useToggleFollow() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feed });
       void queryClient.invalidateQueries({ queryKey: queryKeys.users.followers(userId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.users.following(me.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
     },
   });
 }

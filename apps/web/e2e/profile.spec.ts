@@ -9,21 +9,26 @@ const count = async (text: string | null) => Number(text?.match(/\d+/)?.[0] ?? N
 test.describe('profile', () => {
   test('follow and unfollow another member from their profile', async ({ page }) => {
     await openHome(page);
-    // The first feed post comes from someone alice already follows.
-    const author = page.getByRole('article').first().getByRole('link').first();
+    // Feed posts come from alice herself or from people she follows; take the first by someone else.
+    const post = page
+      .getByRole('article')
+      .filter({ hasNot: page.getByRole('link', { name: 'Alice Anderson' }) })
+      .first();
+    const author = post.getByRole('link').first();
     const name = (await author.textContent()) ?? '';
     await author.click();
 
-    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-    const followers = page.getByRole('link', { name: /^\d+ Followers$/ });
+    const header = page.getByRole('region', { name });
+    await expect(header.getByRole('heading', { level: 1, name })).toBeVisible();
+    const followers = header.getByRole('link', { name: /^\d+ Followers$/ });
     const before = await count(await followers.textContent());
 
-    await page.getByRole('button', { name: 'Following' }).click();
-    await expect(page.getByRole('button', { name: 'Follow', exact: true })).toBeVisible();
+    await header.getByRole('button', { name: 'Following' }).click();
+    await expect(header.getByRole('button', { name: 'Follow', exact: true })).toBeVisible();
     await expect(followers).toHaveText(new RegExp(`^${before - 1} Followers$`));
 
-    await page.getByRole('button', { name: 'Follow', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Following' })).toBeVisible();
+    await header.getByRole('button', { name: 'Follow', exact: true }).click();
+    await expect(header.getByRole('button', { name: 'Following' })).toBeVisible();
     await expect(followers).toHaveText(new RegExp(`^${before} Followers$`));
 
     await page.getByRole('link', { name: 'Followers', exact: true }).click();

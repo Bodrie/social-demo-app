@@ -14,25 +14,26 @@ describe('ProfilePage', () => {
     renderApp('/u/bob');
     const user = userEvent.setup();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Bob Brown' })).toBeInTheDocument();
-    expect(screen.getByText('Follows you')).toBeInTheDocument();
-    expect(screen.getByText('Plovdiv')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '1 Followers' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '1 Following' })).toBeInTheDocument();
+    const header = within(await screen.findByRole('region', { name: 'Bob Brown' }));
+    expect(header.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeInTheDocument();
+    expect(header.getByText('Follows you')).toBeInTheDocument();
+    expect(header.getByText('Plovdiv')).toBeInTheDocument();
+    expect(header.getByRole('link', { name: '1 Followers' })).toBeInTheDocument();
+    expect(header.getByRole('link', { name: '1 Following' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Follow' }));
-    expect(screen.getByRole('button', { name: 'Following' })).toHaveAttribute(
+    await user.click(header.getByRole('button', { name: 'Follow' }));
+    expect(header.getByRole('button', { name: 'Following' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    expect(screen.getByRole('link', { name: '2 Followers' })).toBeInTheDocument();
+    expect(header.getByRole('link', { name: '2 Followers' })).toBeInTheDocument();
     await waitFor(() =>
       expect(mockDb.follows).toContainEqual({ followerId: alice.id, followingId: bob.id }),
     );
 
-    await user.click(screen.getByRole('button', { name: 'Following' }));
-    expect(screen.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '1 Followers' })).toBeInTheDocument();
+    await user.click(header.getByRole('button', { name: 'Following' }));
+    expect(header.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
+    expect(header.getByRole('link', { name: '1 Followers' })).toBeInTheDocument();
   });
 
   it('rolls a failed follow back', async () => {
@@ -43,17 +44,19 @@ describe('ProfilePage', () => {
     renderApp('/u/bob');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Follow' }));
+    const header = within(await screen.findByRole('region', { name: 'Bob Brown' }));
+    await user.click(header.getByRole('button', { name: 'Follow' }));
     expect(await screen.findByText('Could not update the follow')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '0 Followers' })).toBeInTheDocument();
+    expect(header.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
+    expect(header.getByRole('link', { name: '0 Followers' })).toBeInTheDocument();
   });
 
   it('offers editing instead of following on the own profile', async () => {
     signedInAs(alice);
     renderApp('/u/alice');
-    expect(await screen.findByRole('button', { name: 'Edit profile' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Follow' })).not.toBeInTheDocument();
+    const header = within(await screen.findByRole('region', { name: 'Alice Anderson' }));
+    expect(header.getByRole('button', { name: 'Edit profile' })).toBeInTheDocument();
+    expect(header.queryByRole('button', { name: 'Follow' })).not.toBeInTheDocument();
   });
 
   it('explains an unknown username', async () => {
