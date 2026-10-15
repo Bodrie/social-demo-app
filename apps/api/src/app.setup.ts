@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
+import { AppSocketIoAdapter } from './chat/socket.adapter.js';
 import type { Env } from './config/env.js';
 import { setupOpenApi } from './openapi.js';
 
@@ -30,7 +31,9 @@ export function configureApp(app: NestExpressApplication): NestExpressApplicatio
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
-  app.enableCors({ origin: config.get('WEB_ORIGINS', { infer: true }), credentials: true });
+  const origins = config.get('WEB_ORIGINS', { infer: true });
+  app.enableCors({ origin: origins, credentials: true });
+  app.useWebSocketAdapter(new AppSocketIoAdapter(app, origins));
   app.setGlobalPrefix(API_PREFIX, { exclude: ['health'] });
 
   if (!isProduction) {

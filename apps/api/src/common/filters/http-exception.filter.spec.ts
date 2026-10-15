@@ -92,6 +92,7 @@ describe('HttpExceptionFilter', () => {
     const json = vi.fn();
     const status = vi.fn(() => ({ json }));
     const host = {
+      getType: () => 'http',
       switchToHttp: () => ({
         getResponse: () => ({ status }),
         getRequest: () => ({ id: requestId }),
@@ -99,6 +100,15 @@ describe('HttpExceptionFilter', () => {
     } as unknown as ArgumentsHost;
     return { host, status, json };
   }
+
+  it('emits an exception event with the envelope on WebSocket contexts', () => {
+    const emit = vi.fn();
+    const host = { getType: () => 'ws', switchToWs: () => ({ getClient: () => ({ emit }) }) } as unknown as ArgumentsHost;
+
+    new HttpExceptionFilter().catch(new NotFoundException('gone'), host);
+
+    expect(emit).toHaveBeenCalledWith('exception', expect.objectContaining({ code: 'NOT_FOUND', message: 'gone' }));
+  });
 
   it('writes the envelope with the request id', () => {
     const { host, status, json } = hostWith('abc');
