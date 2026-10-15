@@ -38,11 +38,17 @@ export function userPublicSelect(viewerId: string) {
 }
 
 export function userPrivateSelect(viewerId: string) {
-  return { ...userPublicSelect(viewerId), email: true, updatedAt: true } satisfies Prisma.UserSelect;
+  return {
+    ...userPublicSelect(viewerId),
+    email: true,
+    updatedAt: true,
+  } satisfies Prisma.UserSelect;
 }
 
 export type UserPublicRow = Prisma.UserGetPayload<{ select: ReturnType<typeof userPublicSelect> }>;
-export type UserPrivateRow = Prisma.UserGetPayload<{ select: ReturnType<typeof userPrivateSelect> }>;
+export type UserPrivateRow = Prisma.UserGetPayload<{
+  select: ReturnType<typeof userPrivateSelect>;
+}>;
 
 export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic {
   return {

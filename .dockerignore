@@ -1,11 +1,7 @@
-# Only the v2 workspaces are built into images.
+# Only the workspaces are built into images.
 .git
 .github
 docs
-api
-client
-deploy_dev.sh
-deploy_prod.sh
 node_modules
 **/node_modules
 **/dist

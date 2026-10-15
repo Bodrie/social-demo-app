@@ -61,7 +61,9 @@ describe('API platform', () => {
       controllers: [PlatformProbeController],
     }).compile();
 
-    app = configureApp(moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }));
+    app = configureApp(
+      moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }),
+    );
     await app.init();
     server = app.getHttpServer();
   });
@@ -94,7 +96,10 @@ describe('API platform', () => {
   describe('error envelope', () => {
     it('maps HttpExceptions', async () => {
       const response = await request(server).get('/api/v1/_platform/not-found').expect(404);
-      expect(apiErrorSchema.parse(response.body)).toMatchObject({ code: 'NOT_FOUND', message: 'Nothing here' });
+      expect(apiErrorSchema.parse(response.body)).toMatchObject({
+        code: 'NOT_FOUND',
+        message: 'Nothing here',
+      });
     });
 
     it('maps unknown routes', async () => {
@@ -111,7 +116,10 @@ describe('API platform', () => {
 
     it('maps Prisma unique violations to 409 with the column', async () => {
       const response = await request(server).get('/api/v1/_platform/conflict').expect(409);
-      expect(apiErrorSchema.parse(response.body)).toMatchObject({ code: 'CONFLICT', fields: { email: 'Already in use' } });
+      expect(apiErrorSchema.parse(response.body)).toMatchObject({
+        code: 'CONFLICT',
+        fields: { email: 'Already in use' },
+      });
     });
 
     it('maps body-parser limits to the envelope instead of a masked 500', async () => {
@@ -124,7 +132,10 @@ describe('API platform', () => {
     });
 
     it('replaces malformed incoming request ids instead of echoing them', async () => {
-      const response = await request(server).get('/api/v1/_platform/not-found').set('x-request-id', '<script>alert(1)</script>').expect(404);
+      const response = await request(server)
+        .get('/api/v1/_platform/not-found')
+        .set('x-request-id', '<script>alert(1)</script>')
+        .expect(404);
       expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
       expect(response.body.requestId).toBe(response.headers['x-request-id']);
     });
@@ -191,7 +202,9 @@ describe('API platform', () => {
       const response = await request(server).get(`/${OPENAPI_JSON_PATH}`).expect(200);
       const document = response.body as {
         paths: Record<string, unknown>;
-        components: { schemas: Record<string, { properties?: Record<string, unknown>; required?: string[] }> };
+        components: {
+          schemas: Record<string, { properties?: Record<string, unknown>; required?: string[] }>;
+        };
       };
 
       expect(document.paths['/api/v1/_platform/validate']).toBeDefined();

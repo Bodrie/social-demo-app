@@ -34,10 +34,16 @@ export function handshakeToken(socket: Socket): string | undefined {
 export type SocketSession = { userId: string; expiresAt: Date | null };
 
 /** Resolves the session for a connecting socket, or undefined when it must be refused. */
-export async function authenticateSocket(socket: Socket, jwt: JwtService): Promise<SocketSession | undefined> {
+export async function authenticateSocket(
+  socket: Socket,
+  jwt: JwtService,
+): Promise<SocketSession | undefined> {
   const token = handshakeToken(socket);
   if (!token) return undefined;
   const payload = await verifyAccessToken(jwt, token);
   if (!payload) return undefined;
-  return { userId: payload.sub, expiresAt: payload.exp === undefined ? null : new Date(payload.exp * 1000) };
+  return {
+    userId: payload.sub,
+    expiresAt: payload.exp === undefined ? null : new Date(payload.exp * 1000),
+  };
 }

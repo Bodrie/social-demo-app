@@ -32,7 +32,10 @@ describe('PostsService', () => {
     });
 
     it('deletes the own post and discards its image', async () => {
-      prisma.post.findUnique.mockResolvedValue({ authorId: 'owner', imageKey: 'post/x.webp' } as never);
+      prisma.post.findUnique.mockResolvedValue({
+        authorId: 'owner',
+        imageKey: 'post/x.webp',
+      } as never);
       prisma.post.delete.mockResolvedValue({} as never);
 
       await service.delete('owner', 'post-1');
@@ -50,13 +53,18 @@ describe('PostsService', () => {
   describe('like', () => {
     it('emits an event only for a new like', async () => {
       prisma.post.findUnique.mockResolvedValue({ authorId: 'owner' } as never);
-      prisma.postLike.createMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+      prisma.postLike.createMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
 
       await service.like('fan', 'post-1');
       await service.like('fan', 'post-1');
 
       expect(events.emitAsync).toHaveBeenCalledTimes(1);
-      expect(events.emitAsync).toHaveBeenCalledWith(PostLikedEvent.EVENT, new PostLikedEvent('post-1', 'fan', 'owner'));
+      expect(events.emitAsync).toHaveBeenCalledWith(
+        PostLikedEvent.EVENT,
+        new PostLikedEvent('post-1', 'fan', 'owner'),
+      );
     });
   });
 });

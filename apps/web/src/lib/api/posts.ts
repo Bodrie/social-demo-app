@@ -11,7 +11,10 @@ import { type PageOptions, queryString } from './query';
 export const fetchFeed = ({ cursor, signal }: PageOptions): Promise<PostList> =>
   api.get(`/posts${queryString({ cursor })}`, postListSchema, { signal });
 
-export const fetchUserPosts = (userId: string, { cursor, signal }: PageOptions): Promise<PostList> =>
+export const fetchUserPosts = (
+  userId: string,
+  { cursor, signal }: PageOptions,
+): Promise<PostList> =>
   api.get(`/users/${userId}/posts${queryString({ cursor })}`, postListSchema, { signal });
 
 export const createPost = (input: CreatePostInput): Promise<Post> =>

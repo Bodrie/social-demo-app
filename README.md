@@ -1,82 +1,69 @@
-# The Mesh - Social Network Demo App
+# The Mesh
 
-## 🚧 Rebuild (v2) in progress
+A small social network: posts with pictures, likes and comments, profiles, follows, a people
+directory with suggestions, an activity stream and realtime direct messages with presence.
+Built as a pnpm monorepo with NestJS, Prisma, PostgreSQL, React and Vite; shipped as two
+container images behind Caddy and a Cloudflare Tunnel.
 
-The app is being rewritten as a pnpm monorepo: `apps/api` (NestJS 12), `apps/web` (Vite 8 + React 19),
-`packages/shared` (zod schemas shared by both). Plan: [`docs/REBUILD_PLAN.md`](docs/REBUILD_PLAN.md).
-Decisions: [`docs/adr/`](docs/adr/). Everything below this section describes the **legacy** code in
-`api/` and `client/`, which stays untouched until the cutover.
+| | |
+|---|---|
+| `apps/api` | NestJS 12 (ESM) · Prisma 7 · PostgreSQL 17 · socket.io · zod validation · argon2 · JWT access + rotating refresh cookies |
+| `apps/web` | React 19 · Vite 8 · React Router 8 · TanStack Query · Tailwind 4 + shadcn/ui · socket.io-client |
+| `packages/shared` | zod schemas, types and constants used by both sides (the API contract) |
+| `packages/config` | shared TypeScript and oxlint presets |
+| `deploy/` | production `docker compose` stack, update and backup scripts, systemd timers |
+| `docs/` | [`REBUILD_PLAN.md`](docs/REBUILD_PLAN.md) (architecture, phases, decisions), [`adr/`](docs/adr/), [`RUNBOOK.md`](docs/RUNBOOK.md), [`BACKLOG.md`](docs/BACKLOG.md) |
+
+## Quick start
+
+Requirements: Node 24, pnpm 11 (`corepack enable` or `npm i -g pnpm`), Docker (for PostgreSQL
+and the integration tests).
 
 ```bash
 pnpm install
-pnpm db:up      # PostgreSQL 17 on localhost:5433 (docker compose)
-cp apps/api/.env.example apps/api/.env
-pnpm db:deploy && pnpm db:seed   # migrations + demo data (alice/bob/carol, Password123!)
-pnpm dev        # shared (watch) + api (nest --watch, :3000) + web (vite, :5173 proxying /api)
-pnpm check      # lint, typecheck, test, build – the same as CI
-pnpm test:int   # API integration tests (HTTP level)
-pnpm --filter @the-mesh/web e2e   # Playwright: smoke, feed, profile, people, chat, axe a11y (after pnpm build; browsers: … exec playwright install chromium)
+pnpm db:up                               # PostgreSQL 17 on localhost:5433
+cp apps/api/.env.example apps/api/.env   # defaults work for local development
+pnpm db:deploy && pnpm db:seed           # migrations + demo data (alice/bob/carol, Password123!)
+pnpm dev                                 # api on :3000, web on :5173 (proxies /api and /socket.io)
 ```
 
+Open http://localhost:5173 and sign in as `alice@example.com` / `Password123!`.
+Swagger UI: http://localhost:3000/api/docs.
 
-This repository contains the server-side and client-side code for the project.
+## Scripts
 
----
+| Command | What it does |
+|---|---|
+| `pnpm check` | lint, typecheck, unit tests and build for every workspace (what CI runs) |
+| `pnpm format` / `pnpm format:check` | Prettier |
+| `pnpm test:int` | API integration tests against a throwaway PostgreSQL (Testcontainers) |
+| `pnpm --filter @the-mesh/web e2e` | Playwright end-to-end suite against the built API and web app (reseeds the database; `… exec playwright install chromium` once) |
+| `pnpm db:migrate -- --name <change>` | create and apply a migration from schema changes |
+| `pnpm db:deploy` / `pnpm db:check` / `pnpm db:seed` / `pnpm db:studio` | apply migrations / drift check / demo data / Prisma Studio |
+| `docker build -f apps/api/Dockerfile .` | production image (same for `apps/web/Dockerfile`) |
 
-### Running it in production
+## Testing
 
-Two images (`apps/api/Dockerfile`, `apps/web/Dockerfile`) published to GHCR by `.github/workflows/docker.yml`, one `docker compose` stack in [`deploy/`](deploy/) (Postgres, API, Caddy, Cloudflare Tunnel), pull-based updates on a timer. Step by step: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+- **Unit** (Vitest): services, guards and helpers in the API; hooks and components in the web app
+  with Testing Library and MSW.
+- **Integration** (Vitest + supertest): the real NestJS app against PostgreSQL, one file per module;
+  authorisation, validation, uploads, throttling and the chat gateway included.
+- **End-to-end** (Playwright, Chromium): registration, sessions, feed, profiles, people, chat in two
+  browsers, phone layouts, error states and axe accessibility audits on every page.
 
----
+CI (`.github/workflows/ci.yml`) runs all of it on every pull request; `docker.yml` builds the
+images on pull requests and publishes them to GHCR from `main` and `v*` tags.
 
-## 🚨 Legacy code status: Frozen
+## Deployment
 
-The legacy app described below (`api/`, `client/`) is **frozen**: no fixes or features. All active work happens in the v2 rebuild (see the section above).
+One Ubuntu box, no static IP: the stack in [`deploy/`](deploy/) runs PostgreSQL, the API,
+Caddy serving the web app and proxying the API on one origin, and `cloudflared` for inbound
+traffic. The box pulls new images on a timer. Everything is in
+[`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
----
+## Configuration
 
-## 🌍 Environments
-
-- **Production:** [~~https://the-mesh.eu~~](https://the-mesh.eu) _(Currently inactive)_
-- **Development:** ~~https://dev-the-mesh.vercel.app~~ _(removed 2026-10-15; the Vercel project and its GitHub integration were deleted)_
-
----
-
-## 🖥 Server & Database
-
-- Hosted on a **physical machine** running **Ubuntu Server v23.10**.
-- **Nginx** serves the front-end, and **PM2** manages the **Node.js** server instance.
-- **Database:** MySQL, but using the `mysql2` package instead of `mysql` in Node.js to avoid query-related issues.
-
----
-
-## 🚀 Deployment
-
-### Deploy Scripts
-
-This repository contains two shell scripts for deploying the legacy code. Both are **obsolete** and will be removed at the v2 cutover:
-
-1. **Development Deployment:**
-
-   - Pushing to the `main` branch used to trigger an automatic deployment to **Vercel**. That integration no longer exists.
-
-2. **Production Deployment:**
-   - The script builds the app locally and then uploads it to the **production server** manually.
-
----
-
-## 📌 To-Do _(Paused)_
-
-- [ ] Migrate / Swithch from ExpressJS to NestJS on the server-side
-
-- [ ] Migrate / Swithch from CRA to Vite
-
-- [ ] Extract reusable components from the existing code on the client-side
-
-- [ ] General refactoring, fixing and polishing of the code base
-
-- [ ] Add CI/CD to the project
-
-- [ ] Add Docker containerization
-
----
+Runtime configuration is environment only. `apps/api/.env.example` documents the API
+(database, JWT, cookies, CORS origins, trusted proxies, uploads, throttling);
+`apps/web/.env.example` the web build (`VITE_API_URL`, empty for same origin);
+`deploy/.env.example` the production stack.

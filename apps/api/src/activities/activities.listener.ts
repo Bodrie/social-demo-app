@@ -62,12 +62,20 @@ export class ActivitiesListener {
 
   @OnEvent(UserFollowedEvent.EVENT)
   onUserFollowed(event: UserFollowedEvent): Promise<void> {
-    return this.record({ actorId: event.followerId, type: 'USER_FOLLOWED', targetUserId: event.followeeId });
+    return this.record({
+      actorId: event.followerId,
+      type: 'USER_FOLLOWED',
+      targetUserId: event.followeeId,
+    });
   }
 
   @OnEvent(UserUnfollowedEvent.EVENT)
   onUserUnfollowed(event: UserUnfollowedEvent): Promise<void> {
-    return this.remove({ actorId: event.followerId, type: 'USER_FOLLOWED', targetUserId: event.followeeId });
+    return this.remove({
+      actorId: event.followerId,
+      type: 'USER_FOLLOWED',
+      targetUserId: event.followeeId,
+    });
   }
 
   private async record(data: Prisma.ActivityUncheckedCreateInput): Promise<void> {

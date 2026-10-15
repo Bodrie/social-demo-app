@@ -15,7 +15,10 @@ export class AppSocketIoAdapter extends IoAdapter {
     // socket.io types every option as required although all have defaults;
     // Nest passes `undefined` here, so the merged object must be asserted.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const merged = { ...options, cors: { origin: this.origins, credentials: true } } as ServerOptions;
+    const merged = {
+      ...options,
+      cors: { origin: this.origins, credentials: true },
+    } as ServerOptions;
     return super.createIOServer(port, merged);
   }
 }

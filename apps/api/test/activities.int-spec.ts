@@ -1,4 +1,9 @@
-import { activityListSchema, commentSchema, postSchema, uploadResponseSchema } from '@the-mesh/shared';
+import {
+  activityListSchema,
+  commentSchema,
+  postSchema,
+  uploadResponseSchema,
+} from '@the-mesh/shared';
 import sharp from 'sharp';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
@@ -10,7 +15,10 @@ async function agentFor(t: TestApp, user: CreatedUser): Promise<TestAgent> {
   return agent;
 }
 
-async function feed(agent: TestAgent, query = ''): Promise<ReturnType<typeof activityListSchema.parse>> {
+async function feed(
+  agent: TestAgent,
+  query = '',
+): Promise<ReturnType<typeof activityListSchema.parse>> {
   return activityListSchema.parse((await agent.get(`/api/v1/activities${query}`).expect(200)).body);
 }
 
@@ -39,16 +47,41 @@ describe('activities', () => {
   });
 
   it('shows what followed users do, newest first, and nothing from strangers or myself', async () => {
-    const strangerPost = postSchema.parse((await strangerAgent.post('/api/v1/posts').send({ content: 'stranger post' }).expect(201)).body);
+    const strangerPost = postSchema.parse(
+      (await strangerAgent.post('/api/v1/posts').send({ content: 'stranger post' }).expect(201))
+        .body,
+    );
     await myAgent.post('/api/v1/posts').send({ content: 'my own post' }).expect(201);
 
-    const friendPost = postSchema.parse((await friendAgent.post('/api/v1/posts').send({ content: 'A long friendly post that goes on and on and on and on and on and on and on and on and on' }).expect(201)).body);
-    const comment = commentSchema.parse((await friendAgent.post(`/api/v1/posts/${strangerPost.id}/comments`).send({ content: 'nice one' }).expect(201)).body);
+    const friendPost = postSchema.parse(
+      (
+        await friendAgent
+          .post('/api/v1/posts')
+          .send({
+            content:
+              'A long friendly post that goes on and on and on and on and on and on and on and on and on',
+          })
+          .expect(201)
+      ).body,
+    );
+    const comment = commentSchema.parse(
+      (
+        await friendAgent
+          .post(`/api/v1/posts/${strangerPost.id}/comments`)
+          .send({ content: 'nice one' })
+          .expect(201)
+      ).body,
+    );
     await friendAgent.put(`/api/v1/posts/${strangerPost.id}/like`).expect(204);
     await friendAgent.put(`/api/v1/users/${stranger.id}/follow`).expect(204);
 
     const activities = await feed(myAgent);
-    expect(activities.items.map((a) => a.type)).toEqual(['USER_FOLLOWED', 'POST_LIKED', 'COMMENT_CREATED', 'POST_CREATED']);
+    expect(activities.items.map((a) => a.type)).toEqual([
+      'USER_FOLLOWED',
+      'POST_LIKED',
+      'COMMENT_CREATED',
+      'POST_CREATED',
+    ]);
     expect(activities.items.every((a) => a.actor.id === friend.id)).toBe(true);
 
     const [followed, liked, commented, created] = activities.items;
@@ -66,7 +99,9 @@ describe('activities', () => {
     expect(page1.nextCursor).not.toBeNull();
     const page2 = await feed(myAgent, `?limit=3&cursor=${page1.nextCursor}`);
     expect(page2.items).toHaveLength(1);
-    expect(new Set([...page1.items, ...page2.items].map((a) => a.id)).size).toBe(page1.items.length + page2.items.length);
+    expect(new Set([...page1.items, ...page2.items].map((a) => a.id)).size).toBe(
+      page1.items.length + page2.items.length,
+    );
   });
 
   it('drops like and follow entries when they are undone, and post entries when the post is deleted', async () => {
@@ -90,23 +125,49 @@ describe('activities', () => {
   it('records registrations and picture updates', async () => {
     const newcomer = await request(t.server)
       .post('/api/v1/auth/register')
-      .send({ email: 'newcomer@example.com', username: 'newcomer', name: 'New', password: 'Password123!' })
+      .send({
+        email: 'newcomer@example.com',
+        username: 'newcomer',
+        name: 'New',
+        password: 'Password123!',
+      })
       .expect(201);
     const newcomerId = newcomer.body.user.id as string;
     await myAgent.put(`/api/v1/users/${newcomerId}/follow`).expect(204);
 
-    const types = (await feed(myAgent)).items.filter((a) => a.actor.id === newcomerId).map((a) => a.type);
+    const types = (await feed(myAgent)).items
+      .filter((a) => a.actor.id === newcomerId)
+      .map((a) => a.type);
     expect(types).toEqual(['USER_REGISTERED']);
 
     // Changing the avatar is an activity; re-sending the same key or editing the bio is not.
     const newcomerAgent = request.agent(t.server);
-    await newcomerAgent.post('/api/v1/auth/login').send({ email: 'newcomer@example.com', password: 'Password123!' }).expect(200);
-    const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#123456' } }).png().toBuffer();
-    const avatar = uploadResponseSchema.parse((await newcomerAgent.post('/api/v1/uploads?kind=avatar').attach('file', image, 'a.png').expect(201)).body);
+    await newcomerAgent
+      .post('/api/v1/auth/login')
+      .send({ email: 'newcomer@example.com', password: 'Password123!' })
+      .expect(200);
+    const image = await sharp({
+      create: { width: 64, height: 64, channels: 3, background: '#123456' },
+    })
+      .png()
+      .toBuffer();
+    const avatar = uploadResponseSchema.parse(
+      (
+        await newcomerAgent
+          .post('/api/v1/uploads?kind=avatar')
+          .attach('file', image, 'a.png')
+          .expect(201)
+      ).body,
+    );
     await newcomerAgent.patch('/api/v1/users/me').send({ avatarKey: avatar.key }).expect(200);
-    await newcomerAgent.patch('/api/v1/users/me').send({ avatarKey: avatar.key, bio: 'hello' }).expect(200);
+    await newcomerAgent
+      .patch('/api/v1/users/me')
+      .send({ avatarKey: avatar.key, bio: 'hello' })
+      .expect(200);
 
-    const after = (await feed(myAgent)).items.filter((a) => a.actor.id === newcomerId).map((a) => a.type);
+    const after = (await feed(myAgent)).items
+      .filter((a) => a.actor.id === newcomerId)
+      .map((a) => a.type);
     expect(after).toEqual(['PROFILE_UPDATED', 'USER_REGISTERED']);
   });
 

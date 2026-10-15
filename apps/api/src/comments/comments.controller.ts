@@ -14,7 +14,10 @@ export class PostCommentsController {
   constructor(private readonly comments: CommentsService) {}
 
   @Get()
-  list(@Param() params: PostIdParamDto, @Query() query: CommentsQueryDto): Promise<Paginated<Comment>> {
+  list(
+    @Param() params: PostIdParamDto,
+    @Query() query: CommentsQueryDto,
+  ): Promise<Paginated<Comment>> {
     return this.comments.listForPost(params.postId, query);
   }
 

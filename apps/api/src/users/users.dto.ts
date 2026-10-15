@@ -1,4 +1,8 @@
-import { listUsersQuerySchema, suggestionsQuerySchema, updateProfileSchema } from '@the-mesh/shared';
+import {
+  listUsersQuerySchema,
+  suggestionsQuerySchema,
+  updateProfileSchema,
+} from '@the-mesh/shared';
 import { createZodDto } from 'nestjs-zod';
 
 export class UpdateProfileDto extends createZodDto(updateProfileSchema) {}

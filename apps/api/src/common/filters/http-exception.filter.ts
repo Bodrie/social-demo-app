@@ -1,4 +1,10 @@
-import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, Logger } from '@nestjs/common';
+import {
+  type ArgumentsHost,
+  Catch,
+  type ExceptionFilter,
+  HttpException,
+  Logger,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { isHealthCheckResult, toApiError } from '../errors.js';
 
@@ -13,12 +19,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() === 'ws') {
-      const client = host
-        .switchToWs()
-        .getClient<{ id?: string; data?: { userId?: string }; emit: (event: string, payload: unknown) => void }>();
+      const client = host.switchToWs().getClient<{
+        id?: string;
+        data?: { userId?: string };
+        emit: (event: string, payload: unknown) => void;
+      }>();
       const error = toApiError(exception);
       if (error.statusCode >= 500) {
-        this.logger.error({ err: exception, socketId: client.id, userId: client.data?.userId }, 'Socket handler failed');
+        this.logger.error(
+          { err: exception, socketId: client.id, userId: client.data?.userId },
+          'Socket handler failed',
+        );
       }
       client.emit('exception', error);
       return;

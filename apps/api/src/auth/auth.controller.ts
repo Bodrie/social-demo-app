@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { AuthResponse } from '@the-mesh/shared';
 import type { Request, Response } from 'express';
@@ -46,9 +55,15 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(200)
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<AuthResponse> {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
     try {
-      const { user, tokens } = await this.auth.refresh(readCookie(req.cookies, REFRESH_COOKIE), requestMeta(req));
+      const { user, tokens } = await this.auth.refresh(
+        readCookie(req.cookies, REFRESH_COOKIE),
+        requestMeta(req),
+      );
       setAuthCookies(res, tokens, this.auth.cookieSettings);
       return { user };
     } catch (error) {
@@ -69,7 +84,10 @@ export class AuthController {
 
   @Post('logout-all')
   @HttpCode(204)
-  async logoutAll(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) res: Response): Promise<void> {
+  async logoutAll(
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
     await this.auth.logoutAll(user.id);
     clearAuthCookies(res, this.auth.cookieSettings);
   }

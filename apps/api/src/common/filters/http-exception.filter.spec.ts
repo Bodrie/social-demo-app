@@ -11,7 +11,9 @@ import { fieldsFromIssues, toApiError } from '../errors.js';
 import { HttpExceptionFilter } from './http-exception.filter.js';
 
 function zodFailure(): ZodValidationException {
-  const result = z.object({ email: z.email(), age: z.number().min(18) }).safeParse({ email: 'x', age: 1 });
+  const result = z
+    .object({ email: z.email(), age: z.number().min(18) })
+    .safeParse({ email: 'x', age: 1 });
   if (result.success) throw new Error('expected a failure');
   return new ZodValidationException(result.error);
 }
@@ -34,10 +36,18 @@ describe('toApiError', () => {
 
   it('lets services override the code and attach field errors', () => {
     const error = toApiError(
-      new ConflictException({ code: 'CONFLICT', message: 'Email taken', fields: { email: 'Already registered' } }),
+      new ConflictException({
+        code: 'CONFLICT',
+        message: 'Email taken',
+        fields: { email: 'Already registered' },
+      }),
     );
 
-    expect(error).toMatchObject({ statusCode: 409, code: 'CONFLICT', fields: { email: 'Already registered' } });
+    expect(error).toMatchObject({
+      statusCode: 409,
+      code: 'CONFLICT',
+      fields: { email: 'Already registered' },
+    });
   });
 
   it('maps Prisma unique violations to 409 with the offending columns', () => {
@@ -64,9 +74,16 @@ describe('toApiError', () => {
   });
 
   it('maps body-parser style http-errors by their status and keeps the message', () => {
-    const tooLarge = Object.assign(new Error('request entity too large'), { status: 413, expose: true });
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      expose: true,
+    });
 
-    expect(toApiError(tooLarge)).toMatchObject({ statusCode: 413, code: 'PAYLOAD_TOO_LARGE', message: 'request entity too large' });
+    expect(toApiError(tooLarge)).toMatchObject({
+      statusCode: 413,
+      code: 'PAYLOAD_TOO_LARGE',
+      message: 'request entity too large',
+    });
   });
 
   it('never trusts http-errors marked as not exposable or with 5xx status', () => {
@@ -117,11 +134,17 @@ describe('HttpExceptionFilter', () => {
 
   it('emits an exception event with the envelope on WebSocket contexts', () => {
     const emit = vi.fn();
-    const host = { getType: () => 'ws', switchToWs: () => ({ getClient: () => ({ emit }) }) } as unknown as ArgumentsHost;
+    const host = {
+      getType: () => 'ws',
+      switchToWs: () => ({ getClient: () => ({ emit }) }),
+    } as unknown as ArgumentsHost;
 
     new HttpExceptionFilter().catch(new NotFoundException('gone'), host);
 
-    expect(emit).toHaveBeenCalledWith('exception', expect.objectContaining({ code: 'NOT_FOUND', message: 'gone' }));
+    expect(emit).toHaveBeenCalledWith(
+      'exception',
+      expect.objectContaining({ code: 'NOT_FOUND', message: 'gone' }),
+    );
   });
 
   it('writes the envelope with the request id', () => {
@@ -137,7 +160,12 @@ describe('HttpExceptionFilter', () => {
 
   it('passes terminus health results through untouched', () => {
     const { host, status, json } = hostWith();
-    const healthResult = { status: 'error', info: {}, error: { database: { status: 'down' } }, details: {} };
+    const healthResult = {
+      status: 'error',
+      info: {},
+      error: { database: { status: 'down' } },
+      details: {},
+    };
 
     new HttpExceptionFilter().catch(new ServiceUnavailableException(healthResult), host);
 

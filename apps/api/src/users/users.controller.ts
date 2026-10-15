@@ -13,23 +13,35 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthUser, @Query() query: ListUsersQueryDto): Promise<Paginated<UserPublic>> {
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListUsersQueryDto,
+  ): Promise<Paginated<UserPublic>> {
     return this.users.list(user.id, query);
   }
 
   /** The caller's own profile is read through GET /auth/me; this is the only writer. */
   @Patch('me')
-  async updateMe(@CurrentUser() user: AuthUser, @Body() body: UpdateProfileDto): Promise<MeResponse> {
+  async updateMe(
+    @CurrentUser() user: AuthUser,
+    @Body() body: UpdateProfileDto,
+  ): Promise<MeResponse> {
     return { user: await this.users.updateProfile(user.id, body) };
   }
 
   @Get('suggestions')
-  suggestions(@CurrentUser() user: AuthUser, @Query() query: SuggestionsQueryDto): Promise<Paginated<UserPublic>> {
+  suggestions(
+    @CurrentUser() user: AuthUser,
+    @Query() query: SuggestionsQueryDto,
+  ): Promise<Paginated<UserPublic>> {
     return this.users.suggestions(user.id, query.limit);
   }
 
   @Get('by-username/:username')
-  byUsername(@CurrentUser() user: AuthUser, @Param() params: UsernameParamDto): Promise<UserPublic> {
+  byUsername(
+    @CurrentUser() user: AuthUser,
+    @Param() params: UsernameParamDto,
+  ): Promise<UserPublic> {
     return this.users.getPublicByUsername(user.id, params.username);
   }
 

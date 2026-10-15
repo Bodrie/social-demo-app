@@ -16,7 +16,11 @@ export type CookieSettings = {
 
 const base = (secure: boolean) => ({ httpOnly: true, secure, sameSite: 'lax' as const });
 
-export function setAuthCookies(res: Response, tokens: IssuedTokens, settings: CookieSettings): void {
+export function setAuthCookies(
+  res: Response,
+  tokens: IssuedTokens,
+  settings: CookieSettings,
+): void {
   res.cookie(ACCESS_COOKIE, tokens.accessToken, {
     ...base(settings.secure),
     path: '/',

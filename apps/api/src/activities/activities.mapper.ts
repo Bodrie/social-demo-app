@@ -16,7 +16,9 @@ export type ActivityRow = Prisma.ActivityGetPayload<{ select: typeof activitySel
 
 export function excerpt(content: string): string {
   const flat = content.replace(/\s+/g, ' ').trim();
-  return flat.length > ACTIVITY_EXCERPT_LENGTH ? `${flat.slice(0, ACTIVITY_EXCERPT_LENGTH - 1)}…` : flat;
+  return flat.length > ACTIVITY_EXCERPT_LENGTH
+    ? `${flat.slice(0, ACTIVITY_EXCERPT_LENGTH - 1)}…`
+    : flat;
 }
 
 export function toActivity(row: ActivityRow, assetsBase: string): Activity {

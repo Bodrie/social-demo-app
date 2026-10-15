@@ -54,7 +54,9 @@ describe('parseOrigins', () => {
   });
 
   it('rejects origins that are not URLs', () => {
-    expect(() => validateEnv({ DATABASE_URL, JWT_SECRET, WEB_ORIGINS: 'localhost:5173' })).toThrow(/WEB_ORIGINS/);
+    expect(() => validateEnv({ DATABASE_URL, JWT_SECRET, WEB_ORIGINS: 'localhost:5173' })).toThrow(
+      /WEB_ORIGINS/,
+    );
   });
 });
 
@@ -83,9 +85,16 @@ describe('production safety', () => {
   });
 
   it('refuses development defaults and the placeholder secret', () => {
-    expect(() => validateEnv({ ...production, WEB_ORIGINS: undefined })).toThrow(/WEB_ORIGINS must be set/);
+    expect(() => validateEnv({ ...production, WEB_ORIGINS: undefined })).toThrow(
+      /WEB_ORIGINS must be set/,
+    );
     expect(() => validateEnv({ ...production, TRUST_PROXY: '' })).toThrow(/TRUST_PROXY/);
-    expect(() => validateEnv({ ...production, JWT_SECRET: 'change-me-to-a-random-string-of-at-least-32-characters' })).toThrow(/placeholder/);
+    expect(() =>
+      validateEnv({
+        ...production,
+        JWT_SECRET: 'change-me-to-a-random-string-of-at-least-32-characters',
+      }),
+    ).toThrow(/placeholder/);
     expect(() => validateEnv({ ...production, COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
   });
 });

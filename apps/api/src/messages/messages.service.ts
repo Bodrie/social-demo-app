@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { Conversation, CursorQuery, MarkReadResult, Message, Paginated, SendMessageData } from '@the-mesh/shared';
+import type {
+  Conversation,
+  CursorQuery,
+  MarkReadResult,
+  Message,
+  Paginated,
+  SendMessageData,
+} from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
@@ -78,7 +85,10 @@ export class MessagesService {
       data: { readAt },
     });
     if (result.count > 0) {
-      await this.events.emitAsync(ConversationReadEvent.EVENT, new ConversationReadEvent(viewerId, peerId, readAt));
+      await this.events.emitAsync(
+        ConversationReadEvent.EVENT,
+        new ConversationReadEvent(viewerId, peerId, readAt),
+      );
     }
     return { count: result.count };
   }

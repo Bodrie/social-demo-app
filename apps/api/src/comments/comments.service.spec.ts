@@ -15,7 +15,12 @@ describe('CommentsService.delete', () => {
 
   beforeEach(() => {
     prisma = mockDeep<PrismaService>();
-    service = new CommentsService(prisma, mockDeep<PostsService>(), mockDeep<EventEmitter2>(), assets);
+    service = new CommentsService(
+      prisma,
+      mockDeep<PostsService>(),
+      mockDeep<EventEmitter2>(),
+      assets,
+    );
     prisma.comment.findUnique.mockResolvedValue(stored as never);
     prisma.comment.delete.mockResolvedValue({} as never);
   });

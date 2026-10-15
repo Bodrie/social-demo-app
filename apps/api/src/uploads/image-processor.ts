@@ -16,7 +16,12 @@ export const PRESETS: Record<UploadKind, Preset> = {
   post: { width: 1920, height: 1920, fit: 'inside', quality: 82 },
 };
 
-export type ProcessedImage = { data: Buffer; width: number; height: number; contentType: 'image/webp' };
+export type ProcessedImage = {
+  data: Buffer;
+  width: number;
+  height: number;
+  contentType: 'image/webp';
+};
 
 /**
  * Every upload is decoded by sharp (which trusts magic bytes, not the declared
@@ -34,7 +39,9 @@ export class ImageProcessor {
   async process(input: Buffer, kind: UploadKind): Promise<ProcessedImage> {
     const format = await this.detectFormat(input);
     if (format === undefined || !ACCEPTED_FORMATS.has(format)) {
-      throw unsupportedMedia('Unsupported image type', { file: 'Use a JPEG, PNG, WebP, GIF or AVIF image' });
+      throw unsupportedMedia('Unsupported image type', {
+        file: 'Use a JPEG, PNG, WebP, GIF or AVIF image',
+      });
     }
 
     const preset = PRESETS[kind];
@@ -72,6 +79,8 @@ export class ImageProcessor {
         file: `Images must be below ${Math.round(this.maxPixels / 1_000_000)} megapixels`,
       });
     }
-    return unsupportedMedia('The file is not a valid image', { file: 'The file could not be decoded as an image' });
+    return unsupportedMedia('The file is not a valid image', {
+      file: 'The file could not be decoded as an image',
+    });
   }
 }

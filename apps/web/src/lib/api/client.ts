@@ -59,7 +59,10 @@ let refreshInFlight: Promise<boolean> | null = null;
  */
 export function refreshSession(): Promise<boolean> {
   refreshInFlight ??= runExclusive('the-mesh:refresh', async () => {
-    const response = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
     return response.ok;
   }).finally(() => {
     refreshInFlight = null;
@@ -78,12 +81,22 @@ async function toApiError(response: Response): Promise<ApiError> {
   if (parsed.success) return parsed.data;
   return {
     statusCode: response.status,
-    code: response.status === 401 ? 'UNAUTHORIZED' : response.status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST',
+    code:
+      response.status === 401
+        ? 'UNAUTHORIZED'
+        : response.status >= 500
+          ? 'INTERNAL_ERROR'
+          : 'BAD_REQUEST',
     message: response.statusText || 'Request failed',
   };
 }
 
-async function send<T>(method: string, path: string, options: RequestOptions<T>, attempt = 0): Promise<T> {
+async function send<T>(
+  method: string,
+  path: string,
+  options: RequestOptions<T>,
+  attempt = 0,
+): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   let body: BodyInit | undefined;
   if (options.formData) {
@@ -114,13 +127,17 @@ async function send<T>(method: string, path: string, options: RequestOptions<T>,
 }
 
 export const api = {
-  get: <T>(path: string, schema: z.ZodType<T>, options: Omit<RequestOptions<T>, 'schema' | 'body'> = {}) =>
-    send<T>('GET', path, { ...options, schema }),
+  get: <T>(
+    path: string,
+    schema: z.ZodType<T>,
+    options: Omit<RequestOptions<T>, 'schema' | 'body'> = {},
+  ) => send<T>('GET', path, { ...options, schema }),
   post: <T = void>(path: string, body?: unknown, options: Omit<RequestOptions<T>, 'body'> = {}) =>
     send<T>('POST', path, { ...options, body }),
   put: <T = void>(path: string, body?: unknown, options: Omit<RequestOptions<T>, 'body'> = {}) =>
     send<T>('PUT', path, { ...options, body }),
   patch: <T = void>(path: string, body?: unknown, options: Omit<RequestOptions<T>, 'body'> = {}) =>
     send<T>('PATCH', path, { ...options, body }),
-  delete: <T = void>(path: string, options: Omit<RequestOptions<T>, 'body'> = {}) => send<T>('DELETE', path, options),
+  delete: <T = void>(path: string, options: Omit<RequestOptions<T>, 'body'> = {}) =>
+    send<T>('DELETE', path, options),
 };

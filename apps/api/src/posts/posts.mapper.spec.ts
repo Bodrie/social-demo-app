@@ -7,7 +7,12 @@ const row: PostRow = {
   imageKey: 'post/01a13ed6-d3ec-71cb-b39f-fbc256a293b1.webp',
   createdAt: new Date('2026-10-15T10:00:00.000Z'),
   updatedAt: new Date('2026-10-15T10:05:00.000Z'),
-  author: { id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b8', username: 'alice', name: 'Alice', avatarKey: null },
+  author: {
+    id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b8',
+    username: 'alice',
+    name: 'Alice',
+    avatarKey: null,
+  },
   _count: { likes: 3, comments: 2 },
   likes: [{ userId: 'viewer' }],
 };

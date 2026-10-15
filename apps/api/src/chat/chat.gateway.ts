@@ -126,18 +126,28 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage(SOCKET_EVENTS.messageSend)
-  async onSend(@ConnectedSocket() socket: ChatSocket, @MessageBody() body: unknown): Promise<MessageAck> {
+  async onSend(
+    @ConnectedSocket() socket: ChatSocket,
+    @MessageBody() body: unknown,
+  ): Promise<MessageAck> {
     const userId = socket.data.userId;
     if (!this.sendLimiter.allow(userId)) return tooMany('Too many messages, slow down');
     const parsed = sendMessagePayloadSchema.safeParse(body);
     if (!parsed.success) {
       return {
         ok: false,
-        error: { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed', fields: fieldsFromIssues(parsed.error.issues) },
+        error: {
+          statusCode: 400,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          fields: fieldsFromIssues(parsed.error.issues),
+        },
       };
     }
     try {
-      const message = await this.messages.send(userId, parsed.data.recipientId, { content: parsed.data.content });
+      const message = await this.messages.send(userId, parsed.data.recipientId, {
+        content: parsed.data.content,
+      });
       return { ok: true, message };
     } catch (error) {
       return { ok: false, error: toApiError(error) };
@@ -145,14 +155,22 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage(SOCKET_EVENTS.messageRead)
-  async onRead(@ConnectedSocket() socket: ChatSocket, @MessageBody() body: unknown): Promise<MarkReadAck> {
+  async onRead(
+    @ConnectedSocket() socket: ChatSocket,
+    @MessageBody() body: unknown,
+  ): Promise<MarkReadAck> {
     const userId = socket.data.userId;
     if (!this.readLimiter.allow(userId)) return tooMany('Too many requests, slow down');
     const parsed = markReadPayloadSchema.safeParse(body);
     if (!parsed.success) {
       return {
         ok: false,
-        error: { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed', fields: fieldsFromIssues(parsed.error.issues) },
+        error: {
+          statusCode: 400,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          fields: fieldsFromIssues(parsed.error.issues),
+        },
       };
     }
     try {
@@ -173,7 +191,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   @OnEvent(ConversationReadEvent.EVENT)
   onConversationRead(event: ConversationReadEvent): void {
-    const payload: ConversationReadPayload = { userId: event.readerId, readAt: event.readAt.toISOString() };
+    const payload: ConversationReadPayload = {
+      userId: event.readerId,
+      readAt: event.readAt.toISOString(),
+    };
     this.server.to(userRoom(event.peerId)).emit(SOCKET_EVENTS.conversationRead, payload);
   }
 
@@ -186,7 +207,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   /** Keep the presence list current when an online user changes name or avatar. */
   @OnEvent(ProfileUpdatedEvent.EVENT)
   async onProfileUpdated(event: ProfileUpdatedEvent): Promise<void> {
-    if (!event.changedFields.some((field) => field === 'name' || field === 'username' || field === 'avatarKey')) return;
+    if (
+      !event.changedFields.some(
+        (field) => field === 'name' || field === 'username' || field === 'avatarKey',
+      )
+    )
+      return;
     const user = await this.users.summary(event.userId);
     if (user && this.presence.refresh(user)) this.broadcastPresence();
   }
@@ -195,7 +221,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private expireWithToken(socket: ChatSocket): void {
     const expiresAt = socket.data.expiresAt;
     if (!expiresAt) return;
-    const timer = setTimeout(() => socket.disconnect(true), Math.max(expiresAt.getTime() - Date.now(), 0));
+    const timer = setTimeout(
+      () => socket.disconnect(true),
+      Math.max(expiresAt.getTime() - Date.now(), 0),
+    );
     socket.once('disconnect', () => clearTimeout(timer));
   }
 

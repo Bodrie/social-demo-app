@@ -28,7 +28,11 @@ export class PostsService {
 
   async create(authorId: string, input: CreatePostData): Promise<Post> {
     if (input.imageKey) {
-      await this.uploads.assertOwned(input.imageKey, { ownerId: authorId, kind: 'post', field: 'imageKey' });
+      await this.uploads.assertOwned(input.imageKey, {
+        ownerId: authorId,
+        kind: 'post',
+        field: 'imageKey',
+      });
     }
     const row = await this.prisma.post.create({
       data: { authorId, content: input.content, imageKey: input.imageKey ?? null },
@@ -39,7 +43,10 @@ export class PostsService {
   }
 
   async getById(viewerId: string, postId: string): Promise<Post> {
-    const row = await this.prisma.post.findUnique({ where: { id: postId }, select: postSelect(viewerId) });
+    const row = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: postSelect(viewerId),
+    });
     if (!row) throw notFound('Post not found');
     return toPost(row, this.assets.base);
   }
@@ -69,14 +76,20 @@ export class PostsService {
 
   /** Idempotent: liking twice is a no-op and only the first like emits an event. */
   async like(viewerId: string, postId: string): Promise<void> {
-    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { authorId: true } });
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
     if (!post) throw notFound('Post not found');
     const result = await this.prisma.postLike.createMany({
       data: { userId: viewerId, postId },
       skipDuplicates: true,
     });
     if (result.count === 1) {
-      await this.events.emitAsync(PostLikedEvent.EVENT, new PostLikedEvent(postId, viewerId, post.authorId));
+      await this.events.emitAsync(
+        PostLikedEvent.EVENT,
+        new PostLikedEvent(postId, viewerId, post.authorId),
+      );
     }
   }
 
@@ -88,7 +101,11 @@ export class PostsService {
     }
   }
 
-  private async list(viewerId: string, query: CursorQuery, where: Prisma.PostWhereInput): Promise<Paginated<Post>> {
+  private async list(
+    viewerId: string,
+    query: CursorQuery,
+    where: Prisma.PostWhereInput,
+  ): Promise<Paginated<Post>> {
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.post.findMany({
       where: { AND: [where, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}] },
