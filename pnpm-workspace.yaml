@@ -7,7 +7,7 @@ packages:
 # engine, argon2 its prebuilt native binary, esbuild (used by tsx) its binary.
 allowBuilds:
   '@prisma/engines': true
-  '@scarf/scarf': set this to true or false
+  '@scarf/scarf': false
   argon2: true
   cpu-features: false
   esbuild: true
