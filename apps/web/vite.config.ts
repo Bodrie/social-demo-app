@@ -11,6 +11,9 @@ const apiProxy = {
   '/socket.io': { target: API_PROXY_TARGET, ws: true },
 };
 
+// Long-lived framework code gets its own chunk so it caches across releases.
+const REACT_PACKAGES = ['react', 'react-dom', 'scheduler', 'react-router'];
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -18,6 +21,19 @@ export default defineConfig({
   },
   server: { proxy: apiProxy },
   preview: { proxy: apiProxy },
+  build: {
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks cache across releases; the app code changes far more often.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (REACT_PACKAGES.some((name) => id.includes(`/node_modules/${name}/`))) return 'react';
+          if (id.includes('socket.io') || id.includes('engine.io')) return 'socket';
+          return undefined;
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

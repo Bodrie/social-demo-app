@@ -1,21 +1,37 @@
 import { cn } from 'cn';
-import { Outlet, useMatches } from 'react-router';
+import { useEffect, useRef } from 'react';
+import { Outlet, ScrollRestoration, useLocation, useMatches } from 'react-router';
 import { Header } from './header';
 import { LeftBar } from './left-bar';
+import { NavigationProgress } from './navigation-progress';
 import { RightBar } from './right-bar';
 
-/**
- * Header plus a three-column layout. The left navigation appears from `lg`,
- * the right bar from `xl`; the middle column caps at a comfortable reading width.
- */
 const isWide = (handle: unknown): boolean =>
   typeof handle === 'object' && handle !== null && 'wide' in handle && handle.wide === true;
 
+/**
+ * Header plus a three-column layout. The left navigation appears from `lg`, the
+ * right bar from `xl`; routes with `handle: { wide: true }` (messages) take the
+ * whole middle and drop the right bar. After a navigation that started outside the
+ * main area (header, left bar), focus moves to the new page content.
+ */
 export function AppShell() {
-  // Routes with `handle: { wide: true }` (messages) take the whole middle and drop the right bar.
   const wide = useMatches().some((match) => isWide(match.handle));
+  const { pathname } = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  const previousPath = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    const main = mainRef.current;
+    if (main && !main.contains(document.activeElement)) main.focus({ preventScroll: true });
+  }, [pathname]);
+
   return (
     <div className="min-h-svh">
+      <NavigationProgress />
+      <ScrollRestoration />
       <Header />
       <div
         className={cn(
@@ -28,7 +44,12 @@ export function AppShell() {
             <LeftBar />
           </div>
         </div>
-        <main id="main" className={cn('mx-auto w-full min-w-0', !wide && 'max-w-2xl')}>
+        <main
+          id="main"
+          ref={mainRef}
+          tabIndex={-1}
+          className={cn('mx-auto w-full min-w-0 outline-none', !wide && 'max-w-2xl')}
+        >
           <Outlet />
         </main>
         {wide ? null : (

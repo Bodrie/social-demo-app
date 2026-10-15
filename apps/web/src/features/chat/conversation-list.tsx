@@ -46,7 +46,11 @@ export function ConversationList() {
           <p className="mt-1">Pick someone from the people page or the online list and say hi.</p>
         </div>
       ) : (
-        <ul aria-label="Conversations" className="min-h-0 flex-1 divide-y overflow-y-auto">
+        <ul
+          aria-label="Conversations"
+          tabIndex={0}
+          className="min-h-0 flex-1 divide-y overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+        >
           {conversations.data.items.map((conversation) => (
             <ConversationItem key={conversation.peer.id} conversation={conversation} />
           ))}

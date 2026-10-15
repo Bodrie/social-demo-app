@@ -11,6 +11,12 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header className="bg-card/80 supports-[backdrop-filter]:bg-card/70 sticky top-0 z-20 border-b backdrop-blur-md">
+      <a
+        href="#main"
+        className="bg-primary text-primary-foreground sr-only rounded-md px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+      >
+        Skip to content
+      </a>
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
