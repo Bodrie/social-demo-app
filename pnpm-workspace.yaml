@@ -2,6 +2,18 @@ packages:
   - apps/*
   - packages/*
 
+# pnpm refuses to run dependency postinstall scripts unless approved here
+# (`pnpm approve-builds <pkg>`). prisma/@prisma/engines fetch the schema
+# engine, argon2 its prebuilt native binary, esbuild (used by tsx) its binary.
+allowBuilds:
+  '@prisma/engines': true
+  argon2: true
+  cpu-features: false
+  esbuild: true
+  prisma: true
+  protobufjs: false
+  ssh2: false
+
 # Single source of truth for versions. Workspaces reference them with "catalog:".
 catalog:
   # tooling
@@ -30,6 +42,16 @@ catalog:
   supertest: 7.3.1
   '@types/supertest': 7.2.1
   '@types/express': 5.0.6
+  # database
+  prisma: 7.10.0
+  '@prisma/client': 7.10.0
+  '@prisma/adapter-pg': 7.10.0
+  '@nestjs/config': 12.0.1
+  argon2: 0.45.1
+  dotenv: 18.0.8
+  tsx: 4.23.15
+  '@faker-js/faker': 10.6.0
+  '@testcontainers/postgresql': 12.2.1
   # web
   react: 19.3.1
   react-dom: 19.3.1

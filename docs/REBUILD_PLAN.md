@@ -1,6 +1,6 @@
 # The Mesh – Rebuild & Rewrite Plan
 
-**Status:** v0.3 (2026-10-15). All decisions D1–D23 made (log in §6). Phases 0–1 complete on branch `rebuild/phase-1-workspace` (not yet committed/pushed).
+**Status:** v0.3 (2026-10-15). All decisions D1–D23 made (log in §6). Phases 0–1 merged (PR #3). Phase 2 complete on branch `rebuild/phase-2-database`.
 **Scope:** full rewrite of client, API and database; CI/CD; containerisation. Deployment target is deliberately left open until a domain/hosting is chosen.
 
 ---
@@ -433,7 +433,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 |---|---|---|---|
 | **0. Decide & tidy** ✅ 2026-10-15 | Decisions in §6 recorded as ADRs in `docs/adr/`. Still with the owner: delete branches `test`, `update/readme`, `nest-migration`; check the old server. | – | S |
 | **1. Workspace + CI skeleton** ✅ 2026-10-15 | pnpm workspace, Turbo, Node pin, root ESLint/Prettier/editorconfig, TypeScript 6 + `typecheck` scripts (§2.12), `packages/shared` + `packages/config` stubs, empty `apps/api` (Nest scaffold) and `apps/web` (Vite scaffold) that lint/typecheck/build/test (one trivial test each), `docker-compose.yml` with Postgres, `ci.yml` green, branch protection. | 0 | S–M |
-| **2. Database** | `schema.prisma` per §2.3, initial migration, seed with faker + fixed e2e users, `PrismaService`, `pnpm db:*` scripts, ADR for ids/naming. | 1 | S |
+| **2. Database** ✅ 2026-10-15 | `schema.prisma` per §2.3, initial migration (`20261015091302_init`, incl. a hand-written self-follow CHECK), deterministic faker seed with fixed accounts alice/bob/carol (`Password123!`), global `PrismaModule`/`PrismaService` (Prisma 7.10, `@prisma/adapter-pg`), zod-validated env via `@nestjs/config`, `pnpm db:*` scripts, integration-test harness (Testcontainers locally, service container in CI via `TEST_DATABASE_URL`), CI `integration` job (migrate deploy → drift check → seed → `test:int`). Prisma 8 skipped while it is an RC. | 1 | S |
 | **3. API** | 3a platform: zod-validated config, pino, global ValidationPipe (nestjs-zod), exception filter + error envelope, helmet/CORS/throttler, health, Swagger, test harness (Jest unit + Testcontainers integration) with one example of each. 3b auth + users (register/login/refresh/logout/me, profile read/update, search, suggestions). 3c uploads (StorageService, sharp, limits). 3d posts + likes (feed with cursor, counts, likedByMe, delete). 3e comments. 3f follows (+ followers/following lists). 3g activities via `@nestjs/event-emitter`. 3h WebSocket gateway (auth, presence, DMs, persistence if D8). Each slice ships with DTOs in `packages/shared`, unit tests and integration tests. | 2 | L |
 | **4. Web** | 4a shell: Tailwind/shadcn theme ported from the current palette, AppShell (header/left/right bars, responsive), QueryClient/Router/Auth providers, typed http client, `useMe`, protected routes, error boundaries, toasts, Vitest+RTL+MSW harness with first tests; Playwright harness with one smoke test wired into CI now. 4b auth pages (RHF + zod). 4c feed: infinite posts, create post (upload + emoji), like (optimistic), comments. 4d profile: view, posts, follow, followers/following, edit dialog with avatar/cover. 4e users list + search, suggestions, activities. 4f chat: presence, DM windows, history. 4g polish: a11y pass, empty/loading/error states, code splitting, bundle check. | 3 (3a–3b minimum; later slices can overlap with 3d–3h if you want to interleave) | XL |
 | **5. E2E** | Playwright specs per §2.8 grown alongside 4b–4f; `e2e` CI job green with seeded Postgres. | 4 | M |
@@ -451,7 +451,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 | Milestone | Done when |
 |---|---|
 | M1 | `main` protected, `ci.yml` green on scaffolds, `pnpm dev` boots both apps against Docker Postgres. |
-| M2 | `prisma migrate deploy` + seed run in CI; schema ADR merged. |
+| M2 ✅ | `prisma migrate deploy` + drift check + seed + integration tests run in CI (`integration` job); schema ADR merged. |
 | M3 | All §2.4 endpoints implemented; integration tests cover each; Swagger browsable; no `any` in services. |
 | M4 | §5 parity items ticked in the web app; Vitest suite green; Lighthouse a11y ≥ 90 on home/profile. |
 | M5 | Playwright suite green in CI on Chromium; chat tested with two contexts. |
@@ -498,6 +498,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 
 - 2026-10-15: D1–D11 and D13–D20 accepted as recommended. D12 answered: self-hosted on one Ubuntu Server 24.04 box (proxy, web, api, DB) without a static IP → design in §2.11. D13 amended to Jest + `@swc/jest` (ts-jest cannot run on TS 7). D19 amended to TypeScript 7 (§2.12).
 - 2026-10-15 (later the same day): Cloudflare Tunnel confirmed for §2.11. D14 confirmed sequential. D19 **changed to TypeScript 6 now, 7 later** (§2.12). D21 pnpm, D22 Turborepo, D23 ESLint + typescript-eslint confirmed. No open decisions.
+- 2026-10-15 (phase 2): Prisma **7.10.0** (8.0 is still an RC). Prisma 7 specifics now in use: `prisma.config.ts` (loads `.env` via dotenv, holds the datasource URL and the seed command), the `prisma-client` generator emitting TypeScript into `apps/api/src/generated` (gitignored, produced by the turbo `db:generate` task), driver adapter `@prisma/adapter-pg`, seeding only on explicit `pnpm db:seed` (destructive, deterministic). Schema drift is checked in CI with `prisma migrate diff --from-config-datasource --to-schema … --exit-code` after `migrate deploy`. pnpm 11 needs `allowBuilds` for prisma/argon2/esbuild postinstalls.
 - 2026-10-15 (phase 1): the Nest 12 CLI and create-vite 8 both scaffold **Vitest + oxlint** and Nest 12 projects are **ESM**. Adopted (ADR 0005, ADR 0008); D13 and D23 amended accordingly. Local Postgres is published on host port **5433** because 5432 belongs to another project on the dev machine.
 
 | # | Decision | Recommendation / default | Other options |

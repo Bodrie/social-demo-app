@@ -20,5 +20,21 @@
         "allowWithDecorator": true
       }
     ]
-  }
+  },
+  "ignorePatterns": [
+    "dist",
+    "coverage",
+    "node_modules",
+    "src/generated"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "**/*.d.ts"
+      ],
+      "rules": {
+        "unicorn/require-module-specifiers": "off"
+      }
+    }
+  ]
 }
