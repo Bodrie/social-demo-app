@@ -8,6 +8,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module.js';
+import { Public } from '../src/auth/public.decorator.js';
 import { configureApp } from '../src/app.setup.js';
 import { Prisma } from '../src/generated/prisma/client.js';
 import { OPENAPI_JSON_PATH } from '../src/openapi.js';
@@ -16,6 +17,7 @@ const signUpSchema = z.object({ email: z.email(), age: z.number().int().min(18) 
 class SignUpDto extends createZodDto(signUpSchema) {}
 
 /** Throwaway routes that exercise the global pipe, filter, guard and prefix. */
+@Public()
 @Controller('_platform')
 class PlatformProbeController {
   @Post('validate')

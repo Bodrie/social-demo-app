@@ -21,6 +21,14 @@ export const envSchema = z.object({
   TRUST_PROXY: z.stringbool().default(false),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+  /** HS256 secret for access tokens. Generate with `openssl rand -base64 48`. */
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(15 * 60),
+  REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(7 * 24 * 60 * 60),
+  /** Secure flag on auth cookies. Defaults to true in production. */
+  COOKIE_SECURE: z.stringbool().optional(),
+  /** Public base URL for uploaded files. */
+  PUBLIC_ASSETS_URL: z.url().default('http://localhost:3000/api/v1/uploads'),
 });
 
 export type Env = z.infer<typeof envSchema>;

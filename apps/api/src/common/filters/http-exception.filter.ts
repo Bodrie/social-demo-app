@@ -10,6 +10,7 @@ import { type ApiError, type ErrorCode, errorCodeSchema } from '@the-mesh/shared
 import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
 import { Prisma } from '../../generated/prisma/client.js';
+import { isRecord } from '../guards.js';
 
 const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
@@ -27,10 +28,6 @@ const GENERIC_SERVER_ERROR = 'Internal server error';
 const SERVICE_UNAVAILABLE = 503;
 
 type ZodIssueLike = { path: PropertyKey[]; message: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isZodIssue(value: unknown): value is ZodIssueLike {
   return isRecord(value) && Array.isArray(value.path) && typeof value.message === 'string';

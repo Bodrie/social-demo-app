@@ -19,6 +19,14 @@
       {
         "allowWithDecorator": true
       }
+    ],
+    "no-underscore-dangle": [
+      "warn",
+      {
+        "allow": [
+          "_count"
+        ]
+      }
     ]
   },
   "ignorePatterns": [
@@ -43,7 +51,8 @@
       ],
       "rules": {
         "typescript/no-unsafe-type-assertion": "off",
-        "unicorn/consistent-function-scoping": "off"
+        "unicorn/consistent-function-scoping": "off",
+        "typescript/unbound-method": "off"
       }
     }
   ]

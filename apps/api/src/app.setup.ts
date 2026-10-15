@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import type { Env } from './config/env.js';
@@ -20,6 +21,7 @@ export function configureApp(app: NestExpressApplication): NestExpressApplicatio
   app.enableShutdownHooks();
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }) ? 1 : false);
 
+  app.use(cookieParser());
   app.use(
     helmet({
       // Swagger UI needs inline scripts; it is only mounted outside production.

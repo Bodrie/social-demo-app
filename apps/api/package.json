@@ -24,6 +24,8 @@
     "@nestjs/common": "catalog:",
     "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
+    "@nestjs/event-emitter": "catalog:",
+    "@nestjs/jwt": "catalog:",
     "@nestjs/platform-express": "catalog:",
     "@nestjs/swagger": "catalog:",
     "@nestjs/terminus": "catalog:",
@@ -32,6 +34,7 @@
     "@prisma/client": "catalog:",
     "@the-mesh/shared": "workspace:*",
     "argon2": "catalog:",
+    "cookie-parser": "catalog:",
     "helmet": "catalog:",
     "nestjs-pino": "catalog:",
     "nestjs-zod": "catalog:",
@@ -47,6 +50,7 @@
     "@nestjs/schematics": "catalog:",
     "@nestjs/testing": "catalog:",
     "@testcontainers/postgresql": "catalog:",
+    "@types/cookie-parser": "catalog:",
     "@types/express": "catalog:",
     "@types/node": "catalog:",
     "@types/supertest": "catalog:",
@@ -61,6 +65,7 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vitest-mock-extended": "catalog:"
   }
 }
