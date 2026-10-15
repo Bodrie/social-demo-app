@@ -9,9 +9,26 @@ import { type AuthUser, requestMeta } from './auth.types.js';
 import { REFRESH_COOKIE, clearAuthCookies, readCookie, setAuthCookies } from './cookies.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
+import { isRecord } from '../common/guards.js';
 import { UsersService } from '../users/users.service.js';
 
-const CREDENTIAL_THROTTLE = { default: { limit: 10, ttl: 60_000 } };
+/**
+ * Credential endpoints are limited per client address *and* account: brute
+ * forcing one account from one address is capped, while different accounts
+ * behind one NAT (or a test suite) are not punished for each other.
+ */
+const CREDENTIAL_THROTTLE = {
+  default: {
+    limit: 10,
+    ttl: 60_000,
+    getTracker: (req: Record<string, unknown>): string => {
+      const body = isRecord(req.body) ? req.body : {};
+      const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const ip = typeof req.ip === 'string' ? req.ip : '';
+      return `${ip}:${email}`;
+    },
+  },
+};
 
 @ApiTags('auth')
 @Controller('auth')

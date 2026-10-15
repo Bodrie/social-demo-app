@@ -10,6 +10,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { type Env, validateEnv } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
+import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module.js';
     AuthModule,
     UsersModule,
     UploadsModule,
+    PostsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
