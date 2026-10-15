@@ -1,0 +1,165 @@
+// The Mesh – data model. Rationale: docs/REBUILD_PLAN.md §2.3, docs/adr/0002.
+// Conventions: UUID v7 ids, snake_case tables/columns, timestamptz in UTC,
+// relation tables instead of denormalised columns.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  email        String   @unique
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  bio          String?
+  city         String?
+  website      String?
+  avatarKey    String?  @map("avatar_key")
+  coverKey     String?  @map("cover_key")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  posts            Post[]
+  comments         Comment[]
+  postLikes        PostLike[]
+  following        Follow[]       @relation("FollowFollower")
+  followers        Follow[]       @relation("FollowFollowee")
+  activities       Activity[]     @relation("ActivityActor")
+  targetedBy       Activity[]     @relation("ActivityTargetUser")
+  refreshTokens    RefreshToken[]
+  sentMessages     Message[]      @relation("MessageSender")
+  receivedMessages Message[]      @relation("MessageRecipient")
+
+  @@map("users")
+}
+
+model Post {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String
+  imageKey  String?  @map("image_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments   Comment[]
+  likes      PostLike[]
+  activities Activity[]
+
+  @@index([authorId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("posts")
+}
+
+model PostLike {
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("post_likes")
+}
+
+model Comment {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@index([postId, createdAt])
+  @@map("comments")
+}
+
+/// follower_id <> followee_id is enforced by a CHECK constraint added by hand
+/// in the initial migration (Prisma has no schema syntax for it) and in the service.
+model Follow {
+  followerId String   @map("follower_id") @db.Uuid
+  followeeId String   @map("followee_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  follower User @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followee User @relation("FollowFollowee", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+  @@index([followeeId])
+  @@map("follows")
+}
+
+enum ActivityType {
+  POST_CREATED
+  COMMENT_CREATED
+  POST_LIKED
+  USER_FOLLOWED
+  PROFILE_UPDATED
+  USER_REGISTERED
+
+  @@map("activity_type")
+}
+
+/// Written by the API in response to domain events, never by clients.
+/// Subject columns are nullable because each type uses a different one.
+model Activity {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  actorId      String       @map("actor_id") @db.Uuid
+  type         ActivityType
+  postId       String?      @map("post_id") @db.Uuid
+  commentId    String?      @map("comment_id") @db.Uuid
+  targetUserId String?      @map("target_user_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor      User     @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
+  post       Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  targetUser User?    @relation("ActivityTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("activities")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  userAgent String?   @map("user_agent")
+  ip        String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Message {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  senderId    String    @map("sender_id") @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
+  content     String
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+
+  sender    User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, readAt])
+  @@map("messages")
+}

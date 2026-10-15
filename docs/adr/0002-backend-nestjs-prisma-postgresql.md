@@ -7,7 +7,8 @@ The Express API had raw MySQL strings, no migrations, no validation, no tests, a
 
 ## Decision
 - NestJS 12 (ESM, Express adapter) with feature modules per resource.
-- Prisma on PostgreSQL 17 as the ORM; migrations committed under `apps/api/prisma/migrations`; `prisma db seed` with faker data and fixed e2e users.
+- Prisma 7.10 on PostgreSQL 17 as the ORM (8.0 skipped while it is an RC); `prisma.config.ts` holds the datasource URL and seed command; the `prisma-client` generator writes TypeScript into `apps/api/src/generated` (gitignored); runtime goes through `@prisma/adapter-pg`. Migrations are committed under `apps/api/prisma/migrations`; `pnpm db:seed` loads deterministic faker data plus fixed e2e users.
+- Constraints Prisma cannot express (the no-self-follow CHECK) are appended by hand to the migration SQL and mirrored in service code. CI applies the migrations to a fresh database, then fails on any diff between database and schema (`pnpm db:check`).
 - UUID v7 primary keys; likes and follows as relation tables; activities generated server-side via domain events.
 - Drizzle was the runner-up; TypeORM rejected for weak typing and migration tooling.
 

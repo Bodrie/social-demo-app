@@ -10,6 +10,8 @@ Decisions: [`docs/adr/`](docs/adr/). Everything below this section describes the
 ```bash
 pnpm install
 pnpm db:up      # PostgreSQL 17 on localhost:5433 (docker compose)
+cp apps/api/.env.example apps/api/.env
+pnpm db:deploy && pnpm db:seed   # migrations + demo data (alice/bob/carol, Password123!)
 pnpm dev        # shared (watch) + api (nest --watch) + web (vite)
 pnpm check      # lint, typecheck, test, build – the same as CI
 pnpm test:int   # API integration tests (HTTP level)

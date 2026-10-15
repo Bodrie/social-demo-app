@@ -2,7 +2,7 @@
   "name": "the-mesh",
   "version": "2.0.0-dev",
   "private": true,
-  "description": "The Mesh – social network demo app (monorepo)",
+  "description": "The Mesh \u2013 social network demo app (monorepo)",
   "packageManager": "pnpm@11.1.0",
   "engines": {
     "node": ">=24",
@@ -19,7 +19,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d --wait postgres",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @the-mesh/api db:generate",
+    "db:migrate": "pnpm --filter @the-mesh/api db:migrate",
+    "db:deploy": "pnpm --filter @the-mesh/api db:deploy",
+    "db:seed": "pnpm --filter @the-mesh/api db:seed",
+    "db:studio": "pnpm --filter @the-mesh/api db:studio",
+    "db:check": "pnpm --filter @the-mesh/api db:check"
   },
   "devDependencies": {
     "prettier": "catalog:",

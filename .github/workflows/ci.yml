@@ -16,6 +16,10 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # `prisma generate` loads prisma.config.ts, which requires the variable
+      # to be set. Nothing in this job connects to a database.
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
     steps:
       - uses: actions/checkout@v7
 
@@ -48,3 +52,50 @@ jobs:
           path: apps/web/dist
           if-no-files-found: error
           retention-days: 7
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mesh
+          POSTGRES_PASSWORD: mesh
+          POSTGRES_DB: mesh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mesh -d mesh"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://mesh:mesh@localhost:5432/mesh
+      TEST_DATABASE_URL: postgresql://mesh:mesh@localhost:5432/mesh
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Verify migrations match the schema
+        run: pnpm db:check
+
+      - name: Seed
+        run: pnpm db:seed
+
+      - name: Integration tests
+        run: pnpm turbo run test:int

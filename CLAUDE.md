@@ -16,6 +16,11 @@
 | `pnpm test:int` | API integration tests (`apps/api/test/*.int-spec.ts`, supertest over HTTP) |
 | `pnpm format` / `pnpm format:check` | Prettier, root `.prettierrc`; CI fails on drift |
 | `pnpm db:up` / `pnpm db:down` | PostgreSQL 17 via docker compose on `localhost:5433` |
+| `pnpm db:generate` | regenerate the Prisma client into `apps/api/src/generated` (turbo runs it before api tasks) |
+| `pnpm db:migrate -- --name <change>` | create + apply a migration from schema changes (dev DB) |
+| `pnpm db:deploy` / `pnpm db:check` | apply committed migrations / fail if DB and schema differ |
+| `pnpm db:seed` | **truncates everything**, then loads deterministic demo data (alice/bob/carol, password `Password123!`) |
+| `pnpm db:studio` | Prisma Studio |
 | `pnpm --filter @the-mesh/api <script>` | run one workspace's script |
 
 ## Conventions
@@ -27,7 +32,10 @@
 - Lint: oxlint with `--type-aware`, per-workspace `.oxlintrc.json` extending `packages/config/oxlint/base.json`. Format: Prettier only (no ESLint).
 - Tests: Vitest in every workspace. Naming: `*.spec.ts` unit tests next to the source in `apps/api`; `*.test.ts(x)` in `apps/web` and `packages/shared`; `test/*.int-spec.ts` integration tests in `apps/api`.
 - Validation schemas and DTO types that both the API and the web need go in `packages/shared` (zod 4), never duplicated.
-- Secrets only via environment variables; commit `.env.example` files, never `.env`.
+- Secrets only via environment variables; commit `.env.example` files, never `.env`. First run: `cp apps/api/.env.example apps/api/.env`.
+- Database: schema lives in `apps/api/prisma/schema.prisma` (UUID v7 ids, snake_case via `@map`, `timestamptz`). Every schema change ships with a migration in the same PR (`pnpm db:migrate -- --name <change>`); never edit an applied migration. Prisma config is `apps/api/prisma.config.ts` (Prisma 7: no `url` in the schema, `.env` loaded there via dotenv).
+- Integration tests (`pnpm test:int`) need Docker: they start a throwaway Postgres with Testcontainers unless `TEST_DATABASE_URL` is set (CI). They ignore `DATABASE_URL` on purpose and truncate the tables they use. The harness sets `DOCKER_AUTH_CONFIG` to an empty anonymous config because only public images are pulled; this also sidesteps Docker Desktop's Windows credential helper, which cannot be spawned from WSL (`appendWindowsPath = false`).
+- pnpm 11 only runs approved postinstall scripts (`allowBuilds` in `pnpm-workspace.yaml`); approve new native deps with `pnpm approve-builds <pkg>`. Note: that command rewrites `pnpm-workspace.yaml`, so re-check the catalog afterwards.
 
 ## Workflow
 
