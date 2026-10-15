@@ -1,0 +1,35 @@
+# The Mesh – notes for AI-assisted development
+
+## State of the repo
+
+- A full rebuild (v2) is in progress. Plan: `docs/REBUILD_PLAN.md` (phases, decisions D1–D23). Decisions are recorded as ADRs in `docs/adr/`; add a new ADR instead of silently changing a decision.
+- `api/` and `client/` are the **legacy** Express/CRA code. They are frozen and get deleted at cutover (phase 7). Do not edit, lint or format them.
+- New code lives in `apps/api` (NestJS 12, ESM), `apps/web` (Vite 8 + React 19), `packages/shared` (zod schemas, constants; built with tsdown) and `packages/config` (tsconfig + oxlint presets).
+
+## Commands (run from the repo root)
+
+| Command | What it does |
+|---|---|
+| `pnpm install` | install every workspace (pnpm 11, Node 24, see `.nvmrc`) |
+| `pnpm dev` | turbo: build `shared` once, then watch `shared`, `api` (`nest start --watch`) and `web` (`vite`) |
+| `pnpm check` | `turbo run lint typecheck test build` – identical to CI |
+| `pnpm test:int` | API integration tests (`apps/api/test/*.int-spec.ts`, supertest over HTTP) |
+| `pnpm format` / `pnpm format:check` | Prettier, root `.prettierrc`; CI fails on drift |
+| `pnpm db:up` / `pnpm db:down` | PostgreSQL 17 via docker compose on `localhost:5433` |
+| `pnpm --filter @the-mesh/api <script>` | run one workspace's script |
+
+## Conventions
+
+- TypeScript 6.0, `strict` + `noUncheckedIndexedAccess` (from `packages/config/tsconfig/base.json`). Configuration is kept TypeScript-7-clean (no `baseUrl`, no `node10` resolution); see ADR 0007.
+- Versions are pinned exactly in the `catalog:` of `pnpm-workspace.yaml`; workspaces reference them as `"catalog:"`. When adding a dependency, put its version in the catalog.
+- ESM everywhere. In `apps/api` and `packages/shared` (`module: nodenext`) relative imports carry the `.js` extension: `import { x } from './x.js'`.
+- `packages/shared` is consumed from its `dist/`; turbo builds it before dependants (`dependsOn: ["^build"]`). Run `pnpm --filter @the-mesh/shared build` after changing it if you are not using `pnpm dev`.
+- Lint: oxlint with `--type-aware`, per-workspace `.oxlintrc.json` extending `packages/config/oxlint/base.json`. Format: Prettier only (no ESLint).
+- Tests: Vitest in every workspace. Naming: `*.spec.ts` unit tests next to the source in `apps/api`; `*.test.ts(x)` in `apps/web` and `packages/shared`; `test/*.int-spec.ts` integration tests in `apps/api`.
+- Validation schemas and DTO types that both the API and the web need go in `packages/shared` (zod 4), never duplicated.
+- Secrets only via environment variables; commit `.env.example` files, never `.env`.
+
+## Workflow
+
+- Work on `rebuild/*` branches, PRs into `main`; CI (`.github/workflows/ci.yml`) must be green.
+- Keep `docs/REBUILD_PLAN.md` phase table current when a phase or slice is finished.

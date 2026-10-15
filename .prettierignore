@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.turbo
+pnpm-lock.yaml
+*.md
+
+# legacy code, deleted at cutover (phase 7)
+api/
+client/
