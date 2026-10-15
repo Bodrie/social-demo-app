@@ -131,6 +131,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    if (host.getType() === 'ws') {
+      // Mirrors Nest's default WebSocket behaviour, with our envelope as the payload.
+      const client = host.switchToWs().getClient<{ emit: (event: string, payload: unknown) => void }>();
+      client.emit('exception', toApiError(exception));
+      return;
+    }
+
     const http = host.switchToHttp();
     const response = http.getResponse<Response>();
     const request = http.getRequest<Request & { id?: string | number }>();

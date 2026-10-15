@@ -12,6 +12,7 @@ function contextFor(request: Partial<AuthenticatedRequest>, isPublic = false): E
   const reflector = new Reflector();
   if (isPublic) Reflect.defineMetadata(IS_PUBLIC_KEY, true, handler);
   return {
+    getType: () => 'http',
     getHandler: () => handler,
     getClass: () => AuthGuard,
     switchToHttp: () => ({ getRequest: () => request }),
@@ -21,6 +22,11 @@ function contextFor(request: Partial<AuthenticatedRequest>, isPublic = false): E
 
 describe('AuthGuard', () => {
   const guard = new AuthGuard(jwt, new Reflector());
+
+  it('ignores non-HTTP contexts (sockets are authenticated at handshake)', async () => {
+    const context = { getType: () => 'ws' } as unknown as ExecutionContext;
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
 
   it('lets @Public() routes through without a token', async () => {
     await expect(guard.canActivate(contextFor({ headers: {}, cookies: {} }, true))).resolves.toBe(true);

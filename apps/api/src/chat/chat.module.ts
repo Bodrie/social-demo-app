@@ -1,0 +1,11 @@
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { MessagesModule } from '../messages/messages.module.js';
+import { ChatGateway } from './chat.gateway.js';
+import { PresenceService } from './presence.service.js';
+
+@Module({
+  imports: [AuthModule, MessagesModule],
+  providers: [ChatGateway, PresenceService],
+})
+export class ChatModule {}

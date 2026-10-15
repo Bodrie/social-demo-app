@@ -27,9 +27,11 @@
     "@nestjs/event-emitter": "catalog:",
     "@nestjs/jwt": "catalog:",
     "@nestjs/platform-express": "catalog:",
+    "@nestjs/platform-socket.io": "catalog:",
     "@nestjs/swagger": "catalog:",
     "@nestjs/terminus": "catalog:",
     "@nestjs/throttler": "catalog:",
+    "@nestjs/websockets": "catalog:",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
     "@the-mesh/shared": "workspace:*",
@@ -44,6 +46,7 @@
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "sharp": "catalog:",
+    "socket.io": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -63,6 +66,7 @@
     "oxlint-tsgolint": "catalog:",
     "pino-pretty": "catalog:",
     "prisma": "catalog:",
+    "socket.io-client": "catalog:",
     "source-map-support": "catalog:",
     "supertest": "catalog:",
     "tsx": "catalog:",
