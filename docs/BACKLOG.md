@@ -43,3 +43,5 @@ Items the API review (2026-10-15) surfaced that are real but not needed for v2.0
 - Performance (Lighthouse mobile: feed 64, profile 74): `zod/mini` build of the shared schemas for the browser (≈ 25 kB gz of the first paint), width/height and `srcset` for post images from the upload metadata (CLS, LCP), `fetchpriority="high"` on the first feed image, `<link rel=preload>` for the Latin Inter subset, prefetching route chunks on link hover.
 - API logging: aborted client connections surface as raw `Error: read ECONNRESET` / `write EPIPE` lines on stderr (seen while Playwright closes contexts); route them through pino at debug level or ignore them.
 - E2E: a Firefox/WebKit project once the suite is stable in CI; visual snapshots for the main pages.
+- Images: move `prisma migrate deploy` into a one-shot `migrate` image/service so the API runtime image no longer carries the Prisma CLI's dependencies (≈ 960 MB → ≈ 450 MB); multi-arch (`linux/arm64`) builds if the box is ever ARM.
+- Ops: off-box backup copies (rclone), an uptime check on the public URL, a Cloudflare origin certificate for Caddy.

@@ -1,0 +1,42 @@
+# Serves the built web app and proxies the API on one origin. TLS terminates at the
+# Cloudflare edge (tunnel), so this listens on plain HTTP inside the compose network.
+{
+	auto_https off
+	admin off
+}
+
+:80 {
+	encode zstd gzip
+
+	# Uploaded pictures straight from the shared volume: no Node in the path.
+	handle_path /api/v1/uploads/* {
+		root * /srv/uploads
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# API and realtime. The client address comes from Cloudflare's header when present;
+	# the API trusts exactly this hop (TRUST_PROXY=1).
+	handle /api/* {
+		reverse_proxy {$API_UPSTREAM:api:3000} {
+			header_up X-Forwarded-For {header.CF-Connecting-IP}
+		}
+	}
+	handle /socket.io/* {
+		reverse_proxy {$API_UPSTREAM:api:3000} {
+			header_up X-Forwarded-For {header.CF-Connecting-IP}
+		}
+	}
+
+	# The single-page app: hashed assets forever, index.html never.
+	handle {
+		root * /srv/www
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		header X-Content-Type-Options nosniff
+		header Referrer-Policy strict-origin-when-cross-origin
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -23,6 +23,12 @@ This repository contains the server-side and client-side code for the project.
 
 ---
 
+### Running it in production
+
+Two images (`apps/api/Dockerfile`, `apps/web/Dockerfile`) published to GHCR by `.github/workflows/docker.yml`, one `docker compose` stack in [`deploy/`](deploy/) (Postgres, API, Caddy, Cloudflare Tunnel), pull-based updates on a timer. Step by step: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+
+---
+
 ## 🚨 Legacy code status: Frozen
 
 The legacy app described below (`api/`, `client/`) is **frozen**: no fixes or features. All active work happens in the v2 rebuild (see the section above).

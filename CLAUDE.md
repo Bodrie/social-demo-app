@@ -23,6 +23,8 @@
 | `pnpm db:seed` | **truncates everything**, then loads deterministic demo data (alice/bob/carol, password `Password123!`) |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm --filter @the-mesh/api <script>` | run one workspace's script |
+| `docker build -f apps/api/Dockerfile .` / `-f apps/web/Dockerfile .` | production images (context = repo root; on this WSL box prefix with `DOCKER_CONFIG=<dir with {"auths":{}}>`) |
+| `cd deploy && docker compose up -d` | the production stack (see `docs/RUNBOOK.md`; `--profile tunnel` adds cloudflared) |
 
 ## Conventions
 
@@ -62,6 +64,8 @@
 - Database: schema lives in `apps/api/prisma/schema.prisma` (UUID v7 ids, snake_case via `@map`, `timestamptz`). Every schema change ships with a migration in the same PR (`pnpm db:migrate -- --name <change>`); never edit an applied migration. Prisma config is `apps/api/prisma.config.ts` (Prisma 7: no `url` in the schema, `.env` loaded there via dotenv).
 - Integration tests (`pnpm test:int`) need Docker: they start a throwaway Postgres with Testcontainers unless `TEST_DATABASE_URL` is set (CI). They ignore `DATABASE_URL` on purpose and truncate the tables they use. The harness sets `DOCKER_AUTH_CONFIG` to an empty anonymous config because only public images are pulled; this also sidesteps Docker Desktop's Windows credential helper, which cannot be spawned from WSL (`appendWindowsPath = false`).
 - pnpm 11 only runs approved postinstall scripts (`allowBuilds` in `pnpm-workspace.yaml`). When a new dependency brings a build script, pnpm inserts a placeholder line `'<pkg>': set this to true or false` into that file and fails fresh installs until it is replaced with `true` or `false` (deny telemetry/optional native builds, allow only what the app needs). A local `pnpm install` that is "already up to date" skips this check, so verify with a clean install: `git worktree add /tmp/wt HEAD && cd /tmp/wt && pnpm install --frozen-lockfile`. `pnpm approve-builds` also rewrites the file and can drop the catalog; re-check it afterwards.
+
+- Deployment: images are built by `.github/workflows/docker.yml` and pulled by the server (`deploy/update.sh` on a systemd timer); there is no push deploy. Runtime configuration is environment only (`deploy/.env.example`); the API refuses development defaults in production (`PUBLIC_ASSETS_URL`, `WEB_ORIGINS`, `TRUST_PROXY`, placeholder `JWT_SECRET`, `COOKIE_SECURE=false`). `prisma` and `dotenv` are runtime dependencies of the API on purpose (migrations run from the container).
 
 ## Workflow
 
