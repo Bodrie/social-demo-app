@@ -7,12 +7,24 @@ packages:
 # engine, argon2 its prebuilt native binary, esbuild (used by tsx) its binary.
 allowBuilds:
   '@prisma/engines': true
+  '@scarf/scarf': set this to true or false
   argon2: true
   cpu-features: false
   esbuild: true
   prisma: true
   protobufjs: false
   ssh2: false
+
+# nestjs-zod 5.5 declares peers up to Nest 11 / Swagger 11 but works on 12
+# (verified by apps/api/test/platform.int-spec.ts). @nestjs/swagger lists
+# class-validator/class-transformer as peers; we validate with zod instead.
+peerDependencyRules:
+  allowedVersions:
+    'nestjs-zod>@nestjs/common': '12'
+    'nestjs-zod>@nestjs/swagger': '12'
+  ignoreMissing:
+    - class-validator
+    - class-transformer
 
 # Single source of truth for versions. Workspaces reference them with "catalog:".
 catalog:
@@ -52,6 +64,16 @@ catalog:
   tsx: 4.23.15
   '@faker-js/faker': 10.6.0
   '@testcontainers/postgresql': 12.2.1
+  # api platform
+  nestjs-pino: 5.3.1
+  pino: 10.4.0
+  pino-http: 11.0.0
+  pino-pretty: 13.2.0
+  nestjs-zod: 5.5.0
+  '@nestjs/swagger': 12.0.2
+  '@nestjs/terminus': 12.1.0
+  '@nestjs/throttler': 6.7.1
+  helmet: 8.3.0
   # web
   react: 19.3.1
   react-dom: 19.3.1

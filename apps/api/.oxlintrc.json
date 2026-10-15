@@ -35,6 +35,16 @@
       "rules": {
         "unicorn/require-module-specifiers": "off"
       }
+    },
+    {
+      "files": [
+        "**/*.spec.ts",
+        "test/**"
+      ],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off",
+        "unicorn/consistent-function-scoping": "off"
+      }
     }
   ]
 }

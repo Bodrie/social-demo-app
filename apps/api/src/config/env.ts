@@ -1,9 +1,26 @@
 import { z } from 'zod';
 
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
+
+/** "http://a, http://b" → ["http://a", "http://b"] */
+export function parseOrigins(value: string): string[] {
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url(),
+  LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+  /** Comma-separated list of browser origins allowed by CORS (credentials on). */
+  WEB_ORIGINS: z.string().default('http://localhost:5173').transform(parseOrigins),
+  /** Set to true behind Caddy/Cloudflare so req.ip is the real client address. */
+  TRUST_PROXY: z.stringbool().default(false),
+  THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
 });
 
 export type Env = z.infer<typeof envSchema>;
