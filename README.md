@@ -1,5 +1,21 @@
 # The Mesh - Social Network Demo App
 
+## 🚧 Rebuild (v2) in progress
+
+The app is being rewritten as a pnpm monorepo: `apps/api` (NestJS 12), `apps/web` (Vite 8 + React 19),
+`packages/shared` (zod schemas shared by both). Plan: [`docs/REBUILD_PLAN.md`](docs/REBUILD_PLAN.md).
+Decisions: [`docs/adr/`](docs/adr/). Everything below this section describes the **legacy** code in
+`api/` and `client/`, which stays untouched until the cutover.
+
+```bash
+pnpm install
+pnpm db:up      # PostgreSQL 17 on localhost:5433 (docker compose)
+pnpm dev        # shared (watch) + api (nest --watch) + web (vite)
+pnpm check      # lint, typecheck, test, build – the same as CI
+pnpm test:int   # API integration tests (HTTP level)
+```
+
+
 This repository contains the server-side and client-side code for the project.
 
 ---
