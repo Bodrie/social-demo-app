@@ -1,0 +1,28 @@
+import { commentSchema, createCommentSchema } from './comments.js';
+
+describe('createCommentSchema', () => {
+  it('trims and bounds the content', () => {
+    expect(createCommentSchema.parse({ content: ' nice ' })).toEqual({ content: 'nice' });
+    expect(createCommentSchema.safeParse({ content: ' ' }).success).toBe(false);
+    expect(createCommentSchema.safeParse({ content: 'x'.repeat(501) }).success).toBe(false);
+  });
+});
+
+describe('commentSchema', () => {
+  it('describes a comment with its author', () => {
+    const comment = {
+      id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
+      postId: '01a13ed6-d3ec-71cb-b39f-fbc256a293b8',
+      content: 'nice',
+      author: {
+        id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b7',
+        username: 'bob',
+        name: 'Bob',
+        avatarUrl: null,
+      },
+      createdAt: '2026-10-15T10:00:00.000Z',
+      updatedAt: '2026-10-15T10:00:00.000Z',
+    };
+    expect(commentSchema.parse(comment)).toEqual(comment);
+  });
+});
