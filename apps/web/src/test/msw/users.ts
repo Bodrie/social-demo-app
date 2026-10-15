@@ -16,7 +16,6 @@ export const userHandlers = [
     const url = new URL(request.url);
     const q = (url.searchParams.get('q') ?? '').toLowerCase();
     const users = mockDb.users
-      .filter((user) => user.id !== viewer.id)
       .filter((user) => !q || user.name.toLowerCase().includes(q) || user.username.includes(q))
       .map((user) => toPublic(user, viewer.id));
     return HttpResponse.json(paginate(users, url));

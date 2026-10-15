@@ -1,25 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ActivitiesCard } from '@/features/activities/activities-card';
+import { SuggestionsCard } from '@/features/users/suggestions-card';
 
-/** Suggestions, activities and online users land here in the next slices. */
+/** Discovery column: people to follow and what followed people are doing. Presence joins in 4f. */
 export function RightBar() {
   return (
     <aside aria-label="Sidebar" className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Suggestions for you</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          Coming with the people slice.
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Latest activities</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          Coming with the activities slice.
-        </CardContent>
-      </Card>
+      <SuggestionsCard />
+      <ActivitiesCard />
     </aside>
   );
 }

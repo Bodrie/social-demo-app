@@ -2,6 +2,7 @@ import { createBrowserRouter, createMemoryRouter, type RouteObject } from 'react
 import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
+import { ActivityPage } from '@/features/activities/activity-page';
 import { HomePage } from '@/features/feed/home-page';
 import { MessagesPage } from '@/features/messages/messages-page';
 import { ProfileFollowers, ProfileFollowing } from '@/features/profile/profile-followers';
@@ -23,6 +24,7 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <HomePage /> },
               { path: 'users', element: <UsersPage /> },
+              { path: 'activity', element: <ActivityPage /> },
               { path: 'messages', element: <MessagesPage /> },
               {
                 path: 'u/:username',

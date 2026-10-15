@@ -1,4 +1,4 @@
-import type { Comment, Post, UserPrivate, UserPublic } from '@the-mesh/shared';
+import type { Activity, Comment, Post, UserPrivate, UserPublic } from '@the-mesh/shared';
 import { alice, bob, carol, makePost, resetFixtureSequence } from '../fixtures';
 
 type Follow = { followerId: string; followingId: string };
@@ -13,6 +13,7 @@ export const mockDb = {
   follows: [] as Follow[],
   posts: [] as Post[],
   comments: [] as Comment[],
+  activities: [] as Activity[],
   uploads: 0,
   calls: { me: 0, refresh: 0, login: 0, logout: 0 },
 };
@@ -26,6 +27,7 @@ export function resetMockDb(): void {
   mockDb.follows = [];
   mockDb.posts = [];
   mockDb.comments = [];
+  mockDb.activities = [];
   mockDb.uploads = 0;
   mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0 };
   resetFixtureSequence();
