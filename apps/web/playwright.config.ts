@@ -22,8 +22,11 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    // Signs in once and saves the cookies; specs that need an anonymous start opt out per file.
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    // 1. Reset the data, 2. store a session per seeded member, 3. run the specs as alice
+    //    (specs needing another member open a second context with `contextAs`; specs that
+    //    must start signed out use `test.use({ storageState: ANONYMOUS })`).
+    { name: 'seed', testMatch: /seed\.setup\.ts/ },
+    { name: 'setup', testMatch: /auth\.setup\.ts/, dependencies: ['seed'] },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },

@@ -1,25 +1,13 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
-import { ANONYMOUS, openHome } from './helpers.js';
-
-const BOB = { email: 'bob@example.com', password: 'Password123!' };
-
-async function signInAsBob(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ storageState: ANONYMOUS });
-  const page = await context.newPage();
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(BOB.email);
-  await page.getByLabel('Password').fill(BOB.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByLabel('New post')).toBeVisible();
-  return page;
-}
+import { expect, test } from '@playwright/test';
+import { contextAs, openHome } from './helpers.js';
 
 test.describe('chat', () => {
   test('two members see each other online and exchange messages live', async ({
     page,
     browser,
   }) => {
-    const bob = await signInAsBob(browser);
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await openHome(bob);
     await openHome(page);
 
     // Presence: alice sees Bob in the online list once both sockets are up.
