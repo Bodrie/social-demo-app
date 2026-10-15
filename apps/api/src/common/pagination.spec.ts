@@ -20,13 +20,20 @@ describe('cursor encoding', () => {
   });
 
   it('rejects garbage and bare ids as a validation error on the cursor field', () => {
-    for (const bad of ['zzz', Buffer.from(rows[0]!.id).toString('base64url'), Buffer.from('x|y').toString('base64url')]) {
+    for (const bad of [
+      'zzz',
+      Buffer.from(rows[0]!.id).toString('base64url'),
+      Buffer.from('x|y').toString('base64url'),
+    ]) {
       expect(() => decodeCursor(bad)).toThrow(BadRequestException);
     }
     try {
       decodeCursor('zzz');
     } catch (error) {
-      expect((error as BadRequestException).getResponse()).toMatchObject({ code: 'VALIDATION_ERROR', fields: { cursor: 'Invalid cursor' } });
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { cursor: 'Invalid cursor' },
+      });
     }
   });
 });
@@ -34,7 +41,10 @@ describe('cursor encoding', () => {
 describe('keysetAfter', () => {
   it('selects strictly older rows or same-instant rows with a smaller id', () => {
     expect(keysetAfter(rows[1]!, (id) => ({ id: { lt: id } }))).toEqual({
-      OR: [{ createdAt: { lt: rows[1]!.createdAt } }, { createdAt: rows[1]!.createdAt, id: { lt: rows[1]!.id } }],
+      OR: [
+        { createdAt: { lt: rows[1]!.createdAt } },
+        { createdAt: rows[1]!.createdAt, id: { lt: rows[1]!.id } },
+      ],
     });
   });
 });
@@ -48,14 +58,22 @@ describe('paginate', () => {
 
   it('returns null when the fetched rows fit the limit', () => {
     expect(paginate(rows, 3, (row) => row.id).nextCursor).toBeNull();
-    expect(paginate([], 3, (row: (typeof rows)[number]) => row.id)).toEqual({ items: [], nextCursor: null });
+    expect(paginate([], 3, (row: (typeof rows)[number]) => row.id)).toEqual({
+      items: [],
+      nextCursor: null,
+    });
   });
 });
 
 describe('paginateBy', () => {
   it('derives the keyset from any fields', () => {
     const follows = rows.map((row) => ({ followerId: row.id, createdAt: row.createdAt }));
-    const page = paginateBy(follows, 2, (row) => ({ createdAt: row.createdAt, id: row.followerId }), (row) => row.followerId.slice(-1));
+    const page = paginateBy(
+      follows,
+      2,
+      (row) => ({ createdAt: row.createdAt, id: row.followerId }),
+      (row) => row.followerId.slice(-1),
+    );
     expect(page.items).toEqual(['3', '2']);
     expect(page.nextCursor).toBe(encodeCursor(rows[1]!));
   });

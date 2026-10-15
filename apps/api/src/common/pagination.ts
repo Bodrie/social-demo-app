@@ -17,7 +17,9 @@ export function encodeCursor(key: Keyset): string {
 
 export function decodeCursor(cursor: string | undefined): Keyset | undefined {
   if (cursor === undefined) return undefined;
-  const parsed = cursorSchema.safeParse(Buffer.from(cursor, 'base64url').toString('utf8').split('|'));
+  const parsed = cursorSchema.safeParse(
+    Buffer.from(cursor, 'base64url').toString('utf8').split('|'),
+  );
   if (!parsed.success) throw validationError({ cursor: 'Invalid cursor' });
   return { createdAt: new Date(parsed.data[0]), id: parsed.data[1] };
 }
@@ -26,9 +28,15 @@ export function decodeCursor(cursor: string | undefined): Keyset | undefined {
  * WHERE fragment selecting rows that come after `cursor` in `createdAt desc, id desc`
  * order. `idWhere` builds the id comparison for the model's id column.
  */
-export function keysetAfter<IdWhere extends object>(cursor: Keyset, idWhere: (id: string) => IdWhere) {
+export function keysetAfter<IdWhere extends object>(
+  cursor: Keyset,
+  idWhere: (id: string) => IdWhere,
+) {
   return {
-    OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, ...idWhere(cursor.id) }],
+    OR: [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, ...idWhere(cursor.id) },
+    ],
   };
 }
 
@@ -49,6 +57,10 @@ export function paginateBy<Row, Item>(
 }
 
 /** `paginateBy` for rows that carry `id` and `createdAt`. */
-export function paginate<Row extends Keyset, Item>(rows: Row[], limit: number, map: (row: Row) => Item): Paginated<Item> {
+export function paginate<Row extends Keyset, Item>(
+  rows: Row[],
+  limit: number,
+  map: (row: Row) => Item,
+): Paginated<Item> {
   return paginateBy(rows, limit, (row) => ({ createdAt: row.createdAt, id: row.id }), map);
 }

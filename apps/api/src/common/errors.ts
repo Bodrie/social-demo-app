@@ -16,16 +16,21 @@ import { isRecord } from './type-guards.js';
 
 export const notFound = (message: string): NotFoundException => new NotFoundException(message);
 export const forbidden = (message: string): ForbiddenException => new ForbiddenException(message);
-export const unauthorized = (message: string): UnauthorizedException => new UnauthorizedException(message);
+export const unauthorized = (message: string): UnauthorizedException =>
+  new UnauthorizedException(message);
 export const badRequest = (message: string, fields?: Record<string, string>): BadRequestException =>
   new BadRequestException({ message, fields });
 export const conflict = (message: string, fields?: Record<string, string>): ConflictException =>
   new ConflictException({ message, fields });
-export const unsupportedMedia = (message: string, fields?: Record<string, string>): UnsupportedMediaTypeException =>
-  new UnsupportedMediaTypeException({ message, fields });
+export const unsupportedMedia = (
+  message: string,
+  fields?: Record<string, string>,
+): UnsupportedMediaTypeException => new UnsupportedMediaTypeException({ message, fields });
 /** A 400 that forms map onto inputs, like the automatic zod validation errors. */
-export const validationError = (fields: Record<string, string>, message = 'Validation failed'): BadRequestException =>
-  new BadRequestException({ code: 'VALIDATION_ERROR', message, fields });
+export const validationError = (
+  fields: Record<string, string>,
+  message = 'Validation failed',
+): BadRequestException => new BadRequestException({ code: 'VALIDATION_ERROR', message, fields });
 
 // --- mapping anything thrown to the shared envelope ------------------------
 
@@ -56,7 +61,11 @@ function hasIssues(value: unknown): value is { issues: ZodIssueLike[] } {
 
 /** nestjs-zod's ZodValidationException exposes the ZodError through getZodError(). */
 function isZodValidationException(value: unknown): value is { getZodError: () => unknown } {
-  return value instanceof HttpException && 'getZodError' in value && typeof value.getZodError === 'function';
+  return (
+    value instanceof HttpException &&
+    'getZodError' in value &&
+    typeof value.getZodError === 'function'
+  );
 }
 
 /** body-parser / multer errors from the `http-errors` package: a status and `expose: true`. */
@@ -118,19 +127,33 @@ function fromHttpException(exception: HttpException, requestId?: string): ApiErr
   return { statusCode, code, message, fields, requestId };
 }
 
-function fromPrismaError(exception: Prisma.PrismaClientKnownRequestError, requestId?: string): ApiError {
+function fromPrismaError(
+  exception: Prisma.PrismaClientKnownRequestError,
+  requestId?: string,
+): ApiError {
   switch (exception.code) {
     case 'P2002': {
       const target = exception.meta?.target;
       const fields = Array.isArray(target)
         ? Object.fromEntries(target.map((column) => [String(column), 'Already in use']))
         : undefined;
-      return { statusCode: 409, code: 'CONFLICT', message: 'Resource already exists', fields, requestId };
+      return {
+        statusCode: 409,
+        code: 'CONFLICT',
+        message: 'Resource already exists',
+        fields,
+        requestId,
+      };
     }
     case 'P2025':
       return { statusCode: 404, code: 'NOT_FOUND', message: 'Resource not found', requestId };
     case 'P2003':
-      return { statusCode: 404, code: 'NOT_FOUND', message: 'Related resource not found', requestId };
+      return {
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Related resource not found',
+        requestId,
+      };
     default:
       return { statusCode: 500, code: 'INTERNAL_ERROR', message: GENERIC_SERVER_ERROR, requestId };
   }
@@ -155,7 +178,12 @@ export function toApiError(exception: unknown, requestId?: string): ApiError {
     return fromPrismaError(exception, requestId);
   }
   if (isExposedHttpError(exception)) {
-    return { statusCode: exception.status, code: codeForStatus(exception.status), message: exception.message, requestId };
+    return {
+      statusCode: exception.status,
+      code: codeForStatus(exception.status),
+      message: exception.message,
+      requestId,
+    };
   }
   return { statusCode: 500, code: 'INTERNAL_ERROR', message: GENERIC_SERVER_ERROR, requestId };
 }

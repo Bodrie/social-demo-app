@@ -23,7 +23,9 @@ beforeEach(() => {
   server.use(
     http.get('*/api/v1/ping', () => {
       pingCalls += 1;
-      return pingCalls === 1 && mockDb.refreshable ? unauthorized() : HttpResponse.json({ ok: true });
+      return pingCalls === 1 && mockDb.refreshable
+        ? unauthorized()
+        : HttpResponse.json({ ok: true });
     }),
   );
 });
@@ -42,8 +44,16 @@ describe('api client', () => {
 
   it('shares one refresh between concurrent unauthorized requests', async () => {
     mockDb.refreshable = true;
-    server.use(http.get('*/api/v1/ping', () => (mockDb.calls.refresh === 0 ? unauthorized() : HttpResponse.json({ ok: true }))));
-    await Promise.all([api.get('/ping', pingSchema), api.get('/ping', pingSchema), api.get('/ping', pingSchema)]);
+    server.use(
+      http.get('*/api/v1/ping', () =>
+        mockDb.calls.refresh === 0 ? unauthorized() : HttpResponse.json({ ok: true }),
+      ),
+    );
+    await Promise.all([
+      api.get('/ping', pingSchema),
+      api.get('/ping', pingSchema),
+      api.get('/ping', pingSchema),
+    ]);
     expect(mockDb.calls.refresh).toBe(1);
   });
 
@@ -61,7 +71,15 @@ describe('api client', () => {
   it('exposes field errors from the envelope', async () => {
     server.use(
       http.post('*/api/v1/things', () =>
-        HttpResponse.json({ statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed', fields: { name: 'Required' } }, { status: 400 }),
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+            fields: { name: 'Required' },
+          },
+          { status: 400 },
+        ),
       ),
     );
     const error = await rejection(api.post('/things', {}));
@@ -70,7 +88,12 @@ describe('api client', () => {
   });
 
   it('synthesises an envelope when the body is not one', async () => {
-    server.use(http.get('*/api/v1/ping', () => new HttpResponse('nope', { status: 502, statusText: 'Bad Gateway' })));
+    server.use(
+      http.get(
+        '*/api/v1/ping',
+        () => new HttpResponse('nope', { status: 502, statusText: 'Bad Gateway' }),
+      ),
+    );
     const error = await rejection(api.get('/ping', pingSchema));
     expect(error.error).toMatchObject({ statusCode: 502, code: 'INTERNAL_ERROR' });
   });

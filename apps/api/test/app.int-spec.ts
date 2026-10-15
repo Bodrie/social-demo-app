@@ -14,7 +14,9 @@ describe('app bootstrap', () => {
       imports: [AppModule],
     }).compile();
 
-    app = configureApp(moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }));
+    app = configureApp(
+      moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);

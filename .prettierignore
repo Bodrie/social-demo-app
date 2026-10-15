@@ -6,6 +6,3 @@ apps/api/src/generated
 pnpm-lock.yaml
 *.md
 
-# legacy code, deleted at cutover (phase 7)
-api/
-client/

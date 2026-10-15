@@ -7,7 +7,12 @@ import { configureApp } from '../../src/app.setup.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { resetDatabase } from './database.js';
 
-export type TestApp = { app: NestExpressApplication; prisma: PrismaService; server: App; baseUrl: string };
+export type TestApp = {
+  app: NestExpressApplication;
+  prisma: PrismaService;
+  server: App;
+  baseUrl: string;
+};
 
 /**
  * Boots the real application (same setup as main.ts) against the test database,
@@ -16,7 +21,9 @@ export type TestApp = { app: NestExpressApplication; prisma: PrismaService; serv
  */
 export async function createTestApp(options: { listen?: boolean } = {}): Promise<TestApp> {
   const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = configureApp(moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }));
+  const app = configureApp(
+    moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }),
+  );
   let baseUrl = '';
   if (options.listen) {
     await app.listen(0, '127.0.0.1');

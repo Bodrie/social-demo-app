@@ -82,11 +82,21 @@ export class RefreshTokensService {
     await this.events.emitAsync(SessionsRevokedEvent.EVENT, new SessionsRevokedEvent(userId));
   }
 
-  private async issueWith(writer: Writer, userId: string, meta: RequestMeta): Promise<IssuedRefreshToken> {
+  private async issueWith(
+    writer: Writer,
+    userId: string,
+    meta: RequestMeta,
+  ): Promise<IssuedRefreshToken> {
     const raw = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + this.ttlMs);
     await writer.refreshToken.create({
-      data: { userId, tokenHash: this.hash(raw), expiresAt, userAgent: meta.userAgent, ip: meta.ip },
+      data: {
+        userId,
+        tokenHash: this.hash(raw),
+        expiresAt,
+        userAgent: meta.userAgent,
+        ip: meta.ip,
+      },
     });
     await writer.refreshToken.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
     return { raw, expiresAt };

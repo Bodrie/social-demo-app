@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { ListUsersQuery, Paginated, UpdateProfileData, UserPrivate, UserPublic, UserSummary } from '@the-mesh/shared';
+import type {
+  ListUsersQuery,
+  Paginated,
+  UpdateProfileData,
+  UserPrivate,
+  UserPublic,
+  UserSummary,
+} from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { conflict, notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
@@ -19,7 +26,8 @@ import {
 
 export type UniqueFields = { email?: string; username?: string };
 
-type ProfileField = 'username' | 'name' | 'email' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
+type ProfileField =
+  'username' | 'name' | 'email' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
 
 /** Escapes LIKE wildcards so `q=%` does not match everyone. */
 export function escapeLike(value: string): string {
@@ -46,7 +54,10 @@ export class UsersService {
   }
 
   async getPublicById(viewerId: string, id: string): Promise<UserPublic> {
-    const row = await this.prisma.user.findUnique({ where: { id }, select: userPublicSelect(viewerId) });
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+      select: userPublicSelect(viewerId),
+    });
     if (!row) throw notFound('User not found');
     return toUserPublic(row, this.assets.base);
   }
@@ -74,7 +85,16 @@ export class UsersService {
   async updateProfile(id: string, patch: UpdateProfileData): Promise<UserPrivate> {
     const previous = await this.prisma.user.findUnique({
       where: { id },
-      select: { username: true, name: true, email: true, bio: true, city: true, website: true, avatarKey: true, coverKey: true },
+      select: {
+        username: true,
+        name: true,
+        email: true,
+        bio: true,
+        city: true,
+        website: true,
+        avatarKey: true,
+        coverKey: true,
+      },
     });
     if (!previous) throw notFound('User not found');
 
@@ -103,13 +123,25 @@ export class UsersService {
       await this.assertAvailable({ email: patch.email, username: patch.username }, id);
     }
     if (typeof data.avatarKey === 'string') {
-      await this.uploads.assertOwned(data.avatarKey, { ownerId: id, kind: 'avatar', field: 'avatarKey' });
+      await this.uploads.assertOwned(data.avatarKey, {
+        ownerId: id,
+        kind: 'avatar',
+        field: 'avatarKey',
+      });
     }
     if (typeof data.coverKey === 'string') {
-      await this.uploads.assertOwned(data.coverKey, { ownerId: id, kind: 'cover', field: 'coverKey' });
+      await this.uploads.assertOwned(data.coverKey, {
+        ownerId: id,
+        kind: 'cover',
+        field: 'coverKey',
+      });
     }
 
-    const row = await this.prisma.user.update({ where: { id }, data, select: userPrivateSelect(id) });
+    const row = await this.prisma.user.update({
+      where: { id },
+      data,
+      select: userPrivateSelect(id),
+    });
     await this.events.emitAsync(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, changed));
 
     if (changed.includes('avatarKey')) await this.uploads.discard(previous.avatarKey);
@@ -129,7 +161,9 @@ export class UsersService {
       : {};
 
     const rows = await this.prisma.user.findMany({
-      where: { AND: [search, cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {}] },
+      where: {
+        AND: [search, cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {}],
+      },
       select: userPublicSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,

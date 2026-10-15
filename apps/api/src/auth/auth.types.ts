@@ -10,7 +10,10 @@ export type AuthenticatedRequest = Request & { user?: AuthUser };
 export type AccessTokenClaims = { sub: string };
 
 /** What a verified token must contain before it is trusted. */
-export const accessTokenPayloadSchema = z.object({ sub: z.uuid(), exp: z.number().int().optional() });
+export const accessTokenPayloadSchema = z.object({
+  sub: z.uuid(),
+  exp: z.number().int().optional(),
+});
 export type AccessTokenPayload = z.infer<typeof accessTokenPayloadSchema>;
 
 /** Client details recorded with each refresh token. */

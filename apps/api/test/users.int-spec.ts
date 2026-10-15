@@ -1,4 +1,9 @@
-import { apiErrorSchema, meResponseSchema, userListSchema, userPublicSchema } from '@the-mesh/shared';
+import {
+  apiErrorSchema,
+  meResponseSchema,
+  userListSchema,
+  userPublicSchema,
+} from '@the-mesh/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { resetDatabase } from './setup/database.js';
@@ -25,7 +30,13 @@ describe('users', () => {
       const response = await agent.get(`/api/v1/users/${target.id}`).expect(200);
       const user = userPublicSchema.parse(response.body);
 
-      expect(user).toMatchObject({ id: target.id, username: target.username, bio: 'Hello', city: 'Sofia', avatarUrl: null });
+      expect(user).toMatchObject({
+        id: target.id,
+        username: target.username,
+        bio: 'Hello',
+        city: 'Sofia',
+        avatarUrl: null,
+      });
       expect(response.body).not.toHaveProperty('email');
       expect(response.body).not.toHaveProperty('passwordHash');
     });
@@ -36,7 +47,9 @@ describe('users', () => {
       const agent = request.agent(t.server);
       await login(agent, viewer.email);
 
-      const response = await agent.get(`/api/v1/users/by-username/${target.username.toUpperCase()}`).expect(200);
+      const response = await agent
+        .get(`/api/v1/users/by-username/${target.username.toUpperCase()}`)
+        .expect(200);
       expect(response.body.id).toBe(target.id);
     });
 
@@ -45,10 +58,15 @@ describe('users', () => {
       const agent = request.agent(t.server);
       await login(agent, viewer.email);
 
-      const missing = await agent.get('/api/v1/users/00000000-0000-7000-8000-000000000000').expect(404);
+      const missing = await agent
+        .get('/api/v1/users/00000000-0000-7000-8000-000000000000')
+        .expect(404);
       expect(apiErrorSchema.parse(missing.body).code).toBe('NOT_FOUND');
       const malformed = await agent.get('/api/v1/users/not-a-uuid').expect(400);
-      expect(apiErrorSchema.parse(malformed.body)).toMatchObject({ code: 'VALIDATION_ERROR', fields: { id: expect.any(String) } });
+      expect(apiErrorSchema.parse(malformed.body)).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { id: expect.any(String) },
+      });
     });
 
     it('requires a session', async () => {
@@ -65,11 +83,22 @@ describe('users', () => {
 
       const response = await agent
         .patch('/api/v1/users/me')
-        .send({ username: ' Renamed_1 ', bio: 'New bio', website: 'https://example.com', city: null })
+        .send({
+          username: ' Renamed_1 ',
+          bio: 'New bio',
+          website: 'https://example.com',
+          city: null,
+        })
         .expect(200);
 
       const { user: me } = meResponseSchema.parse(response.body);
-      expect(me).toMatchObject({ username: 'renamed_1', bio: 'New bio', website: 'https://example.com', city: null, email: user.email });
+      expect(me).toMatchObject({
+        username: 'renamed_1',
+        bio: 'New bio',
+        website: 'https://example.com',
+        city: null,
+        email: user.email,
+      });
       expect((await agent.get('/api/v1/auth/me').expect(200)).body.user.username).toBe('renamed_1');
     });
 
@@ -79,7 +108,10 @@ describe('users', () => {
       await login(agent, user.email);
 
       await agent.patch('/api/v1/users/me').send({ username: user.username }).expect(200);
-      const changed = meResponseSchema.parse((await agent.patch('/api/v1/users/me').send({ email: 'Fresh@Example.com' }).expect(200)).body);
+      const changed = meResponseSchema.parse(
+        (await agent.patch('/api/v1/users/me').send({ email: 'Fresh@Example.com' }).expect(200))
+          .body,
+      );
       expect(changed.user.email).toBe('fresh@example.com');
       await login(request.agent(t.server), 'fresh@example.com');
     });
@@ -89,9 +121,13 @@ describe('users', () => {
       const agent = request.agent(t.server);
       await login(agent, user.email);
 
-      const cleared = meResponseSchema.parse((await agent.patch('/api/v1/users/me').send({ bio: '', city: '  ' }).expect(200)).body);
+      const cleared = meResponseSchema.parse(
+        (await agent.patch('/api/v1/users/me').send({ bio: '', city: '  ' }).expect(200)).body,
+      );
       expect(cleared.user).toMatchObject({ bio: null, city: null });
-      const unchanged = meResponseSchema.parse((await agent.patch('/api/v1/users/me').send({}).expect(200)).body);
+      const unchanged = meResponseSchema.parse(
+        (await agent.patch('/api/v1/users/me').send({}).expect(200)).body,
+      );
       expect(unchanged.user.updatedAt).toBe(cleared.user.updatedAt);
     });
 
@@ -101,8 +137,13 @@ describe('users', () => {
       const agent = request.agent(t.server);
       await login(agent, user.email);
 
-      const response = await agent.patch('/api/v1/users/me').send({ username: other.username }).expect(409);
-      expect(apiErrorSchema.parse(response.body).fields).toEqual({ username: 'This username is taken' });
+      const response = await agent
+        .patch('/api/v1/users/me')
+        .send({ username: other.username })
+        .expect(409);
+      expect(apiErrorSchema.parse(response.body).fields).toEqual({
+        username: 'This username is taken',
+      });
     });
 
     it('validates fields', async () => {
@@ -110,8 +151,14 @@ describe('users', () => {
       const agent = request.agent(t.server);
       await login(agent, user.email);
 
-      const response = await agent.patch('/api/v1/users/me').send({ website: 'nope', bio: 'x'.repeat(301) }).expect(400);
-      expect(Object.keys(apiErrorSchema.parse(response.body).fields ?? {}).toSorted()).toEqual(['bio', 'website']);
+      const response = await agent
+        .patch('/api/v1/users/me')
+        .send({ website: 'nope', bio: 'x'.repeat(301) })
+        .expect(400);
+      expect(Object.keys(apiErrorSchema.parse(response.body).fields ?? {}).toSorted()).toEqual([
+        'bio',
+        'website',
+      ]);
     });
   });
 
@@ -128,11 +175,15 @@ describe('users', () => {
       const agent = request.agent(t.server);
       await login(agent, viewer.email);
 
-      const search = userListSchema.parse((await agent.get('/api/v1/users?q=ALIC').expect(200)).body);
+      const search = userListSchema.parse(
+        (await agent.get('/api/v1/users?q=ALIC').expect(200)).body,
+      );
       expect(search.items.map((u) => u.username).toSorted()).toEqual(['alice_a', 'bobby']);
       expect(search.nextCursor).toBeNull();
 
-      const firstPage = userListSchema.parse((await agent.get('/api/v1/users?limit=2').expect(200)).body);
+      const firstPage = userListSchema.parse(
+        (await agent.get('/api/v1/users?limit=2').expect(200)).body,
+      );
       expect(firstPage.items).toHaveLength(2);
       expect(firstPage.nextCursor).not.toBeNull();
 
@@ -151,7 +202,10 @@ describe('users', () => {
       await login(agent, viewer.email);
 
       const response = await agent.get('/api/v1/users?cursor=zzz').expect(400);
-      expect(apiErrorSchema.parse(response.body)).toMatchObject({ code: 'VALIDATION_ERROR', fields: { cursor: 'Invalid cursor' } });
+      expect(apiErrorSchema.parse(response.body)).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { cursor: 'Invalid cursor' },
+      });
     });
   });
 

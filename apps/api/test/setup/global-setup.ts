@@ -27,7 +27,9 @@ export async function setup(project: TestProject): Promise<void> {
     process.env.DOCKER_AUTH_CONFIG ??= JSON.stringify({ auths: {} });
     const { PostgreSqlContainer } = await import('@testcontainers/postgresql');
 
-    container = await new PostgreSqlContainer('postgres:17-alpine').withDatabase('mesh_test').start();
+    container = await new PostgreSqlContainer('postgres:17-alpine')
+      .withDatabase('mesh_test')
+      .start();
     databaseUrl = container.getConnectionUri();
   }
 

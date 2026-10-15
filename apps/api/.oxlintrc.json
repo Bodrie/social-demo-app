@@ -1,15 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "extends": [
-    "../../packages/config/oxlint/base.json"
-  ],
-  "plugins": [
-    "typescript",
-    "unicorn",
-    "oxc",
-    "import",
-    "promise"
-  ],
+  "extends": ["../../packages/config/oxlint/base.json"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
   "env": {
     "node": true
   },
@@ -23,32 +15,20 @@
     "no-underscore-dangle": [
       "warn",
       {
-        "allow": [
-          "_count"
-        ]
+        "allow": ["_count"]
       }
     ]
   },
-  "ignorePatterns": [
-    "dist",
-    "coverage",
-    "node_modules",
-    "src/generated"
-  ],
+  "ignorePatterns": ["dist", "coverage", "node_modules", "src/generated"],
   "overrides": [
     {
-      "files": [
-        "**/*.d.ts"
-      ],
+      "files": ["**/*.d.ts"],
       "rules": {
         "unicorn/require-module-specifiers": "off"
       }
     },
     {
-      "files": [
-        "**/*.spec.ts",
-        "test/**"
-      ],
+      "files": ["**/*.spec.ts", "test/**"],
       "rules": {
         "typescript/no-unsafe-type-assertion": "off",
         "unicorn/consistent-function-scoping": "off",

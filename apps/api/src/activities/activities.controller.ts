@@ -12,7 +12,10 @@ export class ActivitiesController {
   constructor(private readonly activities: ActivitiesService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthUser, @Query() query: ActivitiesQueryDto): Promise<Paginated<Activity>> {
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ActivitiesQueryDto,
+  ): Promise<Paginated<Activity>> {
     return this.activities.forViewer(user.id, query);
   }
 }

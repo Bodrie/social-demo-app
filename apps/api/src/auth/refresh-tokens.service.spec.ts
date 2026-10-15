@@ -22,7 +22,9 @@ describe('RefreshTokensService', () => {
   beforeEach(() => {
     prisma = mockDeep<PrismaService>();
     service = new RefreshTokensService(prisma, mockDeep<EventEmitter2>(), config);
-    prisma.$transaction.mockImplementation(async (fn) => (typeof fn === 'function' ? fn(prisma) : Promise.all(fn)));
+    prisma.$transaction.mockImplementation(async (fn) =>
+      typeof fn === 'function' ? fn(prisma) : Promise.all(fn),
+    );
     prisma.refreshToken.create.mockResolvedValue({} as never);
     prisma.refreshToken.deleteMany.mockResolvedValue({ count: 0 });
     prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
@@ -32,7 +34,11 @@ describe('RefreshTokensService', () => {
     const issued = await service.issue('user-1', meta);
 
     const call = prisma.refreshToken.create.mock.calls[0]?.[0];
-    expect(call?.data).toMatchObject({ userId: 'user-1', tokenHash: service.hash(issued.raw), userAgent: 'vitest' });
+    expect(call?.data).toMatchObject({
+      userId: 'user-1',
+      tokenHash: service.hash(issued.raw),
+      userAgent: 'vitest',
+    });
     expect(call?.data).not.toMatchObject({ tokenHash: issued.raw });
     expect(issued.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
@@ -73,7 +79,10 @@ describe('RefreshTokensService', () => {
     prisma.refreshToken.findUnique.mockResolvedValueOnce(null);
     await expect(service.rotate('missing', meta)).rejects.toBeInstanceOf(UnauthorizedException);
 
-    prisma.refreshToken.findUnique.mockResolvedValueOnce({ ...stored, expiresAt: new Date(Date.now() - 1) } as never);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce({
+      ...stored,
+      expiresAt: new Date(Date.now() - 1),
+    } as never);
     await expect(service.rotate('expired', meta)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.refreshToken.create).not.toHaveBeenCalled();
   });

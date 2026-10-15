@@ -1,5 +1,9 @@
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
-import { ProfileUpdatedEvent, UserFollowedEvent, UserUnfollowedEvent } from '../events/user.events.js';
+import {
+  ProfileUpdatedEvent,
+  UserFollowedEvent,
+  UserUnfollowedEvent,
+} from '../events/user.events.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { ActivitiesListener } from './activities.listener.js';
 
@@ -19,7 +23,9 @@ describe('ActivitiesListener', () => {
     expect(prisma.activity.create).not.toHaveBeenCalled();
 
     await listener.onProfileUpdated(new ProfileUpdatedEvent('u1', ['avatarKey']));
-    expect(prisma.activity.create).toHaveBeenCalledWith({ data: { actorId: 'u1', type: 'PROFILE_UPDATED' } });
+    expect(prisma.activity.create).toHaveBeenCalledWith({
+      data: { actorId: 'u1', type: 'PROFILE_UPDATED' },
+    });
   });
 
   it('records follows and removes them again on unfollow', async () => {
@@ -36,6 +42,8 @@ describe('ActivitiesListener', () => {
 
   it('never throws when the database write fails', async () => {
     prisma.activity.create.mockRejectedValue(new Error('db down'));
-    await expect(listener.onUserFollowed(new UserFollowedEvent('me', 'them'))).resolves.toBeUndefined();
+    await expect(
+      listener.onUserFollowed(new UserFollowedEvent('me', 'them')),
+    ).resolves.toBeUndefined();
   });
 });

@@ -47,7 +47,11 @@ async function seedFile(kind: 'avatar' | 'post', ownerId: string, data: Buffer):
 
 /** Usernames must satisfy the shared rule (lowercase letters, digits, underscores) and be unique. */
 function seedUsername(raw: string, taken: Set<string>): string {
-  const base = raw.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 27) || 'user';
+  const base =
+    raw
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .slice(0, 27) || 'user';
   let candidate = base;
   let suffix = 1;
   while (taken.has(candidate)) {
@@ -63,9 +67,15 @@ function pick<T>(items: readonly T[], count: number): T[] {
 }
 
 async function truncateAll(): Promise<void> {
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${TABLES.map((table) => `"${table}"`).join(', ')} CASCADE`);
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE ${TABLES.map((table) => `"${table}"`).join(', ')} CASCADE`,
+  );
   // Generated files from previous runs are orphans once their rows are gone.
-  await Promise.all(['avatar', 'post'].map((kind) => rm(path.join(uploadsDir, kind), { recursive: true, force: true })));
+  await Promise.all(
+    ['avatar', 'post'].map((kind) =>
+      rm(path.join(uploadsDir, kind), { recursive: true, force: true }),
+    ),
+  );
 }
 
 async function seed(): Promise<void> {
@@ -100,7 +110,13 @@ async function seed(): Promise<void> {
   for (const user of users) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { avatarKey: await seedFile('avatar', user.id, await placeholderAvatar(user.username, user.id)) },
+      data: {
+        avatarKey: await seedFile(
+          'avatar',
+          user.id,
+          await placeholderAvatar(user.username, user.id),
+        ),
+      },
     });
   }
 
@@ -138,7 +154,10 @@ async function seed(): Promise<void> {
   for (const post of posts) {
     if (faker.number.int({ min: 1, max: 10 }) <= 3) {
       const image = await placeholderPostImage(faker.word.words(2), post.id);
-      await prisma.post.update({ where: { id: post.id }, data: { imageKey: await seedFile('post', post.authorId, image) } });
+      await prisma.post.update({
+        where: { id: post.id },
+        data: { imageKey: await seedFile('post', post.authorId, image) },
+      });
     }
   }
   await prisma.activity.createMany({
@@ -159,7 +178,11 @@ async function seed(): Promise<void> {
   );
   await prisma.postLike.createMany({ data: likes, skipDuplicates: true });
   await prisma.activity.createMany({
-    data: likes.map((l) => ({ actorId: l.userId, type: ActivityType.POST_LIKED, postId: l.postId })),
+    data: likes.map((l) => ({
+      actorId: l.userId,
+      type: ActivityType.POST_LIKED,
+      postId: l.postId,
+    })),
   });
 
   // --- comments ----------------------------------------------------------

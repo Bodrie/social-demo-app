@@ -37,8 +37,17 @@ describe('LocalStorageService', () => {
   it('refuses keys that do not match the layout or try to escape the root', async () => {
     const bad = ['avatar/../../etc/passwd', '../x.webp', 'avatar/x.webp', '/etc/passwd'];
     await Promise.all(
-      bad.map((key) => expect(storage.put(key, Buffer.alloc(1), 'image/webp')).rejects.toThrow(/Invalid storage key/)),
+      bad.map((key) =>
+        expect(storage.put(key, Buffer.alloc(1), 'image/webp')).rejects.toThrow(
+          /Invalid storage key/,
+        ),
+      ),
     );
-    expect(await Promise.all(bad.map((key) => storage.exists(key)))).toEqual([false, false, false, false]);
+    expect(await Promise.all(bad.map((key) => storage.exists(key)))).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
 });

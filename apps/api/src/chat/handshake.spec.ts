@@ -2,7 +2,10 @@ import { JwtService } from '@nestjs/jwt';
 import type { Socket } from 'socket.io';
 import { authenticateSocket, handshakeToken, parseCookies } from './handshake.js';
 
-const jwt = new JwtService({ secret: 'unit-test-secret-unit-test-secret-unit-test', signOptions: { expiresIn: 60 } });
+const jwt = new JwtService({
+  secret: 'unit-test-secret-unit-test-secret-unit-test',
+  signOptions: { expiresIn: 60 },
+});
 
 function socketWith(headers: Record<string, string>, auth: Record<string, unknown> = {}): Socket {
   return { handshake: { headers, auth } } as unknown as Socket;
@@ -10,7 +13,11 @@ function socketWith(headers: Record<string, string>, auth: Record<string, unknow
 
 describe('parseCookies', () => {
   it('parses and decodes a cookie header', () => {
-    expect(parseCookies('a=1; access_token=x%2Ey; empty=')).toEqual({ a: '1', access_token: 'x.y', empty: '' });
+    expect(parseCookies('a=1; access_token=x%2Ey; empty=')).toEqual({
+      a: '1',
+      access_token: 'x.y',
+      empty: '',
+    });
     expect(parseCookies(undefined)).toEqual({});
   });
 });
@@ -30,8 +37,12 @@ describe('authenticateSocket', () => {
     expect(session?.userId).toBe('01a13ed6-d3ec-71cb-b39f-fbc256a293b9');
     expect(session?.expiresAt?.getTime()).toBeGreaterThan(Date.now());
     const noSub = await jwt.signAsync({ role: 'admin' });
-    await expect(authenticateSocket(socketWith({}, { token: noSub }), jwt)).resolves.toBeUndefined();
-    await expect(authenticateSocket(socketWith({}, { token: 'nope' }), jwt)).resolves.toBeUndefined();
+    await expect(
+      authenticateSocket(socketWith({}, { token: noSub }), jwt),
+    ).resolves.toBeUndefined();
+    await expect(
+      authenticateSocket(socketWith({}, { token: 'nope' }), jwt),
+    ).resolves.toBeUndefined();
     await expect(authenticateSocket(socketWith({}), jwt)).resolves.toBeUndefined();
   });
 });

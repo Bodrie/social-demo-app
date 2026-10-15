@@ -32,7 +32,10 @@ export class CommentsService {
   }
 
   async create(authorId: string, postId: string, input: CreateCommentData): Promise<Comment> {
-    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { authorId: true } });
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
     if (!post) throw notFound('Post not found');
 
     const row = await this.prisma.comment.create({

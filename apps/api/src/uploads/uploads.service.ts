@@ -44,7 +44,10 @@ export class UploadsService {
    * kind fits. Unknown, foreign and wrong-kind keys all get the same answer.
    */
   async assertOwned(key: string, check: OwnershipCheck): Promise<void> {
-    const upload = await this.prisma.upload.findUnique({ where: { key }, select: { ownerId: true, kind: true } });
+    const upload = await this.prisma.upload.findUnique({
+      where: { key },
+      select: { ownerId: true, kind: true },
+    });
     if (!upload || upload.ownerId !== check.ownerId || upload.kind !== check.kind) {
       throw badRequest('Unknown upload', { [check.field]: 'Unknown upload' });
     }

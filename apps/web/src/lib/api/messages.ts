@@ -15,7 +15,10 @@ import { type PageOptions, queryString } from './query';
 export const fetchConversations = (signal?: AbortSignal): Promise<ConversationList> =>
   api.get('/messages', conversationListSchema, { signal });
 
-export const fetchThread = (peerId: string, { cursor, signal }: PageOptions): Promise<MessageList> =>
+export const fetchThread = (
+  peerId: string,
+  { cursor, signal }: PageOptions,
+): Promise<MessageList> =>
   api.get(`/messages/${peerId}${queryString({ cursor })}`, messageListSchema, { signal });
 
 /** HTTP fallbacks for when the socket is not connected. */

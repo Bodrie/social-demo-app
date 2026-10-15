@@ -17,7 +17,13 @@ export type CreatedUser = { id: string; email: string; username: string; name: s
 
 export async function createUser(
   prisma: PrismaService,
-  overrides: Partial<{ email: string; username: string; name: string; bio: string; city: string }> = {},
+  overrides: Partial<{
+    email: string;
+    username: string;
+    name: string;
+    bio: string;
+    city: string;
+  }> = {},
 ): Promise<CreatedUser> {
   counter += 1;
   return prisma.user.create({
@@ -35,7 +41,11 @@ export async function createUser(
 export type TestAgent = ReturnType<typeof request.agent>;
 
 /** Logs the agent in (cookies are kept by the agent). */
-export async function login(agent: TestAgent, email: string, password = TEST_PASSWORD): Promise<void> {
+export async function login(
+  agent: TestAgent,
+  email: string,
+  password = TEST_PASSWORD,
+): Promise<void> {
   await agent.post('/api/v1/auth/login').send({ email, password }).expect(200);
 }
 
@@ -52,7 +62,10 @@ export function cookiesFrom(setCookie: string | string[] | undefined): Record<st
 }
 
 /** Raw Set-Cookie header for one cookie name (to inspect attributes). */
-export function setCookieHeader(setCookie: string | string[] | undefined, name: string): string | undefined {
+export function setCookieHeader(
+  setCookie: string | string[] | undefined,
+  name: string,
+): string | undefined {
   const headers = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
   return headers.find((header) => header.startsWith(`${name}=`));
 }

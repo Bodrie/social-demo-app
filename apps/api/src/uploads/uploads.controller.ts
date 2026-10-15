@@ -33,7 +33,11 @@ export class UploadsController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] },
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
   })
   upload(
     @CurrentUser() user: AuthUser,
@@ -52,13 +56,16 @@ export class UploadsController {
   async serve(@Param() params: UploadPathDto): Promise<StreamableFile> {
     const stream = await this.uploads.open(`${params.kind}/${params.file}`);
     if (!stream) throw notFound('File not found');
-    return new StreamableFile(stream, { type: 'image/webp', disposition: 'inline' }).setErrorHandler(
-      (error, response) => {
-        // The file vanished between the existence check and the read: answer with the envelope.
-        const body = toApiError(error.message.includes('ENOENT') ? notFound('File not found') : error);
-        response.statusCode = body.statusCode;
-        response.send(JSON.stringify(body));
-      },
-    );
+    return new StreamableFile(stream, {
+      type: 'image/webp',
+      disposition: 'inline',
+    }).setErrorHandler((error, response) => {
+      // The file vanished between the existence check and the read: answer with the envelope.
+      const body = toApiError(
+        error.message.includes('ENOENT') ? notFound('File not found') : error,
+      );
+      response.statusCode = body.statusCode;
+      response.send(JSON.stringify(body));
+    });
   }
 }

@@ -2,9 +2,8 @@
 
 ## State of the repo
 
-- A full rebuild (v2) is in progress. Plan: `docs/REBUILD_PLAN.md` (phases, decisions D1–D23). Decisions are recorded as ADRs in `docs/adr/`; add a new ADR instead of silently changing a decision.
-- `api/` and `client/` are the **legacy** Express/CRA code. They are frozen and get deleted at cutover (phase 7). Do not edit, lint or format them.
-- New code lives in `apps/api` (NestJS 12, ESM), `apps/web` (Vite 8 + React 19), `packages/shared` (zod schemas, constants; built with tsdown) and `packages/config` (tsconfig + oxlint presets).
+- v2 is the whole repository: the 2026 rebuild replaced the original Express/CRA app (phases 0–7 in `docs/REBUILD_PLAN.md`, decisions D1–D23 as ADRs in `docs/adr/`). Add a new ADR instead of silently changing a decision; park deferrals in `docs/BACKLOG.md`.
+- Code lives in `apps/api` (NestJS 12, ESM), `apps/web` (Vite 8 + React 19), `packages/shared` (zod schemas, constants; built with tsdown) and `packages/config` (tsconfig + oxlint presets); `deploy/` holds the production stack (see `docs/RUNBOOK.md`).
 
 ## Commands (run from the repo root)
 

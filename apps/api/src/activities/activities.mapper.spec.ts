@@ -1,7 +1,12 @@
 import { activitySchema } from '@the-mesh/shared';
 import { type ActivityRow, excerpt, toActivity } from './activities.mapper.js';
 
-const actor = { id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b8', username: 'bob', name: 'Bob', avatarKey: 'avatar/x.webp' };
+const actor = {
+  id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b8',
+  username: 'bob',
+  name: 'Bob',
+  avatarKey: 'avatar/x.webp',
+};
 
 describe('excerpt', () => {
   it('collapses whitespace and truncates with an ellipsis', () => {

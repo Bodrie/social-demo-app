@@ -53,7 +53,10 @@ export class AuthService {
       select: { id: true, passwordHash: true },
     });
     // Always run a verification so response time does not reveal whether the email exists.
-    const valid = await verifyPassword(user?.passwordHash ?? (await dummyPasswordHash()), input.password);
+    const valid = await verifyPassword(
+      user?.passwordHash ?? (await dummyPasswordHash()),
+      input.password,
+    );
     if (!user || !valid) throw unauthorized('Invalid email or password');
     return this.session(user.id, meta);
   }

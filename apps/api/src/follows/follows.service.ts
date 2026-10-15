@@ -27,7 +27,10 @@ export class FollowsService {
       skipDuplicates: true,
     });
     if (result.count === 1) {
-      await this.events.emitAsync(UserFollowedEvent.EVENT, new UserFollowedEvent(viewerId, targetId));
+      await this.events.emitAsync(
+        UserFollowedEvent.EVENT,
+        new UserFollowedEvent(viewerId, targetId),
+      );
     }
   }
 
@@ -37,19 +40,33 @@ export class FollowsService {
       where: { followerId: viewerId, followeeId: targetId },
     });
     if (result.count === 1) {
-      await this.events.emitAsync(UserUnfollowedEvent.EVENT, new UserUnfollowedEvent(viewerId, targetId));
+      await this.events.emitAsync(
+        UserUnfollowedEvent.EVENT,
+        new UserUnfollowedEvent(viewerId, targetId),
+      );
     }
   }
 
   /** Users following `userId`, most recent follow first. */
-  async followers(viewerId: string, userId: string, query: CursorQuery): Promise<Paginated<UserPublic>> {
+  async followers(
+    viewerId: string,
+    userId: string,
+    query: CursorQuery,
+  ): Promise<Paginated<UserPublic>> {
     await this.users.assertExists(userId);
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.follow.findMany({
       where: {
-        AND: [{ followeeId: userId }, cursor ? keysetAfter(cursor, (id) => ({ followerId: { lt: id } })) : {}],
+        AND: [
+          { followeeId: userId },
+          cursor ? keysetAfter(cursor, (id) => ({ followerId: { lt: id } })) : {},
+        ],
       },
-      select: { followerId: true, createdAt: true, follower: { select: userPublicSelect(viewerId) } },
+      select: {
+        followerId: true,
+        createdAt: true,
+        follower: { select: userPublicSelect(viewerId) },
+      },
       orderBy: [{ createdAt: 'desc' }, { followerId: 'desc' }],
       take: query.limit + 1,
     });
@@ -62,14 +79,25 @@ export class FollowsService {
   }
 
   /** Users that `userId` follows, most recent follow first. */
-  async following(viewerId: string, userId: string, query: CursorQuery): Promise<Paginated<UserPublic>> {
+  async following(
+    viewerId: string,
+    userId: string,
+    query: CursorQuery,
+  ): Promise<Paginated<UserPublic>> {
     await this.users.assertExists(userId);
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.follow.findMany({
       where: {
-        AND: [{ followerId: userId }, cursor ? keysetAfter(cursor, (id) => ({ followeeId: { lt: id } })) : {}],
+        AND: [
+          { followerId: userId },
+          cursor ? keysetAfter(cursor, (id) => ({ followeeId: { lt: id } })) : {},
+        ],
       },
-      select: { followeeId: true, createdAt: true, followee: { select: userPublicSelect(viewerId) } },
+      select: {
+        followeeId: true,
+        createdAt: true,
+        followee: { select: userPublicSelect(viewerId) },
+      },
       orderBy: [{ createdAt: 'desc' }, { followeeId: 'desc' }],
       take: query.limit + 1,
     });

@@ -34,12 +34,17 @@ describe('FollowsService.follow', () => {
   });
 
   it('emits an event only when a new follow row was created', async () => {
-    prisma.follow.createMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    prisma.follow.createMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
 
     await service.follow('me', 'them');
     await service.follow('me', 'them');
 
     expect(events.emitAsync).toHaveBeenCalledTimes(1);
-    expect(events.emitAsync).toHaveBeenCalledWith(UserFollowedEvent.EVENT, new UserFollowedEvent('me', 'them'));
+    expect(events.emitAsync).toHaveBeenCalledWith(
+      UserFollowedEvent.EVENT,
+      new UserFollowedEvent('me', 'them'),
+    );
   });
 });

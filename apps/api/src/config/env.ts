@@ -39,15 +39,27 @@ export const envSchema = z.object({
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
   /** HS256 secret for access tokens. Generate with `openssl rand -base64 48`. */
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(15 * 60),
-  REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(7 * 24 * 60 * 60),
+  JWT_ACCESS_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60),
+  REFRESH_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(7 * 24 * 60 * 60),
   /** Secure flag on auth cookies. Defaults to true in production. */
   COOKIE_SECURE: z.stringbool().optional(),
   /** Public base URL for uploaded files. */
   PUBLIC_ASSETS_URL: z.url().default('http://localhost:3000/api/v1/uploads'),
   /** Local-disk storage root for uploads (a mounted volume in production). */
   UPLOADS_DIR: z.string().min(1).default('./uploads'),
-  UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+  UPLOAD_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1024 * 1024),
   /** Reject images above this many pixels before decoding (decompression bombs). */
   UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(25_000_000),
 });
@@ -63,12 +75,16 @@ function assertProductionSafe(config: Record<string, unknown>): void {
   const problems: string[] = [];
   for (const key of PRODUCTION_EXPLICIT) {
     const value = config[key];
-    if (typeof value !== 'string' || value.trim() === '') problems.push(`${key} must be set explicitly`);
+    if (typeof value !== 'string' || value.trim() === '')
+      problems.push(`${key} must be set explicitly`);
   }
   if (typeof config.JWT_SECRET === 'string' && PLACEHOLDER_SECRET.test(config.JWT_SECRET)) {
     problems.push('JWT_SECRET still has the placeholder value');
   }
-  if (typeof config.COOKIE_SECURE === 'string' && config.COOKIE_SECURE.trim().toLowerCase() === 'false') {
+  if (
+    typeof config.COOKIE_SECURE === 'string' &&
+    config.COOKIE_SECURE.trim().toLowerCase() === 'false'
+  ) {
     problems.push('COOKIE_SECURE cannot be false');
   }
   if (problems.length > 0) {

@@ -3,7 +3,10 @@ import sharp from 'sharp';
 import type { Env } from '../config/env.js';
 import { ImageProcessor } from './image-processor.js';
 
-const processor = new ImageProcessor({ get: () => 2_000_000 } as unknown as ConfigService<Env, true>);
+const processor = new ImageProcessor({ get: () => 2_000_000 } as unknown as ConfigService<
+  Env,
+  true
+>);
 
 function image(width: number, height: number, format: 'png' | 'jpeg' = 'png'): Promise<Buffer> {
   const pipeline = sharp({ create: { width, height, channels: 3, background: '#336699' } });
@@ -42,15 +45,21 @@ describe('ImageProcessor', () => {
   });
 
   it('rejects files that are not images, whatever they claim to be', async () => {
-    await expect(processor.process(Buffer.from('<html>hi</html>'), 'post')).rejects.toMatchObject({ status: 415 });
+    await expect(processor.process(Buffer.from('<html>hi</html>'), 'post')).rejects.toMatchObject({
+      status: 415,
+    });
   });
 
   it('rejects SVG', async () => {
-    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>alert(1)</script></svg>');
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>alert(1)</script></svg>',
+    );
     await expect(processor.process(svg, 'post')).rejects.toMatchObject({ status: 415 });
   });
 
   it('rejects images above the pixel budget', async () => {
-    await expect(processor.process(await image(2000, 1500), 'post')).rejects.toMatchObject({ status: 400 });
+    await expect(processor.process(await image(2000, 1500), 'post')).rejects.toMatchObject({
+      status: 400,
+    });
   });
 });

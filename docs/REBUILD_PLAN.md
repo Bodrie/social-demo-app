@@ -441,7 +441,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 | **4. Web** | 4a shell ✅ 2026-10-15: Tailwind 4 + shadcn (new-york, lucide) theme ported from the legacy palette (light/dark via next-themes, class strategy), AppShell (header with sheet nav on small screens, left nav, right bar, responsive 3-column grid), `Providers` (QueryClient created once, theme, tooltips, sonner toasts, session-loss listener), React Router 8 data router with `RequireAuth` (provides `CurrentUserContext`) / `RedirectIfAuthenticated` layout routes and a route error element, typed fetch client (`lib/api/client.ts`: zod-parsed responses, `ApiClientError` envelope, 401 → single-flight refresh guarded by the Web Locks API → retry once → `onSessionLost`), `useMe()` + `startSession`/`endSession` cache helpers, Vitest + RTL + MSW 3 harness (`src/test/`), 21 tests; Playwright 1.64 harness (`playwright.config.ts` boots the built API + `vite preview` with the same proxy as dev) with a 4-test smoke spec and an `e2e` CI job (seeded Postgres, Chromium). 4b auth pages ✅ 2026-10-15: login/register with react-hook-form + `zodResolver` on the shared schemas, API field errors mapped onto inputs (`applyApiErrors`), the guard routes do the post-login navigation (back to the page that required auth). 4c feed ✅ 2026-10-15: design pass (oklch tokens, Inter Variable, 1rem card radius, blurred header, feed column capped at 42rem), `role="feed"` with `useInfiniteQuery` + IntersectionObserver sentinel, composer (auto-growing textarea, image attach with immediate upload + preview/retry/remove, lazy-loaded emoji picker, counter near the 500-char limit), post card (relative time, image, like with optimistic update + rollback, comments toggle, author-only delete behind an alert dialog), inline comments (newest first, Enter to send, delete by comment or post author, older pages on demand), cache helpers that keep every post list in step; MSW backend for posts/comments/uploads, 21 new Vitest tests (42 total), Playwright feed spec (publish with image → like → comment → delete, infinite scroll). 4d profile ✅ 2026-10-15: `/u/:username` with nested tab routes (posts, `/followers`, `/following`), header (cover or gradient, overlapping avatar, bio, city, website, joined, counts linking to the lists, "Follows you" badge), optimistic follow/unfollow that updates every cached profile and list plus the viewer's counts and refreshes the feed, reusable `PostList`/`UserList` (infinite scroll), edit-profile dialog (RHF + `updateProfileSchema`, diff-only PATCH via `buildProfilePatch`, avatar and cover `ImageField`s with immediate upload/remove, server conflicts mapped to fields, navigation on username change), 404 and error states; MSW users backend with follows, 14 new tests (56 total), Playwright profile spec (follow toggle, followers list, edit with avatar upload). 4e people ✅ 2026-10-15: `/users` with a debounced name/username search (mirrored to `?q=`), `UserList` results with follow buttons; right bar now has `SuggestionsCard` (people neither followed nor following, follow in place) and `ActivitiesCard` (first six, shared query); `/activity` page with the full infinite list and a nav entry; `ActivityText` renders one linked sentence per activity type; MSW activities backend, 9 new tests (65 total), Playwright people/activity spec. 4f chat ✅ 2026-10-15: socket.io-client over the same origin (cookie handshake), `ChatProvider` for the session (connect on sign-in, disconnect on sign-out, refresh-then-reconnect after token expiry, session end when refresh fails), presence ("Online now" card, dots on avatars), `/messages` two-pane page (conversations with unread badges, thread with day separators, grouped bubbles, read receipts, optimistic sends with retry, older history on scroll-up, Enter to send, emoji), new-message picker, Message button on profiles, unread badge in the navigation; HTTP fallbacks when the socket is down; fake socket for Vitest, 6 new tests (71 total), two-browser Playwright chat spec. 4g polish ✅ 2026-10-15: route-level code splitting (`lazy` routes per feature module, hydrate fallback, navigation progress bar, framework and socket chunks, socket client loaded after first paint), a bundle budget script that fails the build when the initial JavaScript grows past 230 kB gz, axe (WCAG 2.1 A/AA) audits in Playwright on every page in light and dark mode plus the edit dialog, keyboard checks (skip link, focus moves to the new page after navigating), `prefers-reduced-motion`, in-shell 404 page, scroll restoration, theme-color metas, accessible names and contrast fixes found by the audits. | 3 (3a–3b minimum; later slices can overlap with 3d–3h if you want to interleave) | XL |
 | **5. E2E** ✅ 2026-10-15 | Playwright suite per §2.8: a `seed` project resets and reseeds the database before every run, a `setup` project stores sessions for alice, bob and carol (specs never sign in through the UI unless the sign-in flow is the subject), and specs cover registration and conflicts, session refresh after a lost access cookie, protected-route redirects, feed (publish with image, like, comment, delete, infinite scroll), composer limits (non-image, oversize, over-long), follow/unfollow from profile and between two members, comment moderation by the post author, profile editing with avatar, people search, suggestions and activity, chat in two browsers (presence, delivery, read receipt, reply), phone layouts (messages list ↔ thread, profile tabs, navigation sheet), error states (feed 500 + retry, unknown profile/page, failed like toast), axe audits and keyboard checks. 31 tests, ~20 s locally, `e2e` CI job. | 4 | M |
 | **6. Containers + release pipeline** ✅ 2026-10-15 | `apps/api/Dockerfile` (node:24-slim multi-stage, prod-only deps incl. the Prisma CLI, non-root, health check, entrypoint runs `prisma migrate deploy`), `apps/web/Dockerfile` (static build served by Caddy, which proxies `/api` and `/socket.io`, serves uploads from the shared volume and sets cache headers), `deploy/` (compose with Postgres, api, web, cloudflared behind the `tunnel` profile; `.env.example`; `update.sh`; `backup.sh`; systemd timers), `.github/workflows/docker.yml` (build on PRs, publish to GHCR on main and `v*` tags), `docs/RUNBOOK.md`. No `deploy.yml`: releases are pull-based per §2.9/§2.11. Verified locally: both images build, the stack boots from an empty volume, migrations apply, register/upload/feed/socket work through Caddy. | 3, 4 | M |
-| **7. Cutover** | §5 checklist verified; delete `api/`, `client/`, `deploy_*.sh`; README rewrite; `CLAUDE.md`; tag `v2.0.0`. | 5, 6 | S |
+| **7. Cutover** ✅ 2026-10-15 | §5 checklist verified and ticked; `api/`, `client/`, `deploy_dev.sh`, `deploy_prod.sh` deleted; README rewritten for v2; `CLAUDE.md`, `.prettierignore`, `.dockerignore` without legacy references. Tag `v2.0.0` after the merge (owner). | 5, 6 | S |
 
 ### 4.3 Order alternatives considered
 
@@ -460,7 +460,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 | M4 ✅ 2026-10-15 | Web app feature-complete for v2.0 (feed, profiles, people, activity, chat); 73 Vitest tests; axe clean on every page; Lighthouse accessibility scores recorded in §4.7 (4g notes). |
 | M5 ✅ 2026-10-15 | 31 Playwright tests green on Chromium (CI `e2e` job); chat tested with two browser contexts; database reseeded per run. |
 | M6 ✅ 2026-10-15 (local) | `deploy/docker-compose.yml` boots the whole stack from the two images; GHCR publishing lands with the first merge of `docker.yml` to `main`; the box itself is set up per `docs/RUNBOOK.md`. |
-| M7 | Old directories removed; README/CLAUDE.md current; `v2.0.0` tagged. |
+| M7 ✅ 2026-10-15 | Old directories removed; README/CLAUDE.md current; `v2.0.0` to be tagged by the owner after the merge. |
 
 ### 4.5 Risks
 
@@ -553,25 +553,30 @@ Six independent review agents (security, correctness, data layer, platform/ops, 
 - **Releases**: `docker.yml` builds both images on PRs (no push) and publishes on `main` (`latest`, `sha-…`) and tags (`vX.Y.Z`, `vX.Y`). The server's `mesh-update.timer` runs `update.sh` every 5 min (`pull` + `up -d`); rollback = pin `TAG`. No credentials of the box live in GitHub.
 - **WSL note**: Docker CLI builds need a credential-helper-free config here (`DOCKER_CONFIG` pointing at a dir with `{"auths":{}}`), same root cause as the Testcontainers workaround.
 
+### Phase 7 notes (2026-10-15)
+
+- Removing the legacy entries from `.prettierignore` revealed that the pattern `api/` had matched every directory called `api`, so `apps/api` and `apps/web/src/lib/api` had never been checked by Prettier. They are formatted with the root config now (68 files, whitespace only; lint, typecheck, unit and integration tests unchanged).
+- Nothing else in the repository referenced the old code: `.dockerignore`, `CLAUDE.md` and the README were the only places.
+
 ## 5. Parity checklist (gate for deleting the old code)
 
-- [ ] Register, login, logout, session survives refresh (`/auth/me`), expiry handled
-- [ ] Feed of own + followed posts, infinite scroll, newest first
-- [ ] Create post with text, image, emoji; preview; validation
-- [ ] Like / unlike with correct counts for all users (B1 regression test)
-- [ ] Comments list/add per post, counts correct, scoped per post (B4 regression test)
-- [ ] Delete own post / comment (new)
-- [ ] Profile view (avatar, cover, name, username, city, website/bio), own posts
-- [ ] Follow / unfollow, followers/following lists, suggestions update
-- [ ] Edit profile incl. avatar/cover upload, no page reload, pictures survive host change (B10)
-- [ ] Users list + search
-- [ ] Activities of followed users, generated server-side
-- [ ] Presence (one entry per user) + DM chat, history if D8
-- [ ] Light/dark theme, persisted; responsive layout incl. mobile header menu
-- [ ] All S1–S9 covered by integration tests (authz, no hash leak, upload limits, traversal)
-- [ ] Error envelope mapped to form fields on login/register/profile
-- [ ] CI: lint, typecheck, unit, integration, build, e2e green
-- [ ] Docker images build and run via compose
+- [x] Register, login, logout, session survives refresh (`/auth/me`), expiry handled — auth int tests (rotation, reuse detection, throttles); web: `RequireAuth`, silent refresh, socket reconnect; e2e `auth.spec.ts`
+- [x] Feed of own + followed posts, infinite scroll, newest first — posts int tests; e2e `feed.spec.ts`
+- [x] Create post with text, image, emoji; preview; validation — `PostComposer`; e2e `feed.spec.ts`, `uploads.spec.ts`
+- [x] Like / unlike with correct counts for all users (B1) — `likes` table with unique (user, post); int tests; optimistic UI with rollback
+- [x] Comments list/add per post, counts correct, scoped per post (B4) — query keys per post; comments int tests; e2e
+- [x] Delete own post / comment (new) — author-only delete (post author may moderate comments); int tests; e2e `social.spec.ts`
+- [x] Profile view (avatar, cover, name, username, city, website/bio), own posts — `/u/:username`; e2e `profile.spec.ts`
+- [x] Follow / unfollow, followers/following lists, suggestions update — follows int tests; `useToggleFollow` keeps every list in step; e2e
+- [x] Edit profile incl. avatar/cover upload, no page reload, pictures survive host change (B10) — storage keys in the database, URLs built from `PUBLIC_ASSETS_URL` per response; uploads ownership table; e2e edits with avatar
+- [x] Users list + search — `GET /users?q=`; e2e `people.spec.ts`
+- [x] Activities of followed users, generated server-side — `ActivitiesListener` on domain events; `/activity` page + sidebar
+- [x] Presence (one entry per user) + DM chat, history (D8: persisted) — gateway int tests (presence dedup, rate limits, revocation); e2e `chat.spec.ts` in two browsers
+- [x] Light/dark theme, persisted; responsive layout incl. mobile header menu — next-themes; e2e smoke + `mobile.spec.ts`
+- [x] S1–S9 covered by integration tests — S1 (`PATCH /users/me` only), S2 (no hash in any user shape; responses parsed with the shared schemas), S3 (`404s on unknown files and refuses path tricks`), S4 (auth, size and MIME tests, re-encoded to WebP), S5 (ids from the session only), S6 (15-min access token, single-use refresh, SameSite cookies), S7 (handshake from the cookie/JWT, forged tokens refused), S8 (one error envelope, raw errors masked), S9 (throttling + helmet tests). S10 is the owner's: retire or key-only the old box.
+- [x] Error envelope mapped to form fields on login/register/profile — `applyApiErrors`; e2e `auth.spec.ts` (taken username)
+- [x] CI: lint, typecheck, unit, integration, build, e2e green — `checks`, `integration`, `e2e` jobs
+- [x] Docker images build and run via compose — phase 6, verified locally (`deploy/docker-compose.yml`)
 
 ---
 
@@ -614,8 +619,9 @@ Six independent review agents (security, correctness, data layer, platform/ops, 
 
 ## 7. Cleanup list (phase 7)
 
-- Delete `api/`, `client/`, `deploy_dev.sh`, `deploy_prod.sh`
-- Delete branches `test`, `update/readme`, `nest-migration` (after harvesting)
-- Remove `.DS_Store` from history? Not worth a rewrite; just ensure `.gitignore` covers it
-- Rewrite `README.md` (what, stack, run, test, deploy, env), add `docs/adr/*`, `docs/BACKLOG.md`, `CLAUDE.md`
-- Tag `v2.0.0`
+- [x] Delete `api/`, `client/`, `deploy_dev.sh`, `deploy_prod.sh` (2026-10-15)
+- [x] Delete branches `test`, `update/readme`, `nest-migration` (done by the owner in phase 1)
+- [x] `.DS_Store`: covered by `.gitignore`; history left alone
+- [x] Rewrite `README.md`; `docs/adr/*`, `docs/BACKLOG.md`, `CLAUDE.md` current
+- [ ] Tag `v2.0.0` on `main` after merging the cutover PR (`git tag v2.0.0 && git push origin v2.0.0`); `docker.yml` then publishes the versioned images
+- [ ] Owner: the old production box (S10) — retire it or make sure it only accepts key authentication; GHCR packages set to public

@@ -41,7 +41,10 @@ export class MessagesController {
 
   @Post(':userId/read')
   @HttpCode(200)
-  markRead(@CurrentUser() user: AuthUser, @Param() params: UserIdParamDto): Promise<MarkReadResult> {
+  markRead(
+    @CurrentUser() user: AuthUser,
+    @Param() params: UserIdParamDto,
+  ): Promise<MarkReadResult> {
     return this.messages.markRead(user.id, params.userId);
   }
 }
