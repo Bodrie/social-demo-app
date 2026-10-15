@@ -7,7 +7,7 @@ packages:
 # engine, argon2 its prebuilt native binary, esbuild (used by tsx) its binary.
 allowBuilds:
   '@prisma/engines': true
-  '@scarf/scarf': set this to true or false
+  '@scarf/scarf': false
   argon2: true
   cpu-features: false
   esbuild: true
@@ -80,6 +80,10 @@ catalog:
   cookie-parser: 1.4.7
   '@types/cookie-parser': 1.4.10
   vitest-mock-extended: 5.1.1
+  # api uploads
+  sharp: 0.35.5
+  multer: 2.4.0
+  '@types/multer': 2.3.0
   # web
   react: 19.3.1
   react-dom: 19.3.1

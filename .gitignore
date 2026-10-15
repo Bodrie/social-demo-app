@@ -2,6 +2,7 @@
 node_modules/
 
 # build output
+apps/api/uploads/
 apps/api/src/generated/
 dist/
 coverage/

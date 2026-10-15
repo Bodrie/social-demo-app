@@ -1,4 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import type { TestProject } from 'vitest/node';
 
@@ -11,6 +14,7 @@ import type { TestProject } from 'vitest/node';
  * Migrations are applied once per run; test files reset the tables themselves.
  */
 let container: StartedPostgreSqlContainer | undefined;
+let uploadsDir: string | undefined;
 
 export async function setup(project: TestProject): Promise<void> {
   let databaseUrl = process.env.TEST_DATABASE_URL;
@@ -34,8 +38,12 @@ export async function setup(project: TestProject): Promise<void> {
   });
 
   project.provide('databaseUrl', databaseUrl);
+
+  uploadsDir = await mkdtemp(path.join(os.tmpdir(), 'mesh-uploads-'));
+  project.provide('uploadsDir', uploadsDir);
 }
 
 export async function teardown(): Promise<void> {
   await container?.stop();
+  if (uploadsDir) await rm(uploadsDir, { recursive: true, force: true });
 }
