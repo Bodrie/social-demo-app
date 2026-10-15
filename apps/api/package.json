@@ -36,12 +36,14 @@
     "argon2": "catalog:",
     "cookie-parser": "catalog:",
     "helmet": "catalog:",
+    "multer": "catalog:",
     "nestjs-pino": "catalog:",
     "nestjs-zod": "catalog:",
     "pino": "catalog:",
     "pino-http": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
+    "sharp": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -52,6 +54,7 @@
     "@testcontainers/postgresql": "catalog:",
     "@types/cookie-parser": "catalog:",
     "@types/express": "catalog:",
+    "@types/multer": "catalog:",
     "@types/node": "catalog:",
     "@types/supertest": "catalog:",
     "@vitest/coverage-v8": "catalog:",

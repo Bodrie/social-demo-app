@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginatedSchema } from './pagination.js';
+import { uploadKeySchema } from './uploads.js';
 
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
 
@@ -68,6 +69,9 @@ export const updateProfileSchema = z.object({
   bio: bioSchema.nullable().optional(),
   city: citySchema.nullable().optional(),
   website: websiteSchema.nullable().optional(),
+  /** Keys returned by POST /uploads?kind=avatar|cover; null removes the picture. */
+  avatarKey: uploadKeySchema.nullable().optional(),
+  coverKey: uploadKeySchema.nullable().optional(),
 });
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type UpdateProfileData = z.output<typeof updateProfileSchema>;

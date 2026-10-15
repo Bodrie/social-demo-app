@@ -13,6 +13,7 @@ import type { Env } from '../config/env.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 import { toUserPrivate, toUserPublic, userPrivateSelect, userPublicSelect } from './users.mapper.js';
 
 export type UniqueFields = { email?: string; username?: string };
@@ -24,6 +25,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
+    private readonly uploads: UploadsService,
     config: ConfigService<Env, true>,
   ) {
     this.assetsBase = config.get('PUBLIC_ASSETS_URL', { infer: true });
@@ -58,13 +60,31 @@ export class UsersService {
     if (patch.bio !== undefined) data.bio = patch.bio;
     if (patch.city !== undefined) data.city = patch.city;
     if (patch.website !== undefined) data.website = patch.website;
+    if (patch.avatarKey !== undefined) data.avatarKey = patch.avatarKey;
+    if (patch.coverKey !== undefined) data.coverKey = patch.coverKey;
 
     if (data.username !== undefined || data.email !== undefined) {
       await this.assertAvailable({ email: patch.email, username: patch.username }, id);
     }
+    if (patch.avatarKey) await this.uploads.assertExists(patch.avatarKey, 'avatarKey');
+    if (patch.coverKey) await this.uploads.assertExists(patch.coverKey, 'coverKey');
+
+    const replacesPicture = patch.avatarKey !== undefined || patch.coverKey !== undefined;
+    const previous = replacesPicture
+      ? await this.prisma.user.findUnique({ where: { id }, select: { avatarKey: true, coverKey: true } })
+      : null;
 
     const row = await this.prisma.user.update({ where: { id }, data, select: userPrivateSelect });
     this.events.emit(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, Object.keys(data)));
+
+    if (previous) {
+      if (patch.avatarKey !== undefined && previous.avatarKey !== patch.avatarKey) {
+        await this.uploads.discard(previous.avatarKey);
+      }
+      if (patch.coverKey !== undefined && previous.coverKey !== patch.coverKey) {
+        await this.uploads.discard(previous.coverKey);
+      }
+    }
     return toUserPrivate(row, this.assetsBase);
   }
 

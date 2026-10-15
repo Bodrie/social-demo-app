@@ -6,11 +6,15 @@
  *   alice@example.com (alice), bob@example.com (bob), carol@example.com (carol)
  */
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { ActivityType } from '../src/generated/prisma/enums.js';
+import { placeholderAvatar } from '../src/uploads/placeholder-avatar.js';
 
 const FAKER_SEED = 20261015;
 const FAKE_USER_COUNT = 20;
@@ -28,6 +32,16 @@ if (!databaseUrl) {
 }
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
+
+/** Writes a generated avatar into the uploads dir and returns its storage key. */
+async function seedAvatar(name: string, seed: string): Promise<string> {
+  const key = `avatar/${randomUUID()}.webp`;
+  const file = path.join(uploadsDir, key);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, await placeholderAvatar(name, seed));
+  return key;
+}
 
 function pick<T>(items: readonly T[], count: number): T[] {
   return faker.helpers.arrayElements(items, count);
@@ -66,6 +80,13 @@ async function seed(): Promise<void> {
     select: { id: true, username: true },
   });
   const userIds = users.map((u) => u.id);
+
+  for (const user of users) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { avatarKey: await seedAvatar(user.username, user.id) },
+    });
+  }
 
   await prisma.activity.createMany({
     data: userIds.map((actorId) => ({ actorId, type: ActivityType.USER_REGISTERED })),
@@ -156,7 +177,7 @@ async function seed(): Promise<void> {
   }
 
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${posts.length} posts, ${likes.length} likes, ${comments.length} comments.`,
+    `Seeded ${users.length} users (avatars in ${uploadsDir}), ${follows.length} follows, ${posts.length} posts, ${likes.length} likes, ${comments.length} comments.`,
   );
 }
 

@@ -29,6 +29,11 @@ export const envSchema = z.object({
   COOKIE_SECURE: z.stringbool().optional(),
   /** Public base URL for uploaded files. */
   PUBLIC_ASSETS_URL: z.url().default('http://localhost:3000/api/v1/uploads'),
+  /** Local-disk storage root for uploads (a mounted volume in production). */
+  UPLOADS_DIR: z.string().min(1).default('./uploads'),
+  UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+  /** Reject images above this many pixels before decoding (decompression bombs). */
+  UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(40_000_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

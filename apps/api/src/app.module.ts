@@ -11,6 +11,7 @@ import { type Env, validateEnv } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module.js';
     HealthModule,
     AuthModule,
     UsersModule,
+    UploadsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

@@ -6,3 +6,4 @@ process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'silent';
 process.env.JWT_SECRET = 'integration-test-secret-integration-test-secret';
 process.env.COOKIE_SECURE = 'false';
+process.env.UPLOADS_DIR = inject('uploadsDir');
