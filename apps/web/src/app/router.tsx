@@ -3,8 +3,9 @@ import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
 import { ActivityPage } from '@/features/activities/activity-page';
+import { MessagesIndex, MessagesPage } from '@/features/chat/messages-page';
+import { ThreadPage } from '@/features/chat/thread-page';
 import { HomePage } from '@/features/feed/home-page';
-import { MessagesPage } from '@/features/messages/messages-page';
 import { ProfileFollowers, ProfileFollowing } from '@/features/profile/profile-followers';
 import { ProfilePage } from '@/features/profile/profile-page';
 import { ProfilePosts } from '@/features/profile/profile-posts';
@@ -25,7 +26,15 @@ export const routes: RouteObject[] = [
               { index: true, element: <HomePage /> },
               { path: 'users', element: <UsersPage /> },
               { path: 'activity', element: <ActivityPage /> },
-              { path: 'messages', element: <MessagesPage /> },
+              {
+                path: 'messages',
+                element: <MessagesPage />,
+                handle: { wide: true },
+                children: [
+                  { index: true, element: <MessagesIndex /> },
+                  { path: ':username', element: <ThreadPage /> },
+                ],
+              },
               {
                 path: 'u/:username',
                 element: <ProfilePage />,

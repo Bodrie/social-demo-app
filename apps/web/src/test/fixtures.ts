@@ -2,6 +2,7 @@ import type {
   Activity,
   ActivityType,
   Comment,
+  Message,
   Post,
   UserPrivate,
   UserSummary,
@@ -13,10 +14,17 @@ const BASE_TIME = Date.UTC(2026, 9, 15, 10, 0, 0);
 let sequence = 0;
 
 /** Deterministic, valid (v7-shaped) UUIDs so failures are readable. */
-export function testId(kind: 'user' | 'post' | 'comment' | 'activity', n: number): string {
-  const prefix = { user: '01a13e00', post: '01a13f00', comment: '01a14000', activity: '01a14100' }[
-    kind
-  ];
+export function testId(
+  kind: 'user' | 'post' | 'comment' | 'activity' | 'message',
+  n: number,
+): string {
+  const prefix = {
+    user: '01a13e00',
+    post: '01a13f00',
+    comment: '01a14000',
+    activity: '01a14100',
+    message: '01a14200',
+  }[kind];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
 
@@ -103,6 +111,25 @@ export function makeActivity(type: ActivityType, overrides: Partial<Activity> = 
     comment: null,
     targetUser: null,
     createdAt: new Date(BASE_TIME - sequence * 60_000).toISOString(),
+    ...overrides,
+  };
+}
+
+/** Each call is one minute newer than the previous one, so threads read top to bottom. */
+export function makeMessage(
+  senderId: string,
+  recipientId: string,
+  content: string,
+  overrides: Partial<Message> = {},
+): Message {
+  sequence += 1;
+  return {
+    id: testId('message', sequence),
+    senderId,
+    recipientId,
+    content,
+    createdAt: new Date(BASE_TIME - 3_600_000 + sequence * 60_000).toISOString(),
+    readAt: null,
     ...overrides,
   };
 }

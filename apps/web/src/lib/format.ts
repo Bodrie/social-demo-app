@@ -27,3 +27,16 @@ export function formatDateTime(iso: string): string {
 export function displayUrl(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
+
+/** "Today", "Yesterday", then "Oct 3" / "Oct 3, 2025": separators in a message thread. */
+export function formatDayLabel(iso: string, now: number = Date.now()): string {
+  const date = dayjs(iso);
+  const today = dayjs(now).startOf('day');
+  if (date.isSame(today, 'day')) return 'Today';
+  if (date.isSame(today.subtract(1, 'day'), 'day')) return 'Yesterday';
+  return date.year() === today.year() ? date.format('MMM D') : date.format('MMM D, YYYY');
+}
+
+export function formatTime(iso: string): string {
+  return dayjs(iso).format('HH:mm');
+}

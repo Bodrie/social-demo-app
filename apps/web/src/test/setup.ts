@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { toast } from 'sonner';
 import { MockIntersectionObserver } from './intersection-observer';
+import { fakeSocket } from './socket-mock';
 import { resetMocks } from './msw/handlers';
 import { server } from './msw/server';
 
@@ -66,10 +67,14 @@ vi.stubGlobal('File', NodeFile);
 window.requestAnimationFrame ??= (callback: FrameRequestCallback) =>
   window.setTimeout(() => callback(0), 0);
 
+// The chat socket never leaves jsdom: every `io()` call returns the shared fake.
+vi.mock('socket.io-client', () => ({ io: () => fakeSocket }));
+
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   resetMocks();
+  fakeSocket.reset();
   // Sonner keeps toasts in a module-level store and replays active ones to the next Toaster.
   toast.dismiss();
   window.localStorage.clear();

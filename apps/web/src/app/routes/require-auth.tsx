@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { FullPageSpinner } from '@/components/full-page-spinner';
 import { CurrentUserContext } from '@/features/auth/current-user';
+import { ChatProvider } from '@/features/chat/chat-provider';
 import { redirectTarget } from '@/features/auth/redirect-target';
 import { useMe } from '@/features/auth/use-me';
 
@@ -16,7 +17,9 @@ export function RequireAuth() {
   }
   return (
     <CurrentUserContext value={me.user}>
-      <Outlet />
+      <ChatProvider>
+        <Outlet />
+      </ChatProvider>
     </CurrentUserContext>
   );
 }
