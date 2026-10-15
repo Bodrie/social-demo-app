@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
-import { postAuthorSchema } from './posts.js';
+import { userSummarySchema } from './users.js';
 
 /** Mirrors the database enum. */
 export const ACTIVITY_TYPES = [
@@ -22,10 +22,10 @@ const excerptSchema = z.object({ id: z.uuid(), excerpt: z.string() });
 export const activitySchema = z.object({
   id: z.uuid(),
   type: activityTypeSchema,
-  actor: postAuthorSchema,
+  actor: userSummarySchema,
   post: excerptSchema.nullable(),
   comment: excerptSchema.nullable(),
-  targetUser: postAuthorSchema.nullable(),
+  targetUser: userSummarySchema.nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Activity = z.infer<typeof activitySchema>;

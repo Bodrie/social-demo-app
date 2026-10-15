@@ -1,5 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
 import type { Env } from '../config/env.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -20,7 +21,8 @@ describe('RefreshTokensService', () => {
 
   beforeEach(() => {
     prisma = mockDeep<PrismaService>();
-    service = new RefreshTokensService(prisma, config);
+    service = new RefreshTokensService(prisma, mockDeep<EventEmitter2>(), config);
+    prisma.$transaction.mockImplementation(async (fn) => (typeof fn === 'function' ? fn(prisma) : Promise.all(fn)));
     prisma.refreshToken.create.mockResolvedValue({} as never);
     prisma.refreshToken.deleteMany.mockResolvedValue({ count: 0 });
     prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });

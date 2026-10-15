@@ -4,10 +4,9 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppSocketIoAdapter } from './chat/socket.adapter.js';
+import { API_PREFIX } from './common/constants.js';
 import type { Env } from './config/env.js';
 import { setupOpenApi } from './openapi.js';
-
-export const API_PREFIX = 'api/v1';
 
 /**
  * Everything that is configured on the application instance rather than in a
@@ -20,7 +19,7 @@ export function configureApp(app: NestExpressApplication): NestExpressApplicatio
 
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
-  app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }) ? 1 : false);
+  app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
 
   app.use(cookieParser());
   app.use(

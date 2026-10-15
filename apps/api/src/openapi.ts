@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
+import { ACCESS_COOKIE } from './auth/cookies.js';
 
 export const OPENAPI_PATH = 'api/docs';
 export const OPENAPI_JSON_PATH = `${OPENAPI_PATH}/openapi.json`;
@@ -9,12 +10,20 @@ export const OPENAPI_JSON_PATH = `${OPENAPI_PATH}/openapi.json`;
 export function setupOpenApi(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('The Mesh API')
-    .setDescription('Social network demo app – REST API')
+    .setDescription(
+      'Social network demo app – REST API. Browser clients authenticate with the httpOnly access cookie; other clients may send the same token as a Bearer header. Routes marked @Public() need no session.',
+    )
     .setVersion('1.0')
-    .addCookieAuth('access_token')
+    .addCookieAuth(ACCESS_COOKIE, { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE }, 'cookie')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearer')
+    .addSecurityRequirements('cookie')
+    .addSecurityRequirements('bearer')
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    operationIdFactory: (controllerKey, methodKey) =>
+      `${controllerKey.replace(/Controller$/, '').toLowerCase()}_${methodKey}`,
+  });
   SwaggerModule.setup(OPENAPI_PATH, app, cleanupOpenApiDoc(document), {
     jsonDocumentUrl: OPENAPI_JSON_PATH,
   });

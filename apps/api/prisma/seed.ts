@@ -7,14 +7,15 @@
  */
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { ActivityType } from '../src/generated/prisma/enums.js';
-import { placeholderAvatar, placeholderPostImage } from '../src/uploads/placeholder-avatar.js';
+import { TABLES } from '../src/prisma/tables.js';
+import { placeholderAvatar, placeholderPostImage } from './placeholders.js';
 
 const FAKER_SEED = 20261015;
 const FAKE_USER_COUNT = 20;
@@ -34,13 +35,27 @@ if (!databaseUrl) {
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
 
-/** Writes a generated file into the uploads dir and returns its storage key. */
-async function seedFile(kind: 'avatar' | 'post', data: Buffer): Promise<string> {
+/** Writes a generated file into the uploads dir, records its owner, and returns the storage key. */
+async function seedFile(kind: 'avatar' | 'post', ownerId: string, data: Buffer): Promise<string> {
   const key = `${kind}/${randomUUID()}.webp`;
   const file = path.join(uploadsDir, key);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, data);
+  await prisma.upload.create({ data: { key, ownerId, kind } });
   return key;
+}
+
+/** Usernames must satisfy the shared rule (lowercase letters, digits, underscores) and be unique. */
+function seedUsername(raw: string, taken: Set<string>): string {
+  const base = raw.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 27) || 'user';
+  let candidate = base;
+  let suffix = 1;
+  while (taken.has(candidate)) {
+    suffix += 1;
+    candidate = `${base}_${suffix}`;
+  }
+  taken.add(candidate);
+  return candidate;
 }
 
 function pick<T>(items: readonly T[], count: number): T[] {
@@ -48,9 +63,9 @@ function pick<T>(items: readonly T[], count: number): T[] {
 }
 
 async function truncateAll(): Promise<void> {
-  await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "messages", "refresh_tokens", "activities", "follows", "comments", "post_likes", "posts", "users" CASCADE',
-  );
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${TABLES.map((table) => `"${table}"`).join(', ')} CASCADE`);
+  // Generated files from previous runs are orphans once their rows are gone.
+  await Promise.all(['avatar', 'post'].map((kind) => rm(path.join(uploadsDir, kind), { recursive: true, force: true })));
 }
 
 async function seed(): Promise<void> {
@@ -60,12 +75,13 @@ async function seed(): Promise<void> {
   await truncateAll();
 
   // --- users -------------------------------------------------------------
+  const takenUsernames = new Set<string>(FIXED_USERS.map((u) => u.username));
   const fakeUsers = Array.from({ length: FAKE_USER_COUNT }, () => {
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
     return {
       email: faker.internet.email({ firstName, lastName }).toLowerCase(),
-      username: faker.internet.username({ firstName, lastName }).toLowerCase().slice(0, 30),
+      username: seedUsername(faker.internet.username({ firstName, lastName }), takenUsernames),
       name: `${firstName} ${lastName}`,
       city: faker.location.city(),
       bio: faker.helpers.maybe(() => faker.person.bio(), { probability: 0.7 }) ?? null,
@@ -84,7 +100,7 @@ async function seed(): Promise<void> {
   for (const user of users) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { avatarKey: await seedFile('avatar', await placeholderAvatar(user.username, user.id)) },
+      data: { avatarKey: await seedFile('avatar', user.id, await placeholderAvatar(user.username, user.id)) },
     });
   }
 
@@ -122,7 +138,7 @@ async function seed(): Promise<void> {
   for (const post of posts) {
     if (faker.number.int({ min: 1, max: 10 }) <= 3) {
       const image = await placeholderPostImage(faker.word.words(2), post.id);
-      await prisma.post.update({ where: { id: post.id }, data: { imageKey: await seedFile('post', image) } });
+      await prisma.post.update({ where: { id: post.id }, data: { imageKey: await seedFile('post', post.authorId, image) } });
     }
   }
   await prisma.activity.createMany({

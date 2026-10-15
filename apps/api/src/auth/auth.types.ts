@@ -1,11 +1,17 @@
 import type { Request } from 'express';
+import { z } from 'zod';
 
 /** What the auth guard attaches to the request. */
 export type AuthUser = { id: string };
 
 export type AuthenticatedRequest = Request & { user?: AuthUser };
 
-export type AccessTokenPayload = { sub: string };
+/** Claims we sign; `exp`/`iat`/`iss` are added by the JWT library. */
+export type AccessTokenClaims = { sub: string };
+
+/** What a verified token must contain before it is trusted. */
+export const accessTokenPayloadSchema = z.object({ sub: z.uuid(), exp: z.number().int().optional() });
+export type AccessTokenPayload = z.infer<typeof accessTokenPayloadSchema>;
 
 /** Client details recorded with each refresh token. */
 export type RequestMeta = { userAgent?: string; ip?: string };

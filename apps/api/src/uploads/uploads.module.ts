@@ -15,7 +15,16 @@ import { UploadsService } from './uploads.service.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({
         storage: memoryStorage(),
-        limits: { fileSize: config.get('UPLOAD_MAX_BYTES', { infer: true }), files: 1 },
+        // One file part and nothing else: text fields are not accepted on this endpoint,
+        // so a request cannot buffer unbounded form data into memory.
+        limits: {
+          fileSize: config.get('UPLOAD_MAX_BYTES', { infer: true }),
+          files: 1,
+          fields: 0,
+          parts: 1,
+          fieldSize: 1024,
+          fieldNameSize: 32,
+        },
       }),
     }),
   ],

@@ -9,7 +9,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mesh}
       POSTGRES_DB: ${POSTGRES_DB:-mesh}
     ports:
-      - '${POSTGRES_PORT:-5433}:5432'
+      # Bound to localhost: Docker-published ports bypass host firewalls.
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

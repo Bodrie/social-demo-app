@@ -20,7 +20,7 @@ const row: UserPrivateRow = {
 
 describe('users mapper', () => {
   it('builds asset URLs, ISO dates and counts for the public shape', () => {
-    const user = toUserPublic(row, 'http://assets.local/files/');
+    const user = toUserPublic(row, 'http://assets.local/files');
 
     expect(userPublicSchema.parse(user)).toEqual(user);
     expect(user.avatarUrl).toBe('http://assets.local/files/avatars/alice.webp');

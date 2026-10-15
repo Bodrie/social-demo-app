@@ -1,4 +1,10 @@
-import { emailSchema, listUsersQuerySchema, updateProfileSchema, usernameSchema } from './users.js';
+import {
+  emailSchema,
+  listUsersQuerySchema,
+  updateProfileSchema,
+  usernameSchema,
+  websiteSchema,
+} from './users.js';
 
 describe('usernameSchema', () => {
   it('normalises to lowercase and trims', () => {
@@ -30,9 +36,25 @@ describe('updateProfileSchema', () => {
     });
   });
 
-  it('rejects invalid websites', () => {
-    const result = updateProfileSchema.safeParse({ website: 'not a url' });
-    expect(result.success).toBe(false);
+  it('rejects invalid websites and dangerous schemes', () => {
+    expect(updateProfileSchema.safeParse({ website: 'not a url' }).success).toBe(false);
+    expect(websiteSchema.safeParse('javascript:alert(1)').success).toBe(false);
+    expect(websiteSchema.safeParse('data:text/html,hi').success).toBe(false);
+    expect(websiteSchema.parse(' https://example.com ')).toBe('https://example.com');
+  });
+
+  it('turns empty optional text into null', () => {
+    expect(updateProfileSchema.parse({ bio: '', city: '  ', website: '' })).toEqual({
+      bio: null,
+      city: null,
+      website: null,
+    });
+  });
+
+  it('only accepts picture keys of the matching kind', () => {
+    const avatar = 'avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp';
+    expect(updateProfileSchema.safeParse({ avatarKey: avatar }).success).toBe(true);
+    expect(updateProfileSchema.safeParse({ coverKey: avatar }).success).toBe(false);
   });
 });
 

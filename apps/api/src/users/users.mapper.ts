@@ -1,17 +1,32 @@
-import type { UserPrivate, UserPublic } from '@the-mesh/shared';
-import { assetUrl } from '../common/assets.js';
+import type { UserPrivate, UserPublic, UserSummary } from '@the-mesh/shared';
 import type { Prisma } from '../generated/prisma/client.js';
+
+/** The compact shape embedded in posts, comments, activities, messages and presence. */
+export const userSummarySelect = {
+  id: true,
+  username: true,
+  name: true,
+  avatarKey: true,
+} satisfies Prisma.UserSelect;
+
+export type UserSummaryRow = Prisma.UserGetPayload<{ select: typeof userSummarySelect }>;
+
+export function toUserSummary(row: UserSummaryRow, assetsBase: string): UserSummary {
+  return {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    avatarUrl: row.avatarKey === null ? null : `${assetsBase}/${row.avatarKey}`,
+  };
+}
 
 /** Public profile fields plus counts and the two follow flags relative to the viewer. */
 export function userPublicSelect(viewerId: string) {
   return {
-    id: true,
-    username: true,
-    name: true,
+    ...userSummarySelect,
     bio: true,
     city: true,
     website: true,
-    avatarKey: true,
     coverKey: true,
     createdAt: true,
     _count: { select: { posts: true, followers: true, following: true } },
@@ -31,14 +46,11 @@ export type UserPrivateRow = Prisma.UserGetPayload<{ select: ReturnType<typeof u
 
 export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic {
   return {
-    id: row.id,
-    username: row.username,
-    name: row.name,
+    ...toUserSummary(row, assetsBase),
     bio: row.bio,
     city: row.city,
     website: row.website,
-    avatarUrl: assetUrl(row.avatarKey, assetsBase),
-    coverUrl: assetUrl(row.coverKey, assetsBase),
+    coverUrl: row.coverKey === null ? null : `${assetsBase}/${row.coverKey}`,
     createdAt: row.createdAt.toISOString(),
     counts: {
       posts: row._count.posts,

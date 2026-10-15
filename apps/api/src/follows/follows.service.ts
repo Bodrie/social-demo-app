@@ -1,31 +1,27 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CursorQuery, Paginated, UserPublic } from '@the-mesh/shared';
-import { decodeCursor, paginateBy } from '../common/pagination.js';
-import type { Env } from '../config/env.js';
+import { AssetsService } from '../assets/assets.service.js';
+import { badRequest } from '../common/errors.js';
+import { decodeCursor, keysetAfter, paginateBy } from '../common/pagination.js';
 import { UserFollowedEvent, UserUnfollowedEvent } from '../events/user.events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { toUserPublic, userPublicSelect } from '../users/users.mapper.js';
+import { UsersService } from '../users/users.service.js';
 
 @Injectable()
 export class FollowsService {
-  private readonly assetsBase: string;
-
   constructor(
     private readonly prisma: PrismaService,
+    private readonly users: UsersService,
     private readonly events: EventEmitter2,
-    config: ConfigService<Env, true>,
-  ) {
-    this.assetsBase = config.get('PUBLIC_ASSETS_URL', { infer: true });
-  }
+    private readonly assets: AssetsService,
+  ) {}
 
   /** Idempotent; only a new follow emits an event. */
   async follow(viewerId: string, targetId: string): Promise<void> {
-    if (viewerId === targetId) {
-      throw new BadRequestException({ code: 'BAD_REQUEST', message: 'You cannot follow yourself' });
-    }
-    await this.assertUserExists(targetId);
+    if (viewerId === targetId) throw badRequest('You cannot follow yourself');
+    await this.users.assertExists(targetId);
     const result = await this.prisma.follow.createMany({
       data: { followerId: viewerId, followeeId: targetId },
       skipDuplicates: true,
@@ -36,7 +32,7 @@ export class FollowsService {
   }
 
   async unfollow(viewerId: string, targetId: string): Promise<void> {
-    await this.assertUserExists(targetId);
+    await this.users.assertExists(targetId);
     const result = await this.prisma.follow.deleteMany({
       where: { followerId: viewerId, followeeId: targetId },
     });
@@ -47,48 +43,41 @@ export class FollowsService {
 
   /** Users following `userId`, most recent follow first. */
   async followers(viewerId: string, userId: string, query: CursorQuery): Promise<Paginated<UserPublic>> {
-    await this.assertUserExists(userId);
-    const cursorId = decodeCursor(query.cursor);
+    await this.users.assertExists(userId);
+    const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.follow.findMany({
-      where: { followeeId: userId },
-      select: { followerId: true, follower: { select: userPublicSelect(viewerId) } },
+      where: {
+        AND: [{ followeeId: userId }, cursor ? keysetAfter(cursor, (id) => ({ followerId: { lt: id } })) : {}],
+      },
+      select: { followerId: true, createdAt: true, follower: { select: userPublicSelect(viewerId) } },
       orderBy: [{ createdAt: 'desc' }, { followerId: 'desc' }],
       take: query.limit + 1,
-      ...(cursorId
-        ? { cursor: { followerId_followeeId: { followerId: cursorId, followeeId: userId } }, skip: 1 }
-        : {}),
     });
     return paginateBy(
       rows,
       query.limit,
-      (row) => row.followerId,
-      (row) => toUserPublic(row.follower, this.assetsBase),
+      (row) => ({ createdAt: row.createdAt, id: row.followerId }),
+      (row) => toUserPublic(row.follower, this.assets.base),
     );
   }
 
   /** Users that `userId` follows, most recent follow first. */
   async following(viewerId: string, userId: string, query: CursorQuery): Promise<Paginated<UserPublic>> {
-    await this.assertUserExists(userId);
-    const cursorId = decodeCursor(query.cursor);
+    await this.users.assertExists(userId);
+    const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.follow.findMany({
-      where: { followerId: userId },
-      select: { followeeId: true, followee: { select: userPublicSelect(viewerId) } },
+      where: {
+        AND: [{ followerId: userId }, cursor ? keysetAfter(cursor, (id) => ({ followeeId: { lt: id } })) : {}],
+      },
+      select: { followeeId: true, createdAt: true, followee: { select: userPublicSelect(viewerId) } },
       orderBy: [{ createdAt: 'desc' }, { followeeId: 'desc' }],
       take: query.limit + 1,
-      ...(cursorId
-        ? { cursor: { followerId_followeeId: { followerId: userId, followeeId: cursorId } }, skip: 1 }
-        : {}),
     });
     return paginateBy(
       rows,
       query.limit,
-      (row) => row.followeeId,
-      (row) => toUserPublic(row.followee, this.assetsBase),
+      (row) => ({ createdAt: row.createdAt, id: row.followeeId }),
+      (row) => toUserPublic(row.followee, this.assets.base),
     );
-  }
-
-  private async assertUserExists(userId: string): Promise<void> {
-    const count = await this.prisma.user.count({ where: { id: userId } });
-    if (count === 0) throw new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
   }
 }

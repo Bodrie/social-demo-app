@@ -1,14 +1,14 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
-import type { Env } from '../config/env.js';
+import type { AssetsService } from '../assets/assets.service.js';
 import { PostLikedEvent } from '../events/post.events.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
+import type { UsersService } from '../users/users.service.js';
 import { PostsService } from './posts.service.js';
 
-const config = { get: () => 'http://assets.local' } as unknown as ConfigService<Env, true>;
+const assets = { base: 'http://assets.local' } as unknown as AssetsService;
 
 describe('PostsService', () => {
   let prisma: DeepMockProxy<PrismaService>;
@@ -20,7 +20,7 @@ describe('PostsService', () => {
     prisma = mockDeep<PrismaService>();
     uploads = mockDeep<UploadsService>();
     events = mockDeep<EventEmitter2>();
-    service = new PostsService(prisma, uploads, events, config);
+    service = new PostsService(prisma, uploads, mockDeep<UsersService>(), events, assets);
   });
 
   describe('delete', () => {

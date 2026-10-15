@@ -1,6 +1,6 @@
 import type { Response } from 'express';
-import { API_PREFIX } from '../app.setup.js';
-import { isRecord } from '../common/guards.js';
+import { API_PREFIX } from '../common/constants.js';
+import { isRecord } from '../common/type-guards.js';
 import type { IssuedTokens } from './auth.types.js';
 
 export const ACCESS_COOKIE = 'access_token';

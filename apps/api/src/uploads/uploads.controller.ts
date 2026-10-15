@@ -1,10 +1,8 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Header,
   HttpCode,
-  NotFoundException,
   Param,
   Post,
   Query,
@@ -14,9 +12,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { UploadResponse } from '@the-mesh/shared';
+import type { AuthUser } from '../auth/auth.types.js';
+import { CurrentUser } from '../auth/current-user.decorator.js';
 import { Public } from '../auth/public.decorator.js';
+import { notFound, toApiError, validationError } from '../common/errors.js';
 import { UploadPathDto, UploadQueryDto } from './uploads.dto.js';
 import { UploadsService } from './uploads.service.js';
 
@@ -25,7 +26,7 @@ import { UploadsService } from './uploads.service.js';
 export class UploadsController {
   constructor(private readonly uploads: UploadsService) {}
 
-  /** multipart/form-data with a single `file` field; `?kind=` selects the processing preset. */
+  /** multipart/form-data with a single `file` part; `?kind=` selects the processing preset. */
   @Post()
   @HttpCode(201)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
@@ -34,26 +35,30 @@ export class UploadsController {
   @ApiBody({
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] },
   })
-  upload(@Query() query: UploadQueryDto, @UploadedFile() file?: Express.Multer.File): Promise<UploadResponse> {
-    if (!file) {
-      throw new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'Validation failed',
-        fields: { file: 'A file is required' },
-      });
-    }
-    return this.uploads.upload(query.kind, file.buffer);
+  upload(
+    @CurrentUser() user: AuthUser,
+    @Query() query: UploadQueryDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<UploadResponse> {
+    if (!file) throw validationError({ file: 'A file is required' });
+    return this.uploads.upload(query.kind, file.buffer, user.id);
   }
 
-  /** Uploads are public and immutable (new content always gets a new key). */
+  /** Uploads are public and immutable (new content always gets a new key), so they are not rate limited. */
   @Public()
+  @SkipThrottle()
   @Get(':kind/:file')
   @Header('Cache-Control', 'public, max-age=31536000, immutable')
   async serve(@Param() params: UploadPathDto): Promise<StreamableFile> {
     const stream = await this.uploads.open(`${params.kind}/${params.file}`);
-    if (!stream) {
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'File not found' });
-    }
-    return new StreamableFile(stream, { type: 'image/webp', disposition: 'inline' });
+    if (!stream) throw notFound('File not found');
+    return new StreamableFile(stream, { type: 'image/webp', disposition: 'inline' }).setErrorHandler(
+      (error, response) => {
+        // The file vanished between the existence check and the read: answer with the envelope.
+        const body = toApiError(error.message.includes('ENOENT') ? notFound('File not found') : error);
+        response.statusCode = body.statusCode;
+        response.send(JSON.stringify(body));
+      },
+    );
   }
 }

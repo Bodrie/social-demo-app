@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Paginated, UserPrivate, UserPublic } from '@the-mesh/shared';
+import type { MeResponse, Paginated, UserPublic } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { IdParamDto, UsernameParamDto } from '../common/params.dto.js';
 import { ListUsersQueryDto, SuggestionsQueryDto, UpdateProfileDto } from './users.dto.js';
 import { UsersService } from './users.service.js';
 
@@ -16,28 +17,24 @@ export class UsersController {
     return this.users.list(user.id, query);
   }
 
-  @Get('me')
-  me(@CurrentUser() user: AuthUser): Promise<UserPrivate> {
-    return this.users.getPrivateById(user.id);
-  }
-
+  /** The caller's own profile is read through GET /auth/me; this is the only writer. */
   @Patch('me')
-  updateMe(@CurrentUser() user: AuthUser, @Body() body: UpdateProfileDto): Promise<UserPrivate> {
-    return this.users.updateProfile(user.id, body);
+  async updateMe(@CurrentUser() user: AuthUser, @Body() body: UpdateProfileDto): Promise<MeResponse> {
+    return { user: await this.users.updateProfile(user.id, body) };
   }
 
   @Get('suggestions')
-  suggestions(@CurrentUser() user: AuthUser, @Query() query: SuggestionsQueryDto): Promise<UserPublic[]> {
+  suggestions(@CurrentUser() user: AuthUser, @Query() query: SuggestionsQueryDto): Promise<Paginated<UserPublic>> {
     return this.users.suggestions(user.id, query.limit);
   }
 
   @Get('by-username/:username')
-  byUsername(@CurrentUser() user: AuthUser, @Param('username') username: string): Promise<UserPublic> {
-    return this.users.getPublicByUsername(user.id, username);
+  byUsername(@CurrentUser() user: AuthUser, @Param() params: UsernameParamDto): Promise<UserPublic> {
+    return this.users.getPublicByUsername(user.id, params.username);
   }
 
   @Get(':id')
-  byId(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<UserPublic> {
-    return this.users.getPublicById(user.id, id);
+  byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<UserPublic> {
+    return this.users.getPublicById(user.id, params.id);
   }
 }

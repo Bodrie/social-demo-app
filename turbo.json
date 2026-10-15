@@ -28,5 +28,6 @@
       "inputs": ["prisma/schema.prisma", "prisma.config.ts"],
       "outputs": ["src/generated/**"]
     }
-  }
+  },
+  "globalDependencies": ["packages/config/**"]
 }

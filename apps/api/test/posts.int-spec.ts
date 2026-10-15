@@ -118,9 +118,19 @@ describe('posts', () => {
       expect(second.nextCursor).toBeNull();
     });
 
-    it('lists a single author’s posts, including strangers', async () => {
+    it('lists a single author’s posts, including strangers, and 404s on unknown authors', async () => {
       const list = postListSchema.parse((await agent.get(`/api/v1/users/${stranger.id}/posts`).expect(200)).body);
       expect(list.items.map((p) => p.id)).toEqual([ids.stranger]);
+      await agent.get('/api/v1/users/00000000-0000-7000-8000-000000000000/posts').expect(404);
+    });
+
+    it('keeps paging correctly when the cursor row was deleted in between', async () => {
+      const first = postListSchema.parse((await agent.get('/api/v1/posts?limit=1').expect(200)).body);
+      expect(first.items.map((p) => p.id)).toEqual([ids.followedNew]);
+      await t.prisma.post.delete({ where: { id: ids.followedNew } });
+
+      const second = postListSchema.parse((await agent.get(`/api/v1/posts?limit=5&cursor=${first.nextCursor}`).expect(200)).body);
+      expect(second.items.map((p) => p.id)).toEqual([ids.mine, ids.followedOld]);
     });
 
     it('fetches a single post and 404s on unknown ids', async () => {

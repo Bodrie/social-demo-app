@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailSchema, nameSchema, userPrivateSchema, usernameSchema } from './users.js';
+import { emailSchema, meResponseSchema, nameSchema, usernameSchema } from './users.js';
 
 export const passwordSchema = z
   .string()
@@ -23,7 +23,5 @@ export type LoginInput = z.input<typeof loginSchema>;
 export type LoginData = z.output<typeof loginSchema>;
 
 /** Returned by register, login, refresh and GET /auth/me. Tokens travel in httpOnly cookies. */
-export const authResponseSchema = z.object({
-  user: userPrivateSchema,
-});
+export const authResponseSchema = meResponseSchema;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
