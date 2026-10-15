@@ -1,9 +1,10 @@
 import type { UserPublic } from '@the-mesh/shared';
 import dayjs from 'dayjs';
-import { CalendarIcon, LinkIcon, MapPinIcon } from 'lucide-react';
+import { CalendarIcon, LinkIcon, MapPinIcon, MessageCircleIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { FollowButton } from '@/features/users/follow-button';
 import { displayUrl } from '@/lib/format';
@@ -29,7 +30,18 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
         <div className="flex items-end justify-between gap-3">
           <UserAvatar user={user} size="xl" className="ring-card -mt-12 ring-4" />
           <div className="flex gap-2 pt-3">
-            {isMe ? <EditProfileDialog /> : <FollowButton user={user} />}
+            {isMe ? (
+              <EditProfileDialog />
+            ) : (
+              <>
+                <Button asChild variant="outline">
+                  <Link to={`/messages/${user.username}`}>
+                    <MessageCircleIcon /> Message
+                  </Link>
+                </Button>
+                <FollowButton user={user} />
+              </>
+            )}
           </div>
         </div>
 

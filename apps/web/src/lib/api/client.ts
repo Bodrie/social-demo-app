@@ -45,6 +45,11 @@ export function onSessionLost(listener: Listener): () => void {
   return () => sessionLostListeners.delete(listener);
 }
 
+/** For other transports (the chat socket) that learn about a dead session on their own. */
+export function notifySessionLost(): void {
+  for (const listener of sessionLostListeners) listener();
+}
+
 let refreshInFlight: Promise<boolean> | null = null;
 
 /**
@@ -98,7 +103,7 @@ async function send<T>(method: string, path: string, options: RequestOptions<T>,
 
   if (response.status === 401 && options.retryOnUnauthorized !== false && attempt === 0) {
     if (await refreshSession()) return send(method, path, options, attempt + 1);
-    for (const listener of sessionLostListeners) listener();
+    notifySessionLost();
   }
 
   if (!response.ok) throw new ApiClientError(await toApiError(response));

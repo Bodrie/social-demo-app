@@ -1,10 +1,12 @@
 import { ActivitiesCard } from '@/features/activities/activities-card';
+import { OnlineCard } from '@/features/chat/online-card';
 import { SuggestionsCard } from '@/features/users/suggestions-card';
 
-/** Discovery column: people to follow and what followed people are doing. Presence joins in 4f. */
+/** Discovery column: people to follow and what followed people are doing. Presence comes from the chat socket. */
 export function RightBar() {
   return (
     <aside aria-label="Sidebar" className="flex flex-col gap-4">
+      <OnlineCard />
       <SuggestionsCard />
       <ActivitiesCard />
     </aside>

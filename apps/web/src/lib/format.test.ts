@@ -1,4 +1,4 @@
-import { displayUrl, formatDateTime, formatRelativeTime } from './format';
+import { displayUrl, formatDateTime, formatDayLabel, formatRelativeTime } from './format';
 
 const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -31,5 +31,14 @@ describe('displayUrl', () => {
   it('drops the scheme and a trailing slash', () => {
     expect(displayUrl('https://example.com/')).toBe('example.com');
     expect(displayUrl('http://example.com/path/')).toBe('example.com/path');
+  });
+});
+
+describe('formatDayLabel', () => {
+  it('names today and yesterday, then falls back to dates', () => {
+    expect(formatDayLabel(ago(60_000), NOW)).toBe('Today');
+    expect(formatDayLabel(ago(24 * 3_600_000), NOW)).toBe('Yesterday');
+    expect(formatDayLabel(ago(5 * 86_400_000), NOW)).toBe('Oct 10');
+    expect(formatDayLabel('2025-01-02T10:00:00.000Z', NOW)).toBe('Jan 2, 2025');
   });
 });

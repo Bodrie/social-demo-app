@@ -468,6 +468,9 @@ importers:
       react-router:
         specifier: 'catalog:'
         version: 8.4.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      socket.io-client:
+        specifier: 'catalog:'
+        version: 4.8.4
       sonner:
         specifier: 'catalog:'
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
