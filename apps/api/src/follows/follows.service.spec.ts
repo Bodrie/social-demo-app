@@ -37,7 +37,7 @@ describe('FollowsService.follow', () => {
     await service.follow('me', 'them');
     await service.follow('me', 'them');
 
-    expect(events.emit).toHaveBeenCalledTimes(1);
-    expect(events.emit).toHaveBeenCalledWith(UserFollowedEvent.EVENT, new UserFollowedEvent('me', 'them'));
+    expect(events.emitAsync).toHaveBeenCalledTimes(1);
+    expect(events.emitAsync).toHaveBeenCalledWith(UserFollowedEvent.EVENT, new UserFollowedEvent('me', 'them'));
   });
 });

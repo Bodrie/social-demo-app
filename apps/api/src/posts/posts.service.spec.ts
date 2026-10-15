@@ -55,8 +55,8 @@ describe('PostsService', () => {
       await service.like('fan', 'post-1');
       await service.like('fan', 'post-1');
 
-      expect(events.emit).toHaveBeenCalledTimes(1);
-      expect(events.emit).toHaveBeenCalledWith(PostLikedEvent.EVENT, new PostLikedEvent('post-1', 'fan', 'owner'));
+      expect(events.emitAsync).toHaveBeenCalledTimes(1);
+      expect(events.emitAsync).toHaveBeenCalledWith(PostLikedEvent.EVENT, new PostLikedEvent('post-1', 'fan', 'owner'));
     });
   });
 });

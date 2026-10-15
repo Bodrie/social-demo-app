@@ -75,7 +75,7 @@ export class UsersService {
       : null;
 
     const row = await this.prisma.user.update({ where: { id }, data, select: userPrivateSelect(id) });
-    this.events.emit(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, Object.keys(data)));
+    await this.events.emitAsync(ProfileUpdatedEvent.EVENT, new ProfileUpdatedEvent(id, Object.keys(data)));
 
     if (previous) {
       if (patch.avatarKey !== undefined && previous.avatarKey !== patch.avatarKey) {
