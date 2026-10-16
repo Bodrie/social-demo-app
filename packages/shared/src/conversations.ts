@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { apiErrorSchema } from './errors.js';
+import { uuidSchema } from './common.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
 import { messageImageKeySchema } from './uploads.js';
 import { userSummarySchema } from './users.js';
@@ -76,7 +77,7 @@ export const conversationListSchema = paginatedSchema(conversationSchema);
 export type ConversationList = z.infer<typeof conversationListSchema>;
 
 const memberIdsSchema = z
-  .array(z.uuid())
+  .array(uuidSchema)
   .min(1, 'Pick at least one person')
   .max(GROUP_MAX_MEMBERS - 1, `At most ${GROUP_MAX_MEMBERS} members`);
 
@@ -125,10 +126,10 @@ export const SOCKET_EVENTS = {
 export const presenceUpdateSchema = z.array(userSummarySchema);
 export type PresenceUpdate = z.infer<typeof presenceUpdateSchema>;
 
-export const sendMessagePayloadSchema = sendMessageSchema.extend({ conversationId: z.uuid() });
+export const sendMessagePayloadSchema = sendMessageSchema.extend({ conversationId: uuidSchema });
 export type SendMessagePayload = z.input<typeof sendMessagePayloadSchema>;
 
-export const markReadPayloadSchema = z.object({ conversationId: z.uuid() });
+export const markReadPayloadSchema = z.object({ conversationId: uuidSchema });
 export type MarkReadPayload = z.infer<typeof markReadPayloadSchema>;
 
 export const messageAckSchema = z.discriminatedUnion('ok', [
@@ -143,7 +144,7 @@ export const markReadAckSchema = z.discriminatedUnion('ok', [
 ]);
 export type MarkReadAck = z.infer<typeof markReadAckSchema>;
 
-export const typingPayloadSchema = z.object({ conversationId: z.uuid(), typing: z.boolean() });
+export const typingPayloadSchema = z.object({ conversationId: uuidSchema, typing: z.boolean() });
 export type TypingPayload = z.infer<typeof typingPayloadSchema>;
 
 /** Ephemeral: never stored, so a client treats a stale `typing: true` as over after a few seconds. */

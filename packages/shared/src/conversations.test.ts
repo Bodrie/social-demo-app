@@ -1,6 +1,7 @@
 import {
   createGroupSchema,
   markReadAckSchema,
+  markReadPayloadSchema,
   messageAckSchema,
   sendMessagePayloadSchema,
   sendMessageSchema,
@@ -28,6 +29,17 @@ describe('sendMessageSchema', () => {
     expect(sendMessagePayloadSchema.safeParse({ content: 'hi', conversationId: ID }).success).toBe(
       true,
     );
+  });
+});
+
+describe('client-supplied ids', () => {
+  it('are lower-cased so text keys and comparisons match what the database stores', () => {
+    const upper = ID.toUpperCase();
+    expect(sendMessagePayloadSchema.parse({ content: 'hi', conversationId: upper })).toMatchObject({
+      conversationId: ID,
+    });
+    expect(markReadPayloadSchema.parse({ conversationId: upper })).toEqual({ conversationId: ID });
+    expect(createGroupSchema.parse({ title: 'Trip', memberIds: [upper] }).memberIds).toEqual([ID]);
   });
 });
 

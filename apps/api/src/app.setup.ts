@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppSocketIoAdapter } from './chat/socket.adapter.js';
 import { API_PREFIX } from './common/constants.js';
+import { originCheck } from './common/origin-check.js';
 import type { Env } from './config/env.js';
 import { setupOpenApi } from './openapi.js';
 
@@ -31,6 +32,8 @@ export function configureApp(app: NestExpressApplication): NestExpressApplicatio
     }),
   );
   const origins = config.get('WEB_ORIGINS', { infer: true });
+  // Cookie sessions: a browser page we did not serve may read nothing (CORS) and change nothing (Origin check).
+  app.use(originCheck(origins));
   app.enableCors({ origin: origins, credentials: true });
   app.useWebSocketAdapter(new AppSocketIoAdapter(app, origins));
   app.setGlobalPrefix(API_PREFIX, { exclude: ['health'] });

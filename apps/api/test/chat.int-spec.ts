@@ -39,13 +39,19 @@ async function sessionFor(
   return { agent, token: cookiesFrom(response.headers['set-cookie']).access_token ?? '' };
 }
 
-function connect(t: TestApp, options: { token?: string; cookie?: string }): Socket {
+function connect(
+  t: TestApp,
+  options: { token?: string; cookie?: string; origin?: string },
+): Socket {
   return io(t.baseUrl, {
     transports: ['websocket'],
     autoConnect: false,
     reconnection: false,
     auth: options.token ? { token: options.token } : {},
-    extraHeaders: options.cookie ? { cookie: options.cookie } : {},
+    extraHeaders: {
+      ...(options.cookie ? { cookie: options.cookie } : {}),
+      ...(options.origin ? { origin: options.origin } : {}),
+    },
   });
 }
 
@@ -175,6 +181,14 @@ describe('chat', () => {
 
       expect((await connectError(anonymous)).message).toBe('Unauthorized');
       expect((await connectError(forged)).message).toBe('Unauthorized');
+    });
+
+    it('refuses handshakes from foreign origins even with a valid session', async () => {
+      const foreign = connect(t, { token: aliceSession.token, origin: 'https://evil.example' });
+      const ours = connect(t, { token: aliceSession.token, origin: 'http://localhost:5173' });
+      sockets.push(foreign, ours);
+      await expect(connectError(foreign)).resolves.toBeInstanceOf(Error);
+      await connected(ours);
     });
 
     it('refuses expired tokens and tokens without a subject', async () => {

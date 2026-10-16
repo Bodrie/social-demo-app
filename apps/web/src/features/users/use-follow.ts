@@ -4,7 +4,7 @@ import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
 import { followUser, unfollowUser } from '@/lib/api/users';
 import { queryKeys } from '@/lib/query-keys';
-import { restoreQueries, snapshotQueries } from '@/lib/query-snapshot';
+import { restoreQueries, resumePendingQueries, snapshotQueries } from '@/lib/query-snapshot';
 import { updateUserEverywhere } from './user-cache';
 
 type ToggleFollowInput = { userId: string; following: boolean };
@@ -50,5 +50,6 @@ export function useToggleFollow() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.users.following(me.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
     },
+    onSettled: () => resumePendingQueries(queryClient, { queryKey: queryKeys.users.all }),
   });
 }

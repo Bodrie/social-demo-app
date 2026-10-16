@@ -5,7 +5,6 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 ## Security / robustness
 - **Orphaned uploads reaper** – uploads that are never attached stay on disk. A daily job deleting `uploads` rows (and files) with no reference older than 24 h; needs a scheduler (`@nestjs/schedule`). Trigger: disk usage, or before opening the app publicly.
 - **Password change and reset, email change confirmation** – out of scope by D6 (no mail provider). `POST /auth/password` (verify current, re-hash, revoke all sessions) is cheap and should come with the first mail integration.
-- **CSRF defence in depth** – today: `SameSite=Lax` cookies, no state-changing GETs, CORS allow-list. Add an `Origin`/`Sec-Fetch-Site` check on cookie-authenticated non-GET requests when the web app goes public.
 - **Socket connection churn** – presence broadcasts are per transition; a per-user connect rate limit and a debounce would harden against reconnect storms.
 - **Decode concurrency for uploads** – `UPLOAD_MAX_PIXELS` is 25 MP; add a small semaphore (or `sharp.concurrency(1)`) if memory spikes are observed.
 

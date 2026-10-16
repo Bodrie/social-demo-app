@@ -92,6 +92,17 @@ describe('conversations', () => {
       expect((await list(carolAgent)).items[0]).toMatchObject({ id: mine.id, unreadCount: 1 });
     });
 
+    it('treat an upper-case id as the same person (one thread per pair)', async () => {
+      const lower = conversationSchema.parse(
+        (await aliceAgent.put(`/api/v1/conversations/direct/${bob.id}`).expect(200)).body,
+      );
+      const upper = conversationSchema.parse(
+        (await aliceAgent.put(`/api/v1/conversations/direct/${bob.id.toUpperCase()}`).expect(200))
+          .body,
+      );
+      expect(upper.id).toBe(lower.id);
+    });
+
     it('refuse yourself, strangers and malformed ids', async () => {
       await aliceAgent.put(`/api/v1/conversations/direct/${alice.id}`).expect(400);
       await aliceAgent.put(`/api/v1/conversations/direct/${GHOST}`).expect(404);

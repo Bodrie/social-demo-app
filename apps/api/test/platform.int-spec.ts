@@ -72,6 +72,40 @@ describe('API platform', () => {
     await app.close();
   });
 
+  describe('origin check (CSRF)', () => {
+    it('refuses state-changing requests from a page we did not serve, before validation runs', async () => {
+      const response = await request(server)
+        .post('/api/v1/auth/login')
+        .set('Origin', 'https://evil.example')
+        .send({ email: 'a@b.c', password: 'x' })
+        .expect(403);
+      expect(apiErrorSchema.parse(response.body)).toMatchObject({
+        code: 'FORBIDDEN',
+        message: 'Cross-origin request refused',
+      });
+    });
+
+    it('lets the web origin, the API host and non-browser clients through', async () => {
+      // 400 = the body parser and validation ran, so the check passed.
+      await request(server)
+        .post('/api/v1/auth/login')
+        .set('Origin', 'http://localhost:5173')
+        .send({})
+        .expect(400);
+      await request(server)
+        .post('/api/v1/auth/login')
+        .set('Host', 'api.test:3000')
+        .set('Origin', 'https://api.test:3000')
+        .send({})
+        .expect(400);
+      await request(server).post('/api/v1/auth/login').send({}).expect(400);
+    });
+
+    it('never touches safe methods', async () => {
+      await request(server).get('/health').set('Origin', 'https://evil.example').expect(200);
+    });
+  });
+
   describe('validation (nestjs-zod)', () => {
     it('rejects invalid bodies with a VALIDATION_ERROR envelope and per-field messages', async () => {
       const response = await request(server)

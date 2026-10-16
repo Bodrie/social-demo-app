@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-export const uuidSchema = z.uuid();
+/**
+ * Ids coming from clients (params, bodies, socket payloads). Lower-cased so that keys built
+ * from them as text (`direct_key`) and in-memory comparisons agree with what Postgres stores.
+ */
+export const uuidSchema = z.uuid().toLowerCase();
 
 /** Optional free-text fields: trimmed, empty becomes null so there is one "unset" state. */
 export function optionalText(max: number) {

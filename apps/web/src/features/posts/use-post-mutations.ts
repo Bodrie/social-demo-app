@@ -5,6 +5,7 @@ import { updateMe } from '@/features/auth/use-me';
 import type { UpdatePostInput } from '@the-mesh/shared';
 import { createPost, deletePost, likePost, unlikePost, updatePost } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
+import { resumePendingQueries } from '@/lib/query-snapshot';
 import {
   prependPostTo,
   removePostEverywhere,
@@ -70,6 +71,7 @@ export function useToggleLike() {
       if (context) restorePostLists(queryClient, context.snapshot);
       toast.error('Could not update the like');
     },
+    onSettled: () => resumePendingQueries(queryClient, { queryKey: queryKeys.posts.lists }),
   });
 }
 

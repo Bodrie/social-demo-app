@@ -24,7 +24,7 @@ import {
 } from '@/lib/api/comments';
 import { NO_CURSOR, type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
-import { restoreQueries, snapshotQueries } from '@/lib/query-snapshot';
+import { restoreQueries, resumePendingQueries, snapshotQueries } from '@/lib/query-snapshot';
 import { withMyReaction } from './reactions';
 
 type CommentPages = Pages<Comment>;
@@ -133,5 +133,7 @@ export function useReactToComment(postId: string) {
       if (context) restoreQueries(queryClient, context.snapshot);
       toast.error('Could not save the reaction');
     },
+    onSettled: () =>
+      resumePendingQueries(queryClient, { queryKey: queryKeys.comments.ofPost(postId) }),
   });
 }
