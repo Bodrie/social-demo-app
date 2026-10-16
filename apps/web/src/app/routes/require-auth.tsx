@@ -20,8 +20,10 @@ export function RequireAuth() {
     );
   }
   if (me.user.emailVerifiedAt === null) return <Navigate to="/verify-email" replace />;
+  // Keyed by the account: when another tab signs in as someone else, everything below starts
+  // over (fresh queries, a new socket) instead of mixing two people's data.
   return (
-    <CurrentUserContext value={me.user}>
+    <CurrentUserContext key={me.user.id} value={me.user}>
       <ChatProvider>
         <Outlet />
       </ChatProvider>

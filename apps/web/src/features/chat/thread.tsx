@@ -124,6 +124,8 @@ export function Thread({ conversation }: { conversation: Conversation }) {
       });
       replaceInThread(queryClient, conversation.id, temp.id, message);
       upsertConversation(queryClient, message, { countUnread: false });
+      // The bubble shows the server's copy now. A failed one keeps the preview for "Retry".
+      if (outgoing.previewUrl) URL.revokeObjectURL(outgoing.previewUrl);
     } catch (error) {
       markFailedInThread(queryClient, conversation.id, temp.id);
       toast.error(isApiClientError(error) ? error.message : 'Could not send the message');

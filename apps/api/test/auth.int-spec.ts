@@ -259,9 +259,68 @@ describe('auth', () => {
       await phone.post('/api/v1/auth/logout-all').expect(204);
 
       await laptop.post('/api/v1/auth/refresh').expect(401);
-      expect(
-        await t.prisma.refreshToken.count({ where: { userId: user.id, revokedAt: null } }),
-      ).toBe(0);
+      expect(await t.prisma.refreshToken.count({ where: { userId: user.id } })).toBe(0);
+    });
+
+    it('after logout-all, a leftover token cannot end the session that signs in next', async () => {
+      const user = await createUser(t.prisma);
+      const phone = request.agent(t.server);
+      const laptopLogin = await request(t.server)
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: TEST_PASSWORD })
+        .expect(200);
+      const leftover = cookiesFrom(laptopLogin.headers['set-cookie']).refresh_token;
+      await login(phone, user.email);
+
+      await phone.post('/api/v1/auth/logout-all').expect(204);
+      await login(phone, user.email);
+
+      // Replayed as often as anyone likes: merely invalid, never "reuse" that revokes the rest.
+      for (let i = 0; i < 2; i += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential on purpose
+        const replay = await request(t.server)
+          .post('/api/v1/auth/refresh')
+          .set('Cookie', `refresh_token=${leftover}`)
+          .expect(401);
+        expect(apiErrorSchema.parse(replay.body).message).toBe('Invalid refresh token');
+      }
+      await phone.post('/api/v1/auth/refresh').expect(200);
+    });
+
+    // Here rather than under "password change": that app's 5-per-minute limit on the route is
+    // used up by the tests there.
+    it('a password change keeps the changing session whatever the other devices present afterwards', async () => {
+      const user = await createUser(t.prisma);
+      const laptop = request.agent(t.server);
+      await login(laptop, user.email);
+      const phoneLogin = await request(t.server)
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: TEST_PASSWORD })
+        .expect(200);
+      const phoneFirst = cookiesFrom(phoneLogin.headers['set-cookie']).refresh_token;
+      // The phone has rotated once, so it holds a live token and left a rotated one behind.
+      const rotated = await request(t.server)
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${phoneFirst}`)
+        .expect(200);
+      const phoneCurrent = cookiesFrom(rotated.headers['set-cookie']).refresh_token;
+
+      await laptop
+        .post('/api/v1/auth/password')
+        .send({ currentPassword: TEST_PASSWORD, newPassword: 'NewPassword456!' })
+        .expect(204);
+
+      // The realistic order: the phone notices first (its access token ran out), with both tokens.
+      for (const token of [phoneCurrent, phoneFirst]) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential on purpose
+        const refused = await request(t.server)
+          .post('/api/v1/auth/refresh')
+          .set('Cookie', `refresh_token=${token}`)
+          .expect(401);
+        expect(apiErrorSchema.parse(refused.body).message).toBe('Invalid refresh token');
+      }
+      await laptop.post('/api/v1/auth/refresh').expect(200);
+      await laptop.get('/api/v1/auth/me').expect(200);
     });
   });
 });

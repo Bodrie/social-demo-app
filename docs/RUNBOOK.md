@@ -189,8 +189,10 @@ systemctl list-timers mesh-*
 
 ## 4. Releases (pull-based)
 
-1. Merge to `main`: `.github/workflows/docker.yml` publishes `ghcr.io/<owner>/the-mesh-api`
-   and `the-mesh-web` tagged `latest` and `sha-<short>`. A tag `vX.Y.Z` adds `vX.Y.Z` and `vX.Y`.
+1. Merge to `main`: once every CI job (checks, integration, e2e) has passed, CI runs
+   `.github/workflows/docker.yml`, which publishes `ghcr.io/<owner>/the-mesh-api` and
+   `the-mesh-web` tagged `latest` and `sha-<short>`. A tag `vX.Y.Z` (same CI run) adds `vX.Y.Z`
+   and `vX.Y`. A red run publishes nothing, so the box keeps what it has.
 2. The box runs `update.sh` every 5 minutes: `docker compose pull && up -d`. Nothing happens
    when the tag's digest did not change.
 3. To pin a release: `TAG=v2.0.0` in `.env`, then `./update.sh`. Rollback = set the previous
@@ -200,17 +202,32 @@ systemctl list-timers mesh-*
 
 ## 5. Backups and restore
 
-`backup.sh` writes `db-<stamp>.sql.gz` (pg_dump) and `uploads-<stamp>.tar.gz` to
-`$BACKUP_DIR` (default `~/mesh-backups`) and keeps 14 days. Copy that directory off the box
-(rclone to object storage, a second disk, …). Restore drill:
+`backup.sh` writes `db-<stamp>.sql.gz` (`pg_dump --clean --if-exists`) and
+`uploads-<stamp>.tar.gz` to `$BACKUP_DIR` (default `~/mesh-backups`) and keeps 14 days. Copy
+that directory off the box (rclone to object storage, a second disk, …).
+
+A restore replaces the database as a whole. Never pipe a dump into the live database as it
+is: without dropping first, every `CREATE` fails, `psql` carries on, and each `COPY` into a
+table that still has rows aborts on the first duplicate key while the empty ones fill up, so
+the result is a mix of current and backup data that looks restored. The drill below starts
+from an empty database and stops at the first error (`ON_ERROR_STOP`, one transaction), which
+also works for dumps made before `--clean` was added:
 
 ```bash
 cd /opt/the-mesh && docker compose stop api
-gunzip -c ~/mesh-backups/db-<stamp>.sql.gz | docker compose exec -T postgres psql -U mesh -d mesh
+# An empty database (the API is stopped; --force ends any other connection, PostgreSQL 13+).
+docker compose exec -T postgres sh -c \
+  'dropdb -U "$POSTGRES_USER" --force "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
+gunzip -c ~/mesh-backups/db-<stamp>.sql.gz | docker compose exec -T postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction -q'
 docker run --rm -v the-mesh_uploads:/data -v ~/mesh-backups:/backup alpine \
   sh -c 'rm -rf /data/* && tar xzf /backup/uploads-<stamp>.tar.gz -C /data'
-docker compose start api
+docker compose start api   # applies any migration newer than the backup
 ```
+
+If `psql` stops with an error, nothing of the dump was applied: fix the cause and run the
+restore again from `dropdb`. Rehearse the drill once on the box (or on a copy of the
+volumes) before it is needed.
 
 ## 6. Day-to-day
 
@@ -226,6 +243,8 @@ docker compose start api
 | Disk | `docker system df`; `docker image prune -f` runs in update.sh |
 | Mail not arriving | `docker compose logs api | grep -i mail`; Resend → Emails for bounces; DNS records still DNS-only and verified |
 | Rotate `JWT_SECRET` | change it in `.env`, `docker compose up -d api` (every member must sign in again) |
+| Cache headers (after a web change) | `curl -sI http://127.0.0.1:8080/ \| grep -i cache-control` → `no-cache`; `curl -sI http://127.0.0.1:8080/assets/does-not-exist.js \| grep -iE 'HTTP\|content-type\|cache'` → `404`, `no-store`, never `text/html` |
+| Log size | each container keeps at most 5 × 20 MB (`logging` in `docker-compose.yml`); `docker compose logs --since 1h api` |
 
 Migrations are applied before the new API starts; if a migration fails the container
 exits and `docker compose ps` shows it restarting: fix forward (new migration) rather than

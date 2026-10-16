@@ -9,7 +9,7 @@ in `BACKLOG.md`.
 
 | Item | Why | Notes |
 |---|---|---|
-| First deployment on the box, uptime check, off-box backups, Docker log rotation | nothing has run on the real box yet; the compose file has no log size limit | runbook §1–3; add `logging: { driver: json-file, options: { max-size, max-file } }` to every service; Cloudflare health check or any monitor on `/api/v1/auth/me` (401 = healthy) |
+| First deployment on the box, uptime check, off-box backups | nothing has run on the real box yet | runbook §1–3 (Docker log rotation is in the compose file since the pre-release review); rehearse the restore drill of runbook §5 once; Cloudflare health check or any monitor on `/api/v1/auth/me` (401 = healthy) |
 | **Legal pages** (privacy notice, terms) | required once strangers can register; EU hosting | `/privacy`, `/terms`, linked from the auth pages, the register form and the app |
 | Account deletion and data export | GDPR rights; cascades already exist in the schema | `DELETE /users/me` with password confirmation; `GET /users/me/export` as JSON |
 | Spam protection on registration | email verification alone does not stop bots | Cloudflare Turnstile (free, the zone is on Cloudflare already) |

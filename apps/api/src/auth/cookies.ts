@@ -21,15 +21,24 @@ export function setAuthCookies(
   tokens: IssuedTokens,
   settings: CookieSettings,
 ): void {
-  res.cookie(ACCESS_COOKIE, tokens.accessToken, {
-    ...base(settings.secure),
-    path: '/',
-    maxAge: settings.accessMaxAgeMs,
-  });
+  setAccessCookie(res, tokens.accessToken, settings);
   res.cookie(REFRESH_COOKIE, tokens.refreshToken, {
     ...base(settings.secure),
     path: REFRESH_COOKIE_PATH,
     maxAge: settings.refreshMaxAgeMs,
+  });
+}
+
+/** A new access token for a session whose refresh token stays as it is. */
+export function setAccessCookie(
+  res: Response,
+  accessToken: string,
+  settings: CookieSettings,
+): void {
+  res.cookie(ACCESS_COOKIE, accessToken, {
+    ...base(settings.secure),
+    path: '/',
+    maxAge: settings.accessMaxAgeMs,
   });
 }
 

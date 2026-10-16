@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { emailSchema, meResponseSchema, nameSchema, usernameSchema } from './users.js';
+import {
+  emailSchema,
+  meResponseSchema,
+  nameSchema,
+  userPrivateSchema,
+  usernameSchema,
+} from './users.js';
 
 export const passwordSchema = z
   .string()
@@ -40,6 +46,14 @@ const emailTokenSchema = z.string().trim().min(1, 'The link is incomplete').max(
 
 export const verifyEmailSchema = z.object({ token: emailTokenSchema });
 export type VerifyEmailInput = z.input<typeof verifyEmailSchema>;
+
+/**
+ * The address is confirmed either way. `user` is set only when this browser already held a
+ * session of that account, which then continues verified; null means "now sign in". The link
+ * alone never signs a browser in: whoever registered the address could have planted it.
+ */
+export const verifyEmailResponseSchema = z.object({ user: userPrivateSchema.nullable() });
+export type VerifyEmailResponse = z.infer<typeof verifyEmailResponseSchema>;
 
 /** Always answered the same way, whether or not the address belongs to an account. */
 export const forgotPasswordSchema = z.object({ email: emailSchema });

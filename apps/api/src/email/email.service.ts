@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { MAILER, type Mailer } from './mailer.js';
-import { passwordResetEmail, verificationEmail } from './templates.js';
+import { passwordChangedEmail, passwordResetEmail, verificationEmail } from './templates.js';
 
 export const VERIFY_EMAIL_TTL_MS = 24 * 60 * 60 * 1000;
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
@@ -40,6 +40,14 @@ export class EmailService {
         link: this.link('/reset-password', token),
         minutes: PASSWORD_RESET_TTL_MS / 60_000,
       }),
+    });
+  }
+
+  /** Sent after every password change or reset, so one the owner did not make is noticed. */
+  sendPasswordChanged(to: Recipient): Promise<void> {
+    return this.mailer.send({
+      to: to.email,
+      ...passwordChangedEmail({ name: to.name, link: `${this.webUrl}/forgot-password` }),
     });
   }
 

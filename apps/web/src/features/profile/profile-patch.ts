@@ -3,7 +3,7 @@ import type { UpdateProfileData, UpdateProfileInput, UserPrivate } from '@the-me
 /** A new storage key, `null` to remove the current picture, `undefined` to leave it alone. */
 export type ImageChange = string | null | undefined;
 
-const TEXT_FIELDS = ['name', 'username', 'email'] as const;
+const TEXT_FIELDS = ['name', 'username'] as const;
 const OPTIONAL_FIELDS = ['bio', 'city', 'website'] as const;
 
 /** Only what actually changed goes to PATCH /users/me; null when nothing did. */

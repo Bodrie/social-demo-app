@@ -26,8 +26,7 @@ import {
 
 export type UniqueFields = { email?: string; username?: string };
 
-type ProfileField =
-  'username' | 'name' | 'email' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
+type ProfileField = 'username' | 'name' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
 
 /** Escapes LIKE wildcards so `q=%` does not match everyone. */
 export function escapeLike(value: string): string {
@@ -88,7 +87,6 @@ export class UsersService {
       select: {
         username: true,
         name: true,
-        email: true,
         bio: true,
         city: true,
         website: true,
@@ -104,7 +102,6 @@ export class UsersService {
     const changes: Array<[ProfileField, () => void]> = [
       ['username', () => (data.username = patch.username)],
       ['name', () => (data.name = patch.name)],
-      ['email', () => (data.email = patch.email)],
       ['bio', () => (data.bio = patch.bio)],
       ['city', () => (data.city = patch.city)],
       ['website', () => (data.website = patch.website)],
@@ -119,8 +116,8 @@ export class UsersService {
     }
     if (changed.length === 0) return this.getPrivateById(id);
 
-    if (data.username !== undefined || data.email !== undefined) {
-      await this.assertAvailable({ email: patch.email, username: patch.username }, id);
+    if (data.username !== undefined) {
+      await this.assertAvailable({ username: patch.username }, id);
     }
     if (typeof data.avatarKey === 'string') {
       await this.uploads.assertOwned(data.avatarKey, {

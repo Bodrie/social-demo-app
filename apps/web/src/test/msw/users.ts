@@ -42,13 +42,12 @@ export const userHandlers = [
     if (!mockDb.user) return unauthorized();
     const me = mockDb.user;
     const body = updateProfileSchema.parse(await request.json());
-    const fields: Record<string, string> = {};
-    const taken = (field: 'username' | 'email', value: string | undefined) =>
-      value !== undefined &&
-      mockDb.users.some((user) => user.id !== me.id && user[field] === value);
-    if (taken('username', body.username)) fields.username = 'This username is taken';
-    if (taken('email', body.email)) fields.email = 'This email is already registered';
-    if (Object.keys(fields).length > 0) return apiError(409, 'CONFLICT', 'Already in use', fields);
+    if (
+      body.username !== undefined &&
+      mockDb.users.some((user) => user.id !== me.id && user.username === body.username)
+    ) {
+      return apiError(409, 'CONFLICT', 'Already in use', { username: 'This username is taken' });
+    }
 
     const { avatarKey, coverKey, ...rest } = body;
     for (const [key, value] of Object.entries(rest)) {

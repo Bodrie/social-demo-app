@@ -1,17 +1,13 @@
 name: Docker images
 
-# Builds both images on every pull request (no push, catches Dockerfile breakage) and
-# publishes them to GHCR on pushes to main (`latest` + `sha-…`) and on release tags
-# (`vX.Y.Z`, `vX.Y`, `latest`). The server pulls what `TAG` in its .env points at.
+# Called by CI (ci.yml) once every check, the integration tests and the end-to-end tests
+# have passed, so nothing untested is ever published: the box pulls `latest` on a timer.
+# On pull requests both images are built only (catches Dockerfile breakage); on pushes to
+# main they are published to GHCR as `latest` + `sha-…`, on release tags as `vX.Y.Z`,
+# `vX.Y` and `latest`. The server pulls what `TAG` in its .env points at. The caller's
+# event and ref apply here, and its concurrency group covers this workflow too.
 on:
-  pull_request:
-  push:
-    branches: [main]
-    tags: ['v*']
-
-concurrency:
-  group: docker-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 permissions:
   contents: read

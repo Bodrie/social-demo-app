@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, type OnModuleDestroy } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -49,9 +49,18 @@ type ChatSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, S
 
 export const userRoom = (userId: string): string => `user:${userId}`;
 const userRooms = (userIds: readonly string[]): string[] => userIds.map(userRoom);
+/** Sockets whose user is in the presence list; a socket still being set up gets no list. */
+export const PRESENCE_ROOM = 'presence';
 
 /** Open sockets allowed per user (tabs/devices); more are refused at handshake. */
 export const MAX_SOCKETS_PER_USER = 5;
+/**
+ * Authenticated handshakes per user and minute, accepted or not: plenty for a few tabs on a
+ * flaky network, not for a connect/disconnect loop (each one costs a lookup and a broadcast).
+ */
+export const CONNECT_LIMIT = { limit: 30, windowMs: 60_000 };
+/** Presence changes within this window go out as one broadcast of the list. */
+export const PRESENCE_BROADCAST_DELAY_MS = 1000;
 const SEND_LIMIT = { limit: 60, windowMs: 60_000 };
 const READ_LIMIT = { limit: 120, windowMs: 60_000 };
 /** A composer signals at most every few seconds; anything faster is a misbehaving client. */
@@ -72,7 +81,9 @@ const tooMany = (message: string): AckFailure => ({
  * events to every member's room, so HTTP and socket sends behave alike.
  */
 @WebSocketGateway()
-export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
+{
   @WebSocketServer()
   server!: Server;
 
@@ -80,8 +91,14 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private readonly sendLimiter = new SocketRateLimiter(SEND_LIMIT.limit, SEND_LIMIT.windowMs);
   private readonly readLimiter = new SocketRateLimiter(READ_LIMIT.limit, READ_LIMIT.windowMs);
   private readonly typingLimiter = new SocketRateLimiter(TYPING_LIMIT.limit, TYPING_LIMIT.windowMs);
+  /** Never forgotten on disconnect (that would reset it for a loop); expired windows are swept. */
+  private readonly connectLimiter = new SocketRateLimiter(
+    CONNECT_LIMIT.limit,
+    CONNECT_LIMIT.windowMs,
+  );
   /** Accepted handshakes per user. Presence fills in later (after a lookup), so the cap counts here. */
   private readonly socketsByUser = new Map<string, number>();
+  private presenceTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly jwt: JwtService,
@@ -96,6 +113,11 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         const session = await authenticateSocket(socket, this.jwt).catch(() => undefined);
         if (!session) {
           next(new Error('Unauthorized'));
+          return;
+        }
+        // Same refusal as the cap below, so the client backs off and knocks again later.
+        if (!this.connectLimiter.allow(session.userId)) {
+          next(new Error('Too many connections'));
           return;
         }
         const open = this.socketsByUser.get(session.userId) ?? 0;
@@ -115,24 +137,38 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const userId = socket.data.userId;
     this.expireWithToken(socket);
 
-    const user = await this.users.summary(userId);
-    if (!user || socket.disconnected) {
-      socket.disconnect(true);
-      return;
-    }
-    await socket.join(userRoom(userId));
+    // Nest drops the promise this hook returns, so nothing may escape it: an unhandled
+    // rejection (a database hiccup during a reconnect wave) would end the process.
+    try {
+      const user = await this.users.summary(userId);
+      if (!user || socket.disconnected) {
+        socket.disconnect(true);
+        return;
+      }
+      await socket.join(userRoom(userId));
 
-    const cameOnline = this.presence.add(user, socket.id);
-    if (socket.disconnected) {
-      // Dropped while we were looking the user up: undo without ever showing them online.
-      this.presence.remove(userId, socket.id);
-      return;
-    }
-    if (cameOnline) {
-      this.broadcastPresence();
-    } else {
-      // Another tab of a user who is already online: only that tab needs the list.
-      socket.emit(SOCKET_EVENTS.presenceUpdate, this.presence.list());
+      const cameOnline = this.presence.add(user, socket.id);
+      if (socket.disconnected) {
+        // Dropped while we were looking the user up: undo without ever showing them online.
+        this.presence.remove(userId, socket.id);
+        return;
+      }
+      // Only now: a broadcast that was already scheduled must not reach a socket whose user it
+      // leaves out.
+      await socket.join(PRESENCE_ROOM);
+      if (cameOnline) {
+        // Everyone, this socket included, gets the list with the next broadcast.
+        this.broadcastPresence();
+      } else {
+        // Another tab of a user who is already online: only that tab needs the list.
+        socket.emit(SOCKET_EVENTS.presenceUpdate, this.presence.list());
+      }
+    } catch (error) {
+      this.logger.error({ err: error, userId }, 'Could not set up a socket connection');
+      // Close the transport, not the namespace: the client then reconnects on its own with
+      // back-off, as after a network drop, instead of treating it as an ended session.
+      // handleDisconnect cleans up whatever was registered.
+      socket.conn.close();
     }
   }
 
@@ -293,11 +329,25 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.server.to(userRooms(userIds)).emit(event, payload);
   }
 
+  /**
+   * Schedules one broadcast of the list as it is then: however many people come and go in
+   * the meantime (a reconnect wave after a deploy, a client in a loop), every socket gets at
+   * most one list per PRESENCE_BROADCAST_DELAY_MS.
+   */
   private broadcastPresence(): void {
-    try {
-      this.server.emit(SOCKET_EVENTS.presenceUpdate, this.presence.list());
-    } catch (error) {
-      this.logger.warn({ err: error }, 'Could not broadcast presence');
-    }
+    if (this.presenceTimer) return;
+    this.presenceTimer = setTimeout(() => {
+      this.presenceTimer = undefined;
+      try {
+        this.server.to(PRESENCE_ROOM).emit(SOCKET_EVENTS.presenceUpdate, this.presence.list());
+      } catch (error) {
+        this.logger.warn({ err: error }, 'Could not broadcast presence');
+      }
+    }, PRESENCE_BROADCAST_DELAY_MS);
+  }
+
+  onModuleDestroy(): void {
+    clearTimeout(this.presenceTimer);
+    this.presenceTimer = undefined;
   }
 }

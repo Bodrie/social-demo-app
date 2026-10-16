@@ -1,16 +1,21 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { HttpResponse, http } from 'msw/http';
+import { deferred } from '@/test/deferred';
 import { alice, bob, carol, makeMessage, summaryOf } from '@/test/fixtures';
+import { storeMessage } from '@/test/msw/conversations';
 import { seedConversation, seedDirect, seedReadMark } from '@/test/msw/db';
-import { mockDb, signedInAs } from '@/test/msw/handlers';
+import { apiError, mockDb, signedInAs } from '@/test/msw/handlers';
+import { server } from '@/test/msw/server';
 import { renderApp } from '@/test/render';
 import { fakeSocket } from '@/test/socket-mock';
-import { REFUSED_RETRY_MS } from './chat-provider';
+import { REFRESH_RETRY_BASE_MS, REFUSED_RETRY_MS } from './chat-provider';
 
 const rowsOf = () =>
   within(screen.getByRole('list', { name: 'Conversations' })).getAllByRole('listitem');
 const typingEvents = () => fakeSocket.emitted.filter((e) => e.event === SOCKET_EVENTS.typing);
+const readEvents = () => fakeSocket.emitted.filter((e) => e.event === SOCKET_EVENTS.messageRead);
 const typingFrom = (conversationId: string, userId: string, typing: boolean) =>
   act(() => fakeSocket.serverEmit(SOCKET_EVENTS.typingUpdate, { conversationId, userId, typing }));
 const membersList = (dialog: HTMLElement) =>
@@ -173,9 +178,24 @@ describe('messages', () => {
     expect(await screen.findByRole('img', { name: 'Attachment preview' })).toBeInTheDocument();
     // A picture alone is a message; the button waits for the upload to finish.
     await waitFor(() => expect(sendButton).toBeEnabled());
+    // Hold the ack: while the message is on its way the bubble shows the local preview.
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    const deliver = fakeSocket.ackHandlers[SOCKET_EVENTS.messageSend];
+    const held = deferred();
+    fakeSocket.ackHandlers[SOCKET_EVENTS.messageSend] = async (payload) => {
+      await held.promise;
+      return deliver?.(payload);
+    };
     await user.click(sendButton);
 
-    expect(await within(log).findByRole('img', { name: 'Sent by you' })).toBeInTheDocument();
+    const sending = await within(log).findByRole('img', { name: 'Sent by you' });
+    const preview = sending.getAttribute('src');
+    expect(preview).toMatch(/^blob:/);
+    expect(within(log).getByText('Sending…')).toBeInTheDocument();
+    // The composer handed the preview over instead of revoking it under the bubble.
+    expect(revoke).not.toHaveBeenCalledWith(preview);
+
+    held.resolve();
     await waitFor(() =>
       expect(mockDb.messages.at(-1)).toMatchObject({
         content: '',
@@ -183,6 +203,13 @@ describe('messages', () => {
       }),
     );
     await waitFor(() => expect(within(log).queryByText('Sending…')).not.toBeInTheDocument());
+    // Confirmed: the bubble shows the server's copy and the preview is released.
+    expect(within(log).getByRole('img', { name: 'Sent by you' })).toHaveAttribute(
+      'src',
+      expect.stringContaining('/uploads/message/'),
+    );
+    expect(revoke).toHaveBeenCalledWith(preview);
+    revoke.mockRestore();
     // Push and ack confirm the same optimistic bubble: still one picture.
     expect(within(log).getAllByRole('img', { name: 'Sent by you' })).toHaveLength(1);
     expect(screen.queryByRole('img', { name: 'Attachment preview' })).not.toBeInTheDocument();
@@ -395,6 +422,74 @@ describe('messages', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('refreshes the cookie and reconnects when a handshake is refused as Unauthorized', async () => {
+    signedInAs(alice);
+    mockDb.refreshable = true;
+    renderApp('/');
+    await screen.findByLabelText('New post');
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+
+    // The token ran out while the connection was down (a sleeping laptop, a deploy): socket.io
+    // reconnects on its own, the middleware refuses, and socket.io gives up on the socket.
+    act(() => fakeSocket.serverRefuse('Unauthorized'));
+    expect(fakeSocket.active).toBe(false);
+    await waitFor(() => expect(mockDb.calls.refresh).toBe(1));
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+  });
+
+  it('tries the refresh again when it fails outright, instead of giving up', async () => {
+    signedInAs(alice);
+    mockDb.refreshable = true;
+    renderApp('/');
+    await screen.findByLabelText('New post');
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+
+    // The API is restarting: the first refresh does not even get an answer.
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error(), { once: true }));
+    act(() => fakeSocket.serverDisconnect());
+    await waitFor(() => expect(fakeSocket.connected).toBe(true), {
+      timeout: REFRESH_RETRY_BASE_MS + 2000,
+    });
+    expect(mockDb.calls.refresh).toBe(1);
+    expect(screen.queryByRole('heading', { name: 'Sign in' })).not.toBeInTheDocument();
+  });
+
+  it('catches up after the connection dropped, keeping the bubbles that only exist here', async () => {
+    signedInAs(alice);
+    const { withBob } = seedChats();
+    renderApp(`/messages/${withBob.id}`);
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    await within(log).findByText('At noon?');
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+    await waitFor(() => expect(readEvents().length).toBe(1));
+
+    act(() => fakeSocket.transportClose());
+    // Sent while away (over HTTP) and failed: the bubble offers a retry.
+    server.use(
+      http.post('*/api/v1/conversations/:id/messages', () =>
+        apiError(500, 'INTERNAL_ERROR', 'Internal server error'),
+      ),
+    );
+    await user.type(screen.getByRole('textbox', { name: 'Message Bob Brown' }), 'Hello?{Enter}');
+    expect(await within(log).findByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    // Bob writes meanwhile; no push reaches this tab.
+    storeMessage(withBob.id, bob.id, 'Are you there?');
+
+    act(() => fakeSocket.reconnect());
+    expect(await within(log).findByText('Are you there?')).toBeInTheDocument();
+    expect(within(log).getByText('Hello?')).toBeInTheDocument();
+    expect(within(log).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    const bubbles = within(log)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
+    expect(bubbles.findIndex((text) => text?.includes('At noon?'))).toBeLessThan(
+      bubbles.findIndex((text) => text?.includes('Are you there?')),
+    );
+    // It arrived while the thread is on screen, so it is marked read.
+    await waitFor(() => expect(readEvents().length).toBe(2));
   });
 
   it('ends the session when the socket cannot be re-authenticated', async () => {

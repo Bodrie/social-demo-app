@@ -2,15 +2,14 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
-import type { UpdatePostInput } from '@the-mesh/shared';
+import type { Post, UpdatePostInput } from '@the-mesh/shared';
 import { createPost, deletePost, likePost, unlikePost, updatePost } from '@/lib/api/posts';
+import { holdQueries, resumeQueries, runningToggles } from '@/lib/optimistic';
 import { queryKeys } from '@/lib/query-keys';
-import { resumePendingQueries } from '@/lib/query-snapshot';
 import {
+  postListKeysShowing,
   prependPostTo,
   removePostEverywhere,
-  restorePostLists,
-  snapshotPostLists,
   updatePostEverywhere,
 } from './post-cache';
 
@@ -50,28 +49,42 @@ export function useDeletePost() {
 }
 
 type ToggleLikeInput = { postId: string; liked: boolean };
+const LIKE_KEY = ['posts', 'like'] as const;
 
-/** Optimistic: the count and the heart flip at once and roll back if the request fails. */
+/** The post with my like set to `liked`; unchanged if it already is, so repeating it is safe. */
+function withLike(post: Post, liked: boolean): Post {
+  if (post.likedByMe === liked) return post;
+  return { ...post, likedByMe: liked, likeCount: Math.max(0, post.likeCount + (liked ? 1 : -1)) };
+}
+
+/**
+ * Optimistic: the heart and the count flip at once. Only this post is ever touched, so other
+ * likes in flight keep theirs: a failure puts this one back and refetches the lists showing
+ * it; a success sets it again in case one of them was refetched with the old state meanwhile.
+ */
 export function useToggleLike() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: LIKE_KEY,
     mutationFn: ({ postId, liked }: ToggleLikeInput) =>
       liked ? unlikePost(postId) : likePost(postId),
     onMutate: async ({ postId, liked }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.posts.lists });
-      const snapshot = snapshotPostLists(queryClient);
-      updatePostEverywhere(queryClient, postId, (post) => ({
-        ...post,
-        likedByMe: !liked,
-        likeCount: Math.max(0, post.likeCount + (liked ? -1 : 1)),
-      }));
-      return { snapshot };
+      const interrupted = await holdQueries(queryClient, postListKeysShowing(queryClient, postId));
+      updatePostEverywhere(queryClient, postId, (post) => withLike(post, !liked));
+      return { interrupted };
     },
-    onError: (_error, _input, context) => {
-      if (context) restorePostLists(queryClient, context.snapshot);
+    onSuccess: (_result, { postId, liked }) => {
+      if (runningToggles(queryClient, LIKE_KEY, { postId }) > 1) return;
+      updatePostEverywhere(queryClient, postId, (post) => withLike(post, !liked));
+    },
+    onError: (_error, { postId, liked }) => {
+      const showing = postListKeysShowing(queryClient, postId);
+      updatePostEverywhere(queryClient, postId, (post) => withLike(post, liked));
+      for (const queryKey of showing) void queryClient.invalidateQueries({ queryKey, exact: true });
       toast.error('Could not update the like');
     },
-    onSettled: () => resumePendingQueries(queryClient, { queryKey: queryKeys.posts.lists }),
+    onSettled: (_result, _error, _input, context) =>
+      resumeQueries(queryClient, context?.interrupted ?? []),
   });
 }
 

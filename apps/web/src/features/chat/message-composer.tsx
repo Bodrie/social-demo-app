@@ -15,7 +15,7 @@ import { useTypingSignal } from './use-typing-signal';
 export type OutgoingMessage = {
   content: string;
   imageKey?: string;
-  /** Local object URL of the picture, for the optimistic bubble. */
+  /** Local object URL of the picture, for the optimistic bubble; the receiver revokes it. */
   previewUrl?: string;
 };
 
@@ -49,14 +49,19 @@ export function MessageComposer({
   const send = () => {
     if (!canSend) return;
     typing.stop();
-    onSend(
-      image.state.status === 'ready'
-        ? { content: trimmed, imageKey: image.state.upload.key, previewUrl: image.state.previewUrl }
-        : { content: trimmed },
-    );
+    if (image.state.status === 'ready') {
+      onSend({
+        content: trimmed,
+        imageKey: image.state.upload.key,
+        previewUrl: image.state.previewUrl,
+      });
+      // The thread's optimistic bubble shows the preview from here on and revokes it once the
+      // message is confirmed; revoking it now would break the bubble before it renders.
+      image.handOver();
+    } else {
+      onSend({ content: trimmed });
+    }
     setContent('');
-    // The thread keeps showing the preview through its optimistic copy; release ours.
-    image.clear();
     textareaRef.current?.focus();
   };
 

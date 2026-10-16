@@ -5,7 +5,6 @@ const me = makeUser({ bio: 'Hi', city: 'Sofia', website: null, avatarUrl: 'http:
 const unchanged = {
   name: me.name,
   username: me.username,
-  email: me.email,
   bio: 'Hi',
   city: 'Sofia',
   website: null,

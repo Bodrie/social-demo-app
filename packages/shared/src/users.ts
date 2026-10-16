@@ -83,10 +83,13 @@ export const userListSchema = paginatedSchema(userPublicSchema);
 export type UserList = z.infer<typeof userListSchema>;
 
 // --- inputs -------------------------------------------------------------
+/**
+ * No `email`: a new address has to be confirmed before it replaces the old one, and that flow
+ * does not exist yet (ADR 0011). An `email` key is dropped like any unknown key.
+ */
 export const updateProfileSchema = z.object({
   username: usernameSchema.optional(),
   name: nameSchema.optional(),
-  email: emailSchema.optional(),
   bio: bioSchema.nullable().optional(),
   city: citySchema.nullable().optional(),
   website: websiteSchema.nullable().optional(),

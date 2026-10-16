@@ -40,7 +40,10 @@ export const queryKeys = {
   conversations: {
     all: ['conversations'] as const,
     list: ['conversations', 'list'] as const,
+    details: ['conversations', 'detail'] as const,
     detail: (id: string) => ['conversations', 'detail', id] as const,
+    /** Prefix of every loaded thread. */
+    threads: ['conversations', 'messages'] as const,
     messages: (id: string) => ['conversations', 'messages', id] as const,
   },
 };

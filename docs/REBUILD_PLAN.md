@@ -586,6 +586,28 @@ See `docs/ROADMAP.md` (written 2026-10-16): go-live items, product features and 
 |---|---|---|
 | R1 | Legal pages: `/privacy` and `/terms` (`features/legal/`, one lazy chunk, `LegalLayout` with a switcher and a dated header). Operator name, contact email and repository come from build-time `VITE_OPERATOR_NAME` / `VITE_CONTACT_EMAIL` / `VITE_REPOSITORY_URL` (Dockerfile args; defaults keep the text valid without them; no contact email → the repository's issue tracker). Linked from the auth pages, a consent line on the register form, Settings → About, the account menu and a new right-bar footer. 4 web tests, axe on both pages. | ✅ 2026-10-16 |
 
+## 4.13 Pre-release review fixes (2026-10-16, on `dev`, ADR 0011)
+
+Fixes for every High and Medium item of `docs/PRE_RELEASE_REVIEW_2026-10-16.md`; the Low items stay open.
+
+| ID | Fix | Status |
+|---|---|---|
+| H1 | Ending a session (password change or reset, sign out everywhere, theft response) deletes refresh-token rows; `revokedAt` only marks rotation, so an old cookie can no longer trigger `revokeAll` | ✅ |
+| H2 | Chat socket: an `Unauthorized` refusal refreshes the cookie and reconnects; a refresh that throws is retried with back-off | ✅ |
+| H3 | After any socket gap the provider resyncs: list and details refetch, loaded threads are merged with their newest page (local bubbles kept) | ✅ |
+| H4 | `handleConnection` never rejects (logs and closes the transport); process-level `unhandledRejection` logger in `main.ts` | ✅ |
+| H5 | Caddy: `no-cache` on every SPA response, `/assets/*` immutable only when the file exists, missing assets are uncached 404s; web reloads once on a stale chunk | ✅ |
+| M1 | Email address read-only (dropped from the profile patch and dialog) until a confirm-the-new-address flow exists | ✅ |
+| M2 | `verify-email` signs in only a browser that already holds that account's session; password change/reset notice mail | ✅ |
+| M3 | Per-account mail limits (reset: 1/min, 5/h; confirmation: 5/h); reset links are not voided by newer ones, all are voided on use | ✅ |
+| M4 | Likes, follows and reactions roll back only their own item; interrupted fetches resume (`lib/optimistic.ts`) | ✅ |
+| M5 | `me` refetches when a tab becomes visible and on another tab's sign-in/out (`BroadcastChannel`); an account switch drops the cache and remounts the protected tree; the waiting room notices a confirmation made elsewhere | ✅ |
+| M6 | `pg_dump --clean --if-exists`; restore drill drops and recreates the database and stops on the first error | ✅ |
+| M7 | `docker.yml` is called by CI after checks, integration and e2e passed | ✅ |
+| M8 | json-file log rotation on every compose service | ✅ |
+| M9 | Handshakes limited per user; presence broadcasts coalesced (≤ 1/s) | ✅ |
+| M10 | The chat composer hands the picture preview to the optimistic bubble, which revokes it once confirmed | ✅ |
+
 ## 4.9 Full review pass (2026-10-16, branch `review/v2.1-full-review`)
 
 Seven review agents (web security, web state, web UI/a11y, API security, API data layer, tests, shared/ops) were started against the whole repository; the session limit cut them off before any of them wrote a report, so this pass is the lead's own, narrower read of the auth, upload, socket, cache and conversations code plus the two leads the agents had surfaced. Fixed here:

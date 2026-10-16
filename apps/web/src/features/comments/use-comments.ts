@@ -22,9 +22,16 @@ import {
   setReaction,
   updateComment,
 } from '@/lib/api/comments';
-import { NO_CURSOR, type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
+import {
+  NO_CURSOR,
+  type Pages,
+  filterItems,
+  flattenPages,
+  mapItems,
+  prependItem,
+} from '@/lib/infinite';
+import { holdQueries, resumeQueries, runningToggles } from '@/lib/optimistic';
 import { queryKeys } from '@/lib/query-keys';
-import { restoreQueries, resumePendingQueries, snapshotQueries } from '@/lib/query-snapshot';
 import { withMyReaction } from './reactions';
 
 type CommentPages = Pages<Comment>;
@@ -105,35 +112,58 @@ export function useDeleteComment(postId: string) {
 }
 
 type ReactInput = { commentId: string; current: ReactionSummary; type: ReactionType | null };
+const REACT_KEY = ['comments', 'react'] as const;
 
-/** Optimistic: counts, total and "mine" flip at once; the server summary replaces them. */
+/** Every cached sort order of the post's comments that shows the comment, or has nothing yet. */
+function commentListKeysShowing(
+  queryClient: ReturnType<typeof useQueryClient>,
+  postId: string,
+  commentId: string,
+) {
+  return queryClient
+    .getQueriesData<CommentPages>({ queryKey: queryKeys.comments.ofPost(postId) })
+    .filter(([, data]) => !data || flattenPages(data).some((comment) => comment.id === commentId))
+    .map(([queryKey]) => queryKey);
+}
+
+/**
+ * Optimistic: counts, total and "mine" flip at once and the server summary replaces them.
+ * Only this comment is touched, so reactions to other comments in flight keep theirs.
+ */
 export function useReactToComment(postId: string) {
   const queryClient = useQueryClient();
+  const setMine = (commentId: string, type: ReactionType | null) =>
+    updateCommentEverywhere(queryClient, postId, commentId, (comment) => ({
+      ...comment,
+      reactions: withMyReaction(comment.reactions, type),
+    }));
   return useMutation({
+    mutationKey: REACT_KEY,
     mutationFn: ({ commentId, type }: ReactInput) =>
       type ? setReaction(commentId, type) : clearReaction(commentId),
-    onMutate: async ({ commentId, current, type }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.comments.ofPost(postId) });
-      const snapshot = snapshotQueries(queryClient, {
-        queryKey: queryKeys.comments.ofPost(postId),
-      });
-      updateCommentEverywhere(queryClient, postId, commentId, (comment) => ({
-        ...comment,
-        reactions: withMyReaction(current, type),
-      }));
-      return { snapshot };
+    onMutate: async ({ commentId, type }) => {
+      const interrupted = await holdQueries(
+        queryClient,
+        commentListKeysShowing(queryClient, postId, commentId),
+      );
+      setMine(commentId, type);
+      return { interrupted };
     },
     onSuccess: (summary, { commentId }) => {
+      // A newer reaction to the same comment is still on its way: its answer is the final one.
+      if (runningToggles(queryClient, REACT_KEY, { commentId }) > 1) return;
       updateCommentEverywhere(queryClient, postId, commentId, (comment) => ({
         ...comment,
         reactions: summary,
       }));
     },
-    onError: (_error, _input, context) => {
-      if (context) restoreQueries(queryClient, context.snapshot);
+    onError: (_error, { commentId, current }) => {
+      const showing = commentListKeysShowing(queryClient, postId, commentId);
+      setMine(commentId, current.mine);
+      for (const queryKey of showing) void queryClient.invalidateQueries({ queryKey, exact: true });
       toast.error('Could not save the reaction');
     },
-    onSettled: () =>
-      resumePendingQueries(queryClient, { queryKey: queryKeys.comments.ofPost(postId) }),
+    onSettled: (_result, _error, _input, context) =>
+      resumeQueries(queryClient, context?.interrupted ?? []),
   });
 }

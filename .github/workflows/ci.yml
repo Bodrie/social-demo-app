@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 concurrency:
@@ -157,3 +158,13 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  # Every push to main is deployed (the box follows `latest`), so images are published only
+  # after everything above passed. Pull requests build them without pushing.
+  images:
+    name: Docker images
+    needs: [checks, integration, e2e]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml

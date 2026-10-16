@@ -28,12 +28,24 @@
 		}
 	}
 
-	# The single-page app: hashed assets forever, index.html never.
+	# Hashed build assets: cached forever. One that does not exist (a chunk of an older build
+	# after a deploy) is a plain 404 that nobody caches, never index.html.
+	handle /assets/* {
+		root * /srv/www
+		@found file
+		@missing not file
+		header @found Cache-Control "public, max-age=31536000, immutable"
+		header @missing Cache-Control "no-store"
+		header X-Content-Type-Options nosniff
+		file_server
+	}
+
+	# The single-page app: every other path is a file from the build or index.html, and both
+	# are revalidated on every load, so a deploy is picked up at once. Matched on the request,
+	# not on the file served: `header /index.html` would never see a navigation to `/u/alice`.
 	handle {
 		root * /srv/www
-		@assets path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
-		header /index.html Cache-Control "no-cache"
+		header Cache-Control "no-cache"
 		header X-Content-Type-Options nosniff
 		header Referrer-Policy strict-origin-when-cross-origin
 		try_files {path} /index.html
