@@ -576,6 +576,16 @@ After using v2.0 the owner asked for the items below. One PR per slice, same flo
 |---|---|---|
 | 9 | Email verification (hard gate) and password reset. API: `EmailModule` (`MAILER` token: `SmtpMailer` over nodemailer + `SMTP_URL`, `OutboxMailer` writing JSON files for dev/tests), `EmailService` + plain templates, `email_tokens` (hashed, single-use, kinds `verify_email` 24 h / `password_reset` 1 h) via `EmailTokensService`, `users.email_verified_at` (migration backfills existing accounts), `ev` claim in the access token, `AuthGuard` 403 for unverified sessions except `@AllowUnverified()` routes, socket handshake refuses them; routes `POST /auth/verify-email` (signs in), `POST /auth/verify-email/resend` (3/h), `POST /auth/forgot-password` (always 204, credential throttlers, mail not awaited), `POST /auth/reset-password` (signs in, verifies, revokes every session); production requires `smtp` + `SMTP_URL` + `EMAIL_FROM` + `WEB_URL`. Web: `/verify-email` waiting room + link consumer, `/forgot-password`, `/reset-password` (new password twice), "Forgot your password?" on sign-in, guards hold unverified sessions on the waiting room. Tests: 7 integration (`auth-email.int-spec.ts`), guard/env units, 12 web tests, Playwright register → outbox link → in, forgot → reset → in; axe on the three pages. Runbook §2.6: Resend + DNS for `social.bodrie.dev`. | ✅ 2026-10-16 |
 
+## 4.11 What comes next
+
+See `docs/ROADMAP.md` (written 2026-10-16): go-live items, product features and polish, with the agreed order for the next slices.
+
+## 4.12 Roadmap slices (directly on `dev`, one commit each)
+
+| # | Content | Status |
+|---|---|---|
+| R1 | Legal pages: `/privacy` and `/terms` (`features/legal/`, one lazy chunk, `LegalLayout` with a switcher and a dated header). Operator name, contact email and repository come from build-time `VITE_OPERATOR_NAME` / `VITE_CONTACT_EMAIL` / `VITE_REPOSITORY_URL` (Dockerfile args; defaults keep the text valid without them; no contact email → the repository's issue tracker). Linked from the auth pages, a consent line on the register form, Settings → About, the account menu and a new right-bar footer. 4 web tests, axe on both pages. | ✅ 2026-10-16 |
+
 ## 4.9 Full review pass (2026-10-16, branch `review/v2.1-full-review`)
 
 Seven review agents (web security, web state, web UI/a11y, API security, API data layer, tests, shared/ops) were started against the whole repository; the session limit cut them off before any of them wrote a report, so this pass is the lead's own, narrower read of the auth, upload, socket, cache and conversations code plus the two leads the agents had surfaced. Fixed here:

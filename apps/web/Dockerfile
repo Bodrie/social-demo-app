@@ -10,7 +10,12 @@ FROM ${NODE_IMAGE} AS build
 ARG PNPM_VERSION
 # Empty = same origin (Caddy proxies the API). Set only when the API lives elsewhere.
 ARG VITE_API_URL=
-ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true VITE_API_URL=${VITE_API_URL}
+ARG VITE_OPERATOR_NAME=
+ARG VITE_CONTACT_EMAIL=
+ARG VITE_REPOSITORY_URL=
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true VITE_API_URL=${VITE_API_URL} \
+    VITE_OPERATOR_NAME=${VITE_OPERATOR_NAME} VITE_CONTACT_EMAIL=${VITE_CONTACT_EMAIL} \
+    VITE_REPOSITORY_URL=${VITE_REPOSITORY_URL}
 RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./

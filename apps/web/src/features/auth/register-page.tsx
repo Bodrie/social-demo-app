@@ -125,6 +125,17 @@ export function RegisterPage() {
               </FormItem>
             )}
           />
+          <p className="text-muted-foreground text-xs/5">
+            By creating an account you agree to the{' '}
+            <Link to="/terms" className="text-foreground underline underline-offset-4">
+              Terms of use
+            </Link>{' '}
+            and acknowledge the{' '}
+            <Link to="/privacy" className="text-foreground underline underline-offset-4">
+              Privacy notice
+            </Link>
+            .
+          </p>
           <Button type="submit" size="lg" className="h-11 w-full" disabled={register.isPending}>
             {register.isPending ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />

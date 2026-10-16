@@ -10,6 +10,7 @@ import { RouteError } from './routes/route-error';
 
 type ProfileRoutes = typeof import('@/features/profile/routes');
 type ChatRoutes = typeof import('@/features/chat/routes');
+type LegalRoutes = typeof import('@/features/legal/routes');
 
 /** Picks one component out of a feature's route module; the module itself is one shared chunk. */
 const profile = (name: keyof ProfileRoutes) => async () => ({
@@ -17,6 +18,9 @@ const profile = (name: keyof ProfileRoutes) => async () => ({
 });
 const chat = (name: keyof ChatRoutes) => async () => ({
   Component: (await import('@/features/chat/routes'))[name],
+});
+const legal = (name: keyof LegalRoutes) => async () => ({
+  Component: (await import('@/features/legal/routes'))[name],
 });
 
 /**
@@ -98,6 +102,8 @@ export const routes: RouteObject[] = [
       },
       // Open to everyone: the mailed links are followed signed in or not.
       { path: 'verify-email', element: <VerifyEmailPage /> },
+      { path: 'privacy', lazy: legal('PrivacyPage') },
+      { path: 'terms', lazy: legal('TermsPage') },
       {
         path: 'reset-password',
         lazy: async () => ({

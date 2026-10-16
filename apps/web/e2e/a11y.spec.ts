@@ -31,6 +31,12 @@ test.describe('accessibility (signed out)', () => {
     await page.goto('/reset-password?token=axe');
     await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
     await audit(page, '/reset-password');
+    await page.goto('/privacy');
+    await expect(page.getByRole('heading', { level: 1, name: 'Privacy notice' })).toBeVisible();
+    await audit(page, '/privacy');
+    await page.goto('/terms');
+    await expect(page.getByRole('heading', { level: 1, name: 'Terms of use' })).toBeVisible();
+    await audit(page, '/terms');
   });
 
   test('the waiting room for an unconfirmed address', async ({ page }) => {
