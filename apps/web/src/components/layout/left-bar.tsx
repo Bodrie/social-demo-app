@@ -1,7 +1,7 @@
 import { cn } from 'cn';
 import { NavLink } from 'react-router';
 import { Badge } from '@/components/ui/badge';
-import { useUnreadCount } from '@/features/chat/use-messages';
+import { useUnreadCount } from '@/features/chat/use-conversations';
 import { NAV_LINKS } from './nav-links';
 
 type LeftBarProps = { className?: string; onNavigate?: () => void };

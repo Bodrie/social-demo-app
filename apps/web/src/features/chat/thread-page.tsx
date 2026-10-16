@@ -1,20 +1,25 @@
-import { UserXIcon } from 'lucide-react';
+import { MessageSquareOffIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { EmptyState, ErrorState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProfile } from '@/features/users/use-users';
+import { useCurrentUser } from '@/features/auth/current-user';
 import { isApiClientError } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/use-page-title';
+import { conversationName } from './conversation-display';
 import { Thread } from './thread';
+import { useConversation } from './use-conversations';
 
-/** Resolves the username in the address to a person, then shows the thread. */
+/** Loads the conversation in the address, then shows the thread. */
 export function ThreadPage() {
-  const { username = '' } = useParams();
-  const profile = useProfile(username);
-  usePageTitle(profile.data ? `${profile.data.name} · Messages` : 'Messages');
+  const { conversationId = '' } = useParams();
+  const me = useCurrentUser();
+  const conversation = useConversation(conversationId);
+  usePageTitle(
+    conversation.data ? `${conversationName(conversation.data, me.id)} · Messages` : 'Messages',
+  );
 
-  if (profile.isPending) {
+  if (conversation.isPending) {
     return (
       <div className="space-y-3 p-4" aria-hidden="true">
         <Skeleton className="h-10 w-48" />
@@ -23,13 +28,14 @@ export function ThreadPage() {
       </div>
     );
   }
-  if (profile.isError) {
-    if (isApiClientError(profile.error) && profile.error.status === 404) {
+  if (conversation.isError) {
+    const status = isApiClientError(conversation.error) ? conversation.error.status : 0;
+    if (status === 404 || status === 400) {
       return (
         <EmptyState
-          icon={UserXIcon}
-          title="This person doesn't exist"
-          description={`There is nobody called @${username}.`}
+          icon={MessageSquareOffIcon}
+          title="This conversation doesn't exist"
+          description="It may have been deleted, or you are no longer part of it."
           className="m-4"
           action={
             <Button asChild variant="outline">
@@ -43,11 +49,9 @@ export function ThreadPage() {
       <ErrorState
         className="m-4"
         message="Could not open this conversation."
-        onRetry={() => void profile.refetch()}
+        onRetry={() => void conversation.refetch()}
       />
     );
   }
-
-  const { id, name, avatarUrl } = profile.data;
-  return <Thread peer={{ id, username: profile.data.username, name, avatarUrl }} />;
+  return <Thread conversation={conversation.data} />;
 }

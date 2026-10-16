@@ -13,5 +13,6 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0006](0006-hosting-cloudflare-tunnel-pull-deploy.md) | Self-hosted box behind Cloudflare Tunnel, pull-based releases | Accepted |
 | [0007](0007-typescript-6-then-7.md) | TypeScript 6 now, 7 when tooling allows | Accepted |
 | [0008](0008-linting-oxlint-prettier.md) | oxlint (type-aware) + Prettier | Accepted |
+| [0009](0009-conversations-and-read-marks.md) | Conversations as records, read state per member | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.

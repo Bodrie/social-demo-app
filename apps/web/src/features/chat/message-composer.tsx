@@ -20,13 +20,19 @@ export type OutgoingMessage = {
 };
 
 type MessageComposerProps = {
-  peerName: string;
+  /** Who or what the message goes to, for the field's accessible name. */
+  recipientName: string;
   disabled?: boolean;
   onSend: (message: OutgoingMessage) => void;
   onTyping?: (typing: boolean) => void;
 };
 
-export function MessageComposer({ peerName, disabled, onSend, onTyping }: MessageComposerProps) {
+export function MessageComposer({
+  recipientName,
+  disabled,
+  onSend,
+  onTyping,
+}: MessageComposerProps) {
   const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -130,7 +136,7 @@ export function MessageComposer({ peerName, disabled, onSend, onTyping }: Messag
         <EmojiPickerButton onPick={insertEmoji} />
         <Textarea
           ref={textareaRef}
-          aria-label={`Message ${peerName}`}
+          aria-label={`Message ${recipientName}`}
           placeholder="Write a message…"
           rows={1}
           value={content}

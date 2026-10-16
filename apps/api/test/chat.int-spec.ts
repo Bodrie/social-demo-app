@@ -3,7 +3,9 @@ import {
   apiErrorSchema,
   conversationListSchema,
   conversationReadPayloadSchema,
+  conversationSchema,
   markReadAckSchema,
+  markReadResultSchema,
   messageAckSchema,
   messageListSchema,
   messageSchema,
@@ -78,6 +80,15 @@ async function collectUntil<T>(
   return received;
 }
 
+/** Polls until `predicate` holds or `timeoutMs` passed (the assertion afterwards tells which). */
+async function until(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate() && Date.now() < deadline) {
+    // oxlint-disable-next-line no-await-in-loop -- polling on purpose
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
 function connected(socket: Socket): Promise<void> {
   return new Promise((resolve, reject) => {
     socket.once('connect', () => resolve());
@@ -110,6 +121,16 @@ async function uploadPicture(agent: TestAgent, kind: string) {
     .attach('file', await png(), 'pic.png')
     .expect(201);
   return uploadResponseSchema.parse(response.body);
+}
+
+/** The direct conversation between the agent's user and `userId` (idempotent). */
+async function directWith(agent: TestAgent, userId: string) {
+  const response = await agent.put(`/api/v1/conversations/direct/${userId}`).expect(200);
+  return conversationSchema.parse(response.body);
+}
+
+async function listFor(agent: TestAgent) {
+  return conversationListSchema.parse((await agent.get('/api/v1/conversations').expect(200)).body);
 }
 
 const presenceIds = (payload: unknown): string[] =>
@@ -236,7 +257,7 @@ describe('chat', () => {
     expect(presenceIds(await afterAliceLeft)).toEqual([bob.id]);
   });
 
-  it('delivers persisted messages to both parties only, with history, conversations and read receipts', async () => {
+  it('delivers persisted messages to every member only, with history, the list and read receipts', async () => {
     const aliceSocket = connect(t, { token: aliceSession.token });
     const aliceTab2 = connect(t, { token: aliceSession.token });
     const bobSocket = connect(t, { token: bobSession.token });
@@ -248,6 +269,17 @@ describe('chat', () => {
       connected(bobSocket),
       connected(carolSocket),
     ]);
+
+    const direct = await directWith(aliceSession.agent, bob.id);
+    expect(direct).toMatchObject({
+      kind: 'direct',
+      title: null,
+      lastMessage: null,
+      unreadCount: 0,
+    });
+    expect(direct.members.map((m) => m.user.id).toSorted()).toEqual([alice.id, bob.id].toSorted());
+    // Nothing said yet: the thread is not listed.
+    expect((await listFor(bobSession.agent)).items).toEqual([]);
 
     const bobReceives = waitFor<unknown>(bobSocket, SOCKET_EVENTS.messageNew);
     const aliceTabReceives = waitFor<unknown>(aliceTab2, SOCKET_EVENTS.messageNew);
@@ -258,17 +290,16 @@ describe('chat', () => {
     );
     const ack = messageAckSchema.parse(
       await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
-        recipientId: bob.id,
+        conversationId: direct.id,
         content: '  hello bob  ',
       }),
     );
     expect(ack.ok).toBe(true);
     if (!ack.ok) return;
     expect(ack.message).toMatchObject({
+      conversationId: direct.id,
       senderId: alice.id,
-      recipientId: bob.id,
       content: 'hello bob',
-      readAt: null,
     });
     expect(messageSchema.parse(await bobReceives).id).toBe(ack.message.id);
     expect(messageSchema.parse(await aliceTabReceives).id).toBe(ack.message.id);
@@ -279,7 +310,7 @@ describe('chat', () => {
     const viaHttp = messageSchema.parse(
       (
         await aliceSession.agent
-          .post(`/api/v1/messages/${bob.id}`)
+          .post(`/api/v1/conversations/${direct.id}/messages`)
           .send({ content: 'and via http' })
           .expect(201)
       ).body,
@@ -287,24 +318,23 @@ describe('chat', () => {
     expect(messageSchema.parse(await bobReceivesHttp).id).toBe(viaHttp.id);
 
     const history = messageListSchema.parse(
-      (await bobSession.agent.get(`/api/v1/messages/${alice.id}`).expect(200)).body,
+      (await bobSession.agent.get(`/api/v1/conversations/${direct.id}/messages`).expect(200)).body,
     );
     expect(history.items.map((m) => m.content)).toEqual(['and via http', 'hello bob']);
 
-    const bobConversations = conversationListSchema.parse(
-      (await bobSession.agent.get('/api/v1/messages').expect(200)).body,
-    );
-    expect(bobConversations.items).toHaveLength(1);
-    expect(bobConversations.items[0]).toMatchObject({
-      peer: { id: alice.id },
+    const bobList = await listFor(bobSession.agent);
+    expect(bobList.items).toHaveLength(1);
+    expect(bobList.items[0]).toMatchObject({
+      id: direct.id,
       lastMessage: { id: viaHttp.id },
       unreadCount: 2,
     });
-
-    // The sender cannot mark their own messages read for the recipient.
-    expect(
-      (await aliceSession.agent.post(`/api/v1/messages/${bob.id}/read`).expect(200)).body,
-    ).toEqual({ count: 0 });
+    // Writing counts as reading: the sender has nothing unread and a read call changes nothing.
+    expect((await listFor(aliceSession.agent)).items[0]?.unreadCount).toBe(0);
+    const aliceRead = markReadResultSchema.parse(
+      (await aliceSession.agent.post(`/api/v1/conversations/${direct.id}/read`).expect(200)).body,
+    );
+    expect(aliceRead.readAt).toBe(viaHttp.createdAt);
 
     const aliceNotified = waitFor<unknown>(aliceSocket, SOCKET_EVENTS.conversationRead);
     const carolSawRead = collectUntil<unknown>(
@@ -313,27 +343,33 @@ describe('chat', () => {
       aliceNotified,
     );
     const readAck = markReadAckSchema.parse(
-      await bobSocket.emitWithAck(SOCKET_EVENTS.messageRead, { userId: alice.id }),
+      await bobSocket.emitWithAck(SOCKET_EVENTS.messageRead, { conversationId: direct.id }),
     );
-    expect(readAck).toEqual({ ok: true, count: 2 });
-    expect(conversationReadPayloadSchema.parse(await aliceNotified).userId).toBe(bob.id);
+    expect(readAck.ok).toBe(true);
+    expect(conversationReadPayloadSchema.parse(await aliceNotified)).toMatchObject({
+      conversationId: direct.id,
+      userId: bob.id,
+    });
     expect(await carolSawRead).toEqual([]);
 
-    const aliceConversations = conversationListSchema.parse(
-      (await aliceSession.agent.get('/api/v1/messages').expect(200)).body,
+    const bobAsSeenByAlice = (await listFor(aliceSession.agent)).items[0]?.members.find(
+      (member) => member.user.id === bob.id,
     );
-    expect(aliceConversations.items[0]).toMatchObject({ peer: { id: bob.id }, unreadCount: 0 });
-    expect(aliceConversations.items[0]?.lastMessage.readAt).not.toBeNull();
+    expect(bobAsSeenByAlice?.lastReadAt).not.toBeNull();
+    expect(bobAsSeenByAlice?.lastReadAt ?? '').toBe(readAck.ok ? readAck.readAt : '');
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(0);
   });
 
   it('validates socket payloads and reports errors in the ack', async () => {
     const aliceSocket = connect(t, { token: aliceSession.token });
-    sockets.push(aliceSocket);
-    await connected(aliceSocket);
+    const carolSocket = connect(t, { token: carolSession.token });
+    sockets.push(aliceSocket, carolSocket);
+    await Promise.all([connected(aliceSocket), connected(carolSocket)]);
+    const direct = await directWith(aliceSession.agent, bob.id);
 
     const empty = messageAckSchema.parse(
       await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
-        recipientId: bob.id,
+        conversationId: direct.id,
         content: '  ',
       }),
     );
@@ -342,28 +378,33 @@ describe('chat', () => {
       error: { code: 'VALIDATION_ERROR', fields: { content: expect.any(String) } },
     });
 
-    const self = messageAckSchema.parse(
-      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
-        recipientId: alice.id,
-        content: 'me',
-      }),
-    );
-    expect(self).toMatchObject({ ok: false, error: { code: 'BAD_REQUEST' } });
-
     const ghost = messageAckSchema.parse(
       await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
-        recipientId: '00000000-0000-7000-8000-000000000000',
+        conversationId: '00000000-0000-7000-8000-000000000000',
         content: 'hi',
       }),
     );
     expect(ghost).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
 
+    // Not a member: the conversation does not exist as far as Carol is concerned.
+    const outsider = messageAckSchema.parse(
+      await carolSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
+        conversationId: direct.id,
+        content: 'let me in',
+      }),
+    );
+    expect(outsider).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+    const outsiderRead = markReadAckSchema.parse(
+      await carolSocket.emitWithAck(SOCKET_EVENTS.messageRead, { conversationId: direct.id }),
+    );
+    expect(outsiderRead).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+
     const badRead = markReadAckSchema.parse(
-      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageRead, { userId: 'nope' }),
+      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageRead, { conversationId: 'nope' }),
     );
     expect(badRead).toMatchObject({
       ok: false,
-      error: { code: 'VALIDATION_ERROR', fields: { userId: expect.any(String) } },
+      error: { code: 'VALIDATION_ERROR', fields: { conversationId: expect.any(String) } },
     });
   });
 
@@ -372,6 +413,7 @@ describe('chat', () => {
     const bobSocket = connect(t, { token: bobSession.token });
     sockets.push(aliceSocket, bobSocket);
     await Promise.all([connected(aliceSocket), connected(bobSocket)]);
+    const direct = await directWith(aliceSession.agent, bob.id);
 
     const picture = await uploadPicture(aliceSession.agent, 'message');
     expect(picture.key).toMatch(/^message\//);
@@ -380,7 +422,7 @@ describe('chat', () => {
     const bobReceives = waitFor<unknown>(bobSocket, SOCKET_EVENTS.messageNew);
     const ack = messageAckSchema.parse(
       await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
-        recipientId: bob.id,
+        conversationId: direct.id,
         imageKey: picture.key,
       }),
     );
@@ -389,32 +431,29 @@ describe('chat', () => {
     expect(ack.message).toMatchObject({ content: '', imageUrl: picture.url });
     expect(messageSchema.parse(await bobReceives).imageUrl).toBe(picture.url);
 
-    // Text and picture together over HTTP; the picture shows up in history and conversations.
+    // Text and picture together over HTTP; the picture shows up in history and the list.
     const both = await uploadPicture(aliceSession.agent, 'message');
     const viaHttp = messageSchema.parse(
       (
         await aliceSession.agent
-          .post(`/api/v1/messages/${bob.id}`)
+          .post(`/api/v1/conversations/${direct.id}/messages`)
           .send({ content: ' look ', imageKey: both.key })
           .expect(201)
       ).body,
     );
     expect(viaHttp).toMatchObject({ content: 'look', imageUrl: both.url });
     const history = messageListSchema.parse(
-      (await bobSession.agent.get(`/api/v1/messages/${alice.id}`).expect(200)).body,
+      (await bobSession.agent.get(`/api/v1/conversations/${direct.id}/messages`).expect(200)).body,
     );
     expect(history.items[0]).toMatchObject({ id: viaHttp.id, imageUrl: both.url });
-    const conversations = conversationListSchema.parse(
-      (await bobSession.agent.get('/api/v1/messages').expect(200)).body,
-    );
-    expect(conversations.items[0]?.lastMessage).toMatchObject({
+    expect((await listFor(bobSession.agent)).items[0]?.lastMessage).toMatchObject({
       id: viaHttp.id,
       imageUrl: both.url,
     });
 
     // Neither text nor picture.
     const nothing = messageAckSchema.parse(
-      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, { recipientId: bob.id }),
+      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, { conversationId: direct.id }),
     );
     expect(nothing).toMatchObject({
       ok: false,
@@ -424,19 +463,19 @@ describe('chat', () => {
     // Uploads of another kind, and other people's uploads, are refused on the key.
     const postPicture = await uploadPicture(aliceSession.agent, 'post');
     const wrongKind = await aliceSession.agent
-      .post(`/api/v1/messages/${bob.id}`)
+      .post(`/api/v1/conversations/${direct.id}/messages`)
       .send({ imageKey: postPicture.key })
       .expect(400);
     expect(apiErrorSchema.parse(wrongKind.body).fields).toHaveProperty('imageKey');
     const bobsPicture = await uploadPicture(bobSession.agent, 'message');
     const notMine = await aliceSession.agent
-      .post(`/api/v1/messages/${bob.id}`)
+      .post(`/api/v1/conversations/${direct.id}/messages`)
       .send({ imageKey: bobsPicture.key })
       .expect(400);
     expect(apiErrorSchema.parse(notMine.body).fields).toEqual({ imageKey: 'Unknown upload' });
   });
 
-  it('relays typing to the recipient only and drops bad or self-addressed signals', async () => {
+  it('relays typing to the other members only and drops bad or foreign signals', async () => {
     const aliceSocket = connect(t, { token: aliceSession.token });
     const aliceTab2 = connect(t, { token: aliceSession.token });
     const bobSocket = connect(t, { token: bobSession.token });
@@ -448,6 +487,7 @@ describe('chat', () => {
       connected(bobSocket),
       connected(carolSocket),
     ]);
+    const direct = await directWith(aliceSession.agent, bob.id);
 
     const bobStopped = waitFor<unknown>(
       bobSocket,
@@ -458,32 +498,33 @@ describe('chat', () => {
     const carolSaw = collectUntil<unknown>(carolSocket, SOCKET_EVENTS.typingUpdate, bobStopped);
     const aliceSaw = collectUntil<unknown>(aliceTab2, SOCKET_EVENTS.typingUpdate, bobStopped);
 
-    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: bob.id, typing: true });
-    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: 'nope', typing: true });
-    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: alice.id, typing: true });
-    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: bob.id, typing: false });
+    aliceSocket.emit(SOCKET_EVENTS.typing, { conversationId: direct.id, typing: true });
+    aliceSocket.emit(SOCKET_EVENTS.typing, { conversationId: 'nope', typing: true });
+    // Carol is not in this conversation: nothing is relayed for her.
+    carolSocket.emit(SOCKET_EVENTS.typing, { conversationId: direct.id, typing: true });
+    aliceSocket.emit(SOCKET_EVENTS.typing, { conversationId: direct.id, typing: false });
 
     expect(await bobSaw).toEqual([
-      { userId: alice.id, typing: true },
-      { userId: alice.id, typing: false },
+      { conversationId: direct.id, userId: alice.id, typing: true },
+      { conversationId: direct.id, userId: alice.id, typing: false },
     ]);
     expect(await carolSaw).toEqual([]);
     expect(await aliceSaw).toEqual([]);
-    expect(await t.prisma.message.count({ where: { senderId: alice.id, content: '' } })).toBe(1);
   });
 
   it('rate limits socket sends per user', async () => {
     const spammer = await createUser(t.prisma);
-    const { token } = await sessionFor(t, spammer);
+    const { agent, token } = await sessionFor(t, spammer);
     const socket = connect(t, { token });
     sockets.push(socket);
     await connected(socket);
+    const direct = await directWith(agent, bob.id);
 
     const results = [];
     for (let i = 0; i < 61; i += 1) {
       // oxlint-disable-next-line no-await-in-loop -- sequential on purpose: the window counts calls
       const ack = await socket.emitWithAck(SOCKET_EVENTS.messageSend, {
-        recipientId: bob.id,
+        conversationId: direct.id,
         content: `m${i}`,
       });
       results.push(messageAckSchema.parse(ack));
@@ -494,22 +535,21 @@ describe('chat', () => {
 
   it('rate limits typing signals per user by dropping them', async () => {
     const chatterbox = await createUser(t.prisma);
-    const { token } = await sessionFor(t, chatterbox);
+    const { agent, token } = await sessionFor(t, chatterbox);
     const socket = connect(t, { token });
     const bobSocket = connect(t, { token: bobSession.token });
     sockets.push(socket, bobSocket);
     await Promise.all([connected(socket), connected(bobSocket)]);
+    const direct = await directWith(agent, bob.id);
 
-    // Events on one socket are handled in order, so an acked read after the burst means every
-    // typing signal was processed; a short grace period lets the relays reach Bob's socket.
-    const burst = async () => {
-      for (let i = 0; i < 125; i += 1) {
-        socket.emit(SOCKET_EVENTS.typing, { recipientId: bob.id, typing: true });
-      }
-      await socket.emitWithAck(SOCKET_EVENTS.messageRead, { userId: bob.id });
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    };
-    const received = await collectUntil<unknown>(bobSocket, SOCKET_EVENTS.typingUpdate, burst());
+    const received: unknown[] = [];
+    bobSocket.on(SOCKET_EVENTS.typingUpdate, (payload: unknown) => received.push(payload));
+    for (let i = 0; i < 125; i += 1) {
+      socket.emit(SOCKET_EVENTS.typing, { conversationId: direct.id, typing: true });
+    }
+    // The limiter decides on receipt; the relays drain one after another, then nothing more comes.
+    await until(() => received.length >= 120);
+    await new Promise((resolve) => setTimeout(resolve, 200));
     expect(received).toHaveLength(120);
   });
 
@@ -526,7 +566,11 @@ describe('chat', () => {
   });
 
   it('requires a session on the HTTP endpoints', async () => {
-    await request(t.server).get('/api/v1/messages').expect(401);
-    await request(t.server).post(`/api/v1/messages/${bob.id}`).send({ content: 'x' }).expect(401);
+    await request(t.server).get('/api/v1/conversations').expect(401);
+    await request(t.server).put(`/api/v1/conversations/direct/${bob.id}`).expect(401);
+    await request(t.server)
+      .post(`/api/v1/conversations/${bob.id}/messages`)
+      .send({ content: 'x' })
+      .expect(401);
   });
 });

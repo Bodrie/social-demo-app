@@ -1,17 +1,20 @@
 import type { Conversation } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { ImageIcon, MessageSquarePlusIcon } from 'lucide-react';
+import { ImageIcon, MessageSquarePlusIcon, UsersIcon } from 'lucide-react';
 import { NavLink, useParams } from 'react-router';
-import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { formatRelativeTime } from '@/lib/format';
+import { firstName } from '@/lib/names';
 import { useChat } from './chat-context';
+import { ConversationAvatar } from './conversation-avatar';
+import { conversationName, directPeer, memberById, typingText } from './conversation-display';
+import { NewGroupDialog } from './new-group-dialog';
 import { NewMessageDialog } from './new-message-dialog';
 import { PresenceDot } from './presence-dot';
-import { useConversations } from './use-messages';
+import { useConversations } from './use-conversations';
 
 export function ConversationList() {
   const conversations = useConversations();
@@ -20,11 +23,18 @@ export function ConversationList() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
         <h1 className="text-lg font-bold">Messages</h1>
-        <NewMessageDialog>
-          <Button size="icon-sm" variant="ghost" aria-label="New message">
-            <MessageSquarePlusIcon />
-          </Button>
-        </NewMessageDialog>
+        <div className="flex items-center gap-1">
+          <NewGroupDialog>
+            <Button size="icon-sm" variant="ghost" aria-label="New group">
+              <UsersIcon />
+            </Button>
+          </NewGroupDialog>
+          <NewMessageDialog>
+            <Button size="icon-sm" variant="ghost" aria-label="New message">
+              <MessageSquarePlusIcon />
+            </Button>
+          </NewMessageDialog>
+        </div>
       </div>
       {conversations.isPending ? (
         <ConversationListSkeleton />
@@ -52,7 +62,7 @@ export function ConversationList() {
           className="min-h-0 flex-1 divide-y overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
         >
           {conversations.data.items.map((conversation) => (
-            <ConversationItem key={conversation.peer.id} conversation={conversation} />
+            <ConversationItem key={conversation.id} conversation={conversation} />
           ))}
         </ul>
       )}
@@ -62,17 +72,31 @@ export function ConversationList() {
 
 function ConversationItem({ conversation }: { conversation: Conversation }) {
   const me = useCurrentUser();
-  const { isOnline, isTyping } = useChat();
-  const { username } = useParams();
-  const { peer, lastMessage, unreadCount } = conversation;
-  const mine = lastMessage.senderId === me.id;
-  const active = username === peer.username;
-  const typing = isTyping(peer.id);
+  const { isOnline, typingIn } = useChat();
+  const { conversationId } = useParams();
+  const { lastMessage, unreadCount } = conversation;
+  const peer = directPeer(conversation, me.id);
+  const name = conversationName(conversation, me.id);
+  const active = conversationId === conversation.id;
+  const typing = typingText(
+    typingIn(conversation.id).map((userId) => {
+      const member = memberById(conversation, userId);
+      return member ? firstName(member.user.name) : 'Someone';
+    }),
+  );
+  const senderPrefix =
+    lastMessage === null
+      ? ''
+      : lastMessage.senderId === me.id
+        ? 'You: '
+        : conversation.kind === 'group'
+          ? `${firstName(memberById(conversation, lastMessage.senderId)?.user.name ?? 'Someone')}: `
+          : '';
 
   return (
     <li>
       <NavLink
-        to={`/messages/${peer.username}`}
+        to={`/messages/${conversation.id}`}
         aria-current={active ? 'page' : undefined}
         className={cn(
           'flex items-center gap-3 px-4 py-3 transition-colors',
@@ -80,38 +104,46 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
         )}
       >
         <span className="relative shrink-0">
-          <UserAvatar user={peer} size="lg" />
-          <PresenceDot online={isOnline(peer.id)} />
+          <ConversationAvatar conversation={conversation} meId={me.id} size="lg" />
+          {peer ? <PresenceDot online={isOnline(peer.id)} /> : null}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
             <span
               className={cn('truncate text-sm', unreadCount > 0 ? 'font-bold' : 'font-semibold')}
             >
-              {peer.name}
+              {name}
             </span>
-            <time
-              dateTime={lastMessage.createdAt}
-              className="text-muted-foreground shrink-0 text-xs"
-            >
-              {formatRelativeTime(lastMessage.createdAt)}
-            </time>
+            {lastMessage ? (
+              <time
+                dateTime={lastMessage.createdAt}
+                className="text-muted-foreground shrink-0 text-xs"
+              >
+                {formatRelativeTime(lastMessage.createdAt)}
+              </time>
+            ) : null}
           </span>
           <span className="flex items-center justify-between gap-2">
             {typing ? (
-              <span className="text-primary truncate text-sm">typing…</span>
-            ) : (
+              <span className="text-primary truncate text-sm">
+                {conversation.kind === 'direct' ? 'typing…' : typing}
+              </span>
+            ) : lastMessage ? (
               <span
                 className={cn(
                   'flex min-w-0 items-center gap-1 text-sm',
                   unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground',
                 )}
               >
-                <span className="shrink-0">{mine ? 'You: ' : ''}</span>
+                <span className="shrink-0">{senderPrefix}</span>
                 {lastMessage.imageUrl ? (
                   <ImageIcon className="size-3.5 shrink-0" aria-hidden="true" />
                 ) : null}
                 <span className="truncate">{lastMessage.content || 'Picture'}</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground truncate text-sm">
+                {conversation.members.length} members · no messages yet
               </span>
             )}
             {unreadCount > 0 ? (

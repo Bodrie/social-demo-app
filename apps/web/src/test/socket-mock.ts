@@ -1,5 +1,5 @@
-import { SOCKET_EVENTS, sendMessagePayloadSchema } from '@the-mesh/shared';
-import { makeMessage } from './fixtures';
+import { SOCKET_EVENTS, markReadPayloadSchema, sendMessagePayloadSchema } from '@the-mesh/shared';
+import { markConversationRead, storeMessage } from './msw/conversations';
 import { mockDb } from './msw/db';
 
 type Handler = (...args: unknown[]) => void;
@@ -90,52 +90,40 @@ export class FakeSocket {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
+const validationFailed = {
+  ok: false,
+  error: { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed' },
+};
+const notFound = {
+  ok: false,
+  error: { statusCode: 404, code: 'NOT_FOUND', message: 'Conversation not found' },
+};
 
-/** Mirrors the real gateway: sends persist and are pushed back as `message:new`; reads mark the peer's messages. */
+const memberRow = (viewerId: string, conversationId: string) =>
+  mockDb.conversations.find(
+    (row) => row.id === conversationId && row.members.some((m) => m.userId === viewerId),
+  );
+
+/** Mirrors the real gateway: sends persist and are pushed back as `message:new`; reads move the mark. */
 function defaultAckHandlers(socket: FakeSocket): Record<string, AckHandler> {
   return {
     [SOCKET_EVENTS.messageSend]: (payload) => {
       const user = mockDb.user;
       const parsed = sendMessagePayloadSchema.safeParse(payload);
-      if (!user || !parsed.success) {
-        return {
-          ok: false,
-          error: { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed' },
-        };
-      }
-      const { recipientId, content, imageKey } = parsed.data;
-      const message = makeMessage(user.id, recipientId, content, {
-        imageUrl: imageKey ? `http://localhost/api/v1/uploads/${imageKey}` : null,
-        createdAt: new Date().toISOString(),
-      });
-      mockDb.messages.push(message);
+      if (!user || !parsed.success) return validationFailed;
+      const { conversationId, content, imageKey } = parsed.data;
+      if (!memberRow(user.id, conversationId)) return notFound;
+      const message = storeMessage(conversationId, user.id, content, imageKey);
       queueMicrotask(() => socket.serverEmit(SOCKET_EVENTS.messageNew, message));
       return { ok: true, message };
     },
     [SOCKET_EVENTS.messageRead]: (payload) => {
       const user = mockDb.user;
-      if (!user || !isRecord(payload) || typeof payload.userId !== 'string') {
-        return {
-          ok: false,
-          error: { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed' },
-        };
-      }
-      const readAt = new Date().toISOString();
-      let count = 0;
-      for (const message of mockDb.messages) {
-        if (
-          message.senderId === payload.userId &&
-          message.recipientId === user.id &&
-          !message.readAt
-        ) {
-          message.readAt = readAt;
-          count += 1;
-        }
-      }
-      return { ok: true, count };
+      const parsed = markReadPayloadSchema.safeParse(payload);
+      if (!user || !parsed.success) return validationFailed;
+      const row = memberRow(user.id, parsed.data.conversationId);
+      if (!row) return notFound;
+      return { ok: true, readAt: markConversationRead(user.id, row) };
     },
   };
 }

@@ -35,7 +35,7 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
             ) : (
               <>
                 <Button asChild variant="outline">
-                  <Link to={`/messages/${user.username}`}>
+                  <Link to={`/messages/with/${user.username}`}>
                     <MessageCircleIcon /> Message
                   </Link>
                 </Button>

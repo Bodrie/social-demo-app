@@ -59,7 +59,8 @@ export const routes: RouteObject[] = [
                 handle: { wide: true },
                 children: [
                   { index: true, lazy: chat('MessagesIndex') },
-                  { path: ':username', lazy: chat('ThreadPage') },
+                  { path: 'with/:username', lazy: chat('WithUserPage') },
+                  { path: ':conversationId', lazy: chat('ThreadPage') },
                 ],
               },
               {

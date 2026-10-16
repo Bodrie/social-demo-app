@@ -6,14 +6,14 @@ export type ChatContextValue = {
   connected: boolean;
   online: UserSummary[];
   isOnline: (userId: string) => boolean;
-  /** `userId` is writing to me right now (expires by itself when the signal stops). */
-  isTyping: (userId: string) => boolean;
-  sendMessage: (recipientId: string, input: SendMessageInput) => Promise<Message>;
+  /** Who is writing in a conversation right now (never me); expires by itself when the signal stops. */
+  typingIn: (conversationId: string) => readonly string[];
+  sendMessage: (conversationId: string, input: SendMessageInput) => Promise<Message>;
   /** Fire-and-forget over the socket; silently nothing without a connection. */
-  setTyping: (recipientId: string, typing: boolean) => void;
-  markRead: (peerId: string) => Promise<void>;
-  /** The thread on screen; messages from that person are read on arrival. */
-  setActivePeer: (peerId: string | null) => void;
+  setTyping: (conversationId: string, typing: boolean) => void;
+  markRead: (conversationId: string) => Promise<void>;
+  /** The thread on screen; messages arriving there are read on arrival. */
+  setActiveConversation: (conversationId: string | null) => void;
 };
 
 export const ChatContext = createContext<ChatContextValue | null>(null);

@@ -31,13 +31,14 @@ model User {
   posts            Post[]
   comments         Comment[]
   postLikes        PostLike[]
-  following        Follow[]          @relation("FollowFollower")
-  followers        Follow[]          @relation("FollowFollowee")
-  activities       Activity[]        @relation("ActivityActor")
-  targetedBy       Activity[]        @relation("ActivityTargetUser")
+  following        Follow[]             @relation("FollowFollower")
+  followers        Follow[]             @relation("FollowFollowee")
+  activities       Activity[]           @relation("ActivityActor")
+  targetedBy       Activity[]           @relation("ActivityTargetUser")
   refreshTokens    RefreshToken[]
-  sentMessages     Message[]         @relation("MessageSender")
-  receivedMessages Message[]         @relation("MessageRecipient")
+  sentMessages     Message[]            @relation("MessageSender")
+  conversations    ConversationMember[]
+  createdGroups    Conversation[]       @relation("ConversationCreator")
   uploads          Upload[]
   commentReactions CommentReaction[]
 
@@ -239,20 +240,60 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+enum ConversationKind {
+  direct
+  group
+
+  @@map("conversation_kind")
+}
+
+/// A direct conversation is the single thread between two people; a group has a title and members.
+model Conversation {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  kind          ConversationKind
+  title         String?
+  createdById   String?          @map("created_by_id") @db.Uuid
+  /// `<smaller user id>:<larger user id>` for direct conversations, so a pair has exactly one.
+  directKey     String?          @unique @map("direct_key")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Denormalised from the newest message so the list can be ordered without a join.
+  lastMessageAt DateTime?        @map("last_message_at") @db.Timestamptz(3)
+
+  createdBy User?                @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members   ConversationMember[]
+  messages  Message[]
+
+  @@index([lastMessageAt, createdAt])
+  @@map("conversations")
+}
+
+/// Read state is per member: everything created up to `lastReadAt` has been seen.
+model ConversationMember {
+  conversationId String    @map("conversation_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz(3)
+  lastReadAt     DateTime? @map("last_read_at") @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
 model Message {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  senderId    String    @map("sender_id") @db.Uuid
-  recipientId String    @map("recipient_id") @db.Uuid
+  id             String   @id @default(uuid(7)) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderId       String   @map("sender_id") @db.Uuid
   /// Empty when the message is a picture only.
-  content     String
-  imageKey    String?   @map("image_key")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+  content        String
+  imageKey       String?  @map("image_key")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  sender    User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
-  @@index([senderId, recipientId, createdAt])
-  @@index([recipientId, readAt])
+  @@index([conversationId, createdAt, id])
   @@map("messages")
 }

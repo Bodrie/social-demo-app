@@ -16,7 +16,7 @@ let sequence = 0;
 
 /** Deterministic, valid (v7-shaped) UUIDs so failures are readable. */
 export function testId(
-  kind: 'user' | 'post' | 'comment' | 'activity' | 'message',
+  kind: 'user' | 'post' | 'comment' | 'activity' | 'message' | 'conversation',
   n: number,
 ): string {
   const prefix = {
@@ -25,6 +25,7 @@ export function testId(
     comment: '01a14000',
     activity: '01a14100',
     message: '01a14200',
+    conversation: '01a14300',
   }[kind];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
@@ -121,20 +122,19 @@ export function makeActivity(type: ActivityType, overrides: Partial<Activity> = 
 
 /** Each call is one minute newer than the previous one, so threads read top to bottom. */
 export function makeMessage(
+  conversationId: string,
   senderId: string,
-  recipientId: string,
   content: string,
   overrides: Partial<Message> = {},
 ): Message {
   sequence += 1;
   return {
     id: testId('message', sequence),
+    conversationId,
     senderId,
-    recipientId,
     content,
     imageUrl: null,
     createdAt: new Date(BASE_TIME - 3_600_000 + sequence * 60_000).toISOString(),
-    readAt: null,
     ...overrides,
   };
 }

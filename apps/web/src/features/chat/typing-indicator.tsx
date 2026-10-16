@@ -1,7 +1,7 @@
 import { cn } from 'cn';
 
 /** Three pulsing dots in a peer-side bubble; the text is for assistive tech. */
-export function TypingIndicator({ name, className }: { name: string; className?: string }) {
+export function TypingIndicator({ text, className }: { text: string; className?: string }) {
   return (
     <div className={cn('flex items-start', className)}>
       <div
@@ -16,7 +16,7 @@ export function TypingIndicator({ name, className }: { name: string; className?:
           />
         ))}
       </div>
-      <span className="sr-only">{name} is typing…</span>
+      <span className="sr-only">{text}</span>
     </div>
   );
 }

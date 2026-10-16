@@ -5,7 +5,7 @@ export * from './common.js';
 export * from './constants.js';
 export * from './errors.js';
 export * from './health.js';
-export * from './messages.js';
+export * from './conversations.js';
 export * from './pagination.js';
 export * from './posts.js';
 export * from './uploads.js';

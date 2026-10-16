@@ -1,20 +1,29 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { UserSummary } from '@the-mesh/shared';
+import type { Conversation } from '@the-mesh/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
-import { ArrowLeftIcon, Loader2Icon } from 'lucide-react';
+import { ArrowLeftIcon, Loader2Icon, UsersIcon } from 'lucide-react';
 import { type UIEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/empty-state';
-import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { isApiClientError } from '@/lib/api/client';
 import { formatDateTime, formatDayLabel, formatTime } from '@/lib/format';
 import { flattenPages } from '@/lib/infinite';
+import { firstName } from '@/lib/names';
 import { useChat } from './chat-context';
+import { ConversationAvatar } from './conversation-avatar';
+import {
+  conversationName,
+  directPeer,
+  memberById,
+  seenText,
+  typingText,
+} from './conversation-display';
+import { GroupMembersDialog } from './group-members-dialog';
 import {
   type ThreadMessage,
   appendToThread,
@@ -26,42 +35,46 @@ import {
 import { MessageComposer, type OutgoingMessage } from './message-composer';
 import { PresenceDot } from './presence-dot';
 import { TypingIndicator } from './typing-indicator';
-import { useThread } from './use-messages';
+import { useMessages } from './use-conversations';
 
 const GROUP_GAP_MS = 5 * 60 * 1000;
 const NEAR_BOTTOM_PX = 80;
 const LOAD_OLDER_PX = 200;
 
-export function Thread({ peer }: { peer: UserSummary }) {
+export function Thread({ conversation }: { conversation: Conversation }) {
   const me = useCurrentUser();
   const chat = useChat();
   const queryClient = useQueryClient();
-  const thread = useThread(peer.id);
+  const thread = useMessages(conversation.id);
   const messages = useMemo(() => flattenPages(thread.data).toReversed(), [thread.data]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
-  const online = chat.isOnline(peer.id);
-  const typing = chat.isTyping(peer.id);
-  const { setActivePeer, markRead, setTyping } = chat;
+  const { setActiveConversation, markRead, setTyping } = chat;
+
+  const peer = directPeer(conversation, me.id);
+  const name = conversationName(conversation, me.id);
+  const online = peer ? chat.isOnline(peer.id) : false;
+  const typingNames = chat
+    .typingIn(conversation.id)
+    .map((userId) => memberById(conversation, userId)?.user.name ?? 'Someone');
+  const typing = typingText(typingNames);
 
   useEffect(() => {
-    setActivePeer(peer.id);
-    return () => setActivePeer(null);
-  }, [setActivePeer, peer.id]);
+    setActiveConversation(conversation.id);
+    return () => setActiveConversation(null);
+  }, [setActiveConversation, conversation.id]);
 
-  // Whatever the peer sent that is still unread gets marked once it is on screen.
-  const unreadFromPeer = messages.some(
-    (message) => message.senderId === peer.id && !message.readAt,
-  );
+  // Whatever is still unread gets marked once the thread is on screen.
+  const hasUnread = conversation.unreadCount > 0;
   useEffect(() => {
-    if (!unreadFromPeer) return undefined;
+    if (!hasUnread) return undefined;
     const readIfVisible = () => {
-      if (document.visibilityState === 'visible') void markRead(peer.id);
+      if (document.visibilityState === 'visible') void markRead(conversation.id);
     };
     readIfVisible();
     document.addEventListener('visibilitychange', readIfVisible);
     return () => document.removeEventListener('visibilitychange', readIfVisible);
-  }, [unreadFromPeer, markRead, peer.id]);
+  }, [hasUnread, markRead, conversation.id]);
 
   // Stay pinned to the newest message (or the typing dots) unless the viewer scrolled up.
   const messageCount = messages.length;
@@ -91,32 +104,41 @@ export function Thread({ peer }: { peer: UserSummary }) {
   };
 
   const send = async (outgoing: OutgoingMessage, retryOf?: string) => {
-    if (retryOf) removeFromThread(queryClient, peer.id, retryOf);
+    if (retryOf) removeFromThread(queryClient, conversation.id, retryOf);
     const temp: ThreadMessage = {
       id: `pending-${crypto.randomUUID()}`,
+      conversationId: conversation.id,
       senderId: me.id,
-      recipientId: peer.id,
       content: outgoing.content,
       imageUrl: outgoing.previewUrl ?? null,
       imageKey: outgoing.imageKey,
       createdAt: new Date().toISOString(),
-      readAt: null,
       status: 'sending',
     };
     stickToBottom.current = true;
-    appendToThread(queryClient, peer.id, temp);
+    appendToThread(queryClient, conversation.id, temp);
     try {
-      const message = await chat.sendMessage(peer.id, {
+      const message = await chat.sendMessage(conversation.id, {
         content: outgoing.content,
         imageKey: outgoing.imageKey,
       });
-      replaceInThread(queryClient, peer.id, temp.id, message);
-      upsertConversation(queryClient, me.id, message, { countUnread: false });
+      replaceInThread(queryClient, conversation.id, temp.id, message);
+      upsertConversation(queryClient, message, { countUnread: false });
     } catch (error) {
-      markFailedInThread(queryClient, peer.id, temp.id);
+      markFailedInThread(queryClient, conversation.id, temp.id);
       toast.error(isApiClientError(error) ? error.message : 'Could not send the message');
     }
   };
+
+  const subtitle = typing
+    ? conversation.kind === 'direct'
+      ? 'typing…'
+      : typing
+    : peer
+      ? online
+        ? 'Online'
+        : `@${peer.username}`
+      : `${conversation.members.length} members`;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -132,23 +154,41 @@ export function Thread({ peer }: { peer: UserSummary }) {
             <ArrowLeftIcon />
           </Link>
         </Button>
-        <Link
-          to={`/u/${peer.username}`}
-          className="relative shrink-0"
-          aria-hidden="true"
-          tabIndex={-1}
-        >
-          <UserAvatar user={peer} />
-          <PresenceDot online={online} />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <Link to={`/u/${peer.username}`} className="block truncate font-semibold hover:underline">
-            {peer.name}
+        {peer ? (
+          <Link
+            to={`/u/${peer.username}`}
+            className="relative shrink-0"
+            aria-hidden="true"
+            tabIndex={-1}
+          >
+            <ConversationAvatar conversation={conversation} meId={me.id} />
+            <PresenceDot online={online} />
           </Link>
-          <p className={cn('text-xs', typing ? 'text-primary' : 'text-muted-foreground')}>
-            {typing ? 'typing…' : online ? 'Online' : `@${peer.username}`}
+        ) : (
+          <ConversationAvatar conversation={conversation} meId={me.id} />
+        )}
+        <div className="min-w-0 flex-1">
+          {peer ? (
+            <Link
+              to={`/u/${peer.username}`}
+              className="block truncate font-semibold hover:underline"
+            >
+              {name}
+            </Link>
+          ) : (
+            <p className="truncate font-semibold">{name}</p>
+          )}
+          <p className={cn('truncate text-xs', typing ? 'text-primary' : 'text-muted-foreground')}>
+            {subtitle}
           </p>
         </div>
+        {conversation.kind === 'group' ? (
+          <GroupMembersDialog conversation={conversation}>
+            <Button variant="ghost" size="icon-sm" aria-label="Members">
+              <UsersIcon />
+            </Button>
+          </GroupMembersDialog>
+        ) : null}
       </header>
 
       <div
@@ -157,7 +197,7 @@ export function Thread({ peer }: { peer: UserSummary }) {
         className="min-h-0 flex-1 overflow-y-auto px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
         tabIndex={0}
         role="log"
-        aria-label={`Conversation with ${peer.name}`}
+        aria-label={peer ? `Conversation with ${name}` : `Group ${name}`}
         aria-live="polite"
       >
         {thread.isPending ? (
@@ -177,13 +217,15 @@ export function Thread({ peer }: { peer: UserSummary }) {
             ) : null}
             {messages.length === 0 ? (
               <p className="text-muted-foreground py-10 text-center text-sm">
-                This is the beginning of your conversation with {peer.name}.
+                {peer
+                  ? `This is the beginning of your conversation with ${name}.`
+                  : `This is the beginning of ${name}. Say hi to everyone.`}
               </p>
             ) : (
               <MessageList
                 messages={messages}
                 meId={me.id}
-                peer={peer}
+                conversation={conversation}
                 onRetry={(message) =>
                   void send(
                     {
@@ -196,15 +238,15 @@ export function Thread({ peer }: { peer: UserSummary }) {
                 }
               />
             )}
-            {typing ? <TypingIndicator name={peer.name} className="mt-1" /> : null}
+            {typing ? <TypingIndicator text={typing} className="mt-1" /> : null}
           </>
         )}
       </div>
 
       <MessageComposer
-        peerName={peer.name}
+        recipientName={name}
         onSend={(outgoing) => void send(outgoing)}
-        onTyping={(isTyping) => setTyping(peer.id, isTyping)}
+        onTyping={(isTyping) => setTyping(conversation.id, isTyping)}
       />
     </div>
   );
@@ -213,15 +255,17 @@ export function Thread({ peer }: { peer: UserSummary }) {
 type MessageListProps = {
   messages: ThreadMessage[];
   meId: string;
-  peer: UserSummary;
+  conversation: Conversation;
   onRetry: (message: ThreadMessage) => void;
 };
 
-function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
-  const newestFirst = messages.toReversed();
-  const lastSeenMine = newestFirst.find((m) => m.senderId === meId && m.readAt !== null);
-  const lastMine = newestFirst.find((m) => m.senderId === meId);
-  const showSeenOn = lastSeenMine && lastSeenMine.id === lastMine?.id ? lastSeenMine.id : null;
+function MessageList({ messages, meId, conversation, onRetry }: MessageListProps) {
+  const lastMine = messages.findLast((m) => m.senderId === meId && !m.status);
+  const seen = lastMine ? seenText(conversation, meId, lastMine.createdAt) : null;
+  const showSeenOn = seen ? lastMine?.id : undefined;
+  const isGroup = conversation.kind === 'group';
+  const senderName = (userId: string) =>
+    memberById(conversation, userId)?.user.name ?? 'A former member';
 
   return (
     <ol className="flex flex-col gap-0.5">
@@ -230,6 +274,7 @@ function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
         const next = messages[index + 1];
         const mine = message.senderId === meId;
         const newDay = !previous || !dayjs(previous.createdAt).isSame(message.createdAt, 'day');
+        const startOfRun = newDay || previous?.senderId !== message.senderId;
         const endOfGroup =
           !next ||
           next.senderId !== message.senderId ||
@@ -240,6 +285,11 @@ function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
               <div className="text-muted-foreground my-3 w-full text-center text-xs font-medium">
                 {formatDayLabel(message.createdAt)}
               </div>
+            ) : null}
+            {isGroup && !mine && startOfRun ? (
+              <p className="text-muted-foreground mb-0.5 ml-1 text-xs">
+                {firstName(senderName(message.senderId))}
+              </p>
             ) : null}
             <div
               title={formatDateTime(message.createdAt)}
@@ -262,7 +312,7 @@ function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
                 >
                   <img
                     src={message.imageUrl}
-                    alt={`Sent by ${mine ? 'you' : peer.name}`}
+                    alt={`Sent by ${mine ? 'you' : senderName(message.senderId)}`}
                     loading="lazy"
                     decoding="async"
                     className="max-h-72 w-auto max-w-full object-cover"
@@ -285,10 +335,10 @@ function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
             ) : endOfGroup || message.id === showSeenOn ? (
               <p className="text-muted-foreground mt-0.5 text-xs">
                 {message.status === 'sending' ? 'Sending…' : formatTime(message.createdAt)}
-                {message.id === showSeenOn ? ' · Seen' : ''}
+                {message.id === showSeenOn ? ` · ${seen}` : ''}
               </p>
             ) : null}
-            <span className="sr-only">{mine ? 'You' : peer.name}</span>
+            <span className="sr-only">{mine ? 'You' : senderName(message.senderId)}</span>
           </li>
         );
       })}

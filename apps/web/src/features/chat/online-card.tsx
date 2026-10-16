@@ -27,7 +27,7 @@ export function OnlineCard({ className }: { className?: string }) {
             {others.map((user) => (
               <li key={user.id}>
                 <Link
-                  to={`/messages/${user.username}`}
+                  to={`/messages/with/${user.username}`}
                   className="hover:bg-muted flex items-center gap-3 rounded-lg px-1 py-1"
                 >
                   <span className="relative">

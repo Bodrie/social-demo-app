@@ -258,23 +258,29 @@ async function seed(): Promise<void> {
     ]);
   }
 
-  // --- messages between the fixed accounts ---------------------------------
+  // --- conversations between the fixed accounts ------------------------------
   const [alice, bob] = users;
   if (alice && bob) {
-    await prisma.message.createMany({
-      data: Array.from({ length: 12 }, (_, i) => ({
-        senderId: i % 2 === 0 ? alice.id : bob.id,
-        recipientId: i % 2 === 0 ? bob.id : alice.id,
-        content: faker.lorem.sentence(),
-        createdAt: new Date(Date.now() - (12 - i) * 60_000),
-        readAt: i < 10 ? new Date() : null,
-      })),
-    });
-    // One picture from Bob, still unread, so the demo thread shows what a photo message looks like.
-    await prisma.message.create({
+    const direct = await prisma.conversation.create({
       data: {
+        kind: 'direct',
+        directKey: [alice.id, bob.id].toSorted().join(':'),
+        members: { create: [{ userId: alice.id }, { userId: bob.id }] },
+      },
+      select: { id: true },
+    });
+    const texts = Array.from({ length: 12 }, (_, i) => ({
+      conversationId: direct.id,
+      senderId: i % 2 === 0 ? alice.id : bob.id,
+      content: faker.lorem.sentence(),
+      createdAt: new Date(Date.now() - (12 - i) * 60_000),
+    }));
+    await prisma.message.createMany({ data: texts });
+    // One picture from Bob, so the demo thread shows what a photo message looks like.
+    const picture = await prisma.message.create({
+      data: {
+        conversationId: direct.id,
         senderId: bob.id,
-        recipientId: alice.id,
         content: 'Look what I found',
         imageKey: await seedFile(
           'message',
@@ -282,6 +288,60 @@ async function seed(): Promise<void> {
           await placeholderPostImage('for Alice', `${bob.id}-message`),
         ),
         createdAt: new Date(Date.now() - 30_000),
+      },
+      select: { createdAt: true },
+    });
+    // Bob is caught up; Alice has not seen Bob's last text and the picture yet.
+    await prisma.conversation.update({
+      where: { id: direct.id },
+      data: {
+        lastMessageAt: picture.createdAt,
+        members: {
+          update: [
+            {
+              where: { conversationId_userId: { conversationId: direct.id, userId: bob.id } },
+              data: { lastReadAt: picture.createdAt },
+            },
+            {
+              where: { conversationId_userId: { conversationId: direct.id, userId: alice.id } },
+              data: { lastReadAt: texts[10]?.createdAt },
+            },
+          ],
+        },
+      },
+    });
+
+    // A group with two more members. Carol stays out: she starts without conversations.
+    const others = users.slice(3, 5).map((user) => user.id);
+    const groupMembers = [alice.id, bob.id, ...others];
+    const group = await prisma.conversation.create({
+      data: {
+        kind: 'group',
+        title: 'Weekend plans',
+        createdById: alice.id,
+        members: { create: groupMembers.map((userId) => ({ userId })) },
+      },
+      select: { id: true },
+    });
+    const chatter = Array.from({ length: 6 }, (_, i) => ({
+      conversationId: group.id,
+      senderId: groupMembers[i % groupMembers.length] ?? alice.id,
+      content: faker.lorem.sentence(),
+      createdAt: new Date(Date.now() - (6 - i) * 5 * 60_000),
+    }));
+    await prisma.message.createMany({ data: chatter });
+    const lastChatter = chatter.at(-1)?.createdAt;
+    await prisma.conversation.update({
+      where: { id: group.id },
+      data: {
+        lastMessageAt: lastChatter,
+        members: {
+          updateMany: { where: { userId: { not: alice.id } }, data: { lastReadAt: lastChatter } },
+          update: {
+            where: { conversationId_userId: { conversationId: group.id, userId: alice.id } },
+            data: { lastReadAt: chatter[2]?.createdAt },
+          },
+        },
       },
     });
   }

@@ -37,9 +37,10 @@ export const queryKeys = {
     all: ['activities'] as const,
     list: ['activities', 'list'] as const,
   },
-  messages: {
-    all: ['messages'] as const,
-    conversations: ['messages', 'conversations'] as const,
-    thread: (peerId: string) => ['messages', 'thread', peerId] as const,
+  conversations: {
+    all: ['conversations'] as const,
+    list: ['conversations', 'list'] as const,
+    detail: (id: string) => ['conversations', 'detail', id] as const,
+    messages: (id: string) => ['conversations', 'messages', id] as const,
   },
 };

@@ -11,9 +11,9 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 
 ## Contract / docs
 - **`@ZodResponse` on every handler** – gives runtime output validation and real response schemas in `/api/docs/openapi.json` (today: inputs, auth and operation ids only). Do it when a typed client from the document is wanted; the web uses the shared zod schemas directly.
-- **Conversations pagination** – `GET /messages` is capped at 100 and already uses the list envelope, so adding a cursor is non-breaking.
+- **Conversations pagination** – `GET /conversations` is capped at 100 and already uses the list envelope; a keyset on `last_message_at` adds a cursor without a schema change.
 - **Activity post excerpts without author** – "alice liked bob's post" needs `post.author`; add `author: UserSummary` to the post excerpt when the web needs it.
-- **`message:new` without sender summary** – a push from a new peer needs a follow-up `GET /users/:id`; include a `sender` summary if that round trip shows up.
+- **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
 
 ## Code structure
 - **TokensModule** (JwtModule + a small access-token service) so `ChatModule` and the global guard stop importing `AuthModule` wholesale.
@@ -31,7 +31,7 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 - Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
 - Profile: cover/avatar cropping, and blocking/reporting (not in the legacy app either).
 - Activity: realtime updates for the sidebar card (push from the socket once 4f lands, or light polling), and linking excerpts to a post permalink.
-- Chat: typing indicators and message deletion need API support; browser notifications and a sound for new messages; a "new messages" pill when the reader has scrolled up; per-tab unread title badge.
+- Chat: message deletion needs API support; group admin roles, renaming a group and removing others (ADR 0009 kept membership changes to add and leave); browser notifications and a sound for new messages; a "new messages" pill when the reader has scrolled up; per-tab unread title badge.
 - Performance (Lighthouse mobile: feed 64, profile 74): `zod/mini` build of the shared schemas for the browser (≈ 25 kB gz of the first paint), width/height and `srcset` for post images from the upload metadata (CLS, LCP), `fetchpriority="high"` on the first feed image, `<link rel=preload>` for the Latin Inter subset, prefetching route chunks on link hover.
 - API logging: aborted client connections surface as raw `Error: read ECONNRESET` / `write EPIPE` lines on stderr (seen while Playwright closes contexts); route them through pino at debug level or ignore them.
 - E2E: a Firefox/WebKit project once the suite is stable in CI; visual snapshots for the main pages.

@@ -14,6 +14,7 @@ import {
 import {
   type ApiError,
   type ConversationReadPayload,
+  type ConversationRef,
   type MarkReadAck,
   type MessageAck,
   SOCKET_EVENTS,
@@ -24,19 +25,30 @@ import {
 } from '@the-mesh/shared';
 import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { fieldsFromIssues, toApiError } from '../common/errors.js';
+import { ConversationsService } from '../conversations/conversations.service.js';
 import { SessionsRevokedEvent } from '../events/auth.events.js';
-import { ConversationReadEvent, MessageSentEvent } from '../events/message.events.js';
+import {
+  ConversationLeftEvent,
+  ConversationReadEvent,
+  ConversationUpdatedEvent,
+  MessageSentEvent,
+} from '../events/conversation.events.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
-import { MessagesService } from '../messages/messages.service.js';
 import { UsersService } from '../users/users.service.js';
 import { authenticateSocket } from './handshake.js';
 import { PresenceService } from './presence.service.js';
 import { SocketRateLimiter } from './rate-limiter.js';
 
-type SocketData = { userId: string; expiresAt: Date | null };
+type SocketData = {
+  userId: string;
+  expiresAt: Date | null;
+  /** Typing relays of this socket, in order (see onTyping). */
+  typingQueue?: Promise<void>;
+};
 type ChatSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 export const userRoom = (userId: string): string => `user:${userId}`;
+const userRooms = (userIds: readonly string[]): string[] => userIds.map(userRoom);
 
 /** Open sockets allowed per user (tabs/devices); more are refused at handshake. */
 export const MAX_SOCKETS_PER_USER = 5;
@@ -53,11 +65,11 @@ const tooMany = (message: string): AckFailure => ({
 });
 
 /**
- * Presence and direct messages on the same HTTP server as the REST API.
+ * Presence and messaging on the same HTTP server as the REST API.
  * Every socket is authenticated at handshake and lives at most as long as its
  * access token; nothing about the user is trusted from the client. Messages
- * are persisted by MessagesService and delivered here through domain events,
- * so HTTP and socket sends behave alike.
+ * are persisted by ConversationsService and delivered here through domain
+ * events to every member's room, so HTTP and socket sends behave alike.
  */
 @WebSocketGateway()
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
@@ -73,7 +85,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private readonly jwt: JwtService,
     private readonly users: UsersService,
     private readonly presence: PresenceService,
-    private readonly messages: MessagesService,
+    private readonly conversations: ConversationsService,
   ) {}
 
   afterInit(server: Server): void {
@@ -151,8 +163,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       };
     }
     try {
-      const { recipientId, ...input } = parsed.data;
-      const message = await this.messages.send(userId, recipientId, input);
+      const { conversationId, ...input } = parsed.data;
+      const message = await this.conversations.send(userId, conversationId, input);
       return { ok: true, message };
     } catch (error) {
       return { ok: false, error: toApiError(error) };
@@ -179,43 +191,63 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       };
     }
     try {
-      const { count } = await this.messages.markRead(userId, parsed.data.userId);
-      return { ok: true, count };
+      const { readAt } = await this.conversations.markRead(userId, parsed.data.conversationId);
+      return { ok: true, readAt };
     } catch (error) {
       return { ok: false, error: toApiError(error) };
     }
   }
 
   /**
-   * Typing is ephemeral: relayed to the recipient's open tabs, never stored, no ack.
-   * Invalid or self-addressed payloads are dropped silently; the client expires a
-   * stale "typing" on its own, so a lost "stopped" costs nothing.
+   * Typing is ephemeral: relayed to the other members' open tabs, never stored, no ack.
+   * Invalid payloads and conversations the sender is not in are dropped silently; the
+   * client expires a stale "typing" on its own, so a lost "stopped" costs nothing.
    */
   @SubscribeMessage(SOCKET_EVENTS.typing)
   onTyping(@ConnectedSocket() socket: ChatSocket, @MessageBody() body: unknown): void {
     const userId = socket.data.userId;
     if (!this.typingLimiter.allow(userId)) return;
     const parsed = typingPayloadSchema.safeParse(body);
-    if (!parsed.success || parsed.data.recipientId === userId) return;
-    const payload: TypingUpdate = { userId, typing: parsed.data.typing };
-    this.server.to(userRoom(parsed.data.recipientId)).emit(SOCKET_EVENTS.typingUpdate, payload);
+    if (!parsed.success) return;
+    const { conversationId, typing } = parsed.data;
+    // The membership lookup is async; chaining per socket keeps "stopped" from overtaking "started".
+    const previous = socket.data.typingQueue ?? Promise.resolve();
+    socket.data.typingQueue = previous
+      .then(async () => {
+        const others = await this.conversations.otherMemberIds(userId, conversationId);
+        const payload: TypingUpdate = { conversationId, userId, typing };
+        this.emitTo(others, SOCKET_EVENTS.typingUpdate, payload);
+        return undefined;
+      })
+      .catch((error: unknown) => this.logger.warn({ err: error }, 'Could not relay typing'));
   }
 
   @OnEvent(MessageSentEvent.EVENT)
   onMessageSent(event: MessageSentEvent): void {
-    this.server
-      .to(userRoom(event.message.recipientId))
-      .to(userRoom(event.message.senderId))
-      .emit(SOCKET_EVENTS.messageNew, event.message);
+    this.emitTo(event.memberIds, SOCKET_EVENTS.messageNew, event.message);
   }
 
   @OnEvent(ConversationReadEvent.EVENT)
   onConversationRead(event: ConversationReadEvent): void {
     const payload: ConversationReadPayload = {
+      conversationId: event.conversationId,
       userId: event.readerId,
       readAt: event.readAt.toISOString(),
     };
-    this.server.to(userRoom(event.peerId)).emit(SOCKET_EVENTS.conversationRead, payload);
+    this.emitTo(event.memberIds, SOCKET_EVENTS.conversationRead, payload);
+  }
+
+  @OnEvent(ConversationUpdatedEvent.EVENT)
+  onConversationUpdated(event: ConversationUpdatedEvent): void {
+    const payload: ConversationRef = { conversationId: event.conversationId };
+    this.emitTo(event.memberIds, SOCKET_EVENTS.conversationUpdate, payload);
+  }
+
+  @OnEvent(ConversationLeftEvent.EVENT)
+  onConversationLeft(event: ConversationLeftEvent): void {
+    const payload: ConversationRef = { conversationId: event.conversationId };
+    this.emitTo(event.memberIds, SOCKET_EVENTS.conversationUpdate, payload);
+    this.emitTo([event.userId], SOCKET_EVENTS.conversationRemoved, payload);
   }
 
   /** logout-all or refresh-token reuse: every open socket of the user is cut. */
@@ -246,6 +278,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       Math.max(expiresAt.getTime() - Date.now(), 0),
     );
     socket.once('disconnect', () => clearTimeout(timer));
+  }
+
+  /** Never `to([])`: an empty room list would broadcast to every socket. */
+  private emitTo(userIds: readonly string[], event: string, payload: unknown): void {
+    if (userIds.length === 0) return;
+    this.server.to(userRooms(userIds)).emit(event, payload);
   }
 
   private broadcastPresence(): void {

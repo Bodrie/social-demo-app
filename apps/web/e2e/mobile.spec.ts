@@ -17,7 +17,7 @@ test.describe('on a phone', () => {
     const dialog = carol.getByRole('dialog', { name: 'New message' });
     await dialog.getByRole('searchbox').fill('bob');
     await dialog.getByRole('button', { name: /Bob Brown/ }).click();
-    await expect(carol).toHaveURL(/\/messages\/bob$/);
+    await expect(carol).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
     await expect(carol.getByRole('link', { name: 'Back to conversations' })).toBeVisible();
     const text = `Hi from a phone ${Date.now()}`;
     await carol.getByRole('textbox', { name: `Message ${USERS.bob.name}` }).fill(text);
