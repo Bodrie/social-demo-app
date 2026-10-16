@@ -18,12 +18,11 @@ describe('RegisterPage', () => {
     expect(await screen.findByText('This username is taken')).toBeInTheDocument();
   });
 
-  it('signs the new member in and shows the home page', async () => {
+  it('signs the new member in and holds them on the waiting room until the address is confirmed', async () => {
     renderApp('/register');
     await fillForm('newbie');
-    expect(await screen.findByLabelText('New post')).toHaveAttribute(
-      'placeholder',
-      "What's on your mind, New?",
-    );
+    expect(await screen.findByRole('heading', { name: 'Check your inbox' })).toBeInTheDocument();
+    expect(screen.getByText('new@example.com')).toBeInTheDocument();
+    expect(screen.queryByLabelText('New post')).not.toBeInTheDocument();
   });
 });

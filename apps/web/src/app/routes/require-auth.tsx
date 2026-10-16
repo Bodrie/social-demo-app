@@ -5,7 +5,11 @@ import { ChatProvider } from '@/features/chat/chat-provider';
 import { redirectTarget } from '@/features/auth/redirect-target';
 import { useMe } from '@/features/auth/use-me';
 
-/** Layout route: renders children only with a session; otherwise sends to /login and remembers where to return. */
+/**
+ * Layout route: renders children only with a verified session. Anonymous visitors go to
+ * /login (and come back afterwards); members who have not confirmed their address yet are
+ * held on /verify-email, the only page open to them.
+ */
 export function RequireAuth() {
   const me = useMe();
   const location = useLocation();
@@ -15,6 +19,7 @@ export function RequireAuth() {
       <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />
     );
   }
+  if (me.user.emailVerifiedAt === null) return <Navigate to="/verify-email" replace />;
   return (
     <CurrentUserContext value={me.user}>
       <ChatProvider>
@@ -33,7 +38,9 @@ export function RedirectIfAuthenticated() {
   const me = useMe();
   const location = useLocation();
   if (me.status === 'loading') return <FullPageSpinner label="Checking your session" />;
-  if (me.status === 'authenticated')
-    return <Navigate to={redirectTarget(location.state)} replace />;
+  if (me.status === 'authenticated') {
+    const to = me.user.emailVerifiedAt === null ? '/verify-email' : redirectTarget(location.state);
+    return <Navigate to={to} replace />;
+  }
   return <Outlet />;
 }

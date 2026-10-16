@@ -1,3 +1,4 @@
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { type Browser, type BrowserContext, type Page, expect } from '@playwright/test';
 
@@ -21,6 +22,43 @@ export const ALICE = { ...USERS.alice, name: 'Alice' };
 export const stateFor = (user: SeededUser): string =>
   path.join(import.meta.dirname, '.auth', `${user}.json`);
 export const STORAGE_STATE = stateFor('alice');
+
+/** Where the API (started by playwright.config.ts with the outbox transport) writes every mail. */
+export const OUTBOX_DIR = path.join(import.meta.dirname, '.outbox');
+
+type OutboxEntry = { to: string; subject: string; text: string };
+
+async function readOutbox(): Promise<OutboxEntry[]> {
+  const files = (await readdir(OUTBOX_DIR).catch(() => [] as string[]))
+    .filter((file) => file.endsWith('.json'))
+    .toSorted();
+  return Promise.all(
+    files.map(async (file) => JSON.parse(await readFile(path.join(OUTBOX_DIR, file), 'utf8'))),
+  );
+}
+
+/** The newest mail to `to` whose subject matches (waits for it, some sends are not awaited). */
+export async function latestEmail(to: string, subject: RegExp): Promise<OutboxEntry> {
+  await expect
+    .poll(
+      async () => (await readOutbox()).some((mail) => mail.to === to && subject.test(mail.subject)),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  const mails = (await readOutbox()).filter((mail) => mail.to === to && subject.test(mail.subject));
+  const mail = mails.at(-1);
+  if (!mail) throw new Error(`No email to ${to}`);
+  return mail;
+}
+
+/** The first link in the mail that leads to `pathname` (e.g. `/verify-email`). */
+export function linkIn(mail: OutboxEntry, pathname: string): string {
+  const match = new RegExp(
+    `https?://\\S+${pathname.replace('/', '\\/')}\\?token=[A-Za-z0-9_%-]+`,
+  ).exec(mail.text);
+  if (!match) throw new Error(`No ${pathname} link in: ${mail.subject}`);
+  return match[0];
+}
 
 /** For specs that must start signed out (the auth flows themselves). */
 export const ANONYMOUS = { cookies: [], origins: [] };

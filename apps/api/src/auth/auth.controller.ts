@@ -12,7 +12,15 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { AuthResponse } from '@the-mesh/shared';
 import type { Request, Response } from 'express';
-import { ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto.js';
+import { AllowUnverified } from './allow-unverified.decorator.js';
+import {
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+  VerifyEmailDto,
+} from './auth.dto.js';
 import { AuthService } from './auth.service.js';
 import { type AuthUser, requestMeta } from './auth.types.js';
 import { REFRESH_COOKIE, clearAuthCookies, readCookie, setAuthCookies } from './cookies.js';
@@ -83,6 +91,7 @@ export class AuthController {
     clearAuthCookies(res, this.auth.cookieSettings);
   }
 
+  @AllowUnverified()
   @Post('logout-all')
   @HttpCode(204)
   async logoutAll(
@@ -105,6 +114,57 @@ export class AuthController {
     await this.auth.changePassword(user.id, body, readCookie(req.cookies, REFRESH_COOKIE));
   }
 
+  /** The link from the verification mail; works signed in or not and signs this browser in. */
+  @Public()
+  @Post('verify-email')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async verifyEmail(
+    @Body() body: VerifyEmailDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    const { user, tokens } = await this.auth.verifyEmail(body.token, requestMeta(req));
+    setAuthCookies(res, tokens, this.auth.cookieSettings);
+    return { user };
+  }
+
+  @AllowUnverified()
+  @Post('verify-email/resend')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 3, ttl: 60 * 60_000 } })
+  resendVerification(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.auth.resendVerification(user.id);
+  }
+
+  /** Always 204: the answer must not say whether the address has an account. */
+  @Public()
+  @CredentialRoute()
+  @Post('forgot-password')
+  @HttpCode(204)
+  forgotPassword(@Body() body: ForgotPasswordDto): Promise<void> {
+    return this.auth.forgotPassword(body.email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async resetPassword(
+    @Body() body: ResetPasswordDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    const { user, tokens } = await this.auth.resetPassword(
+      body.token,
+      body.newPassword,
+      requestMeta(req),
+    );
+    setAuthCookies(res, tokens, this.auth.cookieSettings);
+    return { user };
+  }
+
+  @AllowUnverified()
   @Get('me')
   async me(@CurrentUser() user: AuthUser): Promise<AuthResponse> {
     return { user: await this.auth.me(user.id) };

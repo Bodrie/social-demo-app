@@ -69,6 +69,8 @@ export type UserPublic = z.infer<typeof userPublicSchema>;
 /** The user's own profile (adds private fields). */
 export const userPrivateSchema = userPublicSchema.extend({
   email: z.string(),
+  /** Null until the address was confirmed through the link we mailed; the app is closed until then. */
+  emailVerifiedAt: z.iso.datetime().nullable(),
   updatedAt: z.iso.datetime(),
 });
 export type UserPrivate = z.infer<typeof userPrivateSchema>;

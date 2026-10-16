@@ -10,6 +10,7 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 
 ## Contract / docs
 - **`@ZodResponse` on every handler** – gives runtime output validation and real response schemas in `/api/docs/openapi.json` (today: inputs, auth and operation ids only). Do it when a typed client from the document is wanted; the web uses the shared zod schemas directly.
+- **Email follow-ups** – change the email address (new address must be confirmed before it replaces the old one), re-send from Settings, an admin view of unverified accounts, a reaper for accounts never verified after N days.
 - **Conversations pagination** – `GET /conversations` is capped at 100 and already uses the list envelope; a keyset on `last_message_at` adds a cursor without a schema change.
 - **Activity post excerpts without author** – "alice liked bob's post" needs `post.author`; add `author: UserSummary` to the post excerpt when the web needs it.
 - **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
@@ -35,4 +36,4 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 - API logging: aborted client connections surface as raw `Error: read ECONNRESET` / `write EPIPE` lines on stderr (seen while Playwright closes contexts); route them through pino at debug level or ignore them.
 - E2E: a Firefox/WebKit project once the suite is stable in CI; visual snapshots for the main pages.
 - Images: move `prisma migrate deploy` into a one-shot `migrate` image/service so the API runtime image no longer carries the Prisma CLI's dependencies (≈ 960 MB → ≈ 450 MB); multi-arch (`linux/arm64`) builds if the box is ever ARM.
-- Ops: off-box backup copies (rclone), an uptime check on the public URL, a Cloudflare origin certificate for Caddy.
+- Ops: off-box backup copies (rclone), an uptime check on `https://social.bodrie.dev` (a Cloudflare health check or any external monitor hitting `/api/v1/auth/me` for a 401), Cloudflare Bot Fight Mode once the socket.io polling fallback is confirmed unaffected. An origin certificate for Caddy only matters if the tunnel is ever replaced by a direct origin.

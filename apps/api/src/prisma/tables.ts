@@ -4,6 +4,7 @@ export const TABLES = [
   'conversation_members',
   'conversations',
   'refresh_tokens',
+  'email_tokens',
   'activities',
   'follows',
   'comment_reactions',

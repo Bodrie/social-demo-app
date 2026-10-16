@@ -27,7 +27,7 @@ export function Providers({ children, queryClient: providedClient }: ProvidersPr
         disableTransitionOnChange
       >
         <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-        <Toaster position="bottom-right" richColors closeButton />
+        <Toaster position="bottom-right" closeButton />
       </ThemeProvider>
       {import.meta.env.MODE === 'development' ? (
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />

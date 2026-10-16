@@ -83,6 +83,14 @@ export function LoginPage() {
               </FormItem>
             )}
           />
+          <p className="-mt-2 text-right text-sm">
+            <Link
+              to="/forgot-password"
+              className="text-muted-foreground hover:text-foreground underline underline-offset-4"
+            >
+              Forgot your password?
+            </Link>
+          </p>
           <Button type="submit" size="lg" className="h-11 w-full" disabled={login.isPending}>
             {login.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : null}
             {login.isPending ? 'Signing in…' : 'Sign in'}

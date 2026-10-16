@@ -2,16 +2,18 @@ import type { Request } from 'express';
 import { z } from 'zod';
 
 /** What the auth guard attaches to the request. */
-export type AuthUser = { id: string };
+export type AuthUser = { id: string; emailVerified: boolean };
 
 export type AuthenticatedRequest = Request & { user?: AuthUser };
 
-/** Claims we sign; `exp`/`iat`/`iss` are added by the JWT library. */
-export type AccessTokenClaims = { sub: string };
+/** Claims we sign; `exp`/`iat`/`iss` are added by the JWT library. `ev`: email verified. */
+export type AccessTokenClaims = { sub: string; ev: boolean };
 
 /** What a verified token must contain before it is trusted. */
 export const accessTokenPayloadSchema = z.object({
   sub: z.uuid(),
+  /** Absent on tokens signed before verification existed; those accounts were verified by migration. */
+  ev: z.boolean().optional(),
   exp: z.number().int().optional(),
 });
 export type AccessTokenPayload = z.infer<typeof accessTokenPayloadSchema>;

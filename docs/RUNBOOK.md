@@ -2,6 +2,8 @@
 
 Target: Ubuntu Server 24.04, Docker Engine, no static IP, inbound traffic through a
 Cloudflare Tunnel (plan §2.11, decision D12). Everything lives in `/opt/the-mesh`.
+The public address is **https://social.bodrie.dev**, a subdomain of `bodrie.dev` (domain at
+Cloudflare Registrar, DNS on Cloudflare). The apex and `www` stay free for other sites.
 
 ## 1. One-time server setup
 
@@ -29,22 +31,139 @@ Copy the contents of this repository's `deploy/` directory to `/opt/the-mesh`
 ```bash
 cd /opt/the-mesh
 cp .env.example .env && chmod 600 .env
-# Fill in: PUBLIC_URL, POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 48), TUNNEL_TOKEN.
+# Fill in: PUBLIC_URL=https://social.bodrie.dev, POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 48),
+# TUNNEL_TOKEN (section 2).
 ```
 
-## 2. Cloudflare Tunnel
+## 2. Domain and Cloudflare Tunnel (`social.bodrie.dev`)
 
-1. The domain's DNS must be on Cloudflare (free plan is enough).
-2. Zero Trust dashboard → Networks → Tunnels → **Create a tunnel** (Cloudflared) → copy the
-   token into `TUNNEL_TOKEN` in `.env`.
-3. In the tunnel's **Public hostname** tab add the hostname (e.g. `the-mesh.example.com`)
-   with service **HTTP** and URL `web:80` (the compose service name; cloudflared runs in the
-   same network).
-4. Set `PUBLIC_URL=https://the-mesh.example.com` in `.env`. Cloudflare terminates TLS; Caddy
-   serves plain HTTP inside the box. Leave Cloudflare's HSTS off: the API already sends HSTS.
+Everything in this section can be done before the box exists: the tunnel, its hostname, the
+zone settings and the Resend domain only need the Cloudflare and Resend dashboards. Keep the
+two secrets they produce (`TUNNEL_TOKEN`, the Resend API key) for the server's `.env`; until
+the connector runs, visitors to `social.bodrie.dev` see Cloudflare's "tunnel not running"
+page (error 1033), which is expected.
+
+The box has a dynamic IP and no open inbound ports. That is fine: `cloudflared` runs
+inside the compose stack and dials **out** to Cloudflare; Cloudflare's edge terminates TLS
+for `social.bodrie.dev` and forwards requests through that connection. An IP change, a router
+reboot or a new ISP lease only causes the connector to reconnect. No port forwarding, no
+dynamic-DNS client, no certificate on the box.
+
+### 2.1 DNS (Cloudflare dashboard → `bodrie.dev` → DNS → Records)
+
+1. The `social` record is created by the tunnel in step 2.2; if an `A`, `AAAA` or `CNAME`
+   record named `social` already exists, delete it first, otherwise the tunnel refuses to
+   add its route ("an A, AAAA, or CNAME record with that host already exists").
+2. The apex `bodrie.dev` and the `CNAME www` you created are not part of this app. Leave
+   them for whatever goes on the root later (a personal page can ride the same tunnel as a
+   second public hostname pointing at another container). The app answers on exactly one
+   host: cookies, `WEB_ORIGINS` and the uploads URL are all `social.bodrie.dev`, so do not
+   add aliases such as `www.social` or the apex as extra tunnel hostnames.
+3. Nothing else is needed for the app. (Mail records, if you ever use the domain for email,
+   are independent.)
+
+### 2.2 Create the tunnel (dash.cloudflare.com → account → **Networking → Tunnels**; older UIs: Zero Trust / Cloudflare One → Networks → Tunnels)
+
+1. **Create a tunnel** → type *Cloudflared* → name it (`social.bodrie.dev` or `the-mesh`) →
+   **Save**. The tunnel's **Overview** shows *Install cloudflared connector*: pick **Docker**
+   and copy the long `eyJ…` value after `--token` from the shown command. That is
+   `TUNNEL_TOKEN` for `/opt/the-mesh/.env`; the box never installs cloudflared itself, the
+   compose container runs it. (*Refresh token → Rotate token* on the right invalidates it.)
+2. Still in the tunnel: **Routes** tab, or the **Add route** button in the *Routes* panel at
+   the bottom of the Overview (older UIs: *Published application routes* / *Public hostname*)
+   → route type **Published application route** (hostname):
+   - Subdomain `social`, Domain `bodrie.dev` (the *Full hostname* preview must read
+     `social.bodrie.dev`), Path empty.
+   - Service URL `http://web:80` (one field with the scheme in it; older UIs split it into
+     Type HTTP + URL `web:80`). `web` is the compose service name; cloudflared is on the same
+     Docker network, so this resolves inside the box only. Leave *Additional application
+     settings* alone.
+   - Save. Cloudflare adds the proxied `CNAME social → <tunnel-id>.cfargotunnel.com`.
+3. Start the stack with the tunnel profile (section 3). The connector shows up as
+   **Healthy** in the Tunnels list within a few seconds.
+
+### 2.3 `.env`
+
+```
+PUBLIC_URL=https://social.bodrie.dev
+```
+
+`docker-compose.yml` derives everything else from it: `WEB_ORIGINS=https://social.bodrie.dev`
+(CORS allow-list and the API's `Origin` check: a browser on any other host gets 403s on
+writes, by design) and `PUBLIC_ASSETS_URL=https://social.bodrie.dev/api/v1/uploads`. Cookies are
+`Secure`, `TRUST_PROXY=1` trusts the one hop (Caddy rewrites `X-Forwarded-For` from
+`CF-Connecting-IP`, so rate limits see the visitor's address, not Cloudflare's).
+
+### 2.4 Cloudflare settings for the zone
+
+| Where | Setting | Value | Why |
+|---|---|---|---|
+| dash.cloudflare.com → `bodrie.dev` → SSL/TLS → Overview → *Configure* | Encryption mode | **Full (strict)** | the tunnel is the origin so this is not exercised today, but it keeps a future direct origin safe |
+| SSL/TLS → Edge Certificates | Always Use HTTPS | on | plain `http://social.bodrie.dev` → `https://` |
+| SSL/TLS → Edge Certificates | Minimum TLS version | 1.2 | drop legacy clients |
+| SSL/TLS → Edge Certificates | HSTS | leave **off** | `.dev` is on the browsers' HSTS preload list already (subdomains included); the API sends the header itself |
+| Network | WebSockets | on (default) | socket.io |
+| Speed → Optimization → Content Optimization | Rocket Loader | **off** | it rewrites script tags and breaks the SPA |
+| Security → Settings → Bot traffic (older UI: Security → Bots) | Bot Fight Mode | off to start | it can challenge `fetch` and the socket.io polling fallback; turn it on later and watch the logs |
+| Caching | defaults | – | `/api/*` responses carry no cacheable extension and are not cached; `/api/v1/uploads/*.webp` is cached at the edge and is immutable by key, which is what we want |
+
+These are zone-wide settings: they also apply to whatever you put on the apex later.
+Nothing on the box needs to know about TLS or the public IP.
+
+### 2.5 Verify from anywhere
+
+```bash
+curl -sI https://social.bodrie.dev | head -5              # 200, a cf-ray header, text/html
+curl -s  https://social.bodrie.dev/api/v1/auth/me         # {"statusCode":401,...}: edge → tunnel → Caddy → API
+curl -sI http://social.bodrie.dev | grep -i location      # 301 → https://social.bodrie.dev/
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H 'Origin: https://evil.example' -X POST https://social.bodrie.dev/api/v1/auth/login   # 403 (origin check)
+```
+
+Then register the first member in the browser and open two sessions (or two browsers):
+the "Online now" card proves the WebSocket path through Cloudflare works.
 
 Without a tunnel (LAN only, or a VPS with a public IP) skip this section; the stack is
 reachable on `http://<box>:8080` only from the box itself unless you change `ports`.
+
+### 2.6 Outbound email (Resend, `noreply@social.bodrie.dev`)
+
+The app mails a confirmation link at registration (the account is closed until it is used)
+and password reset links. The box never sends mail itself: the API submits it to Resend
+over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is verified.
+
+1. <https://resend.com> → sign up → **Domains → Add domain** → `social.bodrie.dev`, region
+   of your choice (EU keeps the data close). Resend shows a handful of DNS records.
+2. Easiest: press **Auto configure** on the domain page; Resend's Cloudflare integration
+   creates the records in the `bodrie.dev` zone itself (this is what was done for
+   `social.bodrie.dev`, verified within three minutes). By hand instead: Cloudflare dashboard
+   → `bodrie.dev` → DNS → add them exactly as shown, all **DNS only** (grey cloud; mail
+   records are never proxied). As of 2026-10 Resend asks for:
+   - `TXT  resend._domainkey.social`  →  `p=MIGf…` – the DKIM public key
+   - `CNAME send.social`  →  `send.forge.rmta.net` and `CNAME rsend.social` →
+     `rsend-<region>.forge.rmta.net` – return path and bounce handling (older setups used an
+     MX plus an SPF TXT on `send.social` instead; follow whatever Resend lists)
+   - `TXT  _dmarc.social`  →  `v=DMARC1; p=none;` – listed as optional and **not** created by
+     Auto configure (Resend shows the name as `_dmarc`, relative to the domain); add it by
+     hand, and move to `p=quarantine` once mail has flowed for a while
+   Back in Resend press **Verify**; it usually turns green within minutes. The tunnel's own
+   `social` record stays *Proxied*; it is unrelated to mail.
+3. **API Keys → Create** with *Sending access*, restricted to the domain. Copy it once.
+4. On the box, in `/opt/the-mesh/.env`:
+   ```
+   SMTP_URL=smtps://resend:re_xxxxxxxxxxxxxxxx@smtp.resend.com:465
+   EMAIL_FROM="The Mesh <noreply@social.bodrie.dev>"
+   ```
+   then `docker compose up -d api`. Compose sets `EMAIL_TRANSPORT=smtp` and
+   `WEB_URL=$PUBLIC_URL` (where the links point). The API refuses to start in production
+   without these.
+5. Check: register a member with an address you can read; the confirmation mail should
+   arrive within seconds, from `noreply@social.bodrie.dev`, and pass DKIM/SPF/DMARC ("show
+   original" in Gmail). Resend → Emails shows every delivery and bounce.
+
+`noreply` has no inbox; replies bounce. If you ever want to receive mail on the subdomain,
+Cloudflare **Email Routing** (free) can forward it, with its own MX records on `social`.
+Provider switch: any SMTP submission URL works (Postmark, Brevo, SES); only `.env` changes.
 
 ## 3. First start
 
@@ -100,9 +219,12 @@ docker compose start api
 | Status | `docker compose ps` |
 | Logs | `docker compose logs -f api` / `web` / `cloudflared` |
 | Health (from the box) | `curl -s http://127.0.0.1:8080/api/v1/auth/me` (401 = healthy chain); `docker inspect --format '{{.State.Health.Status}}' the-mesh-api-1` |
+| Health (public) | `curl -s https://social.bodrie.dev/api/v1/auth/me` (401); tunnel status in the Cloudflare One dashboard or `docker compose logs cloudflared` ("Registered tunnel connection") |
+| Tunnel reconnects | normal after an IP change; if it stays "Down", `docker compose --profile tunnel restart cloudflared` and check the token in `.env` |
 | Migrations manually | `docker compose exec api sh -c 'cd apps/api && ./node_modules/.bin/prisma migrate deploy'` |
 | Database shell | `docker compose exec postgres psql -U mesh -d mesh` |
 | Disk | `docker system df`; `docker image prune -f` runs in update.sh |
+| Mail not arriving | `docker compose logs api | grep -i mail`; Resend → Emails for bounces; DNS records still DNS-only and verified |
 | Rotate `JWT_SECRET` | change it in `.env`, `docker compose up -d api` (every member must sign in again) |
 
 Migrations are applied before the new API starts; if a migration fails the container
@@ -113,4 +235,4 @@ rolling the image back, because the schema may already be ahead of the old code.
 
 - Off-box backup copies (pick rclone + a bucket; add it to `backup.sh`).
 - Monitoring/alerts beyond Docker health checks (uptime check on the public URL is cheap).
-- An origin certificate between Cloudflare and Caddy (traffic inside the box is HTTP).
+- Traffic between `cloudflared` and Caddy is plain HTTP on the private Docker network of the box (the tunnel itself is encrypted). An origin certificate only becomes relevant if the tunnel is ever replaced by a directly reachable origin.

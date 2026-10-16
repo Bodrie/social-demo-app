@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard, extractAccessToken } from './auth.guard.js';
 import type { AuthenticatedRequest } from './auth.types.js';
+import { ALLOW_UNVERIFIED_KEY } from './allow-unverified.decorator.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 
 const jwt = new JwtService({
@@ -10,10 +11,15 @@ const jwt = new JwtService({
   signOptions: { expiresIn: 60 },
 });
 
-function contextFor(request: Partial<AuthenticatedRequest>, isPublic = false): ExecutionContext {
+function contextFor(
+  request: Partial<AuthenticatedRequest>,
+  isPublic = false,
+  allowUnverified = false,
+): ExecutionContext {
   const handler = () => undefined;
   const reflector = new Reflector();
   if (isPublic) Reflect.defineMetadata(IS_PUBLIC_KEY, true, handler);
+  if (allowUnverified) Reflect.defineMetadata(ALLOW_UNVERIFIED_KEY, true, handler);
   return {
     getType: () => 'http',
     getHandler: () => handler,
@@ -45,7 +51,32 @@ describe('AuthGuard', () => {
     };
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
-    expect(request.user).toEqual({ id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9' });
+    // No `ev` claim: signed before verification existed, for an account verified by migration.
+    expect(request.user).toEqual({
+      id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
+      emailVerified: true,
+    });
+  });
+
+  it('closes the app to unverified accounts except on @AllowUnverified() routes', async () => {
+    const token = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9', ev: false });
+    await expect(
+      guard.canActivate(contextFor({ headers: {}, cookies: { access_token: token } })),
+    ).rejects.toMatchObject({ status: 403 });
+    const request: Partial<AuthenticatedRequest> = {
+      headers: {},
+      cookies: { access_token: token },
+    };
+    await expect(guard.canActivate(contextFor(request, false, true))).resolves.toBe(true);
+    expect(request.user).toEqual({
+      id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
+      emailVerified: false,
+    });
+
+    const verified = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9', ev: true });
+    await expect(
+      guard.canActivate(contextFor({ headers: {}, cookies: { access_token: verified } })),
+    ).resolves.toBe(true);
   });
 
   it('rejects a correctly signed token without a usable subject', async () => {

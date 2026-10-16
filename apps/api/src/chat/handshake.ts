@@ -41,7 +41,8 @@ export async function authenticateSocket(
   const token = handshakeToken(socket);
   if (!token) return undefined;
   const payload = await verifyAccessToken(jwt, token);
-  if (!payload) return undefined;
+  // Unverified accounts have no business on the socket either (the app is closed to them).
+  if (!payload || payload.ev === false) return undefined;
   return {
     userId: payload.sub,
     expiresAt: payload.exp === undefined ? null : new Date(payload.exp * 1000),

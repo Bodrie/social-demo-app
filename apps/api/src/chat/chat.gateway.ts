@@ -80,6 +80,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private readonly sendLimiter = new SocketRateLimiter(SEND_LIMIT.limit, SEND_LIMIT.windowMs);
   private readonly readLimiter = new SocketRateLimiter(READ_LIMIT.limit, READ_LIMIT.windowMs);
   private readonly typingLimiter = new SocketRateLimiter(TYPING_LIMIT.limit, TYPING_LIMIT.windowMs);
+  /** Accepted handshakes per user. Presence fills in later (after a lookup), so the cap counts here. */
+  private readonly socketsByUser = new Map<string, number>();
 
   constructor(
     private readonly jwt: JwtService,
@@ -96,10 +98,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
           next(new Error('Unauthorized'));
           return;
         }
-        if (this.presence.socketCount(session.userId) >= MAX_SOCKETS_PER_USER) {
+        const open = this.socketsByUser.get(session.userId) ?? 0;
+        if (open >= MAX_SOCKETS_PER_USER) {
           next(new Error('Too many connections'));
           return;
         }
+        this.socketsByUser.set(session.userId, open + 1);
         socket.data.userId = session.userId;
         socket.data.expiresAt = session.expiresAt;
         next();
@@ -135,6 +139,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   handleDisconnect(socket: ChatSocket): void {
     const userId = socket.data.userId;
     if (!userId) return;
+    const open = (this.socketsByUser.get(userId) ?? 1) - 1;
+    if (open > 0) this.socketsByUser.set(userId, open);
+    else this.socketsByUser.delete(userId);
     if (this.presence.remove(userId, socket.id)) {
       this.sendLimiter.forget(userId);
       this.readLimiter.forget(userId);

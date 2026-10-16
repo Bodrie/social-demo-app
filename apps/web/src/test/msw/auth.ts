@@ -1,4 +1,12 @@
-import { type ApiError, changePasswordSchema, loginSchema, registerSchema } from '@the-mesh/shared';
+import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+  type ApiError,
+  verifyEmailSchema,
+} from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
 import { TEST_PASSWORD, makeUser, testId } from '../fixtures';
 import { mockDb, upsertUser } from './db';
@@ -48,9 +56,71 @@ export const authHandlers = [
         email: body.email,
         username: body.username,
         name: body.name,
+        emailVerifiedAt: null,
       }),
     );
+    mockDb.emailTokens.push({
+      token: `verify-${mockDb.user.id}`,
+      kind: 'verify',
+      email: body.email,
+    });
     return HttpResponse.json({ user: mockDb.user }, { status: 201 });
+  }),
+
+  http.post(`${API}/auth/verify-email`, async ({ request }) => {
+    const body = verifyEmailSchema.parse(await request.json());
+    const entry = mockDb.emailTokens.find((e) => e.kind === 'verify' && e.token === body.token);
+    const user = entry && mockDb.users.find((u) => u.email === entry.email);
+    if (!entry || !user) {
+      return apiError(400, 'BAD_REQUEST', 'This link is invalid, has expired or was already used', {
+        token: 'This link is invalid, has expired or was already used',
+      });
+    }
+    mockDb.emailTokens = mockDb.emailTokens.filter((e) => e !== entry);
+    user.emailVerifiedAt = new Date().toISOString();
+    mockDb.user = user;
+    return HttpResponse.json({ user });
+  }),
+
+  http.post(`${API}/auth/verify-email/resend`, () => {
+    if (!mockDb.user) return unauthorized();
+    const sent = mockDb.emailTokens.filter((e) => e.email === mockDb.user?.email).length;
+    if (sent >= 3) return apiError(429, 'TOO_MANY_REQUESTS', 'Too many requests');
+    mockDb.emailTokens.push({
+      token: `verify-again-${sent}`,
+      kind: 'verify',
+      email: mockDb.user.email,
+    });
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${API}/auth/forgot-password`, async ({ request }) => {
+    const body = forgotPasswordSchema.parse(await request.json());
+    mockDb.calls.forgot += 1;
+    if (mockDb.users.some((u) => u.email === body.email)) {
+      mockDb.emailTokens.push({ token: `reset-${body.email}`, kind: 'reset', email: body.email });
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${API}/auth/reset-password`, async ({ request }) => {
+    const parsed = resetPasswordSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { newPassword: 'Too short' });
+    }
+    const entry = mockDb.emailTokens.find(
+      (e) => e.kind === 'reset' && e.token === parsed.data.token,
+    );
+    const user = entry && mockDb.users.find((u) => u.email === entry.email);
+    if (!entry || !user) {
+      return apiError(400, 'BAD_REQUEST', 'This link is invalid, has expired or was already used', {
+        token: 'This link is invalid, has expired or was already used',
+      });
+    }
+    mockDb.emailTokens = mockDb.emailTokens.filter((e) => e !== entry);
+    user.emailVerifiedAt ??= new Date().toISOString();
+    mockDb.user = user;
+    return HttpResponse.json({ user });
   }),
 
   http.post(`${API}/auth/password`, async ({ request }) => {

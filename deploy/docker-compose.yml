@@ -34,6 +34,10 @@ services:
       WEB_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL in .env}
       PUBLIC_ASSETS_URL: ${PUBLIC_URL}/api/v1/uploads
       COOKIE_SECURE: 'true'
+      WEB_URL: ${PUBLIC_URL}
+      EMAIL_TRANSPORT: smtp
+      SMTP_URL: ${SMTP_URL:?set SMTP_URL in .env}
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM in .env}
       # Caddy rewrites X-Forwarded-For from Cloudflare's CF-Connecting-IP: trust that one hop.
       TRUST_PROXY: '1'
       LOG_LEVEL: ${LOG_LEVEL:-info}

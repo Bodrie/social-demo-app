@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { Env } from '../config/env.js';
+import { EmailModule } from '../email/email.module.js';
 import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { EmailTokensService } from './email-tokens.service.js';
 import { RefreshTokensService } from './refresh-tokens.service.js';
 
 const JWT_ISSUER = 'the-mesh';
@@ -12,6 +14,7 @@ const JWT_ISSUER = 'the-mesh';
 @Module({
   imports: [
     UsersModule,
+    EmailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({
@@ -26,7 +29,7 @@ const JWT_ISSUER = 'the-mesh';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, RefreshTokensService],
+  providers: [AuthService, RefreshTokensService, EmailTokensService],
   exports: [JwtModule],
 })
 export class AuthModule {}

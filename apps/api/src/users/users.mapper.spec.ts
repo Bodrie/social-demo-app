@@ -13,6 +13,7 @@ const row: UserPrivateRow = {
   createdAt: new Date('2026-10-15T10:00:00.000Z'),
   updatedAt: new Date('2026-10-15T11:00:00.000Z'),
   email: 'alice@example.com',
+  emailVerifiedAt: new Date('2026-10-15T10:05:00.000Z'),
   _count: { posts: 3, followers: 2, following: 1 },
   followers: [{ followerId: 'viewer' }],
   following: [],

@@ -46,6 +46,7 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     followedByMe: false,
     followsMe: false,
     email: 'alice@example.com',
+    emailVerifiedAt: '2026-10-15T10:05:00.000Z',
     ...overrides,
   };
 }

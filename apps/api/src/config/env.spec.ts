@@ -78,6 +78,10 @@ describe('production safety', () => {
     PUBLIC_ASSETS_URL: 'https://mesh.example/api/v1/uploads',
     WEB_ORIGINS: 'https://mesh.example',
     TRUST_PROXY: '1',
+    WEB_URL: 'https://social.bodrie.dev',
+    EMAIL_TRANSPORT: 'smtp',
+    SMTP_URL: 'smtps://resend:key@smtp.resend.com:465',
+    EMAIL_FROM: 'The Mesh <noreply@social.bodrie.dev>',
   };
 
   it('accepts an explicit configuration', () => {
@@ -96,5 +100,14 @@ describe('production safety', () => {
       }),
     ).toThrow(/placeholder/);
     expect(() => validateEnv({ ...production, COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
+  });
+
+  it('insists on real mail settings', () => {
+    expect(() => validateEnv({ ...production, EMAIL_TRANSPORT: 'outbox' })).toThrow(
+      /EMAIL_TRANSPORT/,
+    );
+    expect(() => validateEnv({ ...production, SMTP_URL: undefined })).toThrow(/SMTP_URL/);
+    expect(() => validateEnv({ ...production, EMAIL_FROM: '' })).toThrow(/EMAIL_FROM/);
+    expect(() => validateEnv({ ...production, WEB_URL: undefined })).toThrow(/WEB_URL/);
   });
 });
