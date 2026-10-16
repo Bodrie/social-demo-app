@@ -41,7 +41,7 @@ Swagger UI: http://localhost:3000/api/docs.
 | `pnpm format` / `pnpm format:check` | Prettier |
 | `pnpm test:int` | API integration tests against a throwaway PostgreSQL (Testcontainers) |
 | `pnpm --filter @the-mesh/web e2e` | Playwright end-to-end suite against the built API and web app (reseeds the database; `… exec playwright install chromium` once) |
-| `pnpm db:migrate -- --name <change>` | create and apply a migration from schema changes |
+| `pnpm db:migrate --name <change>` | create and apply a migration from schema changes |
 | `pnpm db:deploy` / `pnpm db:check` / `pnpm db:seed` / `pnpm db:studio` | apply migrations / drift check / demo data / Prisma Studio |
 | `docker build -f apps/api/Dockerfile .` | production image (same for `apps/web/Dockerfile`) |
 

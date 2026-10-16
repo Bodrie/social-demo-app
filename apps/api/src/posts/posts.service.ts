@@ -1,9 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { CreatePostData, CursorQuery, Paginated, Post } from '@the-mesh/shared';
+import type {
+  CreatePostData,
+  CursorQuery,
+  Paginated,
+  Post,
+  Revision,
+  UpdatePostData,
+} from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { forbidden, notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
+import { toRevision } from '../common/revisions.js';
 import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -49,6 +57,37 @@ export class PostsService {
     });
     if (!row) throw notFound('Post not found');
     return toPost(row, this.assets.base);
+  }
+
+  /** Author only. The previous text is kept as a revision; an unchanged text is a no-op. */
+  async update(viewerId: string, postId: string, input: UpdatePostData): Promise<Post> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true, content: true },
+    });
+    if (!post) throw notFound('Post not found');
+    if (post.authorId !== viewerId) throw forbidden('You can only edit your own posts');
+    if (post.content !== input.content) {
+      await this.prisma.$transaction([
+        this.prisma.postRevision.create({ data: { postId, content: post.content } }),
+        this.prisma.post.update({
+          where: { id: postId },
+          data: { content: input.content, editedAt: new Date() },
+        }),
+      ]);
+    }
+    return this.getById(viewerId, postId);
+  }
+
+  /** Previous versions, most recently replaced first. Visible to anyone who can see the post. */
+  async revisions(postId: string): Promise<Paginated<Revision>> {
+    await this.assertExists(postId);
+    const rows = await this.prisma.postRevision.findMany({
+      where: { postId },
+      orderBy: [{ editedAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+    });
+    return { items: rows.map(toRevision), nextCursor: null };
   }
 
   /** The viewer's own posts plus those of everyone they follow, newest first. */

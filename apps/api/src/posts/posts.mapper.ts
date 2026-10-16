@@ -8,6 +8,7 @@ export function postSelect(viewerId: string) {
     id: true,
     content: true,
     imageKey: true,
+    editedAt: true,
     createdAt: true,
     updatedAt: true,
     author: { select: userSummarySelect },
@@ -27,6 +28,7 @@ export function toPost(row: PostRow, assetsBase: string): Post {
     likeCount: row._count.likes,
     commentCount: row._count.comments,
     likedByMe: row.likes.length > 0,
+    editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

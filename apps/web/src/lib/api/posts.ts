@@ -2,8 +2,11 @@ import {
   type CreatePostInput,
   type Post,
   type PostList,
+  type RevisionList,
+  type UpdatePostInput,
   postListSchema,
   postSchema,
+  revisionListSchema,
 } from '@the-mesh/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
@@ -25,3 +28,9 @@ export const deletePost = (postId: string): Promise<void> => api.delete(`/posts/
 export const likePost = (postId: string): Promise<void> => api.put(`/posts/${postId}/like`);
 
 export const unlikePost = (postId: string): Promise<void> => api.delete(`/posts/${postId}/like`);
+
+export const updatePost = (postId: string, input: UpdatePostInput): Promise<Post> =>
+  api.patch(`/posts/${postId}`, input, { schema: postSchema });
+
+export const fetchPostRevisions = (postId: string, signal?: AbortSignal): Promise<RevisionList> =>
+  api.get(`/posts/${postId}/revisions`, revisionListSchema, { signal });

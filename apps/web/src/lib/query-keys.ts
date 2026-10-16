@@ -1,3 +1,5 @@
+import type { CommentSort } from '@the-mesh/shared';
+
 /**
  * Query key factory. Every key starts with its feature so invalidation can be scoped,
  * and `endSession` can drop everything except `me`. Post and user lists share the
@@ -23,7 +25,13 @@ export const queryKeys = {
   },
   comments: {
     all: ['comments'] as const,
-    forPost: (postId: string) => ['comments', postId] as const,
+    /** Prefix for every sort order of one post's comments. */
+    ofPost: (postId: string) => ['comments', postId] as const,
+    forPost: (postId: string, sort: CommentSort) => ['comments', postId, sort] as const,
+  },
+  revisions: {
+    post: (postId: string) => ['revisions', 'post', postId] as const,
+    comment: (commentId: string) => ['revisions', 'comment', commentId] as const,
   },
   activities: {
     all: ['activities'] as const,

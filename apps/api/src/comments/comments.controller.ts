@@ -1,11 +1,27 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Comment, Paginated } from '@the-mesh/shared';
+import type { Comment, Paginated, ReactionSummary, Revision } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto, PostIdParamDto } from '../common/params.dto.js';
-import { CommentsQueryDto, CreateCommentDto } from './comments.dto.js';
+import {
+  CommentsQueryDto,
+  CreateCommentDto,
+  SetReactionDto,
+  UpdateCommentDto,
+} from './comments.dto.js';
 import { CommentsService } from './comments.service.js';
 
 @ApiTags('comments')
@@ -15,10 +31,11 @@ export class PostCommentsController {
 
   @Get()
   list(
+    @CurrentUser() user: AuthUser,
     @Param() params: PostIdParamDto,
     @Query() query: CommentsQueryDto,
   ): Promise<Paginated<Comment>> {
-    return this.comments.listForPost(params.postId, query);
+    return this.comments.listForPost(user.id, params.postId, query);
   }
 
   @Post()
@@ -37,6 +54,38 @@ export class PostCommentsController {
 @Controller('comments')
 export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
+
+  @Patch(':id')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Body() body: UpdateCommentDto,
+  ): Promise<Comment> {
+    return this.comments.update(user.id, params.id, body);
+  }
+
+  @Get(':id/revisions')
+  revisions(@Param() params: IdParamDto): Promise<Paginated<Revision>> {
+    return this.comments.revisions(params.id);
+  }
+
+  /** Sets or switches the caller's reaction; answers with the fresh summary. */
+  @Put(':id/reaction')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  react(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Body() body: SetReactionDto,
+  ): Promise<ReactionSummary> {
+    return this.comments.react(user.id, params.id, body.type);
+  }
+
+  @Delete(':id/reaction')
+  @HttpCode(200)
+  unreact(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<ReactionSummary> {
+    return this.comments.unreact(user.id, params.id);
+  }
 
   @Delete(':id')
   @HttpCode(204)

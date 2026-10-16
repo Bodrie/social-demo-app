@@ -1,4 +1,14 @@
-import type { Activity, Comment, Message, Post, UserPrivate, UserPublic } from '@the-mesh/shared';
+import type {
+  Activity,
+  Comment,
+  Message,
+  Post,
+  ReactionSummary,
+  ReactionType,
+  Revision,
+  UserPrivate,
+  UserPublic,
+} from '@the-mesh/shared';
 import { alice, bob, carol, makePost, resetFixtureSequence } from '../fixtures';
 
 type Follow = { followerId: string; followingId: string };
@@ -15,6 +25,9 @@ export const mockDb = {
   comments: [] as Comment[],
   activities: [] as Activity[],
   messages: [] as Message[],
+  reactions: [] as { commentId: string; userId: string; type: ReactionType }[],
+  commentRevisions: new Map<string, Revision[]>(),
+  postRevisions: new Map<string, Revision[]>(),
   uploads: 0,
   calls: { me: 0, refresh: 0, login: 0, logout: 0 },
 };
@@ -30,6 +43,9 @@ export function resetMockDb(): void {
   mockDb.comments = [];
   mockDb.activities = [];
   mockDb.messages = [];
+  mockDb.reactions = [];
+  mockDb.commentRevisions = new Map();
+  mockDb.postRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0 };
   resetFixtureSequence();
@@ -100,4 +116,18 @@ export function paginate<T extends { id: string }>(
   const page = items.slice(start, start + limit);
   const last = page.at(-1);
   return { items: page, nextCursor: last && start + limit < items.length ? last.id : null };
+}
+
+/** Reaction summary of a comment as `viewerId` sees it, from the reactions table. */
+export function reactionsFor(commentId: string, viewerId: string): ReactionSummary {
+  const counts: Record<ReactionType, number> = { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 };
+  let total = 0;
+  let mine: ReactionType | null = null;
+  for (const reaction of mockDb.reactions) {
+    if (reaction.commentId !== commentId) continue;
+    counts[reaction.type] += 1;
+    total += 1;
+    if (reaction.userId === viewerId) mine = reaction.type;
+  }
+  return { counts, total, mine };
 }

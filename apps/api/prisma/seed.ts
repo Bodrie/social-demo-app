@@ -13,7 +13,7 @@ import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { ActivityType } from '../src/generated/prisma/enums.js';
+import { ActivityType, ReactionType } from '../src/generated/prisma/enums.js';
 import { TABLES } from '../src/prisma/tables.js';
 import { placeholderAvatar, placeholderPostImage } from './placeholders.js';
 
@@ -207,6 +207,53 @@ async function seed(): Promise<void> {
     })),
   });
 
+  // --- comment reactions and a few edits ---------------------------------
+  const reactionTypes = Object.values(ReactionType);
+  const reactions = comments.flatMap((c) =>
+    pick(userIds, faker.number.int({ min: 0, max: 3 })).map((userId) => ({
+      commentId: c.id,
+      userId,
+      type: faker.helpers.arrayElement(reactionTypes),
+    })),
+  );
+  await prisma.commentReaction.createMany({ data: reactions, skipDuplicates: true });
+  // The denormalised total that "sort by top" relies on.
+  await prisma.$executeRaw`
+    UPDATE comments c
+    SET reactions_count = (SELECT count(*) FROM comment_reactions r WHERE r.comment_id = c.id)
+  `;
+  // One edited comment and one edited post, so the "edited" history has something to show.
+  const [editedComment] = comments;
+  if (editedComment) {
+    const current = await prisma.comment.findUniqueOrThrow({
+      where: { id: editedComment.id },
+      select: { content: true },
+    });
+    await prisma.$transaction([
+      prisma.commentRevision.create({
+        data: { commentId: editedComment.id, content: current.content },
+      }),
+      prisma.comment.update({
+        where: { id: editedComment.id },
+        data: { content: `${current.content} (clarified)`, editedAt: new Date() },
+      }),
+    ]);
+  }
+  const [editedPost] = posts;
+  if (editedPost) {
+    const current = await prisma.post.findUniqueOrThrow({
+      where: { id: editedPost.id },
+      select: { content: true },
+    });
+    await prisma.$transaction([
+      prisma.postRevision.create({ data: { postId: editedPost.id, content: current.content } }),
+      prisma.post.update({
+        where: { id: editedPost.id },
+        data: { content: `${current.content} Update: typo fixed.`, editedAt: new Date() },
+      }),
+    ]);
+  }
+
   // --- messages between the fixed accounts ---------------------------------
   const [alice, bob] = users;
   if (alice && bob) {
@@ -222,7 +269,7 @@ async function seed(): Promise<void> {
   }
 
   console.log(
-    `Seeded ${users.length} users (avatars in ${uploadsDir}), ${follows.length} follows, ${posts.length} posts, ${likes.length} likes, ${comments.length} comments.`,
+    `Seeded ${users.length} users (avatars in ${uploadsDir}), ${follows.length} follows, ${posts.length} posts, ${likes.length} likes, ${comments.length} comments, ${reactions.length} reactions.`,
   );
 }
 

@@ -13,6 +13,8 @@ describe('commentSchema', () => {
     const comment = {
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       postId: '01a13ed6-d3ec-71cb-b39f-fbc256a293b8',
+      editedAt: null,
+      reactions: { counts: { LIKE: 1, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 }, total: 1, mine: 'LIKE' },
       content: 'nice',
       author: {
         id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b7',

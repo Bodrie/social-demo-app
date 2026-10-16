@@ -40,11 +40,38 @@ export function keysetAfter<IdWhere extends object>(
   };
 }
 
-/** Given `limit + 1` rows, trims to `limit` and derives the next cursor from the last kept row. */
-export function paginateBy<Row, Item>(
+/**
+ * Keyset for lists ranked by an integer score first (`score desc, createdAt desc, id desc`),
+ * e.g. comments sorted by number of reactions.
+ */
+export type RankedKeyset = Keyset & { score: number };
+
+const rankedCursorSchema = z.tuple([
+  z.coerce.number().int().nonnegative(),
+  z.iso.datetime(),
+  z.uuid(),
+]);
+
+export function encodeRankedCursor(key: RankedKeyset): string {
+  return Buffer.from(`${key.score}|${key.createdAt.toISOString()}|${key.id}`, 'utf8').toString(
+    'base64url',
+  );
+}
+
+export function decodeRankedCursor(cursor: string | undefined): RankedKeyset | undefined {
+  if (cursor === undefined) return undefined;
+  const parsed = rankedCursorSchema.safeParse(
+    Buffer.from(cursor, 'base64url').toString('utf8').split('|'),
+  );
+  if (!parsed.success) throw validationError({ cursor: 'Invalid cursor' });
+  return { score: parsed.data[0], createdAt: new Date(parsed.data[1]), id: parsed.data[2] };
+}
+
+/** Given `limit + 1` rows, trims to `limit` and encodes the next cursor from the last kept row. */
+export function paginateWith<Row, Item>(
   rows: Row[],
   limit: number,
-  cursorOf: (row: Row) => Keyset,
+  nextCursorOf: (row: Row) => string,
   map: (row: Row) => Item,
 ): Paginated<Item> {
   const hasMore = rows.length > limit;
@@ -52,8 +79,18 @@ export function paginateBy<Row, Item>(
   const last = page.at(-1);
   return {
     items: page.map(map),
-    nextCursor: hasMore && last !== undefined ? encodeCursor(cursorOf(last)) : null,
+    nextCursor: hasMore && last !== undefined ? nextCursorOf(last) : null,
   };
+}
+
+/** `paginateWith` for the standard `createdAt desc, id desc` order. */
+export function paginateBy<Row, Item>(
+  rows: Row[],
+  limit: number,
+  cursorOf: (row: Row) => Keyset,
+  map: (row: Row) => Item,
+): Paginated<Item> {
+  return paginateWith(rows, limit, (row) => encodeCursor(cursorOf(row)), map);
 }
 
 /** `paginateBy` for rows that carry `id` and `createdAt`. */

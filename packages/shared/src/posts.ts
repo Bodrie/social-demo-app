@@ -18,6 +18,8 @@ export const postSchema = z.object({
   commentCount: z.int().nonnegative(),
   /** Whether the requesting user has liked this post. */
   likedByMe: z.boolean(),
+  /** Null until the first edit. */
+  editedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -36,6 +38,11 @@ export const createPostSchema = z.object({
 });
 export type CreatePostInput = z.input<typeof createPostSchema>;
 export type CreatePostData = z.output<typeof createPostSchema>;
+
+/** Only the text can change; the picture is fixed once posted. */
+export const updatePostSchema = createPostSchema.pick({ content: true });
+export type UpdatePostInput = z.input<typeof updatePostSchema>;
+export type UpdatePostData = z.output<typeof updatePostSchema>;
 
 export const feedQuerySchema = cursorQuerySchema;
 export type FeedQuery = z.output<typeof feedQuerySchema>;

@@ -1,0 +1,78 @@
+import { expect, test } from '@playwright/test';
+import { contextAs, openHome } from './helpers.js';
+
+test.describe('editing and reactions', () => {
+  test('edit a post, keep its history, react to a comment, sort by top, edit the comment', async ({
+    page,
+    browser,
+  }) => {
+    await openHome(page);
+    const text = `Editable ${Date.now()}`;
+    await page.getByLabel('New post').fill(text);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const post = page.getByRole('article').filter({ hasText: text }).first();
+    await expect(post).toBeVisible();
+
+    // Edit the post; the old text is one click away.
+    await post.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Edit post' }).click();
+    await post.getByLabel('Edit post').fill(`${text} (edited)`);
+    await post.getByRole('button', { name: 'Save' }).click();
+    await expect(post.getByText(`${text} (edited)`)).toBeVisible();
+    await post.getByRole('button', { name: 'edited' }).click();
+    await expect(
+      page.getByRole('list', { name: 'Previous versions' }).getByText(text),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Bob comments first (comments do not refresh live), then Alice opens the thread and adds
+    // hers. Bob's older comment gets the reactions, so "Top" puts it first.
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await openHome(bob);
+    const bobPost = bob.getByRole('article').filter({ hasText: text }).first();
+    await bobPost.getByRole('button', { name: /^Comments/ }).click();
+    await bobPost.getByLabel('Write a comment').fill('Bob first');
+    await bobPost.getByRole('button', { name: 'Send comment' }).click();
+    await expect(bobPost.getByText('Bob first')).toBeVisible();
+
+    await post.getByRole('button', { name: /^Comments/ }).click();
+    const comments = post.getByRole('region', { name: 'Comments' });
+    await expect(comments.getByText('Bob first')).toBeVisible();
+    await post.getByLabel('Write a comment').fill('Alice second');
+    await post.getByRole('button', { name: 'Send comment' }).click();
+    await expect(comments.getByText('Alice second')).toBeVisible();
+
+    const bobComment = comments.getByRole('listitem').filter({ hasText: 'Bob first' });
+    await bobComment.getByRole('button', { name: 'Add reaction' }).click();
+    await page.getByRole('button', { name: 'Love' }).click();
+    await expect(bobComment.getByRole('button', { name: 'Love 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await comments.getByRole('button', { name: 'Top' }).click();
+    await expect(comments.getByRole('listitem').first()).toContainText('Bob first');
+    await comments.getByRole('button', { name: 'Newest' }).click();
+    await expect(comments.getByRole('listitem').first()).toContainText('Alice second');
+
+    // Edit the own comment and check the history.
+    const mine = comments.getByRole('listitem').filter({ hasText: 'Alice second' });
+    await mine.getByRole('button', { name: 'Comment options' }).click();
+    await page.getByRole('menuitem', { name: 'Edit comment' }).click();
+    await mine.getByLabel('Edit comment').fill('Alice second, revised');
+    await mine.getByLabel('Edit comment').press('Enter');
+    await expect(mine.getByText('Alice second, revised')).toBeVisible();
+    await mine.getByRole('button', { name: 'edited' }).click();
+    await expect(
+      page.getByRole('list', { name: 'Previous versions' }).getByText('Alice second'),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Clean up.
+    await post.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete post' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('article').filter({ hasText: text })).toHaveCount(0);
+    await bob.context().close();
+  });
+});

@@ -1,3 +1,4 @@
+import { emptyReactions } from '@/features/comments/reactions';
 import type {
   Activity,
   ActivityType,
@@ -81,6 +82,7 @@ export function makePost(overrides: Partial<Post> = {}): Post {
     likeCount: 0,
     commentCount: 0,
     likedByMe: false,
+    editedAt: null,
     createdAt,
     updatedAt: createdAt,
     ...overrides,
@@ -95,6 +97,8 @@ export function makeComment(postId: string, overrides: Partial<Comment> = {}): C
     postId,
     content: `Comment number ${sequence}`,
     author: summaryOf(bob),
+    editedAt: null,
+    reactions: emptyReactions(),
     createdAt,
     updatedAt: createdAt,
     ...overrides,

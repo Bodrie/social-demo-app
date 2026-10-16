@@ -1,8 +1,27 @@
-import { createCommentSchema, createPostSchema } from '@the-mesh/shared';
+import {
+  type Comment,
+  type Revision,
+  createCommentSchema,
+  createPostSchema,
+  setReactionSchema,
+  updateCommentSchema,
+  updatePostSchema,
+} from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
 import { makeComment, makePost, summaryOf, testId } from '../fixtures';
+
+let revisionSeq = 0;
+const makeRevision = (content: string): Revision => ({
+  id: testId('comment', 500 + ++revisionSeq),
+  content,
+  editedAt: new Date().toISOString(),
+});
+const withReactions = (comment: Comment, viewerId: string): Comment => ({
+  ...comment,
+  reactions: reactionsFor(comment.id, viewerId),
+});
 import { API, apiError, unauthorized } from './auth';
-import { mockDb, paginate } from './db';
+import { mockDb, paginate, reactionsFor } from './db';
 
 const notFound = (what: string) => apiError(404, 'NOT_FOUND', `${what} not found`);
 const forbidden = (message: string) => apiError(403, 'FORBIDDEN', message);
@@ -69,8 +88,19 @@ export const postHandlers = [
 
   http.get(`${API}/posts/:postId/comments`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
-    const comments = mockDb.comments.filter((comment) => comment.postId === param(params.postId));
-    return HttpResponse.json(paginate(comments, new URL(request.url)));
+    const viewerId = mockDb.user.id;
+    const url = new URL(request.url);
+    const comments = mockDb.comments
+      .filter((comment) => comment.postId === param(params.postId))
+      .map((comment) => withReactions(comment, viewerId));
+    const sorted =
+      url.searchParams.get('sort') === 'top'
+        ? comments.toSorted(
+            (a, b) =>
+              b.reactions.total - a.reactions.total || b.createdAt.localeCompare(a.createdAt),
+          )
+        : comments;
+    return HttpResponse.json(paginate(sorted, url));
   }),
 
   http.post(`${API}/posts/:postId/comments`, async ({ request, params }) => {
@@ -85,7 +115,7 @@ export const postHandlers = [
     });
     mockDb.comments.unshift(comment);
     post.commentCount += 1;
-    return HttpResponse.json(comment, { status: 201 });
+    return HttpResponse.json(withReactions(comment, mockDb.user.id), { status: 201 });
   }),
 
   http.delete(`${API}/comments/:id`, ({ params }) => {
@@ -99,6 +129,79 @@ export const postHandlers = [
     mockDb.comments = mockDb.comments.filter((item) => item.id !== comment.id);
     if (post) post.commentCount -= 1;
     return noContent();
+  }),
+
+  http.patch(`${API}/posts/:id`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    if (post.author.id !== mockDb.user.id) return forbidden('You can only edit your own posts');
+    const body = updatePostSchema.parse(await request.json());
+    if (body.content !== post.content) {
+      const history = mockDb.postRevisions.get(post.id) ?? [];
+      mockDb.postRevisions.set(post.id, [makeRevision(post.content), ...history]);
+      post.content = body.content;
+      post.editedAt = new Date().toISOString();
+    }
+    return HttpResponse.json(post);
+  }),
+
+  http.get(`${API}/posts/:id/revisions`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    if (!mockDb.posts.some((item) => item.id === param(params.id))) return notFound('Post');
+    return HttpResponse.json({
+      items: mockDb.postRevisions.get(param(params.id)) ?? [],
+      nextCursor: null,
+    });
+  }),
+
+  http.patch(`${API}/comments/:id`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const comment = mockDb.comments.find((item) => item.id === param(params.id));
+    if (!comment) return notFound('Comment');
+    if (comment.author.id !== mockDb.user.id) {
+      return forbidden('You can only edit your own comments');
+    }
+    const body = updateCommentSchema.parse(await request.json());
+    if (body.content !== comment.content) {
+      const history = mockDb.commentRevisions.get(comment.id) ?? [];
+      mockDb.commentRevisions.set(comment.id, [makeRevision(comment.content), ...history]);
+      comment.content = body.content;
+      comment.editedAt = new Date().toISOString();
+    }
+    return HttpResponse.json(withReactions(comment, mockDb.user.id));
+  }),
+
+  http.get(`${API}/comments/:id/revisions`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    if (!mockDb.comments.some((item) => item.id === param(params.id))) return notFound('Comment');
+    return HttpResponse.json({
+      items: mockDb.commentRevisions.get(param(params.id)) ?? [],
+      nextCursor: null,
+    });
+  }),
+
+  http.put(`${API}/comments/:id/reaction`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const commentId = param(params.id);
+    if (!mockDb.comments.some((item) => item.id === commentId)) return notFound('Comment');
+    const { type } = setReactionSchema.parse(await request.json());
+    const userId = mockDb.user.id;
+    const existing = mockDb.reactions.find((r) => r.commentId === commentId && r.userId === userId);
+    if (existing) existing.type = type;
+    else mockDb.reactions.push({ commentId, userId, type });
+    return HttpResponse.json(reactionsFor(commentId, userId));
+  }),
+
+  http.delete(`${API}/comments/:id/reaction`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const commentId = param(params.id);
+    if (!mockDb.comments.some((item) => item.id === commentId)) return notFound('Comment');
+    const userId = mockDb.user.id;
+    mockDb.reactions = mockDb.reactions.filter(
+      (r) => !(r.commentId === commentId && r.userId === userId),
+    );
+    return HttpResponse.json(reactionsFor(commentId, userId));
   }),
 
   http.post(`${API}/uploads`, async ({ request }) => {

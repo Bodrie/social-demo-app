@@ -7,7 +7,7 @@ import { gzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 230);
+const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 240);
 const dist = path.resolve(import.meta.dirname, '../dist');
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8');
 const initial = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(

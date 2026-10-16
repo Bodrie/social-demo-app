@@ -1,24 +1,55 @@
-import type { Comment } from '@the-mesh/shared';
+import {
+  type Comment,
+  REACTION_TYPES,
+  type ReactionSummary,
+  type ReactionType,
+} from '@the-mesh/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 
-export const commentSelect = {
-  id: true,
-  postId: true,
-  content: true,
-  createdAt: true,
-  updatedAt: true,
-  author: { select: userSummarySelect },
-} satisfies Prisma.CommentSelect;
+/** A comment with its author and the viewer's own reaction; per-type counts come separately. */
+export function commentSelect(viewerId: string) {
+  return {
+    id: true,
+    postId: true,
+    content: true,
+    editedAt: true,
+    reactionsCount: true,
+    createdAt: true,
+    updatedAt: true,
+    author: { select: userSummarySelect },
+    reactions: { where: { userId: viewerId }, select: { type: true } },
+  } satisfies Prisma.CommentSelect;
+}
 
-export type CommentRow = Prisma.CommentGetPayload<{ select: typeof commentSelect }>;
+export type CommentRow = Prisma.CommentGetPayload<{ select: ReturnType<typeof commentSelect> }>;
+export type ReactionCounts = Record<ReactionType, number>;
 
-export function toComment(row: CommentRow, assetsBase: string): Comment {
+export function emptyCounts(): ReactionCounts {
+  return { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 };
+}
+
+export function isReactionType(value: string): value is ReactionType {
+  return (REACTION_TYPES as readonly string[]).includes(value);
+}
+
+export function toReactionSummary(
+  counts: ReactionCounts,
+  total: number,
+  mine: ReactionType | null,
+): ReactionSummary {
+  return { counts, total, mine };
+}
+
+export function toComment(row: CommentRow, counts: ReactionCounts, assetsBase: string): Comment {
+  const mine = row.reactions[0]?.type ?? null;
   return {
     id: row.id,
     postId: row.postId,
     content: row.content,
     author: toUserSummary(row.author, assetsBase),
+    editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
+    reactions: toReactionSummary(counts, row.reactionsCount, mine),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
