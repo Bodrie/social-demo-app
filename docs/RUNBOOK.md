@@ -37,6 +37,12 @@ cp .env.example .env && chmod 600 .env
 
 ## 2. Domain and Cloudflare Tunnel (`social.bodrie.dev`)
 
+Everything in this section can be done before the box exists: the tunnel, its hostname, the
+zone settings and the Resend domain only need the Cloudflare and Resend dashboards. Keep the
+two secrets they produce (`TUNNEL_TOKEN`, the Resend API key) for the server's `.env`; until
+the connector runs, visitors to `social.bodrie.dev` see Cloudflare's "tunnel not running"
+page (error 1033), which is expected.
+
 The box has a dynamic IP and no open inbound ports. That is fine: `cloudflared` runs
 inside the compose stack and dials **out** to Cloudflare; Cloudflare's edge terminates TLS
 for `social.bodrie.dev` and forwards requests through that connection. An IP change, a router
@@ -56,15 +62,22 @@ dynamic-DNS client, no certificate on the box.
 3. Nothing else is needed for the app. (Mail records, if you ever use the domain for email,
    are independent.)
 
-### 2.2 Create the tunnel (Zero Trust / Cloudflare One dashboard → Networks → Tunnels)
+### 2.2 Create the tunnel (dash.cloudflare.com → account → **Networking → Tunnels**; older UIs: Zero Trust / Cloudflare One → Networks → Tunnels)
 
-1. **Create a tunnel** → type *Cloudflared* → name it `the-mesh` → **Save**. On the next
-   screen copy the token from the `cloudflared … --token eyJ…` command into `TUNNEL_TOKEN`
-   in `/opt/the-mesh/.env` (the box never needs cloudflared installed; the container runs it).
-2. **Public hostname** tab → **Add a public hostname**:
-   - Subdomain: `social`, Domain: `bodrie.dev`, Path: *(empty)*
-   - Service: Type **HTTP**, URL `web:80` (the compose service name; cloudflared is on the
-     same Docker network, so this resolves inside the box only).
+1. **Create a tunnel** → type *Cloudflared* → name it (`social.bodrie.dev` or `the-mesh`) →
+   **Save**. The tunnel's **Overview** shows *Install cloudflared connector*: pick **Docker**
+   and copy the long `eyJ…` value after `--token` from the shown command. That is
+   `TUNNEL_TOKEN` for `/opt/the-mesh/.env`; the box never installs cloudflared itself, the
+   compose container runs it. (*Refresh token → Rotate token* on the right invalidates it.)
+2. Still in the tunnel: **Routes** tab, or the **Add route** button in the *Routes* panel at
+   the bottom of the Overview (older UIs: *Published application routes* / *Public hostname*)
+   → route type **Published application route** (hostname):
+   - Subdomain `social`, Domain `bodrie.dev` (the *Full hostname* preview must read
+     `social.bodrie.dev`), Path empty.
+   - Service URL `http://web:80` (one field with the scheme in it; older UIs split it into
+     Type HTTP + URL `web:80`). `web` is the compose service name; cloudflared is on the same
+     Docker network, so this resolves inside the box only. Leave *Additional application
+     settings* alone.
    - Save. Cloudflare adds the proxied `CNAME social → <tunnel-id>.cfargotunnel.com`.
 3. Start the stack with the tunnel profile (section 3). The connector shows up as
    **Healthy** in the Tunnels list within a few seconds.
@@ -85,13 +98,13 @@ writes, by design) and `PUBLIC_ASSETS_URL=https://social.bodrie.dev/api/v1/uploa
 
 | Where | Setting | Value | Why |
 |---|---|---|---|
-| SSL/TLS → Overview | Encryption mode | **Full (strict)** | the tunnel is the origin so this is not exercised today, but it keeps a future direct origin safe |
+| dash.cloudflare.com → `bodrie.dev` → SSL/TLS → Overview → *Configure* | Encryption mode | **Full (strict)** | the tunnel is the origin so this is not exercised today, but it keeps a future direct origin safe |
 | SSL/TLS → Edge Certificates | Always Use HTTPS | on | plain `http://social.bodrie.dev` → `https://` |
 | SSL/TLS → Edge Certificates | Minimum TLS version | 1.2 | drop legacy clients |
 | SSL/TLS → Edge Certificates | HSTS | leave **off** | `.dev` is on the browsers' HSTS preload list already (subdomains included); the API sends the header itself |
 | Network | WebSockets | on (default) | socket.io |
-| Speed → Optimization | Rocket Loader | **off** | it rewrites script tags and breaks the SPA |
-| Security → Bots | Bot Fight Mode | off to start | it can challenge `fetch` and the socket.io polling fallback; turn it on later and watch the logs |
+| Speed → Optimization → Content Optimization | Rocket Loader | **off** | it rewrites script tags and breaks the SPA |
+| Security → Settings → Bot traffic (older UI: Security → Bots) | Bot Fight Mode | off to start | it can challenge `fetch` and the socket.io polling fallback; turn it on later and watch the logs |
 | Caching | defaults | – | `/api/*` responses carry no cacheable extension and are not cached; `/api/v1/uploads/*.webp` is cached at the edge and is immutable by key, which is what we want |
 
 These are zone-wide settings: they also apply to whatever you put on the apex later.
@@ -121,13 +134,20 @@ over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is ver
 
 1. <https://resend.com> → sign up → **Domains → Add domain** → `social.bodrie.dev`, region
    of your choice (EU keeps the data close). Resend shows a handful of DNS records.
-2. Cloudflare dashboard → `bodrie.dev` → DNS → add them exactly as shown, all **DNS only**
-   (grey cloud; mail records are never proxied). Typically:
-   - `TXT  resend._domainkey.social`  – DKIM public key
-   - `MX   send.social`  →  `feedback-smtp.<region>.amazonses.com` (priority 10) and
-     `TXT  send.social`  →  `v=spf1 include:amazonses.com ~all` – the return path for bounces
-   - `TXT  _dmarc.social`  →  `v=DMARC1; p=none;` to start (`p=quarantine` once mail flows)
-   Back in Resend press **Verify**; it usually turns green within minutes.
+2. Easiest: press **Auto configure** on the domain page; Resend's Cloudflare integration
+   creates the records in the `bodrie.dev` zone itself (this is what was done for
+   `social.bodrie.dev`, verified within three minutes). By hand instead: Cloudflare dashboard
+   → `bodrie.dev` → DNS → add them exactly as shown, all **DNS only** (grey cloud; mail
+   records are never proxied). As of 2026-10 Resend asks for:
+   - `TXT  resend._domainkey.social`  →  `p=MIGf…` – the DKIM public key
+   - `CNAME send.social`  →  `send.forge.rmta.net` and `CNAME rsend.social` →
+     `rsend-<region>.forge.rmta.net` – return path and bounce handling (older setups used an
+     MX plus an SPF TXT on `send.social` instead; follow whatever Resend lists)
+   - `TXT  _dmarc.social`  →  `v=DMARC1; p=none;` – listed as optional and **not** created by
+     Auto configure (Resend shows the name as `_dmarc`, relative to the domain); add it by
+     hand, and move to `p=quarantine` once mail has flowed for a while
+   Back in Resend press **Verify**; it usually turns green within minutes. The tunnel's own
+   `social` record stays *Proxied*; it is unrelated to mail.
 3. **API Keys → Create** with *Sending access*, restricted to the domain. Copy it once.
 4. On the box, in `/opt/the-mesh/.env`:
    ```
