@@ -15,18 +15,20 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid(7)) @db.Uuid
-  email        String   @unique
-  username     String   @unique
-  passwordHash String   @map("password_hash")
-  name         String
-  bio          String?
-  city         String?
-  website      String?
-  avatarKey    String?  @map("avatar_key")
-  coverKey     String?  @map("cover_key")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id              String    @id @default(uuid(7)) @db.Uuid
+  email           String    @unique
+  username        String    @unique
+  passwordHash    String    @map("password_hash")
+  /// Set once the address was confirmed through a mailed link; the app is closed until then.
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  name            String
+  bio             String?
+  city            String?
+  website         String?
+  avatarKey       String?   @map("avatar_key")
+  coverKey        String?   @map("cover_key")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   posts            Post[]
   comments         Comment[]
@@ -41,8 +43,32 @@ model User {
   createdGroups    Conversation[]       @relation("ConversationCreator")
   uploads          Upload[]
   commentReactions CommentReaction[]
+  emailTokens      EmailToken[]
 
   @@map("users")
+}
+
+enum EmailTokenKind {
+  verify_email
+  password_reset
+
+  @@map("email_token_kind")
+}
+
+/// Single-use links we mail. Only the SHA-256 of the token is stored, like refresh tokens.
+model EmailToken {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  kind      EmailTokenKind
+  tokenHash String         @unique @map("token_hash")
+  expiresAt DateTime       @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?      @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("email_tokens")
 }
 
 model Post {

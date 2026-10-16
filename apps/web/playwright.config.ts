@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { STORAGE_STATE } from './e2e/helpers.js';
+import { OUTBOX_DIR, STORAGE_STATE } from './e2e/helpers.js';
 
 const WEB_PORT = 4173;
 const API_PORT = 3000;
@@ -43,6 +43,10 @@ export default defineConfig({
       env: {
         PORT: String(API_PORT),
         WEB_ORIGINS: `http://localhost:${WEB_PORT}`,
+        // Mailed links must point at the preview server; the outbox is what the specs read.
+        WEB_URL: `http://localhost:${WEB_PORT}`,
+        EMAIL_TRANSPORT: 'outbox',
+        EMAIL_OUTBOX_DIR: OUTBOX_DIR,
         LOG_LEVEL: process.env.E2E_API_LOG_LEVEL ?? 'warn',
       },
     },

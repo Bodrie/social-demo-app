@@ -41,6 +41,7 @@ export function userPrivateSelect(viewerId: string) {
   return {
     ...userPublicSelect(viewerId),
     email: true,
+    emailVerifiedAt: true,
     updatedAt: true,
   } satisfies Prisma.UserSelect;
 }
@@ -72,6 +73,7 @@ export function toUserPrivate(row: UserPrivateRow, assetsBase: string): UserPriv
   return {
     ...toUserPublic(row, assetsBase),
     email: row.email,
+    emailVerifiedAt: row.emailVerifiedAt ? row.emailVerifiedAt.toISOString() : null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

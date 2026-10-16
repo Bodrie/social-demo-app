@@ -23,6 +23,8 @@ export async function createUser(
     name: string;
     bio: string;
     city: string;
+    /** Factory users are verified unless a test says otherwise. */
+    emailVerifiedAt: Date | null;
   }> = {},
 ): Promise<CreatedUser> {
   counter += 1;
@@ -32,6 +34,7 @@ export async function createUser(
       username: `user${counter}`,
       name: `User ${counter}`,
       passwordHash: await testPasswordHash(),
+      emailVerifiedAt: new Date(),
       ...overrides,
     },
     select: { id: true, email: true, username: true, name: true },

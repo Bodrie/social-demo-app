@@ -3,6 +3,7 @@ import { FullPageSpinner } from '@/components/full-page-spinner';
 import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
+import { VerifyEmailPage } from '@/features/auth/verify-email-page';
 import { HomePage } from '@/features/feed/home-page';
 import { RedirectIfAuthenticated, RequireAuth } from './routes/require-auth';
 import { RouteError } from './routes/route-error';
@@ -87,7 +88,21 @@ export const routes: RouteObject[] = [
         children: [
           { path: 'login', element: <LoginPage /> },
           { path: 'register', element: <RegisterPage /> },
+          {
+            path: 'forgot-password',
+            lazy: async () => ({
+              Component: (await import('@/features/auth/forgot-password-page')).ForgotPasswordPage,
+            }),
+          },
         ],
+      },
+      // Open to everyone: the mailed links are followed signed in or not.
+      { path: 'verify-email', element: <VerifyEmailPage /> },
+      {
+        path: 'reset-password',
+        lazy: async () => ({
+          Component: (await import('@/features/auth/reset-password-page')).ResetPasswordPage,
+        }),
       },
     ],
   },

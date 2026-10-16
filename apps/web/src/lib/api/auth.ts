@@ -1,8 +1,11 @@
 import {
   type ChangePasswordInput,
+  type ForgotPasswordInput,
   type LoginInput,
   type MeResponse,
   type RegisterInput,
+  type ResetPasswordInput,
+  type VerifyEmailInput,
   meResponseSchema,
 } from '@the-mesh/shared';
 import { api, isApiClientError } from './client';
@@ -31,3 +34,17 @@ export const changePassword = (input: ChangePasswordInput): Promise<void> =>
 /** Ends every session, this one included. */
 export const logoutEverywhere = (): Promise<void> =>
   api.post('/auth/logout-all', undefined, { retryOnUnauthorized: false });
+
+/** The mailed link: confirms the address and signs this browser in. */
+export const verifyEmail = (input: VerifyEmailInput) =>
+  api.post('/auth/verify-email', input, { schema: meResponseSchema, retryOnUnauthorized: false });
+
+export const resendVerification = (): Promise<void> => api.post('/auth/verify-email/resend');
+
+/** Always succeeds from the client's point of view; the API never says whether the address exists. */
+export const forgotPassword = (input: ForgotPasswordInput): Promise<void> =>
+  api.post('/auth/forgot-password', input, { retryOnUnauthorized: false });
+
+/** Sets the new password and signs this browser in; every other session ends. */
+export const resetPassword = (input: ResetPasswordInput) =>
+  api.post('/auth/reset-password', input, { schema: meResponseSchema, retryOnUnauthorized: false });

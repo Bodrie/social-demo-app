@@ -141,6 +141,11 @@ describe('activities', () => {
     expect(types).toEqual(['USER_REGISTERED']);
 
     // Changing the avatar is an activity; re-sending the same key or editing the bio is not.
+    // (The newcomer confirms their address first; the app is closed until then.)
+    await t.prisma.user.update({
+      where: { id: newcomerId },
+      data: { emailVerifiedAt: new Date() },
+    });
     const newcomerAgent = request.agent(t.server);
     await newcomerAgent
       .post('/api/v1/auth/login')

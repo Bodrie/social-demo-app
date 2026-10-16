@@ -3,6 +3,8 @@ node_modules/
 
 # build output
 apps/api/uploads/
+apps/api/outbox/
+apps/web/e2e/.outbox/
 apps/api/src/generated/
 dist/
 coverage/

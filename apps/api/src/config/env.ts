@@ -62,12 +62,27 @@ export const envSchema = z.object({
     .default(5 * 1024 * 1024),
   /** Reject images above this many pixels before decoding (decompression bombs). */
   UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(25_000_000),
+  /** Where the links in our emails point (the web app). */
+  WEB_URL: z.url().default('http://localhost:5173'),
+  /** `outbox` writes every mail as a JSON file (development, tests); `smtp` sends it. */
+  EMAIL_TRANSPORT: z.enum(['outbox', 'smtp']).default('outbox'),
+  /** SMTP submission URL, e.g. smtps://resend:<api key>@smtp.resend.com:465 */
+  SMTP_URL: z.url().optional(),
+  EMAIL_FROM: z.string().min(3).default('The Mesh <noreply@localhost>'),
+  EMAIL_OUTBOX_DIR: z.string().min(1).default('./outbox'),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /** Values that are fine for development but must be chosen deliberately in production. */
-const PRODUCTION_EXPLICIT = ['PUBLIC_ASSETS_URL', 'WEB_ORIGINS', 'TRUST_PROXY'] as const;
+const PRODUCTION_EXPLICIT = [
+  'PUBLIC_ASSETS_URL',
+  'WEB_ORIGINS',
+  'TRUST_PROXY',
+  'WEB_URL',
+  'EMAIL_FROM',
+  'SMTP_URL',
+] as const;
 const PLACEHOLDER_SECRET = /^change-me/i;
 
 function assertProductionSafe(config: Record<string, unknown>): void {
@@ -86,6 +101,9 @@ function assertProductionSafe(config: Record<string, unknown>): void {
     config.COOKIE_SECURE.trim().toLowerCase() === 'false'
   ) {
     problems.push('COOKIE_SECURE cannot be false');
+  }
+  if (config.EMAIL_TRANSPORT !== 'smtp') {
+    problems.push('EMAIL_TRANSPORT must be "smtp" (the outbox is for development)');
   }
   if (problems.length > 0) {
     throw new Error(`Invalid production configuration:\n- ${problems.join('\n- ')}`);

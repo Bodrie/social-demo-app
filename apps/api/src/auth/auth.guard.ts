@@ -1,12 +1,16 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { unauthorized } from '../common/errors.js';
+import { forbidden, unauthorized } from '../common/errors.js';
+import { ALLOW_UNVERIFIED_KEY } from './allow-unverified.decorator.js';
 import { type AuthenticatedRequest, accessTokenPayloadSchema } from './auth.types.js';
 import { ACCESS_COOKIE, readCookie } from './cookies.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 
-/** Global guard: every HTTP route requires a valid access token unless marked @Public(). */
+/**
+ * Global guard: every HTTP route requires a valid access token unless marked @Public(), and
+ * a token for an unverified address only opens routes marked @AllowUnverified().
+ */
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
@@ -30,7 +34,16 @@ export class AuthGuard implements CanActivate {
 
     const payload = await verifyAccessToken(this.jwt, token);
     if (!payload) throw unauthorized('Invalid or expired session');
-    request.user = { id: payload.sub };
+    const emailVerified = payload.ev ?? true;
+    request.user = { id: payload.sub, emailVerified };
+
+    if (!emailVerified) {
+      const allowed = this.reflector.getAllAndOverride<boolean | undefined>(ALLOW_UNVERIFIED_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!allowed) throw forbidden('Confirm your email address to continue');
+    }
     return true;
   }
 }

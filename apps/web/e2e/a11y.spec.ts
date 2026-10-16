@@ -25,6 +25,24 @@ test.describe('accessibility (signed out)', () => {
     await page.goto('/register');
     await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
     await audit(page, '/register');
+    await page.goto('/forgot-password');
+    await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
+    await audit(page, '/forgot-password');
+    await page.goto('/reset-password?token=axe');
+    await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+    await audit(page, '/reset-password');
+  });
+
+  test('the waiting room for an unconfirmed address', async ({ page }) => {
+    const stamp = Date.now().toString(36);
+    await page.goto('/register');
+    await page.getByLabel('Username').fill(`axe_${stamp}`);
+    await page.getByLabel('Name', { exact: true }).fill('Axe Audit');
+    await page.getByLabel('Email').fill(`axe_${stamp}@example.com`);
+    await page.getByLabel('Password', { exact: true }).fill('Password123!');
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();
+    await audit(page, '/verify-email');
   });
 });
 

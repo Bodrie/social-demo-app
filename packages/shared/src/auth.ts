@@ -35,6 +35,32 @@ export const changePasswordSchema = z
 export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 export type ChangePasswordData = z.output<typeof changePasswordSchema>;
 
+/** Opaque single-use tokens from the links we mail (verify address, reset password). */
+const emailTokenSchema = z.string().trim().min(1, 'The link is incomplete').max(200);
+
+export const verifyEmailSchema = z.object({ token: emailTokenSchema });
+export type VerifyEmailInput = z.input<typeof verifyEmailSchema>;
+
+/** Always answered the same way, whether or not the address belongs to an account. */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+export type ForgotPasswordInput = z.input<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: emailTokenSchema,
+  newPassword: passwordSchema,
+});
+export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;
+export type ResetPasswordData = z.output<typeof resetPasswordSchema>;
+
+/** The reset form asks twice; only `token` and `newPassword` travel to the API. */
+export const resetPasswordFormSchema = resetPasswordSchema
+  .extend({ confirmPassword: z.string() })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: 'The passwords do not match',
+    path: ['confirmPassword'],
+  });
+export type ResetPasswordFormInput = z.input<typeof resetPasswordFormSchema>;
+
 /** Returned by register, login, refresh and GET /auth/me. Tokens travel in httpOnly cookies. */
 export const authResponseSchema = meResponseSchema;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
