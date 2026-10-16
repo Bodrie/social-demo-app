@@ -1,5 +1,6 @@
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
 import type { UserPublic } from '@the-mesh/shared';
+import { cn } from 'cn';
 import { Loader2Icon } from 'lucide-react';
 import { EmptyState, ErrorState } from '@/components/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,8 +33,11 @@ export function UserList({ query, empty, errorMessage, label }: UserListProps) {
     <div>
       <ul
         aria-label={label}
-        aria-busy={query.isFetchingNextPage}
-        className="bg-card divide-y rounded-xl border"
+        aria-busy={query.isFetching}
+        className={cn(
+          'bg-card divide-y rounded-xl border transition-opacity',
+          query.isPlaceholderData && 'opacity-60',
+        )}
       >
         {users.map((user) => (
           <UserListItem key={user.id} user={user} />

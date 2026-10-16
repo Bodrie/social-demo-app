@@ -15,7 +15,7 @@ describe('UsersPage', () => {
 
     await user.type(screen.getByRole('searchbox', { name: 'Search people' }), 'car');
     const results = await screen.findByRole('list', { name: 'Results for car' });
-    expect(within(results).getAllByRole('listitem')).toHaveLength(1);
+    await waitFor(() => expect(within(results).getAllByRole('listitem')).toHaveLength(1));
     expect(within(results).getByRole('link', { name: 'Carol Clark' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Clear search' }));

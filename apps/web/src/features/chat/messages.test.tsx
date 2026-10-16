@@ -116,7 +116,11 @@ describe('messages', () => {
     await user.click(await aside.findByRole('button', { name: 'New message' }));
     const dialog = await screen.findByRole('dialog', { name: 'New message' });
     await user.type(within(dialog).getByRole('searchbox'), 'car');
-    await user.click(await within(dialog).findByRole('button', { name: /Carol Clark/ }));
+    // Wait for the filtered list (the unfiltered one also contains Carol) before clicking.
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('button', { name: /Bob Brown/ })).not.toBeInTheDocument(),
+    );
+    await user.click(within(dialog).getByRole('button', { name: /Carol Clark/ }));
 
     expect(
       await screen.findByRole('log', { name: 'Conversation with Carol Clark' }),
