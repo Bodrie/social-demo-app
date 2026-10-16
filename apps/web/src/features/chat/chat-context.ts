@@ -1,4 +1,4 @@
-import type { Message, UserSummary } from '@the-mesh/shared';
+import type { Message, SendMessageInput, UserSummary } from '@the-mesh/shared';
 import { createContext, useContext } from 'react';
 
 export type ChatContextValue = {
@@ -6,10 +6,14 @@ export type ChatContextValue = {
   connected: boolean;
   online: UserSummary[];
   isOnline: (userId: string) => boolean;
-  sendMessage: (recipientId: string, content: string) => Promise<Message>;
-  markRead: (peerId: string) => Promise<void>;
-  /** The thread on screen; messages from that person are read on arrival. */
-  setActivePeer: (peerId: string | null) => void;
+  /** Who is writing in a conversation right now (never me); expires by itself when the signal stops. */
+  typingIn: (conversationId: string) => readonly string[];
+  sendMessage: (conversationId: string, input: SendMessageInput) => Promise<Message>;
+  /** Fire-and-forget over the socket; silently nothing without a connection. */
+  setTyping: (conversationId: string, typing: boolean) => void;
+  markRead: (conversationId: string) => Promise<void>;
+  /** The thread on screen; messages arriving there are read on arrival. */
+  setActiveConversation: (conversationId: string | null) => void;
 };
 
 export const ChatContext = createContext<ChatContextValue | null>(null);

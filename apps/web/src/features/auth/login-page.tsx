@@ -1,7 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type LoginInput, loginSchema } from '@the-mesh/shared';
+import { Loader2Icon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
+import { PasswordInput } from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -33,20 +35,18 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Sign in"
-      aside={
+      subtitle="Welcome back. Pick up where you left off."
+      footer={
         <>
-          <p>A small social network: share posts, follow people, chat when they are online.</p>
-          <p>
-            New here?{' '}
-            <Link to="/register" className="font-semibold underline underline-offset-4">
-              Create an account
-            </Link>
-          </p>
+          New here?{' '}
+          <Link to="/register" className="text-foreground font-medium underline underline-offset-4">
+            Create an account
+          </Link>
         </>
       }
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
           <FormField
             control={form.control}
             name="email"
@@ -58,6 +58,7 @@ export function LoginPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="you@example.com"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -72,24 +73,20 @@ export function LoginPage() {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="current-password" {...field} />
+                  <PasswordInput
+                    autoComplete="current-password"
+                    className="h-11 rounded-lg pr-11"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={login.isPending}>
+          <Button type="submit" size="lg" className="h-11 w-full" disabled={login.isPending}>
+            {login.isPending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : null}
             {login.isPending ? 'Signing in…' : 'Sign in'}
           </Button>
-          <p className="text-muted-foreground text-center text-sm md:hidden">
-            New here?{' '}
-            <Link
-              to="/register"
-              className="text-foreground font-medium underline underline-offset-4"
-            >
-              Create an account
-            </Link>
-          </p>
         </form>
       </Form>
     </AuthLayout>

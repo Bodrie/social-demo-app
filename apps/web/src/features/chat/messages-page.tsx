@@ -4,12 +4,13 @@ import { Outlet, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { usePageTitle } from '@/lib/use-page-title';
 import { ConversationList } from './conversation-list';
+import { NewGroupDialog } from './new-group-dialog';
 import { NewMessageDialog } from './new-message-dialog';
 
 /** Two panes from `md` up; on phones the list and the thread take turns. */
 export function MessagesPage() {
-  const { username } = useParams();
-  const threadOpen = Boolean(username);
+  const { conversationId, username } = useParams();
+  const threadOpen = Boolean(conversationId ?? username);
 
   return (
     <div className="bg-card flex h-[calc(100svh-6.5rem)] min-h-[28rem] overflow-hidden rounded-xl border shadow-sm">
@@ -38,11 +39,18 @@ export function MessagesIndex() {
       </div>
       <p className="text-foreground font-semibold">Your messages</p>
       <p className="max-w-xs text-sm">Pick a conversation on the left, or start a new one.</p>
-      <NewMessageDialog>
-        <Button variant="outline" size="sm">
-          New message
-        </Button>
-      </NewMessageDialog>
+      <div className="flex gap-2">
+        <NewMessageDialog>
+          <Button variant="outline" size="sm">
+            New message
+          </Button>
+        </NewMessageDialog>
+        <NewGroupDialog>
+          <Button variant="outline" size="sm">
+            New group
+          </Button>
+        </NewGroupDialog>
+      </div>
     </div>
   );
 }

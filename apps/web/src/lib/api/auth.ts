@@ -1,4 +1,5 @@
 import {
+  type ChangePasswordInput,
   type LoginInput,
   type MeResponse,
   type RegisterInput,
@@ -23,3 +24,10 @@ export const register = (input: RegisterInput) =>
   api.post('/auth/register', input, { schema: meResponseSchema, retryOnUnauthorized: false });
 
 export const logout = () => api.post('/auth/logout', undefined, { retryOnUnauthorized: false });
+
+export const changePassword = (input: ChangePasswordInput): Promise<void> =>
+  api.post('/auth/password', input);
+
+/** Ends every session, this one included. */
+export const logoutEverywhere = (): Promise<void> =>
+  api.post('/auth/logout-all', undefined, { retryOnUnauthorized: false });

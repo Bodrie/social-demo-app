@@ -1,14 +1,13 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { Conversation, ConversationList, Message } from '@the-mesh/shared';
+import { isApiClientError } from '@/lib/api/client';
 import { type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
+import { conversationQueryOptions, forgetConversation, putInList } from './use-conversations';
 
-/** A message as the thread shows it; `status` only exists for optimistic copies. */
-export type ThreadMessage = Message & { status?: 'sending' | 'failed' };
+/** A message as the thread shows it; `status` and `imageKey` only exist on optimistic copies. */
+export type ThreadMessage = Message & { status?: 'sending' | 'failed'; imageKey?: string };
 type ThreadPages = Pages<ThreadMessage>;
-
-export const peerOf = (message: Message, meId: string): string =>
-  message.senderId === meId ? message.recipientId : message.senderId;
 
 /**
  * Newest first in the cache (like the API); only touches threads that are already loaded.
@@ -17,19 +16,25 @@ export const peerOf = (message: Message, meId: string): string =>
  */
 export function appendToThread(
   queryClient: QueryClient,
-  peerId: string,
+  conversationId: string,
   message: ThreadMessage,
 ): void {
-  queryClient.setQueryData<ThreadPages>(queryKeys.messages.thread(peerId), (data) => {
-    if (!data) return data;
-    const confirmed = message.status
-      ? data
-      : withoutFirstPending(
-          data,
-          (item) => item.senderId === message.senderId && item.content === message.content,
-        );
-    return prependItem(confirmed, message);
-  });
+  queryClient.setQueryData<ThreadPages>(
+    queryKeys.conversations.messages(conversationId),
+    (data) => {
+      if (!data) return data;
+      const confirmed = message.status
+        ? data
+        : withoutFirstPending(
+            data,
+            (item) =>
+              item.senderId === message.senderId &&
+              item.content === message.content &&
+              (item.imageUrl === null) === (message.imageUrl === null),
+          );
+      return prependItem(confirmed, message);
+    },
+  );
 }
 
 function withoutFirstPending(
@@ -47,109 +52,152 @@ function withoutFirstPending(
 /** Swaps an optimistic copy for the persisted message (which may already have arrived by push). */
 export function replaceInThread(
   queryClient: QueryClient,
-  peerId: string,
+  conversationId: string,
   tempId: string,
   message: Message,
 ): void {
-  queryClient.setQueryData<ThreadPages>(queryKeys.messages.thread(peerId), (data) => {
-    if (!data) return data;
-    const withoutTemp = filterItems(data, (item) => item.id !== tempId);
-    return prependItem(withoutTemp, message);
-  });
+  queryClient.setQueryData<ThreadPages>(
+    queryKeys.conversations.messages(conversationId),
+    (data) => {
+      if (!data) return data;
+      const withoutTemp = filterItems(data, (item) => item.id !== tempId);
+      return prependItem(withoutTemp, message);
+    },
+  );
 }
 
-export function markFailedInThread(queryClient: QueryClient, peerId: string, tempId: string): void {
+export function markFailedInThread(
+  queryClient: QueryClient,
+  conversationId: string,
+  tempId: string,
+): void {
   queryClient.setQueryData<ThreadPages>(
-    queryKeys.messages.thread(peerId),
+    queryKeys.conversations.messages(conversationId),
     (data) =>
       data && mapItems(data, (item) => (item.id === tempId ? { ...item, status: 'failed' } : item)),
   );
 }
 
-export function removeFromThread(queryClient: QueryClient, peerId: string, id: string): void {
+export function removeFromThread(
+  queryClient: QueryClient,
+  conversationId: string,
+  id: string,
+): void {
   queryClient.setQueryData<ThreadPages>(
-    queryKeys.messages.thread(peerId),
+    queryKeys.conversations.messages(conversationId),
     (data) => data && filterItems(data, (item) => item.id !== id),
   );
 }
 
-/** The peer read what I sent them (`conversation:read`). */
-export function markSentRead(
+/** Applies the same change to the list row and the detail query of one conversation. */
+function patchConversation(
   queryClient: QueryClient,
-  peerId: string,
-  meId: string,
-  readAt: string,
+  conversationId: string,
+  patch: (conversation: Conversation) => Conversation,
 ): void {
-  queryClient.setQueryData<ThreadPages>(
-    queryKeys.messages.thread(peerId),
-    (data) =>
-      data &&
-      mapItems(data, (item) =>
-        item.senderId === meId && item.readAt === null ? { ...item, readAt } : item,
-      ),
-  );
   queryClient.setQueryData<ConversationList>(
-    queryKeys.messages.conversations,
-    (data) =>
-      data && {
-        ...data,
-        items: data.items.map((row) =>
-          row.peer.id === peerId &&
-          row.lastMessage.senderId === meId &&
-          row.lastMessage.readAt === null
-            ? { ...row, lastMessage: { ...row.lastMessage, readAt } }
-            : row,
-        ),
+    queryKeys.conversations.list,
+    (list) =>
+      list && {
+        ...list,
+        items: list.items.map((row) => (row.id === conversationId ? patch(row) : row)),
       },
+  );
+  queryClient.setQueryData<Conversation>(
+    queryKeys.conversations.detail(conversationId),
+    (conversation) => conversation && patch(conversation),
   );
 }
 
-/** I read the peer's messages: clear the unread badge and the local copies. */
-export function markReceivedRead(queryClient: QueryClient, peerId: string, readAt: string): void {
-  queryClient.setQueryData<ThreadPages>(
-    queryKeys.messages.thread(peerId),
-    (data) =>
-      data &&
-      mapItems(data, (item) =>
-        item.senderId === peerId && item.readAt === null ? { ...item, readAt } : item,
-      ),
-  );
-  queryClient.setQueryData<ConversationList>(
-    queryKeys.messages.conversations,
-    (data) =>
-      data && {
-        ...data,
-        items: data.items.map((row) => (row.peer.id === peerId ? { ...row, unreadCount: 0 } : row)),
-      },
-  );
+const withReadMark = (
+  conversation: Conversation,
+  userId: string,
+  readAt: string,
+): Conversation => ({
+  ...conversation,
+  members: conversation.members.map((member) =>
+    member.user.id === userId && (member.lastReadAt === null || member.lastReadAt < readAt)
+      ? { ...member, lastReadAt: readAt }
+      : member,
+  ),
+});
+
+/** `userId` caught up (a push about someone else, or my own read, which also clears my badge). */
+export function setMemberReadAt(
+  queryClient: QueryClient,
+  conversationId: string,
+  userId: string,
+  readAt: string,
+  options: { clearUnread: boolean },
+): void {
+  patchConversation(queryClient, conversationId, (conversation) => ({
+    ...withReadMark(conversation, userId, readAt),
+    unreadCount: options.clearUnread ? 0 : conversation.unreadCount,
+  }));
 }
 
 /**
- * A message arrived (push or ack): move the conversation to the top with it as the last
- * message. Unknown peers need their summary, so the list is refetched instead.
+ * A message arrived (push or ack): the conversation moves to the top with it as the last
+ * message, and the sender's read mark follows it. A conversation the list has never seen
+ * is inserted from its detail query when that is loaded, otherwise the list is refetched.
  */
 export function upsertConversation(
   queryClient: QueryClient,
-  meId: string,
   message: Message,
   options: { countUnread: boolean },
 ): void {
-  const peerId = peerOf(message, meId);
-  const current = queryClient.getQueryData<ConversationList>(queryKeys.messages.conversations);
-  if (!current) return;
-  const existing = current.items.find((row) => row.peer.id === peerId);
+  const list = queryClient.getQueryData<ConversationList>(queryKeys.conversations.list);
+  if (!list) return;
+  const existing = list.items.find((row) => row.id === message.conversationId);
+  const bump = (conversation: Conversation): Conversation => ({
+    ...withReadMark(conversation, message.senderId, message.createdAt),
+    lastMessage: message,
+    lastMessageAt: message.createdAt,
+  });
   if (!existing) {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.messages.conversations });
+    const detail = queryClient.getQueryData<Conversation>(
+      queryKeys.conversations.detail(message.conversationId),
+    );
+    if (detail) {
+      putInList(queryClient, { ...bump(detail), unreadCount: options.countUnread ? 1 : 0 });
+    } else {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list });
+    }
     return;
   }
-  if (existing.lastMessage.id === message.id) return;
-  const updated: Conversation = {
-    ...existing,
-    lastMessage: message,
+  if (existing.lastMessage?.id === message.id) return;
+  const updated = {
+    ...bump(existing),
     unreadCount: existing.unreadCount + (options.countUnread ? 1 : 0),
   };
-  queryClient.setQueryData<ConversationList>(queryKeys.messages.conversations, {
-    ...current,
-    items: [updated, ...current.items.filter((row) => row.peer.id !== peerId)],
+  queryClient.setQueryData<ConversationList>(queryKeys.conversations.list, {
+    ...list,
+    items: [updated, ...list.items.filter((row) => row.id !== message.conversationId)],
   });
+  queryClient.setQueryData<Conversation>(
+    queryKeys.conversations.detail(message.conversationId),
+    (conversation) =>
+      conversation && {
+        ...bump(conversation),
+        unreadCount: conversation.unreadCount + (options.countUnread ? 1 : 0),
+      },
+  );
+}
+
+/** `conversation:update`: fetch the fresh copy; a 404 means I am no longer in it. */
+export async function refreshConversation(
+  queryClient: QueryClient,
+  conversationId: string,
+): Promise<void> {
+  try {
+    const conversation = await queryClient.fetchQuery({
+      ...conversationQueryOptions(conversationId),
+      staleTime: 0,
+    });
+    putInList(queryClient, conversation);
+  } catch (error) {
+    if (isApiClientError(error) && error.status === 404) {
+      forgetConversation(queryClient, conversationId);
+    }
+  }
 }

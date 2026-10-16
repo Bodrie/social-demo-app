@@ -42,6 +42,12 @@ export const routes: RouteObject[] = [
                 }),
               },
               {
+                path: 'settings',
+                lazy: async () => ({
+                  Component: (await import('@/features/settings/settings-page')).SettingsPage,
+                }),
+              },
+              {
                 path: 'activity',
                 lazy: async () => ({
                   Component: (await import('@/features/activities/activity-page')).ActivityPage,
@@ -53,7 +59,8 @@ export const routes: RouteObject[] = [
                 handle: { wide: true },
                 children: [
                   { index: true, lazy: chat('MessagesIndex') },
-                  { path: ':username', lazy: chat('ThreadPage') },
+                  { path: 'with/:username', lazy: chat('WithUserPage') },
+                  { path: ':conversationId', lazy: chat('ThreadPage') },
                 ],
               },
               {

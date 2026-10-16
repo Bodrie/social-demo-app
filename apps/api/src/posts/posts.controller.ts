@@ -1,11 +1,22 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Paginated, Post as PostItem } from '@the-mesh/shared';
+import type { Paginated, Post as PostItem, Revision } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto, UserIdParamDto } from '../common/params.dto.js';
-import { CreatePostDto, FeedQueryDto } from './posts.dto.js';
+import { CreatePostDto, FeedQueryDto, UpdatePostDto } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 
 @ApiTags('posts')
@@ -28,6 +39,20 @@ export class PostsController {
   @Get(':id')
   byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<PostItem> {
     return this.posts.getById(user.id, params.id);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Body() body: UpdatePostDto,
+  ): Promise<PostItem> {
+    return this.posts.update(user.id, params.id, body);
+  }
+
+  @Get(':id/revisions')
+  revisions(@Param() params: IdParamDto): Promise<Paginated<Revision>> {
+    return this.posts.revisions(params.id);
   }
 
   @Delete(':id')

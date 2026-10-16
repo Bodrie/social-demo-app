@@ -9,9 +9,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { AuthResponse } from '@the-mesh/shared';
 import type { Request, Response } from 'express';
-import { LoginDto, RegisterDto } from './auth.dto.js';
+import { ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto.js';
 import { AuthService } from './auth.service.js';
 import { type AuthUser, requestMeta } from './auth.types.js';
 import { REFRESH_COOKIE, clearAuthCookies, readCookie, setAuthCookies } from './cookies.js';
@@ -90,6 +91,18 @@ export class AuthController {
   ): Promise<void> {
     await this.auth.logoutAll(user.id);
     clearAuthCookies(res, this.auth.cookieSettings);
+  }
+
+  /** The current session stays signed in; every other device is signed out. */
+  @Post('password')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ChangePasswordDto,
+    @Req() req: Request,
+  ): Promise<void> {
+    await this.auth.changePassword(user.id, body, readCookie(req.cookies, REFRESH_COOKIE));
   }
 
   @Get('me')

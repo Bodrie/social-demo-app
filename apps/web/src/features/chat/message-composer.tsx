@@ -1,29 +1,62 @@
-import { MESSAGE_MAX_LENGTH } from '@the-mesh/shared';
+import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { SendIcon } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { ImageIcon, SendIcon } from 'lucide-react';
+import { type ChangeEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { EmojiPickerButton } from '@/features/posts/emoji-picker-button';
 import { insertText } from '@/features/posts/insert-text';
+import { AttachmentPreview } from '@/features/uploads/attachment-preview';
+import { useImageUpload } from '@/features/uploads/use-image-upload';
+import { useTypingSignal } from './use-typing-signal';
 
-type MessageComposerProps = {
-  peerName: string;
-  disabled?: boolean;
-  onSend: (content: string) => void;
+/** What the composer hands over: text, an uploaded picture, or both. */
+export type OutgoingMessage = {
+  content: string;
+  imageKey?: string;
+  /** Local object URL of the picture, for the optimistic bubble. */
+  previewUrl?: string;
 };
 
-export function MessageComposer({ peerName, disabled, onSend }: MessageComposerProps) {
+type MessageComposerProps = {
+  /** Who or what the message goes to, for the field's accessible name. */
+  recipientName: string;
+  disabled?: boolean;
+  onSend: (message: OutgoingMessage) => void;
+  onTyping?: (typing: boolean) => void;
+};
+
+export function MessageComposer({
+  recipientName,
+  disabled,
+  onSend,
+  onTyping,
+}: MessageComposerProps) {
   const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const image = useImageUpload('message');
+  const typing = useTypingSignal((isTyping) => onTyping?.(isTyping));
+
   const trimmed = content.trim();
   const remaining = MESSAGE_MAX_LENGTH - content.length;
-  const canSend = trimmed.length > 0 && remaining >= 0 && !disabled;
+  const pictureReady = image.state.status === 'ready';
+  const pictureBusy = image.state.status === 'uploading' || image.state.status === 'error';
+  const canSend =
+    (trimmed.length > 0 || pictureReady) && remaining >= 0 && !pictureBusy && !disabled;
 
   const send = () => {
     if (!canSend) return;
-    onSend(trimmed);
+    typing.stop();
+    onSend(
+      image.state.status === 'ready'
+        ? { content: trimmed, imageKey: image.state.upload.key, previewUrl: image.state.previewUrl }
+        : { content: trimmed },
+    );
     setContent('');
+    // The thread keeps showing the preview through its optimistic copy; release ours.
+    image.clear();
     textareaRef.current?.focus();
   };
 
@@ -32,11 +65,25 @@ export function MessageComposer({ peerName, disabled, onSend }: MessageComposerP
     send();
   };
 
+  const onChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(event.target.value);
+    if (event.target.value.trim().length > 0) typing.typed();
+    else typing.stop();
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       send();
     }
+  };
+
+  const pickFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const problem = image.select(file);
+    if (problem) toast.error(problem);
   };
 
   const insertEmoji = (emoji: string) => {
@@ -48,6 +95,7 @@ export function MessageComposer({ peerName, disabled, onSend }: MessageComposerP
       emoji,
     );
     setContent(next.value);
+    typing.typed();
     requestAnimationFrame(() => {
       element?.focus();
       element?.setSelectionRange(next.caret, next.caret);
@@ -55,31 +103,61 @@ export function MessageComposer({ peerName, disabled, onSend }: MessageComposerP
   };
 
   return (
-    <form onSubmit={onSubmit} className="flex items-end gap-2 border-t p-3">
-      <EmojiPickerButton onPick={insertEmoji} />
-      <Textarea
-        ref={textareaRef}
-        aria-label={`Message ${peerName}`}
-        placeholder="Write a message…"
-        rows={1}
-        value={content}
-        onChange={(event) => setContent(event.target.value)}
-        onKeyDown={onKeyDown}
-        className="max-h-40 min-h-9 flex-1 resize-none py-1.5 text-sm"
-      />
-      {remaining <= 100 ? (
-        <span
-          className={cn(
-            'pb-2 text-xs tabular-nums',
-            remaining < 0 ? 'text-destructive' : 'text-muted-foreground',
-          )}
-        >
-          {remaining}
-        </span>
+    <form onSubmit={onSubmit} className="border-t p-3">
+      {image.state.status !== 'idle' ? (
+        <AttachmentPreview
+          state={image.state}
+          onRetry={image.retry}
+          onRemove={image.clear}
+          className="mb-2 w-fit max-w-full"
+          imageClassName="max-h-40 w-auto max-w-full"
+        />
       ) : null}
-      <Button type="submit" size="icon-sm" aria-label="Send" disabled={!canSend}>
-        <SendIcon />
-      </Button>
+      <div className="flex items-end gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={UPLOAD_LIMITS.acceptedTypes.join(',')}
+          className="sr-only"
+          aria-label="Attach a picture"
+          tabIndex={-1}
+          onChange={pickFile}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Add picture"
+          disabled={disabled}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <ImageIcon />
+        </Button>
+        <EmojiPickerButton onPick={insertEmoji} />
+        <Textarea
+          ref={textareaRef}
+          aria-label={`Message ${recipientName}`}
+          placeholder="Write a message…"
+          rows={1}
+          value={content}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          className="max-h-40 min-h-9 flex-1 resize-none py-1.5 text-sm"
+        />
+        {remaining <= 100 ? (
+          <span
+            className={cn(
+              'pb-2 text-xs tabular-nums',
+              remaining < 0 ? 'text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            {remaining}
+          </span>
+        ) : null}
+        <Button type="submit" size="icon-sm" aria-label="Send" disabled={!canSend}>
+          <SendIcon />
+        </Button>
+      </div>
     </form>
   );
 }

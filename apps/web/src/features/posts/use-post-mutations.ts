@@ -2,8 +2,10 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
-import { createPost, deletePost, likePost, unlikePost } from '@/lib/api/posts';
+import type { UpdatePostInput } from '@the-mesh/shared';
+import { createPost, deletePost, likePost, unlikePost, updatePost } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
+import { resumePendingQueries } from '@/lib/query-snapshot';
 import {
   prependPostTo,
   removePostEverywhere,
@@ -39,7 +41,7 @@ export function useDeletePost() {
     mutationFn: (postId: string) => deletePost(postId),
     onSuccess: (_result, postId) => {
       removePostEverywhere(queryClient, postId);
-      queryClient.removeQueries({ queryKey: queryKeys.comments.forPost(postId) });
+      queryClient.removeQueries({ queryKey: queryKeys.comments.ofPost(postId) });
       adjustMyPostCount(queryClient, -1);
       toast.success('Post deleted');
     },
@@ -68,6 +70,19 @@ export function useToggleLike() {
     onError: (_error, _input, context) => {
       if (context) restorePostLists(queryClient, context.snapshot);
       toast.error('Could not update the like');
+    },
+    onSettled: () => resumePendingQueries(queryClient, { queryKey: queryKeys.posts.lists }),
+  });
+}
+
+export function useUpdatePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, input }: { postId: string; input: UpdatePostInput }) =>
+      updatePost(postId, input),
+    onSuccess: (post) => {
+      updatePostEverywhere(queryClient, post.id, () => post);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.revisions.post(post.id) });
     },
   });
 }

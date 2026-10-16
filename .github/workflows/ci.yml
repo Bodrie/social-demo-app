@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   checks:
+    name: Lint and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -55,6 +56,7 @@ jobs:
           retention-days: 7
 
   integration:
+    name: Integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -103,6 +105,7 @@ jobs:
         run: pnpm db:seed
 
   e2e:
+    name: E2E
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:

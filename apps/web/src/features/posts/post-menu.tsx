@@ -1,5 +1,5 @@
 import type { Post } from '@the-mesh/shared';
-import { MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
+import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import {
   AlertDialog,
@@ -21,7 +21,7 @@ import {
 import { useDeletePost } from './use-post-mutations';
 
 /** Actions the author has on their own post. */
-export function PostMenu({ post }: { post: Post }) {
+export function PostMenu({ post, onEdit }: { post: Post; onEdit: () => void }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const remove = useDeletePost();
 
@@ -34,6 +34,9 @@ export function PostMenu({ post }: { post: Post }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onEdit}>
+            <PencilIcon /> Edit post
+          </DropdownMenuItem>
           <DropdownMenuItem variant="destructive" onSelect={() => setConfirmOpen(true)}>
             <Trash2Icon /> Delete post
           </DropdownMenuItem>

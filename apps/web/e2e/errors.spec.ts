@@ -31,7 +31,7 @@ test.describe('when things go wrong', () => {
     await page.getByRole('link', { name: 'Back to home' }).click();
     await expect(page.getByLabel('New post')).toBeVisible();
 
-    await page.goto('/messages/nobody_here');
+    await page.goto('/messages/with/nobody_here');
     await expect(page.getByRole('heading', { name: "This person doesn't exist" })).toBeVisible();
   });
 

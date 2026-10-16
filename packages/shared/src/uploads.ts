@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
-export const UPLOAD_KINDS = ['avatar', 'cover', 'post'] as const;
+export const UPLOAD_KINDS = ['avatar', 'cover', 'post', 'message'] as const;
 export const uploadKindSchema = z.enum(UPLOAD_KINDS);
 export type UploadKind = z.infer<typeof uploadKindSchema>;
 
 /** Storage keys are `<kind>/<uuid>.webp`; every upload is re-encoded to WebP. */
 export const UPLOAD_KEY_PATTERN =
-  /^(avatar|cover|post)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
+  /^(avatar|cover|post|message)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
 export const uploadKeySchema = z.string().regex(UPLOAD_KEY_PATTERN, 'Invalid upload key');
 
 const keyOfKind = (kind: UploadKind) =>
@@ -18,6 +18,7 @@ const keyOfKind = (kind: UploadKind) =>
 export const avatarKeySchema = keyOfKind('avatar');
 export const coverKeySchema = keyOfKind('cover');
 export const postImageKeySchema = keyOfKind('post');
+export const messageImageKeySchema = keyOfKind('message');
 
 export const uploadQuerySchema = z.object({ kind: uploadKindSchema });
 

@@ -11,13 +11,13 @@ import { AuthModule } from './auth/auth.module.js';
 import { CREDENTIAL_THROTTLERS } from './auth/credential-throttle.js';
 import { ChatModule } from './chat/chat.module.js';
 import { CommentsModule } from './comments/comments.module.js';
+import { ConversationsModule } from './conversations/conversations.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { HttpThrottlerGuard } from './common/guards/http-throttler.guard.js';
 import { type Env, validateEnv } from './config/env.js';
 import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
-import { MessagesModule } from './messages/messages.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
@@ -56,7 +56,7 @@ import { UsersModule } from './users/users.module.js';
     CommentsModule,
     FollowsModule,
     ActivitiesModule,
-    MessagesModule,
+    ConversationsModule,
     ChatModule,
   ],
   providers: [

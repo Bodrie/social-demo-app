@@ -1,4 +1,10 @@
-import { apiErrorSchema, postListSchema, postSchema, uploadResponseSchema } from '@the-mesh/shared';
+import {
+  apiErrorSchema,
+  postListSchema,
+  postSchema,
+  revisionListSchema,
+  uploadResponseSchema,
+} from '@the-mesh/shared';
 import sharp from 'sharp';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
@@ -253,5 +259,53 @@ describe('posts', () => {
       postSchema.parse((await authorAgent.get(`/api/v1/posts/${postId}`).expect(200)).body)
         .commentCount,
     ).toBe(2);
+  });
+
+  describe('PATCH /posts/:id and GET /posts/:id/revisions', () => {
+    it('lets the author edit the text and keeps every previous version, newest first', async () => {
+      const author = await createUser(t.prisma);
+      const agent = await agentFor(t, author);
+      const id = await createPost(agent, 'v1');
+
+      const v2 = postSchema.parse(
+        (await agent.patch(`/api/v1/posts/${id}`).send({ content: 'v2' }).expect(200)).body,
+      );
+      expect(v2).toMatchObject({ content: 'v2' });
+      expect(v2.editedAt).not.toBeNull();
+      await agent.patch(`/api/v1/posts/${id}`).send({ content: 'v2' }).expect(200);
+      await agent.patch(`/api/v1/posts/${id}`).send({ content: 'v3' }).expect(200);
+
+      const revisions = revisionListSchema.parse(
+        (await agent.get(`/api/v1/posts/${id}/revisions`).expect(200)).body,
+      );
+      expect(revisions.items.map((revision) => revision.content)).toEqual(['v2', 'v1']);
+
+      const fetched = postSchema.parse((await agent.get(`/api/v1/posts/${id}`).expect(200)).body);
+      expect(fetched.content).toBe('v3');
+      expect(fetched.editedAt).not.toBeNull();
+    });
+
+    it('refuses edits by other members and validates the text', async () => {
+      const author = await createUser(t.prisma);
+      const other = await createUser(t.prisma);
+      const authorAgent = await agentFor(t, author);
+      const otherAgent = await agentFor(t, other);
+      const id = await createPost(authorAgent, 'keep');
+
+      const body = apiErrorSchema.parse(
+        (await otherAgent.patch(`/api/v1/posts/${id}`).send({ content: 'nope' }).expect(403)).body,
+      );
+      expect(body.code).toBe('FORBIDDEN');
+      await authorAgent.patch(`/api/v1/posts/${id}`).send({ content: '   ' }).expect(400);
+      await authorAgent
+        .patch('/api/v1/posts/00000000-0000-7000-8000-000000000000')
+        .send({ content: 'x' })
+        .expect(404);
+      // Anyone signed in may read the history of a post they can see.
+      const revisions = revisionListSchema.parse(
+        (await otherAgent.get(`/api/v1/posts/${id}/revisions`).expect(200)).body,
+      );
+      expect(revisions.items).toEqual([]);
+    });
   });
 });

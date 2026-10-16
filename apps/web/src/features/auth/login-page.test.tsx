@@ -23,10 +23,23 @@ describe('LoginPage', () => {
     expect(await screen.findByText('Invalid email or password')).toBeInTheDocument();
   });
 
+  it('can reveal the password', async () => {
+    renderApp('/login');
+    const user = userEvent.setup();
+    const password = await screen.findByLabelText('Password');
+    expect(password).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('links to registration', async () => {
     renderApp('/login');
     const user = userEvent.setup();
-    await user.click((await screen.findAllByRole('link', { name: 'Create an account' }))[0]!);
+    await user.click(await screen.findByRole('link', { name: 'Create an account' }));
     expect(await screen.findByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
   });
 });

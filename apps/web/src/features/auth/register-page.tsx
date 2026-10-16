@@ -1,8 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type RegisterInput, registerSchema } from '@the-mesh/shared';
+import { Loader2Icon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
+import { PasswordInput } from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -36,47 +38,56 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Create your account"
-      aside={
+      subtitle="A minute is all it takes."
+      footer={
         <>
-          <p>Pick a username, tell people your name, and start following the ones you like.</p>
-          <p>
-            Already a member?{' '}
-            <Link to="/login" className="font-semibold underline underline-offset-4">
-              Sign in
-            </Link>
-          </p>
+          Already a member?{' '}
+          <Link to="/login" className="text-foreground font-medium underline underline-offset-4">
+            Sign in
+          </Link>
         </>
       }
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username</FormLabel>
-                <FormControl>
-                  <Input autoComplete="username" placeholder="your_handle" {...field} />
-                </FormControl>
-                <FormDescription>Lowercase letters, digits and underscores.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input autoComplete="name" placeholder="Your name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      autoComplete="name"
+                      placeholder="Your name"
+                      className="h-11 rounded-lg"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input
+                      autoComplete="username"
+                      placeholder="your_handle"
+                      className="h-11 rounded-lg"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <FormField
             control={form.control}
             name="email"
@@ -88,6 +99,7 @@ export function RegisterPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="you@example.com"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -102,22 +114,23 @@ export function RegisterPage() {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" {...field} />
+                  <PasswordInput
+                    autoComplete="new-password"
+                    className="h-11 rounded-lg pr-11"
+                    {...field}
+                  />
                 </FormControl>
                 <FormDescription>At least 8 characters.</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={register.isPending}>
+          <Button type="submit" size="lg" className="h-11 w-full" disabled={register.isPending}>
+            {register.isPending ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : null}
             {register.isPending ? 'Creating account…' : 'Create account'}
           </Button>
-          <p className="text-muted-foreground text-center text-sm md:hidden">
-            Already a member?{' '}
-            <Link to="/login" className="text-foreground font-medium underline underline-offset-4">
-              Sign in
-            </Link>
-          </p>
         </form>
       </Form>
     </AuthLayout>

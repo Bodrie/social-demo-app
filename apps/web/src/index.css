@@ -90,6 +90,14 @@
   }
   html {
     color-scheme: light;
+    /* Always reserve the scrollbar's space, so opening an overlay (which locks body scroll)
+       cannot shift the layout sideways. */
+    scrollbar-gutter: stable;
+  }
+  /* react-remove-scroll (Radix overlays) adds a margin to make up for the vanished scrollbar;
+     with a stable gutter that margin itself would be the shift. */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
   html.dark {
     color-scheme: dark;
@@ -133,4 +141,27 @@
 .nav-progress {
   transform-origin: left;
   animation: nav-progress 1.5s ease-out 150ms both;
+}
+
+/* Sign in / sign up brand panel: a mesh of brand hues on deep navy, with a faint grid. */
+.auth-panel {
+  background-color: oklch(0.24 0.06 262);
+  background-image:
+    radial-gradient(at 18% 22%, oklch(0.6 0.17 241 / 0.95) 0, transparent 55%),
+    radial-gradient(at 82% 8%, oklch(0.58 0.2 300 / 0.55) 0, transparent 50%),
+    radial-gradient(at 72% 82%, oklch(0.74 0.14 190 / 0.65) 0, transparent 55%),
+    radial-gradient(at 8% 92%, oklch(0.5 0.19 262 / 0.8) 0, transparent 50%);
+}
+.auth-panel-grid {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 30%, transparent 75%);
+}
+
+/* Sticky sidebars: a thin, unobtrusive scrollbar when their content is taller than the screen. */
+.sidebar-column {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }

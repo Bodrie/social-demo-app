@@ -31,34 +31,52 @@ model User {
   posts            Post[]
   comments         Comment[]
   postLikes        PostLike[]
-  following        Follow[]       @relation("FollowFollower")
-  followers        Follow[]       @relation("FollowFollowee")
-  activities       Activity[]     @relation("ActivityActor")
-  targetedBy       Activity[]     @relation("ActivityTargetUser")
+  following        Follow[]             @relation("FollowFollower")
+  followers        Follow[]             @relation("FollowFollowee")
+  activities       Activity[]           @relation("ActivityActor")
+  targetedBy       Activity[]           @relation("ActivityTargetUser")
   refreshTokens    RefreshToken[]
-  sentMessages     Message[]      @relation("MessageSender")
-  receivedMessages Message[]      @relation("MessageRecipient")
+  sentMessages     Message[]            @relation("MessageSender")
+  conversations    ConversationMember[]
+  createdGroups    Conversation[]       @relation("ConversationCreator")
   uploads          Upload[]
+  commentReactions CommentReaction[]
 
   @@map("users")
 }
 
 model Post {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  authorId  String   @map("author_id") @db.Uuid
+  id        String    @id @default(uuid(7)) @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
   content   String
-  imageKey  String?  @map("image_key")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  imageKey  String?   @map("image_key")
+  /// Null until the first edit; previous texts live in post_revisions.
+  editedAt  DateTime? @map("edited_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments   Comment[]
   likes      PostLike[]
   activities Activity[]
+  revisions  PostRevision[]
 
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
   @@map("posts")
+}
+
+/// The text a post had before an edit replaced it (newest replacement first when listed).
+model PostRevision {
+  id       String   @id @default(uuid(7)) @db.Uuid
+  postId   String   @map("post_id") @db.Uuid
+  content  String
+  editedAt DateTime @default(now()) @map("edited_at") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, editedAt(sort: Desc)])
+  @@map("post_revisions")
 }
 
 model PostLike {
@@ -75,25 +93,70 @@ model PostLike {
 }
 
 model Comment {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  postId    String   @map("post_id") @db.Uuid
-  authorId  String   @map("author_id") @db.Uuid
-  content   String
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String    @id @default(uuid(7)) @db.Uuid
+  postId         String    @map("post_id") @db.Uuid
+  authorId       String    @map("author_id") @db.Uuid
+  content        String
+  /// Null until the first edit; previous texts live in comment_revisions.
+  editedAt       DateTime? @map("edited_at") @db.Timestamptz(3)
+  /// Denormalised total of comment_reactions, kept in step by CommentsService (sorting by "top").
+  reactionsCount Int       @default(0) @map("reactions_count")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post       Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author     User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   activities Activity[]
+  revisions  CommentRevision[]
+  reactions  CommentReaction[]
 
   @@index([postId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([postId, reactionsCount(sort: Desc), createdAt(sort: Desc), id(sort: Desc)])
   @@map("comments")
+}
+
+model CommentRevision {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  content   String
+  editedAt  DateTime @default(now()) @map("edited_at") @db.Timestamptz(3)
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId, editedAt(sort: Desc)])
+  @@map("comment_revisions")
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  LAUGH
+  WOW
+  SAD
+
+  @@map("reaction_type")
+}
+
+/// One reaction per member and comment; changing the emoji updates the row.
+model CommentReaction {
+  commentId String       @map("comment_id") @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  type      ReactionType
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([commentId, type])
+  @@map("comment_reactions")
 }
 
 enum UploadKind {
   avatar
   cover
   post
+  message
 
   @@map("upload_kind")
 }
@@ -177,18 +240,60 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+enum ConversationKind {
+  direct
+  group
+
+  @@map("conversation_kind")
+}
+
+/// A direct conversation is the single thread between two people; a group has a title and members.
+model Conversation {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  kind          ConversationKind
+  title         String?
+  createdById   String?          @map("created_by_id") @db.Uuid
+  /// `<smaller user id>:<larger user id>` for direct conversations, so a pair has exactly one.
+  directKey     String?          @unique @map("direct_key")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Denormalised from the newest message so the list can be ordered without a join.
+  lastMessageAt DateTime?        @map("last_message_at") @db.Timestamptz(3)
+
+  createdBy User?                @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members   ConversationMember[]
+  messages  Message[]
+
+  @@index([lastMessageAt, createdAt])
+  @@map("conversations")
+}
+
+/// Read state is per member: everything created up to `lastReadAt` has been seen.
+model ConversationMember {
+  conversationId String    @map("conversation_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz(3)
+  lastReadAt     DateTime? @map("last_read_at") @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
 model Message {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  senderId    String    @map("sender_id") @db.Uuid
-  recipientId String    @map("recipient_id") @db.Uuid
-  content     String
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+  id             String   @id @default(uuid(7)) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderId       String   @map("sender_id") @db.Uuid
+  /// Empty when the message is a picture only.
+  content        String
+  imageKey       String?  @map("image_key")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  sender    User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
-  @@index([senderId, recipientId, createdAt])
-  @@index([recipientId, readAt])
+  @@index([conversationId, createdAt, id])
   @@map("messages")
 }

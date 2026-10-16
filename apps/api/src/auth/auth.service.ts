@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
-import type { LoginData, RegisterData, UserPrivate } from '@the-mesh/shared';
-import { unauthorized } from '../common/errors.js';
+import type { LoginData, RegisterData, UserPrivate, ChangePasswordData } from '@the-mesh/shared';
+import { unauthorized, validationError } from '../common/errors.js';
 import type { Env } from '../config/env.js';
 import { UserRegisteredEvent } from '../events/user.events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -85,6 +85,26 @@ export class AuthService {
   }
 
   /** The caller's profile for GET /auth/me; a token for a deleted account is treated as no session. */
+  /** Verifies the current password, stores the new hash and ends every other session. */
+  async changePassword(
+    userId: string,
+    input: ChangePasswordData,
+    rawRefreshToken: string | undefined,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    if (!(await verifyPassword(user.passwordHash, input.currentPassword))) {
+      throw validationError({ currentPassword: 'Wrong password' });
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await hashPassword(input.newPassword) },
+    });
+    await this.refreshTokens.revokeOthers(userId, rawRefreshToken);
+  }
+
   async me(userId: string): Promise<UserPrivate> {
     const user = await this.users.findPrivateById(userId);
     if (!user) throw unauthorized('This account no longer exists');

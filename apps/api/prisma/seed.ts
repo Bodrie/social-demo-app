@@ -13,7 +13,7 @@ import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { ActivityType } from '../src/generated/prisma/enums.js';
+import { ActivityType, ReactionType } from '../src/generated/prisma/enums.js';
 import { TABLES } from '../src/prisma/tables.js';
 import { placeholderAvatar, placeholderPostImage } from './placeholders.js';
 
@@ -36,7 +36,11 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: data
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
 
 /** Writes a generated file into the uploads dir, records its owner, and returns the storage key. */
-async function seedFile(kind: 'avatar' | 'post', ownerId: string, data: Buffer): Promise<string> {
+async function seedFile(
+  kind: 'avatar' | 'post' | 'message',
+  ownerId: string,
+  data: Buffer,
+): Promise<string> {
   const key = `${kind}/${randomUUID()}.webp`;
   const file = path.join(uploadsDir, key);
   await mkdir(path.dirname(file), { recursive: true });
@@ -72,7 +76,7 @@ async function truncateAll(): Promise<void> {
   );
   // Generated files from previous runs are orphans once their rows are gone.
   await Promise.all(
-    ['avatar', 'post'].map((kind) =>
+    ['avatar', 'post', 'message'].map((kind) =>
       rm(path.join(uploadsDir, kind), { recursive: true, force: true }),
     ),
   );
@@ -207,22 +211,143 @@ async function seed(): Promise<void> {
     })),
   });
 
-  // --- messages between the fixed accounts ---------------------------------
+  // --- comment reactions and a few edits ---------------------------------
+  const reactionTypes = Object.values(ReactionType);
+  const reactions = comments.flatMap((c) =>
+    pick(userIds, faker.number.int({ min: 0, max: 3 })).map((userId) => ({
+      commentId: c.id,
+      userId,
+      type: faker.helpers.arrayElement(reactionTypes),
+    })),
+  );
+  await prisma.commentReaction.createMany({ data: reactions, skipDuplicates: true });
+  // The denormalised total that "sort by top" relies on.
+  await prisma.$executeRaw`
+    UPDATE comments c
+    SET reactions_count = (SELECT count(*) FROM comment_reactions r WHERE r.comment_id = c.id)
+  `;
+  // One edited comment and one edited post, so the "edited" history has something to show.
+  const [editedComment] = comments;
+  if (editedComment) {
+    const current = await prisma.comment.findUniqueOrThrow({
+      where: { id: editedComment.id },
+      select: { content: true },
+    });
+    await prisma.$transaction([
+      prisma.commentRevision.create({
+        data: { commentId: editedComment.id, content: current.content },
+      }),
+      prisma.comment.update({
+        where: { id: editedComment.id },
+        data: { content: `${current.content} (clarified)`, editedAt: new Date() },
+      }),
+    ]);
+  }
+  const [editedPost] = posts;
+  if (editedPost) {
+    const current = await prisma.post.findUniqueOrThrow({
+      where: { id: editedPost.id },
+      select: { content: true },
+    });
+    await prisma.$transaction([
+      prisma.postRevision.create({ data: { postId: editedPost.id, content: current.content } }),
+      prisma.post.update({
+        where: { id: editedPost.id },
+        data: { content: `${current.content} Update: typo fixed.`, editedAt: new Date() },
+      }),
+    ]);
+  }
+
+  // --- conversations between the fixed accounts ------------------------------
   const [alice, bob] = users;
   if (alice && bob) {
-    await prisma.message.createMany({
-      data: Array.from({ length: 12 }, (_, i) => ({
-        senderId: i % 2 === 0 ? alice.id : bob.id,
-        recipientId: i % 2 === 0 ? bob.id : alice.id,
-        content: faker.lorem.sentence(),
-        createdAt: new Date(Date.now() - (12 - i) * 60_000),
-        readAt: i < 10 ? new Date() : null,
-      })),
+    const direct = await prisma.conversation.create({
+      data: {
+        kind: 'direct',
+        directKey: [alice.id, bob.id].toSorted().join(':'),
+        members: { create: [{ userId: alice.id }, { userId: bob.id }] },
+      },
+      select: { id: true },
+    });
+    const texts = Array.from({ length: 12 }, (_, i) => ({
+      conversationId: direct.id,
+      senderId: i % 2 === 0 ? alice.id : bob.id,
+      content: faker.lorem.sentence(),
+      createdAt: new Date(Date.now() - (12 - i) * 60_000),
+    }));
+    await prisma.message.createMany({ data: texts });
+    // One picture from Bob, so the demo thread shows what a photo message looks like.
+    const picture = await prisma.message.create({
+      data: {
+        conversationId: direct.id,
+        senderId: bob.id,
+        content: 'Look what I found',
+        imageKey: await seedFile(
+          'message',
+          bob.id,
+          await placeholderPostImage('for Alice', `${bob.id}-message`),
+        ),
+        createdAt: new Date(Date.now() - 30_000),
+      },
+      select: { createdAt: true },
+    });
+    // Bob is caught up; Alice has not seen Bob's last text and the picture yet.
+    await prisma.conversation.update({
+      where: { id: direct.id },
+      data: {
+        lastMessageAt: picture.createdAt,
+        members: {
+          update: [
+            {
+              where: { conversationId_userId: { conversationId: direct.id, userId: bob.id } },
+              data: { lastReadAt: picture.createdAt },
+            },
+            {
+              where: { conversationId_userId: { conversationId: direct.id, userId: alice.id } },
+              data: { lastReadAt: texts[10]?.createdAt },
+            },
+          ],
+        },
+      },
+    });
+
+    // A group with two more members. Carol stays out: she starts without conversations.
+    const others = users.slice(3, 5).map((user) => user.id);
+    const groupMembers = [alice.id, bob.id, ...others];
+    const group = await prisma.conversation.create({
+      data: {
+        kind: 'group',
+        title: 'Weekend plans',
+        createdById: alice.id,
+        members: { create: groupMembers.map((userId) => ({ userId })) },
+      },
+      select: { id: true },
+    });
+    const chatter = Array.from({ length: 6 }, (_, i) => ({
+      conversationId: group.id,
+      senderId: groupMembers[i % groupMembers.length] ?? alice.id,
+      content: faker.lorem.sentence(),
+      createdAt: new Date(Date.now() - (6 - i) * 5 * 60_000),
+    }));
+    await prisma.message.createMany({ data: chatter });
+    const lastChatter = chatter.at(-1)?.createdAt;
+    await prisma.conversation.update({
+      where: { id: group.id },
+      data: {
+        lastMessageAt: lastChatter,
+        members: {
+          updateMany: { where: { userId: { not: alice.id } }, data: { lastReadAt: lastChatter } },
+          update: {
+            where: { conversationId_userId: { conversationId: group.id, userId: alice.id } },
+            data: { lastReadAt: chatter[2]?.createdAt },
+          },
+        },
+      },
     });
   }
 
   console.log(
-    `Seeded ${users.length} users (avatars in ${uploadsDir}), ${follows.length} follows, ${posts.length} posts, ${likes.length} likes, ${comments.length} comments.`,
+    `Seeded ${users.length} users (avatars in ${uploadsDir}), ${follows.length} follows, ${posts.length} posts, ${likes.length} likes, ${comments.length} comments, ${reactions.length} reactions.`,
   );
 }
 

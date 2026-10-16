@@ -1,7 +1,29 @@
-import type { Activity, Comment, Message, Post, UserPrivate, UserPublic } from '@the-mesh/shared';
-import { alice, bob, carol, makePost, resetFixtureSequence } from '../fixtures';
+import type {
+  Activity,
+  Comment,
+  ConversationKind,
+  Message,
+  Post,
+  ReactionSummary,
+  ReactionType,
+  Revision,
+  UserPrivate,
+  UserPublic,
+} from '@the-mesh/shared';
+import { alice, bob, carol, makePost, resetFixtureSequence, testId } from '../fixtures';
 
 type Follow = { followerId: string; followingId: string };
+
+/** A conversation as the "server" stores it; the viewer-specific shape is derived per request. */
+export type MockConversation = {
+  id: string;
+  kind: ConversationKind;
+  title: string | null;
+  createdById: string | null;
+  createdAt: string;
+  members: { userId: string; joinedAt: string; lastReadAt: string | null }[];
+};
+let conversationSequence = 0;
 
 /** In-memory backend state for MSW handlers. Reset between tests by `resetMocks()`. */
 export const mockDb = {
@@ -14,9 +36,13 @@ export const mockDb = {
   posts: [] as Post[],
   comments: [] as Comment[],
   activities: [] as Activity[],
+  conversations: [] as MockConversation[],
   messages: [] as Message[],
+  reactions: [] as { commentId: string; userId: string; type: ReactionType }[],
+  commentRevisions: new Map<string, Revision[]>(),
+  postRevisions: new Map<string, Revision[]>(),
   uploads: 0,
-  calls: { me: 0, refresh: 0, login: 0, logout: 0 },
+  calls: { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0 },
 };
 
 const clone = (user: UserPrivate): UserPrivate => ({ ...user, counts: { ...user.counts } });
@@ -29,9 +55,14 @@ export function resetMockDb(): void {
   mockDb.posts = [];
   mockDb.comments = [];
   mockDb.activities = [];
+  mockDb.conversations = [];
+  conversationSequence = 0;
   mockDb.messages = [];
+  mockDb.reactions = [];
+  mockDb.commentRevisions = new Map();
+  mockDb.postRevisions = new Map();
   mockDb.uploads = 0;
-  mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0 };
+  mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0 };
   resetFixtureSequence();
 }
 
@@ -53,6 +84,47 @@ export function signedInAs(user: UserPrivate): UserPrivate {
 
 export function seedFollow(followerId: string, followingId: string): void {
   mockDb.follows.push({ followerId, followingId });
+}
+
+export function seedConversation(
+  kind: ConversationKind,
+  memberIds: string[],
+  options: { title?: string; createdById?: string; createdAt?: string } = {},
+): MockConversation {
+  conversationSequence += 1;
+  const createdAt = options.createdAt ?? '2026-10-15T08:00:00.000Z';
+  const conversation: MockConversation = {
+    id: testId('conversation', conversationSequence),
+    kind,
+    title: options.title ?? null,
+    createdById: options.createdById ?? (kind === 'group' ? memberIds[0] : null) ?? null,
+    createdAt,
+    members: memberIds.map((userId) => ({ userId, joinedAt: createdAt, lastReadAt: null })),
+  };
+  mockDb.conversations.push(conversation);
+  return conversation;
+}
+
+/** The direct thread between two people, created on first use (like the API). */
+export function seedDirect(aId: string, bId: string): MockConversation {
+  const pair = [aId, bId].toSorted().join(':');
+  const existing = mockDb.conversations.find(
+    (c) =>
+      c.kind === 'direct' &&
+      c.members
+        .map((m) => m.userId)
+        .toSorted()
+        .join(':') === pair,
+  );
+  return existing ?? seedConversation('direct', [aId, bId]);
+}
+
+/** Moves a member's read mark (null clears it). */
+export function seedReadMark(conversationId: string, userId: string, readAt: string | null): void {
+  const member = mockDb.conversations
+    .find((c) => c.id === conversationId)
+    ?.members.find((m) => m.userId === userId);
+  if (member) member.lastReadAt = readAt;
 }
 
 /** Seeds `count` posts, newest first, and returns them in that order. */
@@ -100,4 +172,18 @@ export function paginate<T extends { id: string }>(
   const page = items.slice(start, start + limit);
   const last = page.at(-1);
   return { items: page, nextCursor: last && start + limit < items.length ? last.id : null };
+}
+
+/** Reaction summary of a comment as `viewerId` sees it, from the reactions table. */
+export function reactionsFor(commentId: string, viewerId: string): ReactionSummary {
+  const counts: Record<ReactionType, number> = { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 };
+  let total = 0;
+  let mine: ReactionType | null = null;
+  for (const reaction of mockDb.reactions) {
+    if (reaction.commentId !== commentId) continue;
+    counts[reaction.type] += 1;
+    total += 1;
+    if (reaction.userId === viewerId) mine = reaction.type;
+  }
+  return { counts, total, mine };
 }

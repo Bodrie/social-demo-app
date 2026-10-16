@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw/http';
 import { alice, summaryOf } from '@/test/fixtures';
@@ -53,5 +53,26 @@ describe('PostCard', () => {
     expect(screen.getByText('Theirs')).toBeInTheDocument();
     expect(mockDb.posts).toHaveLength(1);
     expect(await screen.findByText('Post deleted')).toBeInTheDocument();
+  });
+
+  it('lets the author edit the text and shows the edit history', async () => {
+    signedInAs(alice);
+    seedPosts(1, { author: summaryOf(alice), content: 'Frist post' });
+    renderApp('/');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Post options' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit post' }));
+    const editor = screen.getByLabelText('Edit post');
+    await user.clear(editor);
+    await user.type(editor, 'First post');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    const article = await screen.findByRole('article');
+    expect(await within(article).findByText('First post')).toBeInTheDocument();
+    expect(mockDb.posts[0]?.content).toBe('First post');
+    await user.click(within(article).getByRole('button', { name: 'edited' }));
+    const history = await screen.findByRole('list', { name: 'Previous versions' });
+    expect(within(history).getByText('Frist post')).toBeInTheDocument();
   });
 });

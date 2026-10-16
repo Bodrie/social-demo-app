@@ -53,13 +53,26 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/u/bob');
     await expect(page.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeVisible();
     await audit(page, '/u/bob');
+    await page.goto('/settings');
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await audit(page, '/settings');
   });
 
   test('messages and the edit profile dialog', async ({ page }) => {
     await openHome(page);
-    await page.goto('/messages/bob');
+    await page.goto('/messages/with/bob');
     await expect(page.getByRole('log', { name: 'Conversation with Bob Brown' })).toBeVisible();
-    await audit(page, '/messages/bob');
+    await audit(page, '/messages (direct)');
+    await page
+      .getByRole('list', { name: 'Conversations' })
+      .getByRole('link', { name: /Weekend plans/ })
+      .click();
+    await expect(page.getByRole('log', { name: 'Group Weekend plans' })).toBeVisible();
+    await audit(page, '/messages (group)');
+    await page.getByRole('button', { name: 'Members' }).click();
+    await expect(page.getByRole('dialog', { name: 'Weekend plans' })).toBeVisible();
+    await audit(page, 'group members dialog');
+    await page.keyboard.press('Escape');
     await page.goto('/u/alice');
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await expect(page.getByRole('dialog', { name: 'Edit profile' })).toBeVisible();

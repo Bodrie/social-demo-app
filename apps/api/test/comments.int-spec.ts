@@ -1,4 +1,11 @@
-import { apiErrorSchema, commentListSchema, commentSchema, postSchema } from '@the-mesh/shared';
+import {
+  apiErrorSchema,
+  commentListSchema,
+  commentSchema,
+  postSchema,
+  reactionSummarySchema,
+  revisionListSchema,
+} from '@the-mesh/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';
@@ -140,6 +147,167 @@ describe('comments', () => {
       await posterAgent.delete(`/api/v1/posts/${postId}`).expect(204);
 
       expect(await t.prisma.comment.count({ where: { id } })).toBe(0);
+    });
+  });
+
+  describe('editing', () => {
+    it('lets the author edit and keeps the previous text as a revision; unchanged text is a no-op', async () => {
+      const postId = await createPost(posterAgent, 'Edit me');
+      const id = await comment(commenterAgent, postId, 'first');
+
+      const updated = commentSchema.parse(
+        (
+          await commenterAgent
+            .patch(`/api/v1/comments/${id}`)
+            .send({ content: 'second' })
+            .expect(200)
+        ).body,
+      );
+      expect(updated.content).toBe('second');
+      expect(updated.editedAt).not.toBeNull();
+
+      await commenterAgent.patch(`/api/v1/comments/${id}`).send({ content: 'second' }).expect(200);
+      const revisions = revisionListSchema.parse(
+        (await posterAgent.get(`/api/v1/comments/${id}/revisions`).expect(200)).body,
+      );
+      expect(revisions.items.map((revision) => revision.content)).toEqual(['first']);
+
+      const listed = commentListSchema.parse(
+        (await posterAgent.get(`/api/v1/posts/${postId}/comments`).expect(200)).body,
+      );
+      expect(listed.items[0]).toMatchObject({ content: 'second', editedAt: updated.editedAt });
+    });
+
+    it('refuses edits by anyone but the author, the post author included', async () => {
+      const postId = await createPost(posterAgent, 'Not yours');
+      const id = await comment(commenterAgent, postId, 'mine');
+      const body = apiErrorSchema.parse(
+        (await posterAgent.patch(`/api/v1/comments/${id}`).send({ content: 'hijack' }).expect(403))
+          .body,
+      );
+      expect(body.code).toBe('FORBIDDEN');
+      await posterAgent.patch(`/api/v1/comments/${MISSING}`).send({ content: 'x' }).expect(404);
+      await posterAgent.get(`/api/v1/comments/${MISSING}/revisions`).expect(404);
+    });
+  });
+
+  describe('reactions', () => {
+    const counts = (over: Partial<Record<string, number>>) => ({
+      LIKE: 0,
+      LOVE: 0,
+      LAUGH: 0,
+      WOW: 0,
+      SAD: 0,
+      ...over,
+    });
+
+    it('sets, switches and removes a reaction, keeping counts, total and "mine" in step', async () => {
+      const postId = await createPost(posterAgent, 'React to this');
+      const id = await comment(commenterAgent, postId, 'hello');
+      const react = async (agent: TestAgent, type: string) =>
+        reactionSummarySchema.parse(
+          (await agent.put(`/api/v1/comments/${id}/reaction`).send({ type }).expect(200)).body,
+        );
+
+      expect(await react(posterAgent, 'LOVE')).toEqual({
+        counts: counts({ LOVE: 1 }),
+        total: 1,
+        mine: 'LOVE',
+      });
+      expect(await react(posterAgent, 'LIKE')).toEqual({
+        counts: counts({ LIKE: 1 }),
+        total: 1,
+        mine: 'LIKE',
+      });
+      expect(await react(commenterAgent, 'LIKE')).toEqual({
+        counts: counts({ LIKE: 2 }),
+        total: 2,
+        mine: 'LIKE',
+      });
+
+      const listed = commentListSchema.parse(
+        (await commenterAgent.get(`/api/v1/posts/${postId}/comments`).expect(200)).body,
+      );
+      expect(listed.items[0]?.reactions).toEqual({
+        counts: counts({ LIKE: 2 }),
+        total: 2,
+        mine: 'LIKE',
+      });
+
+      const removed = reactionSummarySchema.parse(
+        (await posterAgent.delete(`/api/v1/comments/${id}/reaction`).expect(200)).body,
+      );
+      expect(removed).toEqual({ counts: counts({ LIKE: 1 }), total: 1, mine: null });
+      const again = reactionSummarySchema.parse(
+        (await posterAgent.delete(`/api/v1/comments/${id}/reaction`).expect(200)).body,
+      );
+      expect(again.total).toBe(1);
+    });
+
+    it('validates the reaction type and the comment', async () => {
+      const postId = await createPost(posterAgent, 'Validate');
+      const id = await comment(commenterAgent, postId, 'hi');
+      const body = apiErrorSchema.parse(
+        (
+          await posterAgent
+            .put(`/api/v1/comments/${id}/reaction`)
+            .send({ type: 'FIRE' })
+            .expect(400)
+        ).body,
+      );
+      expect(body.code).toBe('VALIDATION_ERROR');
+      expect(body.fields).toHaveProperty('type');
+      await posterAgent
+        .put(`/api/v1/comments/${MISSING}/reaction`)
+        .send({ type: 'LIKE' })
+        .expect(404);
+    });
+
+    it('sorts by most reactions on request and paginates that order with a ranked cursor', async () => {
+      const postId = await createPost(posterAgent, 'Sort me');
+      const a = await comment(commenterAgent, postId, 'a');
+      const b = await comment(commenterAgent, postId, 'b');
+      const c = await comment(commenterAgent, postId, 'c');
+      await posterAgent.put(`/api/v1/comments/${b}/reaction`).send({ type: 'LIKE' }).expect(200);
+      await commenterAgent.put(`/api/v1/comments/${b}/reaction`).send({ type: 'WOW' }).expect(200);
+      await posterAgent.put(`/api/v1/comments/${c}/reaction`).send({ type: 'LAUGH' }).expect(200);
+
+      const newest = commentListSchema.parse(
+        (await posterAgent.get(`/api/v1/posts/${postId}/comments`).expect(200)).body,
+      );
+      expect(newest.items.map((item) => item.id)).toEqual([c, b, a]);
+
+      const top = commentListSchema.parse(
+        (await posterAgent.get(`/api/v1/posts/${postId}/comments?sort=top`).expect(200)).body,
+      );
+      expect(top.items.map((item) => item.id)).toEqual([b, c, a]);
+
+      const page1 = commentListSchema.parse(
+        (await posterAgent.get(`/api/v1/posts/${postId}/comments?sort=top&limit=1`).expect(200))
+          .body,
+      );
+      expect(page1.items.map((item) => item.id)).toEqual([b]);
+      expect(page1.nextCursor).not.toBeNull();
+      const page2 = commentListSchema.parse(
+        (
+          await posterAgent
+            .get(`/api/v1/posts/${postId}/comments?sort=top&limit=1&cursor=${page1.nextCursor}`)
+            .expect(200)
+        ).body,
+      );
+      expect(page2.items.map((item) => item.id)).toEqual([c]);
+      const page3 = commentListSchema.parse(
+        (
+          await posterAgent
+            .get(`/api/v1/posts/${postId}/comments?sort=top&limit=1&cursor=${page2.nextCursor}`)
+            .expect(200)
+        ).body,
+      );
+      expect(page3.items.map((item) => item.id)).toEqual([a]);
+      expect(page3.nextCursor).toBeNull();
+
+      await posterAgent.get(`/api/v1/posts/${postId}/comments?sort=top&cursor=garbage`).expect(400);
+      await posterAgent.get(`/api/v1/posts/${postId}/comments?sort=sideways`).expect(400);
     });
   });
 });

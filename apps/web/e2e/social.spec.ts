@@ -47,7 +47,8 @@ test.describe('between members', () => {
 
     await alicePost.getByRole('button', { name: /^Comments/ }).click();
     await expect(alicePost.getByText('Bob was here')).toBeVisible();
-    await alicePost.getByRole('button', { name: 'Delete comment' }).click();
+    await alicePost.getByRole('button', { name: 'Comment options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete comment' }).click();
     await expect(alicePost.getByText('Bob was here')).toBeHidden();
     await expect(alicePost.getByRole('button', { name: /^Comments/ })).toContainText('0');
 

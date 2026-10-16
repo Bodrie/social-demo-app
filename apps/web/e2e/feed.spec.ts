@@ -37,7 +37,8 @@ test.describe('feed', () => {
     await post.getByRole('button', { name: 'Send comment' }).click();
     await expect(post.getByText('Nice one!')).toBeVisible();
     await expect(post.getByRole('button', { name: /^Comments/ })).toContainText('1');
-    await post.getByRole('button', { name: 'Delete comment' }).click();
+    await post.getByRole('button', { name: 'Comment options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete comment' }).click();
     await expect(post.getByText('Nice one!')).toBeHidden();
     await expect(post.getByRole('button', { name: /^Comments/ })).toContainText('0');
 
