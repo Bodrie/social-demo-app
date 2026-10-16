@@ -1,6 +1,6 @@
 import type { Conversation } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { MessageSquarePlusIcon } from 'lucide-react';
+import { ImageIcon, MessageSquarePlusIcon } from 'lucide-react';
 import { NavLink, useParams } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
@@ -62,11 +62,12 @@ export function ConversationList() {
 
 function ConversationItem({ conversation }: { conversation: Conversation }) {
   const me = useCurrentUser();
-  const { isOnline } = useChat();
+  const { isOnline, isTyping } = useChat();
   const { username } = useParams();
   const { peer, lastMessage, unreadCount } = conversation;
   const mine = lastMessage.senderId === me.id;
   const active = username === peer.username;
+  const typing = isTyping(peer.id);
 
   return (
     <li>
@@ -97,15 +98,22 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
             </time>
           </span>
           <span className="flex items-center justify-between gap-2">
-            <span
-              className={cn(
-                'truncate text-sm',
-                unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground',
-              )}
-            >
-              {mine ? 'You: ' : ''}
-              {lastMessage.content}
-            </span>
+            {typing ? (
+              <span className="text-primary truncate text-sm">typing…</span>
+            ) : (
+              <span
+                className={cn(
+                  'flex min-w-0 items-center gap-1 text-sm',
+                  unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground',
+                )}
+              >
+                <span className="shrink-0">{mine ? 'You: ' : ''}</span>
+                {lastMessage.imageUrl ? (
+                  <ImageIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                ) : null}
+                <span className="truncate">{lastMessage.content || 'Picture'}</span>
+              </span>
+            )}
             {unreadCount > 0 ? (
               <Badge className="h-5 min-w-5 shrink-0 rounded-full px-1.5 tabular-nums">
                 <span className="sr-only">Unread: </span>

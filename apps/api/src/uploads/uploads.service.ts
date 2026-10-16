@@ -57,11 +57,12 @@ export class UploadsService {
   async discard(key: string | null): Promise<void> {
     if (key === null) return;
     try {
-      const [profiles, posts] = await Promise.all([
+      const [profiles, posts, messages] = await Promise.all([
         this.prisma.user.count({ where: { OR: [{ avatarKey: key }, { coverKey: key }] } }),
         this.prisma.post.count({ where: { imageKey: key } }),
+        this.prisma.message.count({ where: { imageKey: key } }),
       ]);
-      if (profiles + posts > 0) return;
+      if (profiles + posts + messages > 0) return;
       await this.storage.delete(key);
       await this.prisma.upload.deleteMany({ where: { key } });
     } catch (error) {

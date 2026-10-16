@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiErrorSchema } from './errors.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
+import { messageImageKeySchema } from './uploads.js';
 import { userSummarySchema } from './users.js';
 
 export const MESSAGE_MAX_LENGTH = 2000;
@@ -9,7 +10,9 @@ export const messageSchema = z.object({
   id: z.uuid(),
   senderId: z.uuid(),
   recipientId: z.uuid(),
+  /** Empty when the message is a picture only. */
   content: z.string(),
+  imageUrl: z.url().nullable(),
   createdAt: z.iso.datetime(),
   readAt: z.iso.datetime().nullable(),
 });
@@ -18,13 +21,20 @@ export type Message = z.infer<typeof messageSchema>;
 export const messageListSchema = paginatedSchema(messageSchema);
 export type MessageList = z.infer<typeof messageListSchema>;
 
-export const sendMessageSchema = z.object({
-  content: z
-    .string()
-    .trim()
-    .min(1, 'Write something first')
-    .max(MESSAGE_MAX_LENGTH, `At most ${MESSAGE_MAX_LENGTH} characters`),
-});
+/** Text, a picture, or both; never neither. */
+export const sendMessageSchema = z
+  .object({
+    content: z
+      .string()
+      .trim()
+      .max(MESSAGE_MAX_LENGTH, `At most ${MESSAGE_MAX_LENGTH} characters`)
+      .default(''),
+    imageKey: messageImageKeySchema.optional(),
+  })
+  .refine((value) => value.content.length > 0 || value.imageKey !== undefined, {
+    message: 'Write something or attach a picture',
+    path: ['content'],
+  });
 export type SendMessageInput = z.input<typeof sendMessageSchema>;
 export type SendMessageData = z.output<typeof sendMessageSchema>;
 
@@ -58,6 +68,10 @@ export const SOCKET_EVENTS = {
   messageRead: 'message:read',
   /** server → client (the author): ConversationReadPayload – `userId` read your messages. */
   conversationRead: 'conversation:read',
+  /** client → server, no ack: the sender started or stopped typing to `recipientId`. */
+  typing: 'typing',
+  /** server → client: TypingUpdate – `userId` started or stopped typing to you. */
+  typingUpdate: 'typing:update',
   /** server → client: an ApiError raised by a handler outside the ack flow. */
   exception: 'exception',
 } as const;
@@ -83,6 +97,13 @@ export const markReadAckSchema = z.discriminatedUnion('ok', [
 ]);
 export type MarkReadAck = z.infer<typeof markReadAckSchema>;
 
+export const typingPayloadSchema = z.object({ recipientId: z.uuid(), typing: z.boolean() });
+export type TypingPayload = z.infer<typeof typingPayloadSchema>;
+
+/** Ephemeral: never stored, so a client treats a stale `typing: true` as over after a few seconds. */
+export const typingUpdateSchema = z.object({ userId: z.uuid(), typing: z.boolean() });
+export type TypingUpdate = z.infer<typeof typingUpdateSchema>;
+
 export const conversationReadPayloadSchema = z.object({
   userId: z.uuid(),
   readAt: z.iso.datetime(),
@@ -94,6 +115,7 @@ export type ServerToClientEvents = {
   [SOCKET_EVENTS.presenceUpdate]: (users: PresenceUpdate) => void;
   [SOCKET_EVENTS.messageNew]: (message: Message) => void;
   [SOCKET_EVENTS.conversationRead]: (payload: ConversationReadPayload) => void;
+  [SOCKET_EVENTS.typingUpdate]: (payload: TypingUpdate) => void;
   [SOCKET_EVENTS.exception]: (error: z.infer<typeof apiErrorSchema>) => void;
 };
 
@@ -106,4 +128,5 @@ export type ClientToServerEvents = {
     payload: MarkReadPayload,
     ack: (result: MarkReadAck) => void,
   ) => void;
+  [SOCKET_EVENTS.typing]: (payload: TypingPayload) => void;
 };

@@ -1,4 +1,4 @@
-import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { SOCKET_EVENTS, sendMessagePayloadSchema } from '@the-mesh/shared';
 import { makeMessage } from './fixtures';
 import { mockDb } from './msw/db';
 
@@ -99,18 +99,16 @@ function defaultAckHandlers(socket: FakeSocket): Record<string, AckHandler> {
   return {
     [SOCKET_EVENTS.messageSend]: (payload) => {
       const user = mockDb.user;
-      if (
-        !user ||
-        !isRecord(payload) ||
-        typeof payload.recipientId !== 'string' ||
-        typeof payload.content !== 'string'
-      ) {
+      const parsed = sendMessagePayloadSchema.safeParse(payload);
+      if (!user || !parsed.success) {
         return {
           ok: false,
           error: { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Validation failed' },
         };
       }
-      const message = makeMessage(user.id, payload.recipientId, payload.content, {
+      const { recipientId, content, imageKey } = parsed.data;
+      const message = makeMessage(user.id, recipientId, content, {
+        imageUrl: imageKey ? `http://localhost/api/v1/uploads/${imageKey}` : null,
         createdAt: new Date().toISOString(),
       });
       mockDb.messages.push(message);

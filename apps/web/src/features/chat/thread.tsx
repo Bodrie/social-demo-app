@@ -23,8 +23,9 @@ import {
   replaceInThread,
   upsertConversation,
 } from './message-cache';
-import { MessageComposer } from './message-composer';
+import { MessageComposer, type OutgoingMessage } from './message-composer';
 import { PresenceDot } from './presence-dot';
+import { TypingIndicator } from './typing-indicator';
 import { useThread } from './use-messages';
 
 const GROUP_GAP_MS = 5 * 60 * 1000;
@@ -40,7 +41,8 @@ export function Thread({ peer }: { peer: UserSummary }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const online = chat.isOnline(peer.id);
-  const { setActivePeer, markRead } = chat;
+  const typing = chat.isTyping(peer.id);
+  const { setActivePeer, markRead, setTyping } = chat;
 
   useEffect(() => {
     setActivePeer(peer.id);
@@ -61,14 +63,14 @@ export function Thread({ peer }: { peer: UserSummary }) {
     return () => document.removeEventListener('visibilitychange', readIfVisible);
   }, [unreadFromPeer, markRead, peer.id]);
 
-  // Stay pinned to the newest message unless the viewer scrolled up to read history.
+  // Stay pinned to the newest message (or the typing dots) unless the viewer scrolled up.
   const messageCount = messages.length;
   useLayoutEffect(() => {
     const element = scrollRef.current;
-    if (messageCount > 0 && element && stickToBottom.current) {
+    if ((messageCount > 0 || typing) && element && stickToBottom.current) {
       element.scrollTop = element.scrollHeight;
     }
-  }, [messageCount]);
+  }, [messageCount, typing]);
 
   const loadOlder = useCallback(async () => {
     const element = scrollRef.current;
@@ -88,13 +90,15 @@ export function Thread({ peer }: { peer: UserSummary }) {
     }
   };
 
-  const send = async (content: string, retryOf?: string) => {
+  const send = async (outgoing: OutgoingMessage, retryOf?: string) => {
     if (retryOf) removeFromThread(queryClient, peer.id, retryOf);
     const temp: ThreadMessage = {
       id: `pending-${crypto.randomUUID()}`,
       senderId: me.id,
       recipientId: peer.id,
-      content,
+      content: outgoing.content,
+      imageUrl: outgoing.previewUrl ?? null,
+      imageKey: outgoing.imageKey,
       createdAt: new Date().toISOString(),
       readAt: null,
       status: 'sending',
@@ -102,7 +106,10 @@ export function Thread({ peer }: { peer: UserSummary }) {
     stickToBottom.current = true;
     appendToThread(queryClient, peer.id, temp);
     try {
-      const message = await chat.sendMessage(peer.id, content);
+      const message = await chat.sendMessage(peer.id, {
+        content: outgoing.content,
+        imageKey: outgoing.imageKey,
+      });
       replaceInThread(queryClient, peer.id, temp.id, message);
       upsertConversation(queryClient, me.id, message, { countUnread: false });
     } catch (error) {
@@ -138,7 +145,9 @@ export function Thread({ peer }: { peer: UserSummary }) {
           <Link to={`/u/${peer.username}`} className="block truncate font-semibold hover:underline">
             {peer.name}
           </Link>
-          <p className="text-muted-foreground text-xs">{online ? 'Online' : `@${peer.username}`}</p>
+          <p className={cn('text-xs', typing ? 'text-primary' : 'text-muted-foreground')}>
+            {typing ? 'typing…' : online ? 'Online' : `@${peer.username}`}
+          </p>
         </div>
       </header>
 
@@ -175,14 +184,28 @@ export function Thread({ peer }: { peer: UserSummary }) {
                 messages={messages}
                 meId={me.id}
                 peer={peer}
-                onRetry={(message) => void send(message.content, message.id)}
+                onRetry={(message) =>
+                  void send(
+                    {
+                      content: message.content,
+                      imageKey: message.imageKey,
+                      previewUrl: message.imageUrl ?? undefined,
+                    },
+                    message.id,
+                  )
+                }
               />
             )}
+            {typing ? <TypingIndicator name={peer.name} className="mt-1" /> : null}
           </>
         )}
       </div>
 
-      <MessageComposer peerName={peer.name} onSend={(content) => void send(content)} />
+      <MessageComposer
+        peerName={peer.name}
+        onSend={(outgoing) => void send(outgoing)}
+        onTyping={(isTyping) => setTyping(peer.id, isTyping)}
+      />
     </div>
   );
 }
@@ -221,7 +244,8 @@ function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
             <div
               title={formatDateTime(message.createdAt)}
               className={cn(
-                'max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px]/5 break-words whitespace-pre-wrap',
+                'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
+                message.imageUrl ? 'p-1' : 'px-3.5 py-2',
                 mine
                   ? 'bg-primary text-primary-foreground rounded-br-md'
                   : 'bg-muted rounded-bl-md',
@@ -229,7 +253,27 @@ function MessageList({ messages, meId, peer, onRetry }: MessageListProps) {
                 message.status === 'failed' && 'bg-destructive/15 text-foreground',
               )}
             >
-              {message.content}
+              {message.imageUrl ? (
+                <a
+                  href={message.imageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <img
+                    src={message.imageUrl}
+                    alt={`Sent by ${mine ? 'you' : peer.name}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="max-h-72 w-auto max-w-full object-cover"
+                  />
+                </a>
+              ) : null}
+              {message.content ? (
+                <span className={cn('block', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}>
+                  {message.content}
+                </span>
+              ) : null}
             </div>
             {message.status === 'failed' ? (
               <p className="text-destructive mt-0.5 text-xs">

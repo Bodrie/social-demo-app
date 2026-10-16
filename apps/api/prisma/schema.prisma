@@ -155,6 +155,7 @@ enum UploadKind {
   avatar
   cover
   post
+  message
 
   @@map("upload_kind")
 }
@@ -242,7 +243,9 @@ model Message {
   id          String    @id @default(uuid(7)) @db.Uuid
   senderId    String    @map("sender_id") @db.Uuid
   recipientId String    @map("recipient_id") @db.Uuid
+  /// Empty when the message is a picture only.
   content     String
+  imageKey    String?   @map("image_key")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   readAt      DateTime? @map("read_at") @db.Timestamptz(3)
 

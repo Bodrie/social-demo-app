@@ -3,8 +3,8 @@ import type { Conversation, ConversationList, Message } from '@the-mesh/shared';
 import { type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 
-/** A message as the thread shows it; `status` only exists for optimistic copies. */
-export type ThreadMessage = Message & { status?: 'sending' | 'failed' };
+/** A message as the thread shows it; `status` and `imageKey` only exist on optimistic copies. */
+export type ThreadMessage = Message & { status?: 'sending' | 'failed'; imageKey?: string };
 type ThreadPages = Pages<ThreadMessage>;
 
 export const peerOf = (message: Message, meId: string): string =>
@@ -26,7 +26,10 @@ export function appendToThread(
       ? data
       : withoutFirstPending(
           data,
-          (item) => item.senderId === message.senderId && item.content === message.content,
+          (item) =>
+            item.senderId === message.senderId &&
+            item.content === message.content &&
+            (item.imageUrl === null) === (message.imageUrl === null),
         );
     return prependItem(confirmed, message);
   });

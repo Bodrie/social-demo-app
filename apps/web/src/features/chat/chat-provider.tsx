@@ -4,6 +4,8 @@ import {
   type Message,
   type PresenceUpdate,
   SOCKET_EVENTS,
+  type SendMessageInput,
+  type TypingUpdate,
   type UserSummary,
 } from '@the-mesh/shared';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,6 +25,8 @@ import {
 } from './message-cache';
 
 const ACK_TIMEOUT_MS = 8000;
+/** A "typing" that is not refreshed by then (composer every 2.5 s) is treated as over. */
+export const TYPING_EXPIRY_MS = 6000;
 
 const onException = (error: { message: string }) => toast.error(error.message);
 
@@ -50,8 +54,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [connected, setConnected] = useState(false);
   const [online, setOnline] = useState<UserSummary[]>([]);
+  const [typingPeers, setTypingPeers] = useState<ReadonlySet<string>>(() => new Set());
+  const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const activePeer = useRef<string | null>(null);
   const socketRef = useRef<ChatSocket | null>(null);
+
+  const setPeerTyping = useCallback((userId: string, typing: boolean) => {
+    const timers = typingTimers.current;
+    const timer = timers.get(userId);
+    if (timer) clearTimeout(timer);
+    timers.delete(userId);
+    if (typing) {
+      timers.set(
+        userId,
+        setTimeout(() => {
+          timers.delete(userId);
+          setTypingPeers((peers) => without(peers, userId));
+        }, TYPING_EXPIRY_MS),
+      );
+    }
+    setTypingPeers((peers) => {
+      if (peers.has(userId) === typing) return peers;
+      return typing ? new Set(peers).add(userId) : without(peers, userId);
+    });
+  }, []);
 
   const markRead = useCallback(
     async (peerId: string) => {
@@ -84,12 +110,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const fromPeer = message.senderId !== me.id;
       const onScreen =
         fromPeer && activePeer.current === peerId && document.visibilityState === 'visible';
+      if (fromPeer) setPeerTyping(peerId, false);
       appendToThread(queryClient, peerId, message);
       upsertConversation(queryClient, me.id, message, { countUnread: fromPeer && !onScreen });
       if (onScreen) void markRead(peerId);
     };
     const onRead = ({ userId, readAt }: ConversationReadPayload) =>
       markSentRead(queryClient, userId, me.id, readAt);
+    const onTyping = ({ userId, typing }: TypingUpdate) => setPeerTyping(userId, typing);
 
     // socket.io-client is its own chunk; it loads once the shell is already on screen.
     void (async () => {
@@ -109,6 +137,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
       socket.on(SOCKET_EVENTS.messageNew, onMessage);
       socket.on(SOCKET_EVENTS.conversationRead, onRead);
+      socket.on(SOCKET_EVENTS.typingUpdate, onTyping);
       socket.on(SOCKET_EVENTS.exception, onException);
       socket.connect();
 
@@ -119,28 +148,38 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
         socket.off(SOCKET_EVENTS.messageNew, onMessage);
         socket.off(SOCKET_EVENTS.conversationRead, onRead);
+        socket.off(SOCKET_EVENTS.typingUpdate, onTyping);
         socket.off(SOCKET_EVENTS.exception, onException);
         socket.disconnect();
         socketRef.current = null;
       };
     })();
 
+    const timers = typingTimers.current;
     return () => {
       disposed = true;
       cleanup?.();
       setConnected(false);
       setOnline([]);
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+      setTypingPeers(new Set());
     };
-  }, [me.id, queryClient, markRead]);
+  }, [me.id, queryClient, markRead, setPeerTyping]);
 
-  const sendMessage = useCallback(async (recipientId: string, content: string) => {
+  const sendMessage = useCallback(async (recipientId: string, input: SendMessageInput) => {
     const socket = socketRef.current;
-    if (!socket?.connected) return sendMessageHttp(recipientId, { content });
+    if (!socket?.connected) return sendMessageHttp(recipientId, input);
     const ack = await socket
       .timeout(ACK_TIMEOUT_MS)
-      .emitWithAck(SOCKET_EVENTS.messageSend, { recipientId, content });
+      .emitWithAck(SOCKET_EVENTS.messageSend, { recipientId, ...input });
     if (!ack.ok) throw new ApiClientError(ack.error);
     return ack.message;
+  }, []);
+
+  const setTyping = useCallback((recipientId: string, typing: boolean) => {
+    const socket = socketRef.current;
+    if (socket?.connected) socket.emit(SOCKET_EVENTS.typing, { recipientId, typing });
   }, []);
 
   const setActivePeer = useCallback((peerId: string | null) => {
@@ -152,12 +191,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       connected,
       online,
       isOnline: (userId) => online.some((user) => user.id === userId),
+      isTyping: (userId) => typingPeers.has(userId),
       sendMessage,
+      setTyping,
       markRead,
       setActivePeer,
     }),
-    [connected, online, sendMessage, markRead, setActivePeer],
+    [connected, online, typingPeers, sendMessage, setTyping, markRead, setActivePeer],
   );
 
   return <ChatContext value={value}>{children}</ChatContext>;
+}
+
+function without(peers: ReadonlySet<string>, userId: string): ReadonlySet<string> {
+  if (!peers.has(userId)) return peers;
+  const next = new Set(peers);
+  next.delete(userId);
+  return next;
 }

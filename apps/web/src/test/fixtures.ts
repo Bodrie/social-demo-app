@@ -132,6 +132,7 @@ export function makeMessage(
     senderId,
     recipientId,
     content,
+    imageUrl: null,
     createdAt: new Date(BASE_TIME - 3_600_000 + sequence * 60_000).toISOString(),
     readAt: null,
     ...overrides,

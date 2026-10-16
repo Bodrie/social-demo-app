@@ -61,6 +61,7 @@ export const messageHandlers = [
       return apiError(404, 'NOT_FOUND', 'User not found');
     const body = sendMessageSchema.parse(await request.json());
     const message = makeMessage(mockDb.user.id, peerId, body.content, {
+      imageUrl: body.imageKey ? `http://localhost/api/v1/uploads/${body.imageKey}` : null,
       createdAt: new Date().toISOString(),
     });
     mockDb.messages.push(message);

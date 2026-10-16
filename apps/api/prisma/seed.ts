@@ -36,7 +36,11 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: data
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
 
 /** Writes a generated file into the uploads dir, records its owner, and returns the storage key. */
-async function seedFile(kind: 'avatar' | 'post', ownerId: string, data: Buffer): Promise<string> {
+async function seedFile(
+  kind: 'avatar' | 'post' | 'message',
+  ownerId: string,
+  data: Buffer,
+): Promise<string> {
   const key = `${kind}/${randomUUID()}.webp`;
   const file = path.join(uploadsDir, key);
   await mkdir(path.dirname(file), { recursive: true });
@@ -72,7 +76,7 @@ async function truncateAll(): Promise<void> {
   );
   // Generated files from previous runs are orphans once their rows are gone.
   await Promise.all(
-    ['avatar', 'post'].map((kind) =>
+    ['avatar', 'post', 'message'].map((kind) =>
       rm(path.join(uploadsDir, kind), { recursive: true, force: true }),
     ),
   );
@@ -265,6 +269,20 @@ async function seed(): Promise<void> {
         createdAt: new Date(Date.now() - (12 - i) * 60_000),
         readAt: i < 10 ? new Date() : null,
       })),
+    });
+    // One picture from Bob, still unread, so the demo thread shows what a photo message looks like.
+    await prisma.message.create({
+      data: {
+        senderId: bob.id,
+        recipientId: alice.id,
+        content: 'Look what I found',
+        imageKey: await seedFile(
+          'message',
+          bob.id,
+          await placeholderPostImage('for Alice', `${bob.id}-message`),
+        ),
+        createdAt: new Date(Date.now() - 30_000),
+      },
     });
   }
 

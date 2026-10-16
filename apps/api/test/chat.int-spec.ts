@@ -1,5 +1,6 @@
 import {
   SOCKET_EVENTS,
+  apiErrorSchema,
   conversationListSchema,
   conversationReadPayloadSchema,
   markReadAckSchema,
@@ -7,8 +8,11 @@ import {
   messageListSchema,
   messageSchema,
   presenceUpdateSchema,
+  typingUpdateSchema,
+  uploadResponseSchema,
 } from '@the-mesh/shared';
 import { JwtService } from '@nestjs/jwt';
+import sharp from 'sharp';
 import { type Socket, io } from 'socket.io-client';
 import request from 'supertest';
 import { MAX_SOCKETS_PER_USER } from '../src/chat/chat.gateway.js';
@@ -92,6 +96,20 @@ function connectError(socket: Socket): Promise<Error> {
 
 function disconnected(socket: Socket): Promise<string> {
   return new Promise((resolve) => socket.once('disconnect', (reason) => resolve(reason)));
+}
+
+function png(): Promise<Buffer> {
+  return sharp({ create: { width: 320, height: 200, channels: 3, background: '#3366aa' } })
+    .png()
+    .toBuffer();
+}
+
+async function uploadPicture(agent: TestAgent, kind: string) {
+  const response = await agent
+    .post(`/api/v1/uploads?kind=${kind}`)
+    .attach('file', await png(), 'pic.png')
+    .expect(201);
+  return uploadResponseSchema.parse(response.body);
 }
 
 const presenceIds = (payload: unknown): string[] =>
@@ -349,6 +367,111 @@ describe('chat', () => {
     });
   });
 
+  it('sends pictures: an owned upload of kind "message", text optional', async () => {
+    const aliceSocket = connect(t, { token: aliceSession.token });
+    const bobSocket = connect(t, { token: bobSession.token });
+    sockets.push(aliceSocket, bobSocket);
+    await Promise.all([connected(aliceSocket), connected(bobSocket)]);
+
+    const picture = await uploadPicture(aliceSession.agent, 'message');
+    expect(picture.key).toMatch(/^message\//);
+    expect(picture.width).toBe(320);
+
+    const bobReceives = waitFor<unknown>(bobSocket, SOCKET_EVENTS.messageNew);
+    const ack = messageAckSchema.parse(
+      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, {
+        recipientId: bob.id,
+        imageKey: picture.key,
+      }),
+    );
+    expect(ack.ok).toBe(true);
+    if (!ack.ok) return;
+    expect(ack.message).toMatchObject({ content: '', imageUrl: picture.url });
+    expect(messageSchema.parse(await bobReceives).imageUrl).toBe(picture.url);
+
+    // Text and picture together over HTTP; the picture shows up in history and conversations.
+    const both = await uploadPicture(aliceSession.agent, 'message');
+    const viaHttp = messageSchema.parse(
+      (
+        await aliceSession.agent
+          .post(`/api/v1/messages/${bob.id}`)
+          .send({ content: ' look ', imageKey: both.key })
+          .expect(201)
+      ).body,
+    );
+    expect(viaHttp).toMatchObject({ content: 'look', imageUrl: both.url });
+    const history = messageListSchema.parse(
+      (await bobSession.agent.get(`/api/v1/messages/${alice.id}`).expect(200)).body,
+    );
+    expect(history.items[0]).toMatchObject({ id: viaHttp.id, imageUrl: both.url });
+    const conversations = conversationListSchema.parse(
+      (await bobSession.agent.get('/api/v1/messages').expect(200)).body,
+    );
+    expect(conversations.items[0]?.lastMessage).toMatchObject({
+      id: viaHttp.id,
+      imageUrl: both.url,
+    });
+
+    // Neither text nor picture.
+    const nothing = messageAckSchema.parse(
+      await aliceSocket.emitWithAck(SOCKET_EVENTS.messageSend, { recipientId: bob.id }),
+    );
+    expect(nothing).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION_ERROR', fields: { content: expect.any(String) } },
+    });
+
+    // Uploads of another kind, and other people's uploads, are refused on the key.
+    const postPicture = await uploadPicture(aliceSession.agent, 'post');
+    const wrongKind = await aliceSession.agent
+      .post(`/api/v1/messages/${bob.id}`)
+      .send({ imageKey: postPicture.key })
+      .expect(400);
+    expect(apiErrorSchema.parse(wrongKind.body).fields).toHaveProperty('imageKey');
+    const bobsPicture = await uploadPicture(bobSession.agent, 'message');
+    const notMine = await aliceSession.agent
+      .post(`/api/v1/messages/${bob.id}`)
+      .send({ imageKey: bobsPicture.key })
+      .expect(400);
+    expect(apiErrorSchema.parse(notMine.body).fields).toEqual({ imageKey: 'Unknown upload' });
+  });
+
+  it('relays typing to the recipient only and drops bad or self-addressed signals', async () => {
+    const aliceSocket = connect(t, { token: aliceSession.token });
+    const aliceTab2 = connect(t, { token: aliceSession.token });
+    const bobSocket = connect(t, { token: bobSession.token });
+    const carolSocket = connect(t, { token: carolSession.token });
+    sockets.push(aliceSocket, aliceTab2, bobSocket, carolSocket);
+    await Promise.all([
+      connected(aliceSocket),
+      connected(aliceTab2),
+      connected(bobSocket),
+      connected(carolSocket),
+    ]);
+
+    const bobStopped = waitFor<unknown>(
+      bobSocket,
+      SOCKET_EVENTS.typingUpdate,
+      (payload) => !typingUpdateSchema.parse(payload).typing,
+    );
+    const bobSaw = collectUntil<unknown>(bobSocket, SOCKET_EVENTS.typingUpdate, bobStopped);
+    const carolSaw = collectUntil<unknown>(carolSocket, SOCKET_EVENTS.typingUpdate, bobStopped);
+    const aliceSaw = collectUntil<unknown>(aliceTab2, SOCKET_EVENTS.typingUpdate, bobStopped);
+
+    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: bob.id, typing: true });
+    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: 'nope', typing: true });
+    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: alice.id, typing: true });
+    aliceSocket.emit(SOCKET_EVENTS.typing, { recipientId: bob.id, typing: false });
+
+    expect(await bobSaw).toEqual([
+      { userId: alice.id, typing: true },
+      { userId: alice.id, typing: false },
+    ]);
+    expect(await carolSaw).toEqual([]);
+    expect(await aliceSaw).toEqual([]);
+    expect(await t.prisma.message.count({ where: { senderId: alice.id, content: '' } })).toBe(1);
+  });
+
   it('rate limits socket sends per user', async () => {
     const spammer = await createUser(t.prisma);
     const { token } = await sessionFor(t, spammer);
@@ -359,17 +482,35 @@ describe('chat', () => {
     const results = [];
     for (let i = 0; i < 61; i += 1) {
       // oxlint-disable-next-line no-await-in-loop -- sequential on purpose: the window counts calls
-      results.push(
-        messageAckSchema.parse(
-          await socket.emitWithAck(SOCKET_EVENTS.messageSend, {
-            recipientId: bob.id,
-            content: `m${i}`,
-          }),
-        ),
-      );
+      const ack = await socket.emitWithAck(SOCKET_EVENTS.messageSend, {
+        recipientId: bob.id,
+        content: `m${i}`,
+      });
+      results.push(messageAckSchema.parse(ack));
     }
     expect(results.slice(0, 60).every((r) => r.ok)).toBe(true);
     expect(results[60]).toMatchObject({ ok: false, error: { code: 'TOO_MANY_REQUESTS' } });
+  });
+
+  it('rate limits typing signals per user by dropping them', async () => {
+    const chatterbox = await createUser(t.prisma);
+    const { token } = await sessionFor(t, chatterbox);
+    const socket = connect(t, { token });
+    const bobSocket = connect(t, { token: bobSession.token });
+    sockets.push(socket, bobSocket);
+    await Promise.all([connected(socket), connected(bobSocket)]);
+
+    // Events on one socket are handled in order, so an acked read after the burst means every
+    // typing signal was processed; a short grace period lets the relays reach Bob's socket.
+    const burst = async () => {
+      for (let i = 0; i < 125; i += 1) {
+        socket.emit(SOCKET_EVENTS.typing, { recipientId: bob.id, typing: true });
+      }
+      await socket.emitWithAck(SOCKET_EVENTS.messageRead, { userId: bob.id });
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    };
+    const received = await collectUntil<unknown>(bobSocket, SOCKET_EVENTS.typingUpdate, burst());
+    expect(received).toHaveLength(120);
   });
 
   it('cuts every open socket when all sessions are revoked', async () => {

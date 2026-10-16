@@ -8,6 +8,7 @@ import { fakeSocket } from '@/test/socket-mock';
 
 const rowsOf = () =>
   within(screen.getByRole('list', { name: 'Conversations' })).getAllByRole('listitem');
+const typingEvents = () => fakeSocket.emitted.filter((e) => e.event === SOCKET_EVENTS.typing);
 
 function seedChats() {
   mockDb.messages.push(
@@ -128,6 +129,82 @@ describe('messages', () => {
     expect(
       await screen.findByText(/beginning of your conversation with Carol Clark/),
     ).toBeInTheDocument();
+  });
+
+  it('sends a picture, shows it in the thread and as the conversation snippet', async () => {
+    signedInAs(alice);
+    seedChats();
+    renderApp('/messages/bob');
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    await within(log).findByText('At noon?');
+
+    const sendButton = screen.getByRole('button', { name: 'Send' });
+    expect(sendButton).toBeDisabled();
+    await user.upload(
+      screen.getByLabelText('Attach a picture'),
+      new File(['png'], 'photo.png', { type: 'image/png' }),
+    );
+    expect(await screen.findByRole('img', { name: 'Attachment preview' })).toBeInTheDocument();
+    // A picture alone is a message; the button waits for the upload to finish.
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await user.click(sendButton);
+
+    expect(await within(log).findByRole('img', { name: 'Sent by you' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockDb.messages.at(-1)).toMatchObject({
+        content: '',
+        imageUrl: expect.stringContaining('/uploads/message/'),
+      }),
+    );
+    await waitFor(() => expect(within(log).queryByText('Sending…')).not.toBeInTheDocument());
+    // Push and ack confirm the same optimistic bubble: still one picture.
+    expect(within(log).getAllByRole('img', { name: 'Sent by you' })).toHaveLength(1);
+    expect(screen.queryByRole('img', { name: 'Attachment preview' })).not.toBeInTheDocument();
+    expect(rowsOf()[0]).toHaveTextContent('You: Picture');
+  });
+
+  it('shows when the peer is typing and signals its own typing sparsely', async () => {
+    signedInAs(alice);
+    seedChats();
+    renderApp('/messages/bob');
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    await within(log).findByText('At noon?');
+
+    act(() => fakeSocket.serverEmit(SOCKET_EVENTS.typingUpdate, { userId: bob.id, typing: true }));
+    expect(await within(log).findByText('Bob Brown is typing…')).toBeInTheDocument();
+    expect(rowsOf()[0]).toHaveTextContent('typing…');
+    // Their message ends the indicator even without an explicit "stopped".
+    act(() =>
+      fakeSocket.serverEmit(SOCKET_EVENTS.messageNew, makeMessage(bob.id, alice.id, 'Done')),
+    );
+    await within(log).findByText('Done');
+    expect(within(log).queryByText('Bob Brown is typing…')).not.toBeInTheDocument();
+    expect(rowsOf()[0]).not.toHaveTextContent('typing…');
+
+    // Someone else typing only shows in their conversation row.
+    act(() =>
+      fakeSocket.serverEmit(SOCKET_EVENTS.typingUpdate, { userId: carol.id, typing: true }),
+    );
+    await waitFor(() => expect(rowsOf()[1]).toHaveTextContent('typing…'));
+    expect(within(log).queryByText(/is typing/)).not.toBeInTheDocument();
+    act(() =>
+      fakeSocket.serverEmit(SOCKET_EVENTS.typingUpdate, { userId: carol.id, typing: false }),
+    );
+    await waitFor(() => expect(rowsOf()[1]).not.toHaveTextContent('typing…'));
+
+    // My keystrokes: one "typing" for the whole burst, "stopped" when the message goes out.
+    await user.type(screen.getByRole('textbox', { name: 'Message Bob Brown' }), 'On my way');
+    expect(typingEvents()).toEqual([
+      { event: SOCKET_EVENTS.typing, payload: { recipientId: bob.id, typing: true } },
+    ]);
+    await user.keyboard('{Enter}');
+    await within(log).findByText('On my way');
+    expect(typingEvents()).toEqual([
+      { event: SOCKET_EVENTS.typing, payload: { recipientId: bob.id, typing: true } },
+      { event: SOCKET_EVENTS.typing, payload: { recipientId: bob.id, typing: false } },
+    ]);
   });
 
   it('shows who is online and reconnects with a fresh token after a server disconnect', async () => {

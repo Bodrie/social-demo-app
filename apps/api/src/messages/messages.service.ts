@@ -14,9 +14,10 @@ import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { ConversationReadEvent, MessageSentEvent } from '../events/message.events.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 import { UsersService } from '../users/users.service.js';
-import { messageSelect, toMessage } from './messages.mapper.js';
+import { type MessageRow, messageSelect, toMessage } from './messages.mapper.js';
 
 const CONVERSATION_LIMIT = 100;
 
@@ -25,6 +26,7 @@ type LatestRow = {
   sender_id: string;
   recipient_id: string;
   content: string;
+  image_key: string | null;
   created_at: Date;
   read_at: Date | null;
   peer_id: string;
@@ -39,16 +41,24 @@ export class MessagesService {
     private readonly users: UsersService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
+    private readonly uploads: UploadsService,
   ) {}
 
   async send(senderId: string, recipientId: string, input: SendMessageData): Promise<Message> {
     if (senderId === recipientId) throw badRequest('You cannot message yourself');
     await this.users.assertExists(recipientId);
+    if (input.imageKey !== undefined) {
+      await this.uploads.assertOwned(input.imageKey, {
+        ownerId: senderId,
+        kind: 'message',
+        field: 'imageKey',
+      });
+    }
     const row = await this.prisma.message.create({
-      data: { senderId, recipientId, content: input.content },
+      data: { senderId, recipientId, content: input.content, imageKey: input.imageKey ?? null },
       select: messageSelect,
     });
-    const message = toMessage(row);
+    const message = this.toMessage(row);
     await this.events.emitAsync(MessageSentEvent.EVENT, new MessageSentEvent(message));
     return message;
   }
@@ -73,7 +83,7 @@ export class MessagesService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
     });
-    return paginate(rows, query.limit, toMessage);
+    return paginate(rows, query.limit, this.toMessage);
   }
 
   /** Marks everything `peerId` sent to the viewer as read; tells the peer when something changed. */
@@ -98,7 +108,7 @@ export class MessagesService {
     const latest = await this.prisma.$queryRaw<LatestRow[]>(Prisma.sql`
       SELECT * FROM (
         SELECT DISTINCT ON (peer_id)
-          m.id, m.sender_id, m.recipient_id, m.content, m.created_at, m.read_at,
+          m.id, m.sender_id, m.recipient_id, m.content, m.image_key, m.created_at, m.read_at,
           CASE WHEN m.sender_id = ${viewerId}::uuid THEN m.recipient_id ELSE m.sender_id END AS peer_id
         FROM "messages" m
         WHERE m.sender_id = ${viewerId}::uuid OR m.recipient_id = ${viewerId}::uuid
@@ -129,11 +139,12 @@ export class MessagesService {
       return [
         {
           peer: toUserSummary(peer, this.assets.base),
-          lastMessage: toMessage({
+          lastMessage: this.toMessage({
             id: row.id,
             senderId: row.sender_id,
             recipientId: row.recipient_id,
             content: row.content,
+            imageKey: row.image_key,
             createdAt: new Date(row.created_at),
             readAt: row.read_at === null ? null : new Date(row.read_at),
           }),
@@ -143,4 +154,6 @@ export class MessagesService {
     });
     return { items, nextCursor: null };
   }
+
+  private readonly toMessage = (row: MessageRow): Message => toMessage(row, this.assets.base);
 }

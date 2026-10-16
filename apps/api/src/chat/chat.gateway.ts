@@ -17,8 +17,10 @@ import {
   type MarkReadAck,
   type MessageAck,
   SOCKET_EVENTS,
+  type TypingUpdate,
   markReadPayloadSchema,
   sendMessagePayloadSchema,
+  typingPayloadSchema,
 } from '@the-mesh/shared';
 import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { fieldsFromIssues, toApiError } from '../common/errors.js';
@@ -40,6 +42,8 @@ export const userRoom = (userId: string): string => `user:${userId}`;
 export const MAX_SOCKETS_PER_USER = 5;
 const SEND_LIMIT = { limit: 60, windowMs: 60_000 };
 const READ_LIMIT = { limit: 120, windowMs: 60_000 };
+/** A composer signals at most every few seconds; anything faster is a misbehaving client. */
+const TYPING_LIMIT = { limit: 120, windowMs: 60_000 };
 
 type AckFailure = { ok: false; error: ApiError };
 
@@ -63,6 +67,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private readonly logger = new Logger(ChatGateway.name);
   private readonly sendLimiter = new SocketRateLimiter(SEND_LIMIT.limit, SEND_LIMIT.windowMs);
   private readonly readLimiter = new SocketRateLimiter(READ_LIMIT.limit, READ_LIMIT.windowMs);
+  private readonly typingLimiter = new SocketRateLimiter(TYPING_LIMIT.limit, TYPING_LIMIT.windowMs);
 
   constructor(
     private readonly jwt: JwtService,
@@ -121,6 +126,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (this.presence.remove(userId, socket.id)) {
       this.sendLimiter.forget(userId);
       this.readLimiter.forget(userId);
+      this.typingLimiter.forget(userId);
       this.broadcastPresence();
     }
   }
@@ -145,9 +151,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       };
     }
     try {
-      const message = await this.messages.send(userId, parsed.data.recipientId, {
-        content: parsed.data.content,
-      });
+      const { recipientId, ...input } = parsed.data;
+      const message = await this.messages.send(userId, recipientId, input);
       return { ok: true, message };
     } catch (error) {
       return { ok: false, error: toApiError(error) };
@@ -179,6 +184,21 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     } catch (error) {
       return { ok: false, error: toApiError(error) };
     }
+  }
+
+  /**
+   * Typing is ephemeral: relayed to the recipient's open tabs, never stored, no ack.
+   * Invalid or self-addressed payloads are dropped silently; the client expires a
+   * stale "typing" on its own, so a lost "stopped" costs nothing.
+   */
+  @SubscribeMessage(SOCKET_EVENTS.typing)
+  onTyping(@ConnectedSocket() socket: ChatSocket, @MessageBody() body: unknown): void {
+    const userId = socket.data.userId;
+    if (!this.typingLimiter.allow(userId)) return;
+    const parsed = typingPayloadSchema.safeParse(body);
+    if (!parsed.success || parsed.data.recipientId === userId) return;
+    const payload: TypingUpdate = { userId, typing: parsed.data.typing };
+    this.server.to(userRoom(parsed.data.recipientId)).emit(SOCKET_EVENTS.typingUpdate, payload);
   }
 
   @OnEvent(MessageSentEvent.EVENT)

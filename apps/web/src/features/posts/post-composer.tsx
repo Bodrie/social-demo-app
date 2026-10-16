@@ -1,6 +1,6 @@
 import { POST_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { ImageIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/user-avatar';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { AttachmentPreview } from '@/features/uploads/attachment-preview';
 import { useImageUpload } from '@/features/uploads/use-image-upload';
 import { isApiClientError } from '@/lib/api/client';
 import { firstName } from '@/lib/names';
@@ -84,40 +85,7 @@ export function PostComposer() {
             />
 
             {image.state.status !== 'idle' ? (
-              <div className="relative overflow-hidden rounded-lg border">
-                <img
-                  src={image.state.previewUrl}
-                  alt="Attachment preview"
-                  className={cn(
-                    'max-h-80 w-full object-cover',
-                    image.state.status === 'uploading' && 'opacity-60',
-                  )}
-                />
-                {image.state.status === 'uploading' ? (
-                  <div className="bg-background/40 absolute inset-0 flex items-center justify-center">
-                    <Loader2Icon className="size-6 animate-spin" aria-hidden="true" />
-                    <span className="sr-only">Uploading image</span>
-                  </div>
-                ) : null}
-                {image.state.status === 'error' ? (
-                  <div className="bg-destructive absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 px-3 py-2 text-sm text-white">
-                    <span>{image.state.message}</span>
-                    <Button type="button" size="xs" variant="secondary" onClick={image.retry}>
-                      Retry
-                    </Button>
-                  </div>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon-xs"
-                  className="absolute top-2 right-2 rounded-full shadow"
-                  aria-label="Remove image"
-                  onClick={image.clear}
-                >
-                  <XIcon />
-                </Button>
-              </div>
+              <AttachmentPreview state={image.state} onRetry={image.retry} onRemove={image.clear} />
             ) : null}
 
             <div className="flex items-center gap-1 border-t pt-3">
