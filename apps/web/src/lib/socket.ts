@@ -4,7 +4,14 @@ import { API_ORIGIN } from './env';
 
 export type ChatSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-const options = { path: '/socket.io', withCredentials: true, autoConnect: false } as const;
+// `closeOnBeforeunload`: a reload or navigation away says goodbye, so the server does not
+// count the dead socket against MAX_SOCKETS_PER_USER until its ping times out (~45 s).
+const options = {
+  path: '/socket.io',
+  withCredentials: true,
+  autoConnect: false,
+  closeOnBeforeunload: true,
+} as const;
 
 let socket: ChatSocket | null = null;
 

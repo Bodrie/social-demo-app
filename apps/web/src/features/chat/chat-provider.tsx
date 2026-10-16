@@ -28,6 +28,8 @@ import { forgetConversation } from './use-conversations';
 const ACK_TIMEOUT_MS = 8000;
 /** A "typing" that is not refreshed by then (composer every 2.5 s) is treated as over. */
 export const TYPING_EXPIRY_MS = 6000;
+/** How long a tab refused for having too many siblings waits before knocking again. */
+export const REFUSED_RETRY_MS = 10_000;
 const NOBODY: readonly string[] = [];
 
 type TypingMap = ReadonlyMap<string, readonly string[]>;
@@ -118,6 +120,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let disposed = false;
     let cleanup: (() => void) | undefined;
+    let refusedRetry: ReturnType<typeof setTimeout> | undefined;
 
     const onConnect = () => setConnected(true);
     const onPresence = (users: PresenceUpdate) => setOnline(users);
@@ -155,7 +158,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       socket.on('connect', onConnect);
       socket.on('disconnect', onDisconnect);
+      // Past MAX_SOCKETS_PER_USER the handshake is refused, and socket.io never retries a
+      // refusal by itself; knock again once closed tabs have had time to drop off.
+      const onRefused = (error: Error) => {
+        if (error.message !== 'Too many connections') return;
+        clearTimeout(refusedRetry);
+        refusedRetry = setTimeout(() => socket.connect(), REFUSED_RETRY_MS);
+      };
+
       socket.on('connect_error', onConnectError);
+      socket.on('connect_error', onRefused);
       socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
       socket.on(SOCKET_EVENTS.messageNew, onMessage);
       socket.on(SOCKET_EVENTS.conversationRead, onRead);
@@ -169,6 +181,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off('connect', onConnect);
         socket.off('disconnect', onDisconnect);
         socket.off('connect_error', onConnectError);
+        socket.off('connect_error', onRefused);
+        clearTimeout(refusedRetry);
         socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
         socket.off(SOCKET_EVENTS.messageNew, onMessage);
         socket.off(SOCKET_EVENTS.conversationRead, onRead);
