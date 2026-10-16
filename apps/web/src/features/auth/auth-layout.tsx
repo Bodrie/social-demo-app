@@ -1,6 +1,7 @@
 import { APP_NAME } from '@the-mesh/shared';
 import { ImageIcon, MessageCircleIcon, UsersIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import logoDark from '@/assets/logo-dark.svg';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
@@ -82,6 +83,21 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
             </div>
             {children}
             <p className="text-muted-foreground text-center text-sm">{footer}</p>
+            <p className="text-muted-foreground text-center text-xs">
+              <Link
+                to="/privacy"
+                className="hover:text-foreground underline-offset-4 hover:underline"
+              >
+                Privacy notice
+              </Link>
+              {' · '}
+              <Link
+                to="/terms"
+                className="hover:text-foreground underline-offset-4 hover:underline"
+              >
+                Terms of use
+              </Link>
+            </p>
           </div>
         </main>
       </div>

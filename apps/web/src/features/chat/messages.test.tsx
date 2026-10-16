@@ -6,6 +6,7 @@ import { seedConversation, seedDirect, seedReadMark } from '@/test/msw/db';
 import { mockDb, signedInAs } from '@/test/msw/handlers';
 import { renderApp } from '@/test/render';
 import { fakeSocket } from '@/test/socket-mock';
+import { REFUSED_RETRY_MS } from './chat-provider';
 
 const rowsOf = () =>
   within(screen.getByRole('list', { name: 'Conversations' })).getAllByRole('listitem');
@@ -375,6 +376,25 @@ describe('messages', () => {
     act(() => fakeSocket.serverDisconnect());
     await waitFor(() => expect(mockDb.calls.refresh).toBe(1));
     await waitFor(() => expect(fakeSocket.connected).toBe(true));
+  });
+
+  it('knocks again later when the server refuses a tab for having too many open', async () => {
+    signedInAs(alice);
+    renderApp('/');
+    await screen.findByLabelText('New post');
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => fakeSocket.serverRefuse('Too many connections'));
+      expect(fakeSocket.connected).toBe(false);
+      await act(() => vi.advanceTimersByTime(REFUSED_RETRY_MS - 1));
+      expect(fakeSocket.connected).toBe(false);
+      await act(() => vi.advanceTimersByTime(1));
+      expect(fakeSocket.connected).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('ends the session when the socket cannot be re-authenticated', async () => {

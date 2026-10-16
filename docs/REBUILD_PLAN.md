@@ -524,7 +524,7 @@ Six independent review agents (security, correctness, data layer, platform/ops, 
 
 ### 4f notes (2026-10-15)
 
-- **Transport**: one socket per tab (`lib/socket.ts`, `autoConnect: false`); the `ChatProvider` under `RequireAuth` connects it for the session and tears it down on sign-out. The browser sends the access cookie with the handshake, so nothing is stored client-side. The server closes the socket when the access token expires (15 min); the provider answers an `io server disconnect` with `refreshSession()` and reconnects, and a failed refresh ends the session everywhere. `connect_error: Unauthorized` triggers the same refresh while socket.io keeps retrying.
+- **Transport**: one socket per tab (`lib/socket.ts`, `autoConnect: false`); the `ChatProvider` under `RequireAuth` connects it for the session and tears it down on sign-out. The browser sends the access cookie with the handshake, so nothing is stored client-side. The server closes the socket when the access token expires (15 min); the provider answers an `io server disconnect` with `refreshSession()` and reconnects, and a failed refresh ends the session everywhere. `connect_error: Unauthorized` triggers the same refresh while socket.io keeps retrying. The socket closes on `beforeunload`, so reloads do not leave dead sockets counting against the per-user cap (5) until the ping times out; a tab refused with `Too many connections` (socket.io never retries a middleware refusal) tries again after 10 s.
 - **Pushes into the cache**: `message:new` is appended to the loaded thread and moves the conversation row to the top (unread +1 unless that thread is on a visible screen, in which case `message:read` is sent at once); `conversation:read` marks my sent messages as seen; `presence:update` lives in provider state. Sends go through `emitWithAck` (8 s timeout) and fall back to `POST /messages/:userId` when the socket is down, same for mark-read.
 - **Optimistic sends**: a `pending-…` copy appears immediately; the ack swaps it for the persisted message and `message:new` (which arrives for the sender too) is deduplicated by id, in either order. Failures mark the bubble and offer Retry.
 - **Threads** are cached newest-first like the API and rendered reversed; scrolling near the top loads older pages and keeps the scroll offset; the view sticks to the bottom unless the reader scrolled up. Usernames in `/messages/:username` are resolved through the cached profile query.
@@ -575,6 +575,16 @@ After using v2.0 the owner asked for the items below. One PR per slice, same flo
 | Slice | Content | Status |
 |---|---|---|
 | 9 | Email verification (hard gate) and password reset. API: `EmailModule` (`MAILER` token: `SmtpMailer` over nodemailer + `SMTP_URL`, `OutboxMailer` writing JSON files for dev/tests), `EmailService` + plain templates, `email_tokens` (hashed, single-use, kinds `verify_email` 24 h / `password_reset` 1 h) via `EmailTokensService`, `users.email_verified_at` (migration backfills existing accounts), `ev` claim in the access token, `AuthGuard` 403 for unverified sessions except `@AllowUnverified()` routes, socket handshake refuses them; routes `POST /auth/verify-email` (signs in), `POST /auth/verify-email/resend` (3/h), `POST /auth/forgot-password` (always 204, credential throttlers, mail not awaited), `POST /auth/reset-password` (signs in, verifies, revokes every session); production requires `smtp` + `SMTP_URL` + `EMAIL_FROM` + `WEB_URL`. Web: `/verify-email` waiting room + link consumer, `/forgot-password`, `/reset-password` (new password twice), "Forgot your password?" on sign-in, guards hold unverified sessions on the waiting room. Tests: 7 integration (`auth-email.int-spec.ts`), guard/env units, 12 web tests, Playwright register → outbox link → in, forgot → reset → in; axe on the three pages. Runbook §2.6: Resend + DNS for `social.bodrie.dev`. | ✅ 2026-10-16 |
+
+## 4.11 What comes next
+
+See `docs/ROADMAP.md` (written 2026-10-16): go-live items, product features and polish, with the agreed order for the next slices.
+
+## 4.12 Roadmap slices (directly on `dev`, one commit each)
+
+| # | Content | Status |
+|---|---|---|
+| R1 | Legal pages: `/privacy` and `/terms` (`features/legal/`, one lazy chunk, `LegalLayout` with a switcher and a dated header). Operator name, contact email and repository come from build-time `VITE_OPERATOR_NAME` / `VITE_CONTACT_EMAIL` / `VITE_REPOSITORY_URL` (Dockerfile args; defaults keep the text valid without them; no contact email → the repository's issue tracker). Linked from the auth pages, a consent line on the register form, Settings → About, the account menu and a new right-bar footer. 4 web tests, axe on both pages. | ✅ 2026-10-16 |
 
 ## 4.9 Full review pass (2026-10-16, branch `review/v2.1-full-review`)
 

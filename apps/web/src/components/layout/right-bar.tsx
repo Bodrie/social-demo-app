@@ -1,6 +1,7 @@
 import { ActivitiesCard } from '@/features/activities/activities-card';
 import { OnlineCard } from '@/features/chat/online-card';
 import { SuggestionsCard } from '@/features/users/suggestions-card';
+import { SiteFooter } from './site-footer';
 
 /** Discovery column: people to follow and what followed people are doing. Presence comes from the chat socket. */
 export function RightBar() {
@@ -9,6 +10,7 @@ export function RightBar() {
       <OnlineCard />
       <SuggestionsCard />
       <ActivitiesCard />
+      <SiteFooter />
     </aside>
   );
 }

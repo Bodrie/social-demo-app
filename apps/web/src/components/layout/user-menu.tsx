@@ -1,4 +1,4 @@
-import { LogOutIcon, SettingsIcon, UserIcon } from 'lucide-react';
+import { LogOutIcon, ScaleIcon, SettingsIcon, UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/user-avatar';
@@ -46,6 +46,9 @@ export function UserMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void navigate('/settings')}>
           <SettingsIcon /> Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void navigate('/privacy')}>
+          <ScaleIcon /> Privacy and terms
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} disabled={logout.isPending}>

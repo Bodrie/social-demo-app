@@ -74,6 +74,12 @@ export class FakeSocket {
     this.fire('disconnect', 'io server disconnect');
   }
 
+  /** The handshake middleware said no (socket.io does not retry this by itself). */
+  serverRefuse(message: string): void {
+    this.connected = false;
+    this.fire('connect_error', new Error(message));
+  }
+
   listenerCount(event: string): number {
     return this.#handlers.get(event)?.size ?? 0;
   }
