@@ -388,9 +388,9 @@ describe('messages', () => {
     try {
       act(() => fakeSocket.serverRefuse('Too many connections'));
       expect(fakeSocket.connected).toBe(false);
-      act(() => vi.advanceTimersByTime(REFUSED_RETRY_MS - 1));
+      await act(() => vi.advanceTimersByTime(REFUSED_RETRY_MS - 1));
       expect(fakeSocket.connected).toBe(false);
-      act(() => vi.advanceTimersByTime(1));
+      await act(() => vi.advanceTimersByTime(1));
       expect(fakeSocket.connected).toBe(true);
     } finally {
       vi.useRealTimers();
