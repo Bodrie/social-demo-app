@@ -53,6 +53,9 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/u/bob');
     await expect(page.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeVisible();
     await audit(page, '/u/bob');
+    await page.goto('/settings');
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await audit(page, '/settings');
   });
 
   test('messages and the edit profile dialog', async ({ page }) => {

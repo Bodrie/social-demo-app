@@ -42,6 +42,12 @@ export const routes: RouteObject[] = [
                 }),
               },
               {
+                path: 'settings',
+                lazy: async () => ({
+                  Component: (await import('@/features/settings/settings-page')).SettingsPage,
+                }),
+              },
+              {
                 path: 'activity',
                 lazy: async () => ({
                   Component: (await import('@/features/activities/activity-page')).ActivityPage,

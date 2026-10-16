@@ -29,7 +29,7 @@ export const mockDb = {
   commentRevisions: new Map<string, Revision[]>(),
   postRevisions: new Map<string, Revision[]>(),
   uploads: 0,
-  calls: { me: 0, refresh: 0, login: 0, logout: 0 },
+  calls: { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0 },
 };
 
 const clone = (user: UserPrivate): UserPrivate => ({ ...user, counts: { ...user.counts } });
@@ -47,7 +47,7 @@ export function resetMockDb(): void {
   mockDb.commentRevisions = new Map();
   mockDb.postRevisions = new Map();
   mockDb.uploads = 0;
-  mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0 };
+  mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0 };
   resetFixtureSequence();
 }
 

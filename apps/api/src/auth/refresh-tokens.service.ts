@@ -74,6 +74,21 @@ export class RefreshTokensService {
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash: this.hash(raw) } });
   }
 
+  /**
+   * Password change: every other session ends, the caller's stays. Their access tokens live
+   * on until they expire (15 min), so no socket disconnect is forced here.
+   */
+  async revokeOthers(userId: string, keepRaw: string | undefined): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(keepRaw === undefined ? {} : { tokenHash: { not: this.hash(keepRaw) } }),
+      },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   async revokeAll(userId: string): Promise<void> {
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },

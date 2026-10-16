@@ -266,6 +266,86 @@ describe('auth', () => {
   });
 });
 
+describe('password change', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp();
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  it('switches the password, keeps the current session and ends the others', async () => {
+    const user = await createUser(t.prisma);
+    const laptop = request.agent(t.server);
+    const phone = request.agent(t.server);
+    await login(laptop, user.email);
+    await login(phone, user.email);
+
+    await laptop
+      .post('/api/v1/auth/password')
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'NewPassword456!' })
+      .expect(204);
+
+    // Old credentials are gone, new ones work.
+    await request(t.server)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: TEST_PASSWORD })
+      .expect(401);
+    await request(t.server)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: 'NewPassword456!' })
+      .expect(200);
+
+    // The device that changed it keeps refreshing; the other one is out.
+    await laptop.post('/api/v1/auth/refresh').expect(200);
+    await phone.post('/api/v1/auth/refresh').expect(401);
+  });
+
+  it('rejects a wrong current password and a reused one as field errors', async () => {
+    const user = await createUser(t.prisma);
+    const agent = request.agent(t.server);
+    await login(agent, user.email);
+
+    const wrong = apiErrorSchema.parse(
+      (
+        await agent
+          .post('/api/v1/auth/password')
+          .send({ currentPassword: 'not-it', newPassword: 'NewPassword456!' })
+          .expect(400)
+      ).body,
+    );
+    expect(wrong.code).toBe('VALIDATION_ERROR');
+    expect(wrong.fields).toHaveProperty('currentPassword');
+
+    const same = apiErrorSchema.parse(
+      (
+        await agent
+          .post('/api/v1/auth/password')
+          .send({ currentPassword: TEST_PASSWORD, newPassword: TEST_PASSWORD })
+          .expect(400)
+      ).body,
+    );
+    expect(same.fields).toHaveProperty('newPassword');
+
+    const short = apiErrorSchema.parse(
+      (
+        await agent
+          .post('/api/v1/auth/password')
+          .send({ currentPassword: TEST_PASSWORD, newPassword: 'short' })
+          .expect(400)
+      ).body,
+    );
+    expect(short.fields).toHaveProperty('newPassword');
+    await request(t.server)
+      .post('/api/v1/auth/password')
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'NewPassword456!' })
+      .expect(401);
+  });
+});
+
 describe('auth throttling', () => {
   let t: TestApp;
 

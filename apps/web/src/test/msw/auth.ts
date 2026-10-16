@@ -1,4 +1,4 @@
-import { type ApiError, loginSchema, registerSchema } from '@the-mesh/shared';
+import { type ApiError, changePasswordSchema, loginSchema, registerSchema } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
 import { TEST_PASSWORD, makeUser, testId } from '../fixtures';
 import { mockDb, upsertUser } from './db';
@@ -51,6 +51,27 @@ export const authHandlers = [
       }),
     );
     return HttpResponse.json({ user: mockDb.user }, { status: 201 });
+  }),
+
+  http.post(`${API}/auth/password`, async ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const parsed = changePasswordSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { newPassword: 'Invalid' });
+    }
+    if (parsed.data.currentPassword !== TEST_PASSWORD) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', {
+        currentPassword: 'Wrong password',
+      });
+    }
+    mockDb.calls.passwordChanges += 1;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${API}/auth/logout-all`, () => {
+    mockDb.calls.logout += 1;
+    mockDb.user = null;
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.post(`${API}/auth/logout`, () => {

@@ -22,6 +22,19 @@ export const loginSchema = z.object({
 export type LoginInput = z.input<typeof loginSchema>;
 export type LoginData = z.output<typeof loginSchema>;
 
+/** Change the own password; every other session is signed out, the current one stays. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Enter your current password').max(128),
+    newPassword: passwordSchema,
+  })
+  .refine((value) => value.currentPassword !== value.newPassword, {
+    message: 'Choose a password you have not used just now',
+    path: ['newPassword'],
+  });
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
+export type ChangePasswordData = z.output<typeof changePasswordSchema>;
+
 /** Returned by register, login, refresh and GET /auth/me. Tokens travel in httpOnly cookies. */
 export const authResponseSchema = meResponseSchema;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
