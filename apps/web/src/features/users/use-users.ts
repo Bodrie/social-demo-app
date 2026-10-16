@@ -1,5 +1,6 @@
 import {
   infiniteQueryOptions,
+  keepPreviousData,
   queryOptions,
   useInfiniteQuery,
   useQuery,
@@ -56,6 +57,8 @@ export const usersQueryOptions = (q: string) =>
       fetchUsers({ q: q || undefined, cursor: pageParam, signal }),
     initialPageParam: NO_CURSOR,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    // While a new search loads, the previous results stay on screen instead of a skeleton.
+    placeholderData: keepPreviousData,
   });
 
 export function useUsers(q: string) {
