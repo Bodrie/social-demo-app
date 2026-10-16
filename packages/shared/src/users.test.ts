@@ -56,6 +56,12 @@ describe('updateProfileSchema', () => {
     expect(updateProfileSchema.safeParse({ avatarKey: avatar }).success).toBe(true);
     expect(updateProfileSchema.safeParse({ coverKey: avatar }).success).toBe(false);
   });
+
+  it('never carries an email address (a new one must be confirmed first)', () => {
+    expect(updateProfileSchema.parse({ name: 'Alice', email: 'someone@example.com' })).toEqual({
+      name: 'Alice',
+    });
+  });
 });
 
 describe('listUsersQuerySchema', () => {

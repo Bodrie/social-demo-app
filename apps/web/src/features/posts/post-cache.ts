@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import type { Post } from '@the-mesh/shared';
 import { type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
@@ -34,12 +34,12 @@ export function prependPostTo(
   queryClient.setQueryData<PostPages>(queryKey, (data) => data && prependItem(data, post));
 }
 
-export type PostListsSnapshot = ReturnType<typeof snapshotPostLists>;
-
-export function snapshotPostLists(queryClient: QueryClient) {
-  return queryClient.getQueriesData<PostPages>(everyList);
-}
-
-export function restorePostLists(queryClient: QueryClient, snapshot: PostListsSnapshot): void {
-  for (const [queryKey, data] of snapshot) queryClient.setQueryData(queryKey, data);
+/** The post lists that show the post, or have nothing yet (their first page may bring it). */
+export function postListKeysShowing(queryClient: QueryClient, postId: string): QueryKey[] {
+  return queryClient
+    .getQueriesData<PostPages>(everyList)
+    .filter(
+      ([, data]) => !data || data.pages.some((page) => page.items.some((p) => p.id === postId)),
+    )
+    .map(([queryKey]) => queryKey);
 }

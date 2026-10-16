@@ -1,7 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { Conversation, ConversationList, Message } from '@the-mesh/shared';
+import type { Conversation, ConversationList, Message, MessageList } from '@the-mesh/shared';
 import { isApiClientError } from '@/lib/api/client';
-import { type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
+import { fetchMessages } from '@/lib/api/conversations';
+import {
+  NO_CURSOR,
+  type Pages,
+  filterItems,
+  flattenPages,
+  mapItems,
+  prependItem,
+} from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 import { conversationQueryOptions, forgetConversation, putInList } from './use-conversations';
 
@@ -200,4 +208,94 @@ export async function refreshConversation(
       forgetConversation(queryClient, conversationId);
     }
   }
+}
+
+/** The API's order: newest first, ties broken by id. */
+function newestFirst(a: ThreadMessage, b: ThreadMessage): number {
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
+  if (a.id === b.id) return 0;
+  return a.id < b.id ? 1 : -1;
+}
+
+/** Ids of the persisted messages in every loaded thread: what was known before a gap. */
+export function heldMessageIds(queryClient: QueryClient): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const [, data] of queryClient.getQueriesData<ThreadPages>({
+    queryKey: queryKeys.conversations.threads,
+  })) {
+    for (const message of flattenPages(data)) if (!message.status) ids.add(message.id);
+  }
+  return ids;
+}
+
+/**
+ * Brings a loaded thread up to date with the newest page from the server. When that page
+ * reaches back to a message held before the gap, the missing messages are slotted in and the
+ * older pages stay as they are; otherwise more than a page was missed and the thread starts
+ * over from that page. Bubbles that only exist here (sending, failed) and pushes newer than
+ * the page survive either way.
+ */
+export function mergeNewestPage(
+  data: ThreadPages,
+  newest: MessageList,
+  heldBefore: ReadonlySet<string>,
+): ThreadPages {
+  const held = new Set(flattenPages(data).map((message) => message.id));
+  const missing = newest.items.filter((message) => !held.has(message.id));
+  if (missing.length === 0) return data;
+
+  const oldest = newest.items.at(-1);
+  const reachesBack =
+    newest.nextCursor === null || (oldest !== undefined && heldBefore.has(oldest.id));
+  const [first, ...rest] = data.pages;
+  if (reachesBack && first) {
+    const items = [...first.items, ...missing].toSorted(newestFirst);
+    return { ...data, pages: [{ ...first, items }, ...rest] };
+  }
+
+  const newestAt = newest.items[0]?.createdAt ?? '';
+  const kept = flattenPages(data).filter(
+    (message) => message.status !== undefined || message.createdAt > newestAt,
+  );
+  return {
+    pages: [
+      { items: [...kept, ...newest.items].toSorted(newestFirst), nextCursor: newest.nextCursor },
+    ],
+    pageParams: [NO_CURSOR],
+  };
+}
+
+/**
+ * The socket is back after a gap (dropped connection, refused handshake, server restart):
+ * nothing queues pushes for an absent socket, so whatever happened meanwhile is fetched.
+ * The list and the conversations refetch; each loaded thread is merged with its newest page
+ * (an invalidation would refetch it wholesale and drop the bubbles that only exist here).
+ */
+export async function resyncConversations(
+  queryClient: QueryClient,
+  heldBefore: ReadonlySet<string>,
+): Promise<void> {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.conversations.details });
+  const threads = queryClient.getQueriesData<ThreadPages>({
+    queryKey: queryKeys.conversations.threads,
+  });
+  await Promise.all(
+    threads.map(async ([queryKey, held]) => {
+      const conversationId = queryKey[2];
+      // A thread without data is still on its first fetch, which reads the current state.
+      if (!held || typeof conversationId !== 'string') return;
+      try {
+        const newest = await fetchMessages(conversationId, {});
+        queryClient.setQueryData<ThreadPages>(
+          queryKeys.conversations.messages(conversationId),
+          (data) => data && mergeNewestPage(data, newest, heldBefore),
+        );
+      } catch (error) {
+        if (isApiClientError(error) && error.status === 404) {
+          forgetConversation(queryClient, conversationId);
+        }
+      }
+    }),
+  );
 }

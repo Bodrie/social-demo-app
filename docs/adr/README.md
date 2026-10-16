@@ -7,13 +7,14 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 |---|---|---|
 | [0001](0001-monorepo-pnpm-turborepo.md) | pnpm workspace + Turborepo monorepo | Accepted |
 | [0002](0002-backend-nestjs-prisma-postgresql.md) | NestJS + Prisma + PostgreSQL backend | Accepted |
-| [0003](0003-auth-jwt-refresh-cookies.md) | Access JWT + rotating refresh token in httpOnly cookies | Accepted |
+| [0003](0003-auth-jwt-refresh-cookies.md) | Access JWT + rotating refresh token in httpOnly cookies | Accepted (amended by 0011) |
 | [0004](0004-frontend-vite-react-tailwind.md) | Vite + React 19 + Tailwind/shadcn frontend | Accepted |
 | [0005](0005-testing-vitest-playwright.md) | Vitest everywhere, Playwright for end-to-end | Accepted |
-| [0006](0006-hosting-cloudflare-tunnel-pull-deploy.md) | Self-hosted box behind Cloudflare Tunnel, pull-based releases | Accepted |
+| [0006](0006-hosting-cloudflare-tunnel-pull-deploy.md) | Self-hosted box behind Cloudflare Tunnel, pull-based releases | Accepted (amended by 0011) |
 | [0007](0007-typescript-6-then-7.md) | TypeScript 6 now, 7 when tooling allows | Accepted |
 | [0008](0008-linting-oxlint-prettier.md) | oxlint (type-aware) + Prettier | Accepted |
 | [0009](0009-conversations-and-read-marks.md) | Conversations as records, read state per member | Accepted |
-| [0010](0010-email-verification-and-password-reset.md) | Transactional email, verified addresses, password reset | Accepted |
+| [0010](0010-email-verification-and-password-reset.md) | Transactional email, verified addresses, password reset | Accepted (amended by 0011) |
+| [0011](0011-pre-release-hardening.md) | Pre-release hardening: ending sessions, verification links, mail limits, release gate | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.

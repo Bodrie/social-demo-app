@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { AuthResponse } from '@the-mesh/shared';
+import type { AuthResponse, VerifyEmailResponse } from '@the-mesh/shared';
 import type { Request, Response } from 'express';
 import { AllowUnverified } from './allow-unverified.decorator.js';
 import {
@@ -23,7 +23,13 @@ import {
 } from './auth.dto.js';
 import { AuthService } from './auth.service.js';
 import { type AuthUser, requestMeta } from './auth.types.js';
-import { REFRESH_COOKIE, clearAuthCookies, readCookie, setAuthCookies } from './cookies.js';
+import {
+  REFRESH_COOKIE,
+  clearAuthCookies,
+  readCookie,
+  setAccessCookie,
+  setAuthCookies,
+} from './cookies.js';
 import { CredentialRoute } from './credential-throttle.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
@@ -114,7 +120,10 @@ export class AuthController {
     await this.auth.changePassword(user.id, body, readCookie(req.cookies, REFRESH_COOKIE));
   }
 
-  /** The link from the verification mail; works signed in or not and signs this browser in. */
+  /**
+   * The link from the verification mail; works signed in or not. Only a browser that already
+   * holds a session of that account stays signed in (now verified); any other gets `user: null`.
+   */
   @Public()
   @Post('verify-email')
   @HttpCode(200)
@@ -123,10 +132,14 @@ export class AuthController {
     @Body() body: VerifyEmailDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse> {
-    const { user, tokens } = await this.auth.verifyEmail(body.token, requestMeta(req));
-    setAuthCookies(res, tokens, this.auth.cookieSettings);
-    return { user };
+  ): Promise<VerifyEmailResponse> {
+    const session = await this.auth.verifyEmail(
+      body.token,
+      readCookie(req.cookies, REFRESH_COOKIE),
+    );
+    if (!session) return { user: null };
+    setAccessCookie(res, session.accessToken, this.auth.cookieSettings);
+    return { user: session.user };
   }
 
   @AllowUnverified()

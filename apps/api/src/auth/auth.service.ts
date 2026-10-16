@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import type { ChangePasswordData, LoginData, RegisterData, UserPrivate } from '@the-mesh/shared';
-import { unauthorized, validationError } from '../common/errors.js';
+import { tooManyRequests, unauthorized, validationError } from '../common/errors.js';
 import type { Env } from '../config/env.js';
 import { EmailService } from '../email/email.service.js';
 import { UserRegisteredEvent } from '../events/user.events.js';
@@ -16,6 +16,8 @@ import { dummyPasswordHash, hashPassword, verifyPassword } from './password.js';
 import { RefreshTokensService } from './refresh-tokens.service.js';
 
 export type AuthResult = { user: UserPrivate; tokens: IssuedTokens };
+/** A verified session continued in the browser that already held it (see verifyEmail). */
+export type VerifiedSession = { user: UserPrivate; accessToken: string };
 
 @Injectable()
 export class AuthService {
@@ -50,10 +52,9 @@ export class AuthService {
       select: { id: true, email: true, name: true },
     });
     await this.events.emitAsync(UserRegisteredEvent.EVENT, new UserRegisteredEvent(created.id));
-    await this.email.sendVerification(
-      created,
-      await this.emailTokens.issue(created.id, 'verify_email'),
-    );
+    // A brand-new account has had no mail yet, so the per-account limit never refuses this one.
+    const token = await this.emailTokens.issue(created.id, 'verify_email');
+    if (token) await this.email.sendVerification(created, token);
     return this.session(created.id, meta);
   }
 
@@ -113,16 +114,30 @@ export class AuthService {
     });
     await this.emailTokens.voidAll(userId, 'password_reset');
     await this.refreshTokens.revokeOthers(userId, rawRefreshToken);
+    this.notifyPasswordChanged(userId);
   }
 
-  /** The mailed link: proves the address, opens the account and signs that browser in. */
-  async verifyEmail(rawToken: string, meta: RequestMeta): Promise<AuthResult> {
+  /**
+   * The mailed link proves the inbox and opens the account. It signs in only a browser that
+   * already holds a session of that same account (normally the one that registered), which
+   * gets a new access token that says "verified". Anyone else's browser following the link
+   * gets null: whoever registered an address they do not own could otherwise plant a link that
+   * signs the owner into the stranger's account (or sign a victim into their own).
+   */
+  async verifyEmail(
+    rawToken: string,
+    rawRefreshToken: string | undefined,
+  ): Promise<VerifiedSession | null> {
     const userId = await this.emailTokens.consume(rawToken, 'verify_email');
     await this.prisma.user.updateMany({
       where: { id: userId, emailVerifiedAt: null },
       data: { emailVerifiedAt: new Date() },
     });
-    return this.session(userId, meta);
+    if (!rawRefreshToken || !(await this.refreshTokens.isLiveFor(rawRefreshToken, userId))) {
+      return null;
+    }
+    const user = await this.users.getPrivateById(userId);
+    return { user, accessToken: await this.signAccessToken(user) };
   }
 
   /** A fresh link for a signed-in member who is still waiting; a no-op once verified. */
@@ -132,12 +147,15 @@ export class AuthService {
       select: { id: true, email: true, name: true, emailVerifiedAt: true },
     });
     if (user.emailVerifiedAt !== null) return;
-    await this.email.sendVerification(user, await this.emailTokens.issue(user.id, 'verify_email'));
+    const token = await this.emailTokens.issue(user.id, 'verify_email');
+    if (!token) throw tooManyRequests('Enough emails were sent for now. Try again later.');
+    await this.email.sendVerification(user, token);
   }
 
   /**
    * Answered the same way for every address. The mail goes out without being awaited so the
-   * response time does not say whether the address belongs to an account.
+   * response time does not say whether the address belongs to an account, and nothing is
+   * sent once the account had its share of reset mails (EMAIL_TOKEN_POLICY).
    */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
@@ -147,15 +165,20 @@ export class AuthService {
     if (!user) return;
     void this.emailTokens
       .issue(user.id, 'password_reset')
-      .then((token) => this.email.sendPasswordReset(user, token))
+      .then((token) => {
+        if (token) return this.email.sendPasswordReset(user, token);
+        this.logger.log({ userId: user.id }, 'Password reset mail skipped (limit reached)');
+        return undefined;
+      })
       .catch((error: unknown) =>
         this.logger.warn({ err: error, userId: user.id }, 'Could not send the password reset mail'),
       );
   }
 
   /**
-   * Sets the new password, counts the address as verified (the link proved it), ends every
-   * existing session and opens a new one for the browser that completed the form.
+   * Sets the new password, counts the address as verified (the link proved it), voids the
+   * other reset links, ends every existing session and opens a new one for the browser that
+   * completed the form.
    */
   async resetPassword(
     rawToken: string,
@@ -171,7 +194,9 @@ export class AuthService {
         data: { emailVerifiedAt: new Date() },
       }),
     ]);
+    await this.emailTokens.voidAll(userId, 'password_reset');
     await this.refreshTokens.revokeAll(userId);
+    this.notifyPasswordChanged(userId);
     return this.session(userId, meta);
   }
 
@@ -192,6 +217,16 @@ export class AuthService {
       user,
       tokens: { accessToken, refreshToken: refresh.raw, refreshExpiresAt: refresh.expiresAt },
     };
+  }
+
+  /** Not awaited: the change is done whether or not the notice can be delivered. */
+  private notifyPasswordChanged(userId: string): void {
+    void this.prisma.user
+      .findUniqueOrThrow({ where: { id: userId }, select: { email: true, name: true } })
+      .then((user) => this.email.sendPasswordChanged(user))
+      .catch((error: unknown) =>
+        this.logger.warn({ err: error, userId }, 'Could not send the password change notice'),
+      );
   }
 
   /** `ev` travels in the token so the guard can close the app to unverified accounts without a lookup. */

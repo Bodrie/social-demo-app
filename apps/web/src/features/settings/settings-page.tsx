@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { endSession } from '@/features/auth/use-me';
+import { announceSessionChange, endSession } from '@/features/auth/use-me';
 import { logoutEverywhere } from '@/lib/api/auth';
 import { REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
@@ -139,6 +139,7 @@ function SignOutEverywhere() {
     onSettled: () => {
       toast.success('Signed out everywhere');
       endSession(queryClient);
+      announceSessionChange();
     },
   });
   return (

@@ -1,14 +1,48 @@
-import { type QueryClient, useQuery } from '@tanstack/react-query';
+import {
+  type QueryClient,
+  type QueryFunctionContext,
+  queryOptions,
+  useQuery,
+} from '@tanstack/react-query';
 import type { MeResponse, UserPrivate } from '@the-mesh/shared';
+import { refreshSession } from '@/lib/api/client';
 import { fetchMe } from '@/lib/api/auth';
 import { queryKeys } from '@/lib/query-keys';
 
-export const meQueryOptions = {
+/** How often the waiting room asks whether the address was confirmed on another device. */
+export const UNVERIFIED_POLL_MS = 15_000;
+const SESSION_CHANNEL = 'the-mesh:session';
+
+/**
+ * Every tab shares the cookies, so another tab (or device) may have changed who this one is
+ * talking to. Compared with what was cached before: a different account means nothing cached
+ * for the previous one may stay; a confirmation made elsewhere means this browser's access
+ * token still says "unverified" until it is renewed.
+ */
+async function fetchViewer({ signal, client }: QueryFunctionContext): Promise<MeResponse | null> {
+  const previous = client.getQueryData<MeResponse | null>(queryKeys.me);
+  const next = await fetchMe(signal);
+  if (previous && next && previous.user.id !== next.user.id) dropSessionData(client);
+  if (
+    previous?.user.id === next?.user.id &&
+    previous?.user.emailVerifiedAt === null &&
+    next?.user.emailVerifiedAt
+  ) {
+    await refreshSession();
+  }
+  return next;
+}
+
+export const meQueryOptions = queryOptions({
   queryKey: queryKeys.me,
-  queryFn: ({ signal }: { signal?: AbortSignal }) => fetchMe(signal),
+  queryFn: fetchViewer,
   staleTime: 5 * 60 * 1000,
   retry: false,
-} as const;
+  // Looking at the tab again checks who it is signed in as (see fetchViewer).
+  refetchOnWindowFocus: 'always',
+  refetchInterval: (query) =>
+    query.state.data?.user.emailVerifiedAt === null ? UNVERIFIED_POLL_MS : false,
+});
 
 export type MeState =
   | { status: 'loading'; user: undefined }
@@ -43,9 +77,37 @@ function dropSessionData(queryClient: QueryClient): void {
   queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== queryKeys.me[0] });
 }
 
+let channel: BroadcastChannel | null = null;
+
+/**
+ * Tells the other tabs that this one signed in or out on purpose, so they check at once
+ * instead of acting as the previous account until they are looked at again. Never called
+ * for a session that was merely found to be over: every tab finds that out by itself, and
+ * announcing it would have the tabs set each other off.
+ */
+export function announceSessionChange(): void {
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a BroadcastChannel has no target origin
+  channel?.postMessage('changed');
+}
+
+/** Listens for the other tabs' announcements (mounted once, by the app providers). */
+export function watchOtherTabs(queryClient: QueryClient): () => void {
+  if (typeof BroadcastChannel === 'undefined') return () => undefined;
+  const own = new BroadcastChannel(SESSION_CHANNEL);
+  channel = own;
+  own.addEventListener('message', () => {
+    void queryClient.refetchQueries({ queryKey: queryKeys.me });
+  });
+  return () => {
+    own.close();
+    if (channel === own) channel = null;
+  };
+}
+
 export function startSession(queryClient: QueryClient, me: MeResponse): void {
   dropSessionData(queryClient);
   setMe(queryClient, me);
+  announceSessionChange();
 }
 
 export function endSession(queryClient: QueryClient): void {

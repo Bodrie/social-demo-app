@@ -26,6 +26,9 @@ export const unsupportedMedia = (
   message: string,
   fields?: Record<string, string>,
 ): UnsupportedMediaTypeException => new UnsupportedMediaTypeException({ message, fields });
+/** A limit enforced by a service (per account), as opposed to the request throttlers. */
+export const tooManyRequests = (message: string): HttpException =>
+  new HttpException({ message }, HttpStatus.TOO_MANY_REQUESTS);
 /** A 400 that forms map onto inputs, like the automatic zod validation errors. */
 export const validationError = (
   fields: Record<string, string>,

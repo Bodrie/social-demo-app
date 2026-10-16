@@ -74,3 +74,28 @@ export function passwordResetEmail(input: {
     ),
   };
 }
+
+/** A notice, not a link to act on unless the change was not the owner's own. */
+export function passwordChangedEmail(input: { name: string; link: string }): EmailContent {
+  const name = escapeHtml(input.name);
+  return {
+    subject: `Your ${BRAND} password was changed`,
+    text: [
+      `Hi ${input.name},`,
+      '',
+      `The password of your ${BRAND} account was just changed. If that was you, there is nothing to do.`,
+      '',
+      `If it was not you, choose a new password right away; that also signs out every other device:`,
+      input.link,
+    ].join('\n'),
+    html: layout(
+      'Your password was changed',
+      [
+        `Hi ${name},`,
+        `The password of your ${BRAND} account was just changed. If that was you, there is nothing to do.`,
+        `If it was not you, choose a new password right away; that also signs out every other device.`,
+      ],
+      { label: 'Choose a new password', href: input.link },
+    ),
+  };
+}

@@ -78,8 +78,8 @@ export const authHandlers = [
     }
     mockDb.emailTokens = mockDb.emailTokens.filter((e) => e !== entry);
     user.emailVerifiedAt = new Date().toISOString();
-    mockDb.user = user;
-    return HttpResponse.json({ user });
+    // Like the API: only a browser that already holds this account's session stays signed in.
+    return HttpResponse.json({ user: mockDb.user?.id === user.id ? user : null });
   }),
 
   http.post(`${API}/auth/verify-email/resend`, () => {

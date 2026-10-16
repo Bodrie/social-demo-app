@@ -11,6 +11,8 @@ type AckHandler = (payload: unknown) => unknown;
  */
 export class FakeSocket {
   connected = false;
+  /** Like socket.io's: whether it would reconnect by itself (false once refused or server-closed). */
+  active = false;
   emitted: { event: string; payload: unknown }[] = [];
   ackHandlers: Record<string, AckHandler> = {};
   readonly #handlers = new Map<string, Set<Handler>>();
@@ -29,6 +31,7 @@ export class FakeSocket {
   }
 
   connect(): this {
+    this.active = true;
     if (!this.connected) {
       this.connected = true;
       queueMicrotask(() => this.fire('connect'));
@@ -37,6 +40,7 @@ export class FakeSocket {
   }
 
   disconnect(): this {
+    this.active = false;
     if (this.connected) {
       this.connected = false;
       this.fire('disconnect', 'io client disconnect');
@@ -71,13 +75,27 @@ export class FakeSocket {
   /** The server closed the connection (token expiry, revoked sessions). */
   serverDisconnect(): void {
     this.connected = false;
+    this.active = false;
     this.fire('disconnect', 'io server disconnect');
   }
 
   /** The handshake middleware said no (socket.io does not retry this by itself). */
   serverRefuse(message: string): void {
     this.connected = false;
+    this.active = false;
     this.fire('connect_error', new Error(message));
+  }
+
+  /** The connection dropped (network, a server restart); socket.io stays active and retries. */
+  transportClose(): void {
+    this.connected = false;
+    this.fire('disconnect', 'transport close');
+  }
+
+  /** socket.io's own reconnection after `transportClose()` succeeded. */
+  reconnect(): void {
+    this.connected = true;
+    this.fire('connect');
   }
 
   listenerCount(event: string): number {
@@ -86,6 +104,7 @@ export class FakeSocket {
 
   reset(): void {
     this.connected = false;
+    this.active = false;
     this.emitted = [];
     this.#handlers.clear();
     this.ackHandlers = defaultAckHandlers(this);

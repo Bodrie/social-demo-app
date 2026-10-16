@@ -11,9 +11,11 @@ import { useLogout, useResendVerification, useVerifyEmail } from './use-auth-mut
 import { useMe } from './use-me';
 
 /**
- * Two jobs on one address. With `?token=` it is the mailed link: the token is spent at once
- * and the browser ends up signed in and verified. Without it, it is the waiting room for a
- * signed-in member whose address is not confirmed yet (the only page open to them).
+ * Two jobs on one address. With `?token=` it is the mailed link: the token is spent at once;
+ * a browser that already holds that account's session continues into the app, any other is
+ * told the address is confirmed and asked to sign in (the link alone never signs anyone in).
+ * Without it, it is the waiting room for a signed-in member whose address is not confirmed
+ * yet (the only page open to them).
  */
 export function VerifyEmailPage() {
   const [params] = useSearchParams();
@@ -32,8 +34,48 @@ function ConsumeLink({ token }: { token: string }) {
   useEffect(() => {
     if (started.current === token) return;
     started.current = token;
-    mutate({ token }, { onSuccess: () => void navigate('/', { replace: true }) });
+    mutate(
+      { token },
+      {
+        onSuccess: ({ user }) => {
+          if (user) void navigate('/', { replace: true });
+        },
+      },
+    );
   }, [token, mutate, navigate]);
+
+  if (verify.isSuccess && verify.data.user === null) {
+    return (
+      <AuthLayout
+        title="Email address confirmed"
+        subtitle="Sign in to start using your account."
+        footer={
+          <>
+            Forgot your password?{' '}
+            <Link
+              to="/forgot-password"
+              className="text-foreground font-medium underline underline-offset-4"
+            >
+              Reset it
+            </Link>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-muted flex items-start gap-3 rounded-lg p-4 text-sm">
+            <MailCheckIcon className="text-primary mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            <p>
+              This browser is not signed in to that account, so the link only confirmed the address.
+              Sign in with your email and password to continue.
+            </p>
+          </div>
+          <Button asChild size="lg" className="h-11 w-full">
+            <Link to="/login">Go to sign in</Link>
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   if (verify.isError) {
     const message = isApiClientError(verify.error)

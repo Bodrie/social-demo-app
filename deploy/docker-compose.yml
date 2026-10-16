@@ -3,10 +3,19 @@
 # `docker compose up -d`. Images come from GHCR (built by .github/workflows/docker.yml).
 name: the-mesh
 
+# Every service logs through Docker's json-file driver, which keeps everything unless told
+# otherwise; the API alone writes a line per request. At most 5 × 20 MB per container.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 20m
+    max-file: '5'
+
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-mesh}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -23,6 +32,7 @@ services:
   api:
     image: ${API_IMAGE:-ghcr.io/bodrie/the-mesh-api}:${TAG:-latest}
     restart: unless-stopped
+    logging: *logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,6 +60,7 @@ services:
   web:
     image: ${WEB_IMAGE:-ghcr.io/bodrie/the-mesh-web}:${TAG:-latest}
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - api
     volumes:
@@ -61,6 +72,7 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
+    logging: *logging
     profiles: ['tunnel']
     # Only started with `--profile tunnel`; the token is required then (cloudflared fails loudly without it).
     command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}

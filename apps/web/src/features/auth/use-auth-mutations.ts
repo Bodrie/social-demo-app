@@ -15,7 +15,7 @@ import {
   resetPassword,
   verifyEmail,
 } from '@/lib/api/auth';
-import { endSession, startSession } from './use-me';
+import { announceSessionChange, endSession, startSession } from './use-me';
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -33,11 +33,14 @@ export function useRegister() {
   });
 }
 
+/** Continues the session only when the API says this browser held it; otherwise nothing changes. */
 export function useVerifyEmail() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: VerifyEmailInput) => verifyEmail(input),
-    onSuccess: (me) => startSession(queryClient, me),
+    onSuccess: ({ user }) => {
+      if (user) startSession(queryClient, { user });
+    },
   });
 }
 
@@ -61,7 +64,11 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => logout(),
-    // The cookies are gone either way; make the UI agree even if the request failed.
-    onSettled: () => endSession(queryClient),
+    // The cookies are gone either way; make the UI (and the other tabs) agree even if the
+    // request failed.
+    onSettled: () => {
+      endSession(queryClient);
+      announceSessionChange();
+    },
   });
 }

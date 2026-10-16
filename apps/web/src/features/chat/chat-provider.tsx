@@ -19,7 +19,9 @@ import type { ChatSocket } from '@/lib/socket';
 import { ChatContext, type ChatContextValue } from './chat-context';
 import {
   appendToThread,
+  heldMessageIds,
   refreshConversation,
+  resyncConversations,
   setMemberReadAt,
   upsertConversation,
 } from './message-cache';
@@ -36,20 +38,9 @@ type TypingMap = ReadonlyMap<string, readonly string[]>;
 
 const onException = (error: { message: string }) => toast.error(error.message);
 
-/** socket.io keeps retrying by itself; a refreshed cookie makes the next attempt succeed. */
-const onConnectError = (error: Error) => {
-  if (error.message === 'Unauthorized') {
-    void (async () => {
-      if (!(await refreshSession())) notifySessionLost();
-    })();
-  }
-};
-
-/** After the server closed the socket (token expiry, revoked sessions), only a fresh token helps. */
-async function reconnectWithFreshToken(socket: ChatSocket): Promise<void> {
-  if (await refreshSession()) socket.connect();
-  else notifySessionLost();
-}
+/** Back-off for a session refresh that failed outright (offline, API restarting): 1 s, 2 s … 30 s. */
+export const REFRESH_RETRY_BASE_MS = 1000;
+const REFRESH_RETRY_MAX_MS = 30_000;
 
 function withTyping(map: TypingMap, conversationId: string, userId: string, typing: boolean) {
   const current = map.get(conversationId) ?? NOBODY;
@@ -120,9 +111,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let disposed = false;
     let cleanup: (() => void) | undefined;
-    let refusedRetry: ReturnType<typeof setTimeout> | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    /** The messages held when pushes stopped arriving; null while nothing can have been missed. */
+    let heldBeforeGap: ReadonlySet<string> | null = null;
+    const gapStarted = () => {
+      heldBeforeGap ??= heldMessageIds(queryClient);
+    };
+    const retryLater = (task: () => void, delayMs: number) => {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(task, delayMs);
+    };
 
-    const onConnect = () => setConnected(true);
+    const onConnect = () => {
+      setConnected(true);
+      if (heldBeforeGap) void resyncConversations(queryClient, heldBeforeGap);
+      heldBeforeGap = null;
+    };
     const onPresence = (users: PresenceUpdate) => setOnline(users);
     const onMessage = (message: Message) => {
       const fromOther = message.senderId !== me.id;
@@ -150,24 +154,47 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (disposed) return;
       const socket = getChatSocket();
       socketRef.current = socket;
+
+      /**
+       * socket.io gives up on a socket the server closed or whose handshake it refused; only a
+       * fresh access cookie helps then. A refresh that fails outright is tried again later.
+       */
+      const reconnectWithFreshToken = async (attempt = 0): Promise<void> => {
+        let refreshed: boolean;
+        try {
+          refreshed = await refreshSession();
+        } catch {
+          if (disposed) return;
+          const delay = Math.min(REFRESH_RETRY_BASE_MS * 2 ** attempt, REFRESH_RETRY_MAX_MS);
+          retryLater(() => void reconnectWithFreshToken(attempt + 1), delay);
+          return;
+        }
+        if (disposed) return;
+        if (!refreshed) notifySessionLost();
+        else if (!socket.active) socket.connect();
+      };
+
       const onDisconnect = (reason: Socket.DisconnectReason) => {
         setConnected(false);
         setOnline([]);
-        if (reason === 'io server disconnect') void reconnectWithFreshToken(socket);
+        gapStarted();
+        // Token expiry or revoked sessions. Any other reason: socket.io reconnects by itself.
+        if (reason === 'io server disconnect') void reconnectWithFreshToken();
+      };
+      const onConnectError = (error: Error) => {
+        gapStarted();
+        // The cookie expired while the connection was down (sleep, a deploy).
+        if (error.message === 'Unauthorized') void reconnectWithFreshToken();
+        // Past MAX_SOCKETS_PER_USER (or after too many attempts): knock again once closed
+        // tabs have had time to drop off.
+        else if (error.message === 'Too many connections') {
+          retryLater(() => socket.connect(), REFUSED_RETRY_MS);
+        }
       };
 
       socket.on('connect', onConnect);
       socket.on('disconnect', onDisconnect);
-      // Past MAX_SOCKETS_PER_USER the handshake is refused, and socket.io never retries a
-      // refusal by itself; knock again once closed tabs have had time to drop off.
-      const onRefused = (error: Error) => {
-        if (error.message !== 'Too many connections') return;
-        clearTimeout(refusedRetry);
-        refusedRetry = setTimeout(() => socket.connect(), REFUSED_RETRY_MS);
-      };
-
       socket.on('connect_error', onConnectError);
-      socket.on('connect_error', onRefused);
       socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
       socket.on(SOCKET_EVENTS.messageNew, onMessage);
       socket.on(SOCKET_EVENTS.conversationRead, onRead);
@@ -181,8 +208,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off('connect', onConnect);
         socket.off('disconnect', onDisconnect);
         socket.off('connect_error', onConnectError);
-        socket.off('connect_error', onRefused);
-        clearTimeout(refusedRetry);
+        clearTimeout(retryTimer);
         socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
         socket.off(SOCKET_EVENTS.messageNew, onMessage);
         socket.off(SOCKET_EVENTS.conversationRead, onRead);

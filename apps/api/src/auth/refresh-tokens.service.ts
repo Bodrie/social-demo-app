@@ -17,8 +17,11 @@ type Writer = Pick<PrismaService, 'refreshToken'> | Prisma.TransactionClient;
  * Opaque, single-use refresh tokens. Only a SHA-256 hash is stored. Rotation
  * claims the old token and issues the new one in one transaction; presenting
  * an already-rotated token is treated as theft and revokes every session of
- * that user. Logout deletes the row outright, so a logged-out token replayed
- * later is merely invalid and cannot be used to log the user out everywhere.
+ * that user. `revokedAt` therefore means "rotated" and nothing else: every
+ * other way a session ends (logout, password change or reset, sign out
+ * everywhere, the theft response itself) deletes the rows, so a token from an
+ * ended session replayed later is merely invalid and can never be used to log
+ * the owner out of the sessions that are still meant to work.
  */
 @Injectable()
 export class RefreshTokensService {
@@ -69,6 +72,15 @@ export class RefreshTokensService {
     return { userId: existing.userId, ...issued };
   }
 
+  /** Whether `raw` is a live (unrotated, unexpired) refresh token of `userId`. */
+  async isLiveFor(raw: string, userId: string): Promise<boolean> {
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: this.hash(raw) },
+      select: { userId: true, expiresAt: true, revokedAt: true },
+    });
+    return row?.userId === userId && row.revokedAt === null && row.expiresAt > new Date();
+  }
+
   /** Logout: the token simply ceases to exist. */
   async revoke(raw: string): Promise<void> {
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash: this.hash(raw) } });
@@ -76,24 +88,21 @@ export class RefreshTokensService {
 
   /**
    * Password change: every other session ends, the caller's stays. Their access tokens live
-   * on until they expire (15 min), so no socket disconnect is forced here.
+   * on until they expire (15 min), so no socket disconnect is forced here. Rows are deleted,
+   * rotated ones included, so nothing the other devices still hold can trigger reuse detection.
    */
   async revokeOthers(userId: string, keepRaw: string | undefined): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
+    await this.prisma.refreshToken.deleteMany({
       where: {
         userId,
-        revokedAt: null,
         ...(keepRaw === undefined ? {} : { tokenHash: { not: this.hash(keepRaw) } }),
       },
-      data: { revokedAt: new Date() },
     });
   }
 
+  /** Sign out everywhere, password reset and the theft response: every session ends, sockets too. */
   async revokeAll(userId: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.events.emitAsync(SessionsRevokedEvent.EVENT, new SessionsRevokedEvent(userId));
   }
 

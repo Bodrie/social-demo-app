@@ -16,4 +16,17 @@ describe('SocketRateLimiter', () => {
     limiter.forget('a');
     expect(limiter.allow('a', 1)).toBe(true);
   });
+
+  it('drops expired windows of keys nobody forgets, without resetting live ones', () => {
+    const limiter = new SocketRateLimiter(1, 1000);
+    const windows = (limiter as unknown as { windows: Map<string, unknown> }).windows;
+    expect(limiter.allow('gone', 1000)).toBe(true);
+    expect(limiter.allow('live', 1600)).toBe(true);
+    expect(windows.size).toBe(2);
+
+    // One window later 'gone' has expired and is swept; 'live' is still counting.
+    expect(limiter.allow('other', 2100)).toBe(true);
+    expect([...windows.keys()].toSorted()).toEqual(['live', 'other']);
+    expect(limiter.allow('live', 2200)).toBe(false);
+  });
 });
