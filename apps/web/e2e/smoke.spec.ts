@@ -13,7 +13,7 @@ test.describe('smoke', () => {
   test('wrong credentials are rejected with the API message', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel('Email').fill(ALICE.email);
-    await page.getByLabel('Password').fill('not-the-password');
+    await page.getByLabel('Password', { exact: true }).fill('not-the-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByText('Invalid email or password')).toBeVisible();
   });
@@ -21,7 +21,7 @@ test.describe('smoke', () => {
   test('sign in, use the shell, toggle the theme, sign out', async ({ page }) => {
     await page.goto('/users');
     await page.getByLabel('Email').fill(ALICE.email);
-    await page.getByLabel('Password').fill(ALICE.password);
+    await page.getByLabel('Password', { exact: true }).fill(ALICE.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     // Returned to the page that was originally requested, with the shell around it.
@@ -56,7 +56,7 @@ test.describe('smoke', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/login');
     await page.getByLabel('Email').fill(ALICE.email);
-    await page.getByLabel('Password').fill(ALICE.password);
+    await page.getByLabel('Password', { exact: true }).fill(ALICE.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByLabel('New post')).toBeVisible();
 

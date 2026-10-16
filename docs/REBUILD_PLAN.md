@@ -453,7 +453,7 @@ Upgrade trigger: nest-cli, typescript-eslint and ts-jest (if ever used) publish 
 
 | Milestone | Done when |
 |---|---|
-| M1 | `main` protected, `ci.yml` green on scaffolds, `pnpm dev` boots both apps against Docker Postgres. |
+| M1 ✅ 2026-10-15 | `main` protected, `ci.yml` green on scaffolds, `pnpm dev` boots both apps against Docker Postgres. |
 | M2 ✅ | `prisma migrate deploy` + drift check + seed + integration tests run in CI (`integration` job); schema ADR merged. |
 | M3 ✅ 2026-10-15 | All §2.4 endpoints implemented; 74 integration tests; Swagger browsable; no `any` in services. |
 | M3.5 ✅ 2026-10-15 | Web shell + auth usable end to end: sign in/out, protected routes, theme; Vitest and Playwright harnesses green in CI (`checks`, `integration`, `e2e`). |
@@ -557,6 +557,17 @@ Six independent review agents (security, correctness, data layer, platform/ops, 
 
 - Removing the legacy entries from `.prettierignore` revealed that the pattern `api/` had matched every directory called `api`, so `apps/api` and `apps/web/src/lib/api` had never been checked by Prettier. They are formatted with the root config now (68 files, whitespace only; lint, typecheck, unit and integration tests unchanged).
 - Nothing else in the repository referenced the old code: `.dockerignore`, `CLAUDE.md` and the README were the only places.
+
+## 4.8 Phase 8 – v2.1 follow-ups (owner's review, 2026-10-16)
+
+After using v2.0 the owner asked for the items below. One PR per slice, same flow as before.
+
+| Slice | Deliverable | Status |
+|---|---|---|
+| 8a | Sign in / sign up redesign (brand panel with a mesh gradient, focused form, password visibility toggle); sidebars scroll on their own when taller than the viewport (right column was cut off); no sideways layout shift when overlays open (`scrollbar-gutter: stable` + no scroll-lock margin); backlog pruned of items done in phases 4–6. | ✅ 2026-10-16 |
+| 8b | Posts and comments: edit post, edit comment, both keep revision history (an "edited" link shows the previous versions), comment reactions (like + 👍 ❤️ 😂 😮 😢 style set, one per member and comment), comment sorting (newest first / most reactions first). API: migrations for revisions and reactions, `PATCH /posts/:id`, `PATCH /comments/:id`, revisions endpoints, reaction endpoints, `?sort=` on comments. | planned |
+| 8c | Account security: change password (`POST /auth/password`: verify current, re-hash, revoke other sessions) with a settings dialog from the account menu. | planned |
+| 8d | Chat: typing indicator (ephemeral socket events), pictures in messages (`uploads?kind=message`, `imageKey` on messages), group chats (conversations + members model, existing direct messages migrated into it, create-group dialog, member list, per-member read state). Typing and pictures first, groups last. | planned |
 
 ## 5. Parity checklist (gate for deleting the old code)
 

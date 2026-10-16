@@ -15,14 +15,14 @@
 | `pnpm test:int` | API integration tests (`apps/api/test/*.int-spec.ts`, supertest over HTTP) |
 | `pnpm --filter @the-mesh/web e2e` | Playwright against the built API (`apps/api/dist`) + `vite preview`, seeded DB; `pnpm build` first, `… exec playwright install chromium` once; `e2e:ui` for the inspector |
 | `pnpm format` / `pnpm format:check` | Prettier, root `.prettierrc`; CI fails on drift |
-| `pnpm db:up` / `pnpm db:down` | PostgreSQL 17 via docker compose on `localhost:5433` |
+| `pnpm db:up` / `pnpm db:down` | PostgreSQL 17 via docker compose on `localhost:5433` (needs the `docker compose` plugin; on this box it is installed per user in `~/.docker/cli-plugins`, Docker Desktop is not needed) |
 | `pnpm db:generate` | regenerate the Prisma client into `apps/api/src/generated` (turbo runs it before api tasks) |
 | `pnpm db:migrate -- --name <change>` | create + apply a migration from schema changes (dev DB) |
 | `pnpm db:deploy` / `pnpm db:check` | apply committed migrations / fail if DB and schema differ |
 | `pnpm db:seed` | **truncates everything**, then loads deterministic demo data (alice/bob/carol, password `Password123!`) |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm --filter @the-mesh/api <script>` | run one workspace's script |
-| `docker build -f apps/api/Dockerfile .` / `-f apps/web/Dockerfile .` | production images (context = repo root; on this WSL box prefix with `DOCKER_CONFIG=<dir with {"auths":{}}>`) |
+| `docker build -f apps/api/Dockerfile .` / `-f apps/web/Dockerfile .` | production images (context = repo root) |
 | `cd deploy && docker compose up -d` | the production stack (see `docs/RUNBOOK.md`; `--profile tunnel` adds cloudflared) |
 
 ## Conventions

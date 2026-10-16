@@ -12,7 +12,8 @@ const isWide = (handle: unknown): boolean =>
 /**
  * Header plus a three-column layout. The left navigation appears from `lg`, the
  * right bar from `xl`; routes with `handle: { wide: true }` (messages) take the
- * whole middle and drop the right bar. After a navigation that started outside the
+ * whole middle and drop the right bar. Sidebars taller than the viewport scroll on their
+ * own instead of being cut off. After a navigation that started outside the
  * main area (header, left bar), focus moves to the new page content.
  */
 export function AppShell() {
@@ -40,7 +41,7 @@ export function AppShell() {
         )}
       >
         <div className="hidden lg:block">
-          <div className="sticky top-20">
+          <div className="sidebar-column sticky top-20 max-h-[calc(100svh-6.5rem)] overflow-y-auto overscroll-contain">
             <LeftBar />
           </div>
         </div>
@@ -54,7 +55,7 @@ export function AppShell() {
         </main>
         {wide ? null : (
           <div className="hidden xl:block">
-            <div className="sticky top-20">
+            <div className="sidebar-column sticky top-20 max-h-[calc(100svh-6.5rem)] overflow-y-auto overscroll-contain">
               <RightBar />
             </div>
           </div>

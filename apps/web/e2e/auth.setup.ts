@@ -11,7 +11,7 @@ async function storeSession(browser: Browser, user: SeededUser): Promise<void> {
   const page = await context.newPage();
   await page.goto('/login');
   await page.getByLabel('Email').fill(USERS[user].email);
-  await page.getByLabel('Password').fill(USERS[user].password);
+  await page.getByLabel('Password', { exact: true }).fill(USERS[user].password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByLabel('New post')).toBeVisible();
   await context.storageState({ path: stateFor(user) });

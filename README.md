@@ -16,8 +16,11 @@ container images behind Caddy and a Cloudflare Tunnel.
 
 ## Quick start
 
-Requirements: Node 24, pnpm 11 (`corepack enable` or `npm i -g pnpm`), Docker (for PostgreSQL
-and the integration tests).
+Requirements: Node 24, pnpm 11 (`corepack enable` or `npm i -g pnpm`), Docker Engine with the
+`docker compose` plugin (for PostgreSQL and the integration tests). Docker Desktop is not
+required; on WSL/Ubuntu a native `docker-ce` + `docker-compose-plugin` install is enough. If
+`docker compose` prints `unknown command`, the plugin is missing: `sudo apt-get install
+docker-compose-plugin`, or drop the release binary into `~/.docker/cli-plugins/docker-compose`.
 
 ```bash
 pnpm install

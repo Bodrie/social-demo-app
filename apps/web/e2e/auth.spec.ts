@@ -18,7 +18,7 @@ test.describe('registration', () => {
     await page.getByLabel('Username').fill(member.username);
     await page.getByLabel('Name', { exact: true }).fill(member.name);
     await page.getByLabel('Email').fill(member.email);
-    await page.getByLabel('Password').fill('Password123!');
+    await page.getByLabel('Password', { exact: true }).fill('Password123!');
     await page.getByRole('button', { name: 'Create account' }).click();
 
     await expect(page).toHaveURL(/\/$/);
@@ -33,7 +33,7 @@ test.describe('registration', () => {
     await expect(page).toHaveURL(/\/login$/);
 
     await page.getByLabel('Email').fill(member.email);
-    await page.getByLabel('Password').fill('Password123!');
+    await page.getByLabel('Password', { exact: true }).fill('Password123!');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByLabel('New post')).toBeVisible();
     await page.getByRole('button', { name: /account menu/i }).click();
@@ -46,7 +46,7 @@ test.describe('registration', () => {
     await page.getByLabel('Username').fill(USERS.alice.username);
     await page.getByLabel('Name', { exact: true }).fill('Someone Else');
     await page.getByLabel('Email').fill(USERS.alice.email);
-    await page.getByLabel('Password').fill('Password123!');
+    await page.getByLabel('Password', { exact: true }).fill('Password123!');
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByText('This username is taken')).toBeVisible();
     await expect(page).toHaveURL(/\/register$/);
@@ -81,7 +81,7 @@ test.describe('session', () => {
     await page.goto('/activity');
     await expect(page).toHaveURL(/\/login$/);
     await page.getByLabel('Email').fill(USERS.alice.email);
-    await page.getByLabel('Password').fill(USERS.alice.password);
+    await page.getByLabel('Password', { exact: true }).fill(USERS.alice.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/\/activity$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Activity' })).toBeVisible();
