@@ -131,10 +131,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Prepare the database
-        run: pnpm db:generate && pnpm db:deploy && pnpm db:seed
+        run: pnpm db:generate && pnpm db:deploy
 
+      # The build also produces packages/shared/dist, which the seed imports.
       - name: Build the API and the web app
         run: pnpm turbo run build --filter=@the-mesh/api --filter=@the-mesh/web
+
+      - name: Seed
+        run: pnpm db:seed
 
       - name: Install Playwright browsers
         run: pnpm --filter @the-mesh/web exec playwright install --with-deps chromium
