@@ -23,6 +23,7 @@ import { logoutEverywhere } from '@/lib/api/auth';
 import { REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
 import { cn } from 'cn';
+import { AccountCard } from './account-card';
 import { PasswordForm } from './password-form';
 
 const THEMES = [
@@ -106,6 +107,8 @@ export function SettingsPage() {
           </ul>
         </CardContent>
       </Card>
+
+      <AccountCard />
     </div>
   );
 }

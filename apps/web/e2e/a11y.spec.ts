@@ -103,6 +103,10 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/settings');
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
     await audit(page, '/settings');
+    await page.getByRole('button', { name: 'Delete account' }).click();
+    await expect(page.getByRole('dialog', { name: 'Delete your account?' })).toBeVisible();
+    await audit(page, 'delete account dialog');
+    await page.keyboard.press('Escape');
   });
 
   test('messages and the edit profile dialog', async ({ page }) => {

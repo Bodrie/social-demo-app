@@ -53,6 +53,22 @@ export class UploadsService {
     }
   }
 
+  /**
+   * Removes files whose rows are already gone (an account was deleted and the `uploads` rows
+   * cascaded with it). Best effort, one failure does not stop the others.
+   */
+  async deleteFiles(keys: readonly string[]): Promise<void> {
+    await Promise.all(
+      keys.map(async (key) => {
+        try {
+          await this.storage.delete(key);
+        } catch (error) {
+          this.logger.warn({ err: error, key }, 'Could not delete the file of a deleted account');
+        }
+      }),
+    );
+  }
+
   /** Deletes a file once nothing references it any more. Best effort, never throws. */
   async discard(key: string | null): Promise<void> {
     if (key === null) return;

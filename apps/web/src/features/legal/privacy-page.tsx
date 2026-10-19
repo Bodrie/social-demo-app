@@ -118,9 +118,11 @@ export function PrivacyPage() {
           <Link to="/settings" className="text-primary underline underline-offset-4">
             Settings
           </Link>
-          . For deletion and a copy of your data, contact us; a self-service option is on the way.
-          You also have the right to complain to the data protection authority of the country you
-          live in.
+          . Under <strong>Your account</strong> there you can download a copy of everything your
+          account holds as a JSON file and delete the account yourself; deletion is immediate and
+          removes your posts, comments, messages and pictures (backups follow within 14 days). You
+          also have the right to complain to the data protection authority of the country you live
+          in.
         </p>
         <ContactLine />
       </LegalSection>

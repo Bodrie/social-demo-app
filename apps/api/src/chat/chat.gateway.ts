@@ -28,6 +28,7 @@ import { fieldsFromIssues, toApiError } from '../common/errors.js';
 import { ConversationsService } from '../conversations/conversations.service.js';
 import { SessionsRevokedEvent } from '../events/auth.events.js';
 import {
+  ConversationDeletedEvent,
   ConversationLeftEvent,
   ConversationReadEvent,
   ConversationUpdatedEvent,
@@ -284,6 +285,12 @@ export class ChatGateway
   onConversationUpdated(event: ConversationUpdatedEvent): void {
     const payload: ConversationRef = { conversationId: event.conversationId };
     this.emitTo(event.memberIds, SOCKET_EVENTS.conversationUpdate, payload);
+  }
+
+  @OnEvent(ConversationDeletedEvent.EVENT)
+  onConversationDeleted(event: ConversationDeletedEvent): void {
+    const payload: ConversationRef = { conversationId: event.conversationId };
+    this.emitTo(event.memberIds, SOCKET_EVENTS.conversationRemoved, payload);
   }
 
   @OnEvent(ConversationLeftEvent.EVENT)

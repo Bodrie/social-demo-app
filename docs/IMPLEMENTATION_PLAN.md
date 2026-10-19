@@ -43,7 +43,7 @@ before the opening; A1 is the owner's and runs in parallel.
 ```
 B1  mentions, hashtags, URL links   ✅ 2026-10-19           ─┐
 B2  post pages + search             ✅ 2026-10-19           │  v2.3 – before the opening (≈ 2026-10-29)
-A2  account deletion + export                               │
+A2  account deletion + export       ✅ 2026-10-19           │
 A3  Turnstile on register                                   │
 A1  box + monitor + backups (owner, in parallel)           ─┘
 A4  review-pass completion + cheap Low items               ─┐
@@ -75,7 +75,7 @@ to pull forward, nothing else depends on its position.
 - Fold in the few-line Low items that touch the deploy set: L19 (`update.sh` continues to `up -d` when only one pull fails), L20 (tunnel token via `env_file`, not the command line), L21 (URL-encode `POSTGRES_PASSWORD` in `DATABASE_URL`), L26 (client IP in request logs behind Caddy, with the integration test the backlog asks for).
 - Code side is tiny; no ADR, runbook edits only.
 
-### A2. Account deletion and data export · M · ADR 0012 "Account lifecycle"
+### A2. Account deletion and data export · M · ADR 0012 "Account lifecycle" · ✅ 2026-10-19
 
 **Decision (owner, 2026-10-19): deletion erases, it does not anonymise.** Every row the schema
 cascades from `users` goes (posts, comments, likes, follows, activities, reactions, refresh and email

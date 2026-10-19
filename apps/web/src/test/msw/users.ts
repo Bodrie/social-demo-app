@@ -1,5 +1,6 @@
-import { updateProfileSchema } from '@the-mesh/shared';
+import { type AccountExport, deleteAccountSchema, updateProfileSchema } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
+import { TEST_PASSWORD } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';
 import { mockDb, paginate, toPublic } from './db';
 
@@ -10,6 +11,49 @@ const noContent = () => new HttpResponse(null, { status: 204 });
 const assetUrl = (key: string) => `http://localhost/api/v1/uploads/${key}`;
 
 export const userHandlers = [
+  http.get(`${API}/users/me/export`, () => {
+    if (!mockDb.user) return unauthorized();
+    const me = mockDb.user;
+    mockDb.calls.exports += 1;
+    const data: AccountExport = {
+      exportedAt: new Date().toISOString(),
+      user: me,
+      posts: mockDb.posts
+        .filter((post) => post.author.id === me.id)
+        .map((post) => ({
+          id: post.id,
+          content: post.content,
+          imageUrl: post.imageUrl,
+          hashtags: post.hashtags,
+          createdAt: post.createdAt,
+          editedAt: post.editedAt,
+          revisions: [],
+        })),
+      comments: [],
+      likes: [],
+      reactions: [],
+      following: [],
+      followers: [],
+      messages: [],
+      uploads: [],
+    };
+    return HttpResponse.json(data);
+  }),
+
+  http.delete(`${API}/users/me`, async ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const body = deleteAccountSchema.parse(await request.json());
+    if (body.password !== TEST_PASSWORD) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { password: 'Wrong password' });
+    }
+    const gone = mockDb.user.id;
+    mockDb.calls.deletions += 1;
+    mockDb.users = mockDb.users.filter((user) => user.id !== gone);
+    mockDb.posts = mockDb.posts.filter((post) => post.author.id !== gone);
+    mockDb.user = null;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get(`${API}/users`, ({ request }) => {
     if (!mockDb.user) return unauthorized();
     const viewer = mockDb.user;

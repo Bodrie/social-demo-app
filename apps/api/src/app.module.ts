@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
+import { AccountModule } from './account/account.module.js';
 import { ActivitiesModule } from './activities/activities.module.js';
 import { AssetsModule } from './assets/assets.module.js';
 import { AuthGuard } from './auth/auth.guard.js';
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module.js';
     HealthModule,
     AuthModule,
     UsersModule,
+    AccountModule,
     UploadsModule,
     PostsModule,
     CommentsModule,

@@ -44,7 +44,16 @@ export const mockDb = {
   uploads: 0,
   /** Links the fake API "mailed"; tests read the token here instead of an inbox. */
   emailTokens: [] as { token: string; kind: 'verify' | 'reset'; email: string }[],
-  calls: { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0, forgot: 0 },
+  calls: {
+    me: 0,
+    refresh: 0,
+    login: 0,
+    logout: 0,
+    passwordChanges: 0,
+    forgot: 0,
+    exports: 0,
+    deletions: 0,
+  },
 };
 
 const clone = (user: UserPrivate): UserPrivate => ({ ...user, counts: { ...user.counts } });
@@ -65,7 +74,16 @@ export function resetMockDb(): void {
   mockDb.postRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.emailTokens = [];
-  mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0, forgot: 0 };
+  mockDb.calls = {
+    me: 0,
+    refresh: 0,
+    login: 0,
+    logout: 0,
+    passwordChanges: 0,
+    forgot: 0,
+    exports: 0,
+    deletions: 0,
+  };
   resetFixtureSequence();
 }
 

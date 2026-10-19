@@ -62,7 +62,7 @@ Object.defineProperty(URL, 'revokeObjectURL', {
 const nodeFormData = await new Response('', {
   headers: { 'content-type': 'application/x-www-form-urlencoded' },
 }).formData();
-const NodeFormData = Object.getPrototypeOf(nodeFormData).constructor as typeof FormData;
+const NodeFormData: typeof FormData = Object.getPrototypeOf(nodeFormData).constructor;
 /**
  * Node's FormData refuses a constructor argument, but the browser's accepts a form element and
  * React 19 builds one on a submit whose default was prevented while a transition started

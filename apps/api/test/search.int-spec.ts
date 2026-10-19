@@ -73,6 +73,8 @@ describe('GET /search/posts', () => {
 
   it('pages with the usual cursor and ignores the page size past the limit', async () => {
     const ids: string[] = [];
+    // One after the other on purpose: the order of creation is what the pages are about.
+    // oxlint-disable-next-line no-await-in-loop
     for (let i = 0; i < 3; i += 1) ids.push((await createPost(agent, `paging marker ${i}`)).id);
 
     const first = await search(agent, 'paging marker', '&limit=2');
@@ -100,16 +102,20 @@ describe('GET /search/posts', () => {
 
   it('treats the query as text, never as SQL or tsquery operators', async () => {
     await createPost(agent, 'injection probe post');
-    for (const q of ["'; DROP TABLE posts; --", 'probe & | ! ( )', 'probe:*', '\\\\']) {
-      const page = await search(agent, q);
-      expect(Array.isArray(page.items)).toBe(true);
-    }
+    const pages = await Promise.all(
+      ["'; DROP TABLE posts; --", 'probe & | ! ( )', 'probe:*', '\\\\'].map((q) =>
+        search(agent, q),
+      ),
+    );
+    for (const page of pages) expect(Array.isArray(page.items)).toBe(true);
     expect((await search(agent, 'probe')).items).toHaveLength(1);
   });
 
   it('validates the query length', async () => {
-    for (const q of ['a', 'x'.repeat(101)]) {
-      const response = await agent.get(`/api/v1/search/posts?q=${q}`).expect(400);
+    const responses = await Promise.all(
+      ['a', 'x'.repeat(101)].map((q) => agent.get(`/api/v1/search/posts?q=${q}`).expect(400)),
+    );
+    for (const response of responses) {
       const error = apiErrorSchema.parse(response.body);
       expect(error.code).toBe('VALIDATION_ERROR');
       expect(error.fields).toHaveProperty('q');

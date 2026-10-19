@@ -30,6 +30,6 @@ const JWT_ISSUER = 'the-mesh';
   ],
   controllers: [AuthController],
   providers: [AuthService, RefreshTokensService, EmailTokensService],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

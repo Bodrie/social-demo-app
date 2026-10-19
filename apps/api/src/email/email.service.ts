@@ -2,7 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { MAILER, type Mailer } from './mailer.js';
-import { passwordChangedEmail, passwordResetEmail, verificationEmail } from './templates.js';
+import {
+  accountDeletedEmail,
+  passwordChangedEmail,
+  passwordResetEmail,
+  verificationEmail,
+} from './templates.js';
 
 export const VERIFY_EMAIL_TTL_MS = 24 * 60 * 60 * 1000;
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
@@ -49,6 +54,11 @@ export class EmailService {
       to: to.email,
       ...passwordChangedEmail({ name: to.name, link: `${this.webUrl}/forgot-password` }),
     });
+  }
+
+  /** Sent after the account is gone; the address is the only thing we still know. */
+  sendAccountDeleted(to: Recipient): Promise<void> {
+    return this.mailer.send({ to: to.email, ...accountDeletedEmail({ name: to.name }) });
   }
 
   private link(path: string, token: string): string {

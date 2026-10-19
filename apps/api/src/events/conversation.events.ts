@@ -29,6 +29,15 @@ export class ConversationUpdatedEvent {
   ) {}
 }
 
+/** A conversation ceased to exist for `memberIds` (a direct thread whose other side deleted their account). */
+export class ConversationDeletedEvent {
+  static readonly EVENT = 'conversation.deleted';
+  constructor(
+    readonly conversationId: string,
+    readonly memberIds: readonly string[],
+  ) {}
+}
+
 /** `userId` left a group; `memberIds` are those who remain (empty when the group is gone). */
 export class ConversationLeftEvent {
   static readonly EVENT = 'conversation.left';

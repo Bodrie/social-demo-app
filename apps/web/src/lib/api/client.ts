@@ -138,6 +138,7 @@ export const api = {
     send<T>('PUT', path, { ...options, body }),
   patch: <T = void>(path: string, body?: unknown, options: Omit<RequestOptions<T>, 'body'> = {}) =>
     send<T>('PATCH', path, { ...options, body }),
-  delete: <T = void>(path: string, options: Omit<RequestOptions<T>, 'body'> = {}) =>
+  /** A body is allowed: `DELETE /users/me` carries the confirming password. */
+  delete: <T = void>(path: string, options: RequestOptions<T> = {}) =>
     send<T>('DELETE', path, options),
 };
