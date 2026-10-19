@@ -29,6 +29,9 @@ export const unsupportedMedia = (
 /** A limit enforced by a service (per account), as opposed to the request throttlers. */
 export const tooManyRequests = (message: string): HttpException =>
   new HttpException({ message }, HttpStatus.TOO_MANY_REQUESTS);
+/** A dependency we need is not answering; `code` names it so clients can say what to retry. */
+export const serviceUnavailable = (message: string, code: ErrorCode = 'SERVICE_UNAVAILABLE') =>
+  new HttpException({ message, code }, HttpStatus.SERVICE_UNAVAILABLE);
 /** A 400 that forms map onto inputs, like the automatic zod validation errors. */
 export const validationError = (
   fields: Record<string, string>,

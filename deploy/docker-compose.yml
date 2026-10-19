@@ -48,6 +48,9 @@ services:
       EMAIL_TRANSPORT: smtp
       SMTP_URL: ${SMTP_URL:?set SMTP_URL in .env}
       EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM in .env}
+      # Bot check on registration (RUNBOOK §2.7); CAPTCHA=off is the explicit way to run without one.
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
+      CAPTCHA: ${CAPTCHA:-}
       # Caddy rewrites X-Forwarded-For from Cloudflare's CF-Connecting-IP: trust that one hop.
       TRUST_PROXY: '1'
       LOG_LEVEL: ${LOG_LEVEL:-info}

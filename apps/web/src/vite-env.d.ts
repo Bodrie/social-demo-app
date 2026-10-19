@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_OPERATOR_NAME?: string;
   readonly VITE_CONTACT_EMAIL?: string;
   readonly VITE_REPOSITORY_URL?: string;
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
 }
 
 interface ImportMeta {

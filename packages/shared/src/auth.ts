@@ -17,6 +17,8 @@ export const registerSchema = z.object({
   username: usernameSchema,
   name: nameSchema,
   password: passwordSchema,
+  /** The bot-check token (Cloudflare Turnstile); required only where the API has a secret. */
+  captchaToken: z.string().max(2048).optional(),
 });
 export type RegisterInput = z.input<typeof registerSchema>;
 export type RegisterData = z.output<typeof registerSchema>;

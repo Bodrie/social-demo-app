@@ -70,6 +70,13 @@ export const envSchema = z.object({
   SMTP_URL: z.url().optional(),
   EMAIL_FROM: z.string().min(3).default('The Mesh <noreply@localhost>'),
   EMAIL_OUTBOX_DIR: z.string().min(1).default('./outbox'),
+  /**
+   * Cloudflare Turnstile secret: with it, registration needs a passed bot check. Without it the
+   * check is skipped (development, tests); production refuses that unless `CAPTCHA=off`.
+   */
+  TURNSTILE_SECRET: z.string().min(1).optional(),
+  /** `off` is the explicit choice to run registration without a bot check in production. */
+  CAPTCHA: z.enum(['turnstile', 'off']).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -104,6 +111,12 @@ function assertProductionSafe(config: Record<string, unknown>): void {
   }
   if (config.EMAIL_TRANSPORT !== 'smtp') {
     problems.push('EMAIL_TRANSPORT must be "smtp" (the outbox is for development)');
+  }
+  const secret = typeof config.TURNSTILE_SECRET === 'string' ? config.TURNSTILE_SECRET.trim() : '';
+  if (secret === '' && config.CAPTCHA !== 'off') {
+    problems.push(
+      'TURNSTILE_SECRET must be set (or CAPTCHA=off to leave registration unprotected)',
+    );
   }
   if (problems.length > 0) {
     throw new Error(`Invalid production configuration:\n- ${problems.join('\n- ')}`);

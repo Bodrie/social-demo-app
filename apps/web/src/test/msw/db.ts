@@ -44,6 +44,8 @@ export const mockDb = {
   uploads: 0,
   /** Links the fake API "mailed"; tests read the token here instead of an inbox. */
   emailTokens: [] as { token: string; kind: 'verify' | 'reset'; email: string }[],
+  /** The body of the last registration, for asserting what the form sent (e.g. the bot-check token). */
+  lastRegistration: null as Record<string, unknown> | null,
   calls: {
     me: 0,
     refresh: 0,
@@ -74,6 +76,7 @@ export function resetMockDb(): void {
   mockDb.postRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.emailTokens = [];
+  mockDb.lastRegistration = null;
   mockDb.calls = {
     me: 0,
     refresh: 0,

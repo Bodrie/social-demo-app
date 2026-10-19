@@ -44,7 +44,7 @@ before the opening; A1 is the owner's and runs in parallel.
 B1  mentions, hashtags, URL links   ✅ 2026-10-19           ─┐
 B2  post pages + search             ✅ 2026-10-19           │  v2.3 – before the opening (≈ 2026-10-29)
 A2  account deletion + export       ✅ 2026-10-19           │
-A3  Turnstile on register                                   │
+A3  Turnstile on register           ✅ 2026-10-19           │
 A1  box + monitor + backups (owner, in parallel)           ─┘
 A4  review-pass completion + cheap Low items               ─┐
 B3a chat bubbles (new, §3 B3a)                              │  v2.4
@@ -95,7 +95,7 @@ Web
 
 Tests: int (wrong password → field error, cascades incl. a group where the user was the last member and a direct thread, files removed, sockets disconnected, export shape and throttle); web (dialog, errors, session end); e2e (register a throwaway through the outbox, delete it, sign-in refused).
 
-### A3. Spam protection on registration (Cloudflare Turnstile) · S
+### A3. Spam protection on registration (Cloudflare Turnstile) · S · ✅ 2026-10-19
 
 **Decision (owner): register only**; `forgot-password` and `resend` keep their existing limits.
 

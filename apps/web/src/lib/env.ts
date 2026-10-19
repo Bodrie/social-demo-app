@@ -11,3 +11,12 @@ export const OPERATOR_NAME =
 export const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL?.trim() ?? '';
 export const REPOSITORY_URL =
   import.meta.env.VITE_REPOSITORY_URL?.trim() || 'https://github.com/Bodrie/social-demo-app';
+
+/**
+ * Cloudflare Turnstile site key: with it the register form shows the bot check and sends its
+ * token; without it (development, tests) the form is unchanged. Read on each call so tests can
+ * stub the environment.
+ */
+export function getTurnstileSiteKey(): string {
+  return import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? '';
+}

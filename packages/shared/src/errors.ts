@@ -13,6 +13,8 @@ export const ERROR_CODES = [
   'TOO_MANY_REQUESTS',
   'INTERNAL_ERROR',
   'SERVICE_UNAVAILABLE',
+  /** The bot check could not be reached; registration is refused rather than waved through. */
+  'CAPTCHA_UNAVAILABLE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

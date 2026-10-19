@@ -231,6 +231,32 @@ over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is ver
 Cloudflare **Email Routing** (free) can forward it, with its own MX records on `social`.
 Provider switch: any SMTP submission URL works (Postmark, Brevo, SES); only `.env` changes.
 
+### 2.7 Bot check on registration (Cloudflare Turnstile)
+
+Email confirmation alone does not stop scripted sign-ups, so the register form carries a
+Turnstile widget (free, no puzzle for most people) and the API refuses a registration whose
+token Cloudflare does not confirm. The widget is made once per site; its two halves go to
+two different places (ADR 0012).
+
+1. dash.cloudflare.com → account home → **Turnstile** → **Add widget**: name `The Mesh`,
+   hostname `social.bodrie.dev` (add `localhost` only on a widget you use for local trials),
+   mode **Managed**, pre-clearance off. Copy the **site key** and the **secret key**.
+2. The **site key** is public and is baked into the web bundle at build time: in the GitHub
+   repository → Settings → Secrets and variables → Actions → **Variables**, add
+   `VITE_TURNSTILE_SITE_KEY` (and, while there, `VITE_OPERATOR_NAME`, `VITE_CONTACT_EMAIL`,
+   `VITE_REPOSITORY_URL` for the legal pages). The next CI run on `main` builds a web image
+   that shows the widget. Nothing changes on the box for this half.
+3. The **secret key** goes into `/opt/the-mesh/.env` as `TURNSTILE_SECRET=…`, then
+   `docker compose up -d api`. The API refuses to start in production without it; to run the
+   site deliberately without a bot check (a closed trial), set `CAPTCHA=off` instead.
+4. Check: open `/register` in a private window; the widget appears under the password field
+   and the button stays disabled until it has passed. Register with a throwaway address. In
+   the dashboard, Turnstile → the widget → **Analytics** shows the solve.
+
+Mismatched halves (a site key from one widget, the secret of another) fail every registration
+with "Please complete the bot check"; a Cloudflare outage answers 503 `CAPTCHA_UNAVAILABLE`
+and nobody can register until it is back, by design.
+
 ## 3. First start
 
 As `mesh`:

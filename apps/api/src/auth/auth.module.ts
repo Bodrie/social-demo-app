@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { CaptchaModule } from '../captcha/captcha.module.js';
 import type { Env } from '../config/env.js';
 import { EmailModule } from '../email/email.module.js';
 import { UsersModule } from '../users/users.module.js';
@@ -15,6 +16,7 @@ const JWT_ISSUER = 'the-mesh';
   imports: [
     UsersModule,
     EmailModule,
+    CaptchaModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({

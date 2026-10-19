@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type RegisterInput, registerSchema } from '@the-mesh/shared';
 import { Loader2Icon } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -16,8 +17,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { isApiClientError } from '@/lib/api/client';
+import { getTurnstileSiteKey } from '@/lib/env';
 import { AuthLayout } from './auth-layout';
 import { applyApiErrors } from './form-errors';
+import { Turnstile } from './turnstile';
 import { useRegister } from './use-auth-mutations';
 
 export function RegisterPage() {
@@ -26,12 +30,26 @@ export function RegisterPage() {
     resolver: zodResolver(registerSchema),
     defaultValues: { email: '', username: '', name: '', password: '' },
   });
+  // The bot check (Cloudflare Turnstile) only where a site key was built in.
+  const siteKey = getTurnstileSiteKey();
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const waitingForCaptcha = siteKey !== '' && captchaToken === null;
 
   const onSubmit = (values: RegisterInput) => {
-    register.mutate(values, {
+    setCaptchaError(null);
+    register.mutate(siteKey ? { ...values, captchaToken: captchaToken ?? undefined } : values, {
       onSuccess: () => toast.success('Welcome aboard!'),
-      onError: (error) =>
-        applyApiErrors(error, form.setError, ['email', 'username', 'name', 'password']),
+      onError: (error) => {
+        if (isApiClientError(error) && error.fields.captchaToken) {
+          setCaptchaError(error.fields.captchaToken);
+        } else {
+          applyApiErrors(error, form.setError, ['email', 'username', 'name', 'password']);
+        }
+        // Turnstile tokens work once: whatever went wrong, the next attempt needs a new one.
+        if (siteKey) setCaptchaReset((count) => count + 1);
+      },
     });
   };
 
@@ -125,6 +143,14 @@ export function RegisterPage() {
               </FormItem>
             )}
           />
+          {siteKey ? (
+            <Turnstile
+              siteKey={siteKey}
+              onToken={setCaptchaToken}
+              resetSignal={captchaReset}
+              error={captchaError}
+            />
+          ) : null}
           <p className="text-muted-foreground text-xs/5">
             By creating an account you agree to the{' '}
             <Link to="/terms" className="text-foreground underline underline-offset-4">
@@ -136,7 +162,12 @@ export function RegisterPage() {
             </Link>
             .
           </p>
-          <Button type="submit" size="lg" className="h-11 w-full" disabled={register.isPending}>
+          <Button
+            type="submit"
+            size="lg"
+            className="h-11 w-full"
+            disabled={register.isPending || waitingForCaptcha}
+          >
             {register.isPending ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             ) : null}

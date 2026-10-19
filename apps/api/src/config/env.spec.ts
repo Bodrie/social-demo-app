@@ -82,10 +82,23 @@ describe('production safety', () => {
     EMAIL_TRANSPORT: 'smtp',
     SMTP_URL: 'smtps://resend:key@smtp.resend.com:465',
     EMAIL_FROM: 'The Mesh <noreply@social.bodrie.dev>',
+    TURNSTILE_SECRET: '0x4AAAAAAA-secret',
   };
 
   it('accepts an explicit configuration', () => {
     expect(validateEnv(production).NODE_ENV).toBe('production');
+  });
+
+  it('wants a bot check, or the explicit choice to run without one', () => {
+    expect(() => validateEnv({ ...production, TURNSTILE_SECRET: undefined })).toThrow(
+      /TURNSTILE_SECRET must be set/,
+    );
+    expect(() => validateEnv({ ...production, TURNSTILE_SECRET: '  ' })).toThrow(
+      /TURNSTILE_SECRET/,
+    );
+    expect(
+      validateEnv({ ...production, TURNSTILE_SECRET: undefined, CAPTCHA: 'off' }).CAPTCHA,
+    ).toBe('off');
   });
 
   it('refuses development defaults and the placeholder secret', () => {

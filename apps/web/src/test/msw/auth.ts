@@ -47,6 +47,12 @@ export const authHandlers = [
 
   http.post(`${API}/auth/register`, async ({ request }) => {
     const body = registerSchema.parse(await request.json());
+    mockDb.lastRegistration = body;
+    if (body.captchaToken === 'cf-token-refused') {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', {
+        captchaToken: 'Please complete the bot check',
+      });
+    }
     if (body.username === 'taken') {
       return apiError(409, 'CONFLICT', 'Already in use', { username: 'This username is taken' });
     }

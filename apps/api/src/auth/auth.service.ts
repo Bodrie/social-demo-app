@@ -1,9 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import type { ChangePasswordData, LoginData, RegisterData, UserPrivate } from '@the-mesh/shared';
-import { tooManyRequests, unauthorized, validationError } from '../common/errors.js';
+import { CAPTCHA, CaptchaUnavailableError, type CaptchaVerifier } from '../captcha/captcha.js';
+import {
+  serviceUnavailable,
+  tooManyRequests,
+  unauthorized,
+  validationError,
+} from '../common/errors.js';
 import type { Env } from '../config/env.js';
 import { EmailService } from '../email/email.service.js';
 import { UserRegisteredEvent } from '../events/user.events.js';
@@ -32,6 +38,7 @@ export class AuthService {
     private readonly emailTokens: EmailTokensService,
     private readonly email: EmailService,
     private readonly events: EventEmitter2,
+    @Inject(CAPTCHA) private readonly captcha: CaptchaVerifier,
     config: ConfigService<Env, true>,
   ) {
     this.cookieSettings = {
@@ -45,6 +52,7 @@ export class AuthService {
 
   /** The account starts unverified: the session works, but only for the verification routes. */
   async register(input: RegisterData, meta: RequestMeta): Promise<AuthResult> {
+    await this.assertHuman(input.captchaToken, meta.ip);
     await this.users.assertAvailable({ email: input.email, username: input.username });
     const passwordHash = await hashPassword(input.password);
     const created = await this.prisma.user.create({
@@ -205,6 +213,25 @@ export class AuthService {
     const user = await this.users.findPrivateById(userId);
     if (!user) throw unauthorized('This account no longer exists');
     return user;
+  }
+
+  /**
+   * The bot check comes first, before anything is looked up or created. A check that cannot
+   * be made refuses the registration: an outage must not open the door (ADR 0012).
+   */
+  private async assertHuman(token: string | undefined, ip: string | undefined): Promise<void> {
+    let human: boolean;
+    try {
+      human = await this.captcha.verify(token, ip);
+    } catch (error) {
+      if (!(error instanceof CaptchaUnavailableError)) throw error;
+      this.logger.warn({ err: error }, 'Bot check unavailable; registration refused');
+      throw serviceUnavailable(
+        'The bot check is not available right now. Please try again in a moment.',
+        'CAPTCHA_UNAVAILABLE',
+      );
+    }
+    if (!human) throw validationError({ captchaToken: 'Please complete the bot check' });
   }
 
   private async session(userId: string, meta: RequestMeta): Promise<AuthResult> {

@@ -57,6 +57,13 @@ jobs:
           context: .
           file: apps/${{ matrix.app }}/Dockerfile
           platforms: linux/amd64
+          # Baked into the web bundle (the API image ignores them). Repository variables:
+          # Settings → Secrets and variables → Actions → Variables.
+          build-args: |
+            VITE_OPERATOR_NAME=${{ vars.VITE_OPERATOR_NAME }}
+            VITE_CONTACT_EMAIL=${{ vars.VITE_CONTACT_EMAIL }}
+            VITE_REPOSITORY_URL=${{ vars.VITE_REPOSITORY_URL }}
+            VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

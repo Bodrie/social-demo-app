@@ -1,6 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
@@ -19,8 +19,15 @@ export type TestApp = {
  * with empty tables. With `listen`, the app binds an ephemeral port so socket.io
  * clients can connect; supertest works either way.
  */
-export async function createTestApp(options: { listen?: boolean } = {}): Promise<TestApp> {
-  const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
+export async function createTestApp(
+  options: {
+    listen?: boolean;
+    /** Swap providers (e.g. the bot check) before the module compiles. */
+    overrides?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+  } = {},
+): Promise<TestApp> {
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  const moduleFixture = await (options.overrides?.(builder) ?? builder).compile();
   const app = configureApp(
     moduleFixture.createNestApplication<NestExpressApplication>({ bufferLogs: true }),
   );

@@ -1,6 +1,6 @@
-# 0012 – Account lifecycle: a copy of everything, and deletion that erases
+# 0012 – Account lifecycle: a copy of everything, deletion that erases, and a bot check at the door
 
-Date: 2026-10-19 · Status: Accepted · Source: `docs/IMPLEMENTATION_PLAN.md` A2 (A3, registration abuse protection, will amend this record)
+Date: 2026-10-19 · Status: Accepted · Source: `docs/IMPLEMENTATION_PLAN.md` A2 and A3
 
 ## Context
 
@@ -46,6 +46,30 @@ and how to keep denormalised counters honest.
   that asks for the password and ends the session on success. The privacy notice names the
   path.
 
+## Registration: a bot check (A3)
+
+- **Cloudflare Turnstile on the register form, and nowhere else.** The zone is on Cloudflare
+  already, the widget is free and usually invisible, and the owner chose to leave the other
+  anonymous routes (`forgot-password`, `verify-email/resend`) to their existing per-address
+  and per-account limits.
+- **The API decides, not the browser.** `registerSchema` carries an optional `captchaToken`;
+  `AuthService.register` asks the `CAPTCHA` verifier before anything is looked up or
+  created. With `TURNSTILE_SECRET` set the verifier is Cloudflare's `siteverify` (token plus
+  the client address, two-second timeout); without it (development, tests) a no-op verifier
+  lets everyone through. A rejected or missing token is a field error on `captchaToken`.
+- **An outage closes the door instead of opening it.** When the check itself cannot be made
+  (network, non-2xx, unexpected body) registration answers 503 `CAPTCHA_UNAVAILABLE` rather
+  than skipping the check; the alternative would make the protection disappear exactly when
+  someone makes Cloudflare unreachable.
+- **Production must choose.** The API refuses to start in production without the secret
+  unless `CAPTCHA=off` is set explicitly, the same shape as the email transport guard.
+- **The site key is built into the web bundle** (`VITE_TURNSTILE_SITE_KEY`, a CI repository
+  variable passed as a Docker build argument, together with the legal-page variables that the
+  pre-release review had found missing). Without a key the form is unchanged, so local
+  development and the test suites never load Cloudflare's script. With one, the widget
+  follows the theme, the submit button waits for its token, and a refused registration resets
+  the widget because tokens work once.
+
 ## Consequences
 
 - Deleting an account removes the member's words from conversations others still have.
@@ -54,3 +78,8 @@ and how to keep denormalised counters honest.
   backups for 14 days (`RUNBOOK.md` §7), as the privacy notice states.
 - A future "anonymise instead of erase" option would be a second path, not a change to this
   one.
+- Registration depends on Cloudflare being reachable from the box; the runbook (§2.7) says
+  how to run without the check on purpose.
+- Someone building the web app from source without the variable gets a register form with
+  no widget; whether that works depends on the API's secret, so the two halves are documented
+  side by side.
