@@ -69,6 +69,12 @@ export const routes: RouteObject[] = [
                 ],
               },
               {
+                path: 'tags/:tag',
+                lazy: async () => ({
+                  Component: (await import('@/features/tags/tag-page')).TagPage,
+                }),
+              },
+              {
                 path: 'u/:username',
                 lazy: profile('ProfilePage'),
                 children: [

@@ -8,5 +8,6 @@ export * from './health.js';
 export * from './conversations.js';
 export * from './pagination.js';
 export * from './posts.js';
+export * from './text.js';
 export * from './uploads.js';
 export * from './users.js';

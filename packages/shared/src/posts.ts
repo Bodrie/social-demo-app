@@ -20,6 +20,10 @@ export const postSchema = z.object({
   likedByMe: z.boolean(),
   /** Null until the first edit. */
   editedAt: z.iso.datetime().nullable(),
+  /** Members the text mentions (`@username`), resolved when the post was saved or edited. */
+  mentions: z.array(userSummarySchema),
+  /** Lower-cased tags in the text, alphabetically. */
+  hashtags: z.array(z.string()),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

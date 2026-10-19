@@ -17,11 +17,18 @@ export const queryKeys = {
     search: (q: string) => ['users', 'list', 'search', q] as const,
     /** A flat `{ items }` list, deliberately outside `lists` (which hold infinite pages). */
     suggestions: ['users', 'suggestions'] as const,
+    /** Flat search results behind the @mention autocomplete (also outside `lists`). */
+    mentions: (q: string) => ['users', 'mentions', q] as const,
   },
   posts: {
     lists: ['posts', 'list'] as const,
     feed: ['posts', 'list', 'feed'] as const,
     byUser: (userId: string) => ['posts', 'list', 'user', userId] as const,
+    byTag: (tag: string) => ['posts', 'list', 'tag', tag] as const,
+  },
+  tags: {
+    all: ['tags'] as const,
+    trending: ['tags', 'trending'] as const,
   },
   comments: {
     all: ['comments'] as const,

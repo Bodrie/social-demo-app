@@ -1,8 +1,10 @@
 import {
   type Comment,
   type Revision,
+  type UserSummary,
   createCommentSchema,
   createPostSchema,
+  extractEntities,
   setReactionSchema,
   updateCommentSchema,
   updatePostSchema,
@@ -20,6 +22,16 @@ const withReactions = (comment: Comment, viewerId: string): Comment => ({
   ...comment,
   reactions: reactionsFor(comment.id, viewerId),
 });
+/** Like the API: only members that exist are mentions; tags are lower-cased and distinct. */
+export const entitiesOf = (content: string): { mentions: UserSummary[]; hashtags: string[] } => {
+  const entities = extractEntities(content);
+  return {
+    mentions: mockDb.users
+      .filter((user) => entities.mentions.includes(user.username))
+      .map(summaryOf),
+    hashtags: entities.hashtags.toSorted(),
+  };
+};
 import { API, apiError, unauthorized } from './auth';
 import { mockDb, paginate, reactionsFor } from './db';
 
@@ -49,6 +61,7 @@ export const postHandlers = [
       imageUrl: body.imageKey ? `http://localhost/api/v1/uploads/${body.imageKey}` : null,
       author: summaryOf(mockDb.user),
       createdAt: new Date().toISOString(),
+      ...entitiesOf(body.content),
     });
     mockDb.posts.unshift(post);
     return HttpResponse.json(post, { status: 201 });
@@ -112,6 +125,7 @@ export const postHandlers = [
       content: body.content,
       author: summaryOf(mockDb.user),
       createdAt: new Date().toISOString(),
+      mentions: entitiesOf(body.content).mentions,
     });
     mockDb.comments.unshift(comment);
     post.commentCount += 1;
@@ -142,6 +156,7 @@ export const postHandlers = [
       mockDb.postRevisions.set(post.id, [makeRevision(post.content), ...history]);
       post.content = body.content;
       post.editedAt = new Date().toISOString();
+      Object.assign(post, entitiesOf(body.content));
     }
     return HttpResponse.json(post);
   }),
@@ -168,6 +183,7 @@ export const postHandlers = [
       mockDb.commentRevisions.set(comment.id, [makeRevision(comment.content), ...history]);
       comment.content = body.content;
       comment.editedAt = new Date().toISOString();
+      comment.mentions = entitiesOf(body.content).mentions;
     }
     return HttpResponse.json(withReactions(comment, mockDb.user.id));
   }),

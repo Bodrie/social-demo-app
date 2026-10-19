@@ -5,6 +5,7 @@ import {
   type ReactionType,
 } from '@the-mesh/shared';
 import type { Prisma } from '../generated/prisma/client.js';
+import { mentionsSelect } from '../posts/posts.mapper.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 
 /** A comment with its author and the viewer's own reaction; per-type counts come separately. */
@@ -19,6 +20,7 @@ export function commentSelect(viewerId: string) {
     updatedAt: true,
     author: { select: userSummarySelect },
     reactions: { where: { userId: viewerId }, select: { type: true } },
+    mentions: mentionsSelect,
   } satisfies Prisma.CommentSelect;
 }
 
@@ -50,6 +52,7 @@ export function toComment(row: CommentRow, counts: ReactionCounts, assetsBase: s
     author: toUserSummary(row.author, assetsBase),
     editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     reactions: toReactionSummary(counts, row.reactionsCount, mine),
+    mentions: row.mentions.map((mention) => toUserSummary(mention.user, assetsBase)),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

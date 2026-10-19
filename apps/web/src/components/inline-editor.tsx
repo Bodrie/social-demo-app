@@ -1,7 +1,7 @@
 import { cn } from 'cn';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { MentionTextarea } from '@/components/mention-textarea';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 
 type InlineEditorProps = {
   initial: string;
@@ -54,10 +54,10 @@ export function InlineEditor({
 
   return (
     <div className="space-y-2">
-      <Textarea
+      <MentionTextarea
         aria-label={label}
         value={content}
-        onChange={(event) => setContent(event.target.value)}
+        onValueChange={setContent}
         onKeyDown={onKeyDown}
         ref={textareaRef}
         rows={2}

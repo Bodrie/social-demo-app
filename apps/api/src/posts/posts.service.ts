@@ -1,15 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  CreatePostData,
-  CursorQuery,
-  Paginated,
-  Post,
-  Revision,
-  UpdatePostData,
+import {
+  type CreatePostData,
+  type CursorQuery,
+  type Paginated,
+  type Post,
+  type Revision,
+  type UpdatePostData,
+  extractEntities,
 } from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { forbidden, notFound } from '../common/errors.js';
+import { emitMentions } from '../common/mentions.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { toRevision } from '../common/revisions.js';
 import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
@@ -42,11 +44,28 @@ export class PostsService {
         field: 'imageKey',
       });
     }
+    const createdAt = new Date();
+    const entities = extractEntities(input.content);
+    const mentioned = await this.users.findByUsernames(entities.mentions);
     const row = await this.prisma.post.create({
-      data: { authorId, content: input.content, imageKey: input.imageKey ?? null },
+      data: {
+        authorId,
+        content: input.content,
+        imageKey: input.imageKey ?? null,
+        createdAt,
+        mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
+        // The tag rows copy the post's timestamp so a tag page pages without a join.
+        hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
+      },
       select: postSelect(authorId),
     });
     await this.events.emitAsync(PostCreatedEvent.EVENT, new PostCreatedEvent(row.id, authorId));
+    await emitMentions(
+      this.events,
+      authorId,
+      mentioned.map((user) => user.id),
+      { postId: row.id, commentId: null },
+    );
     return toPost(row, this.assets.base);
   }
 
@@ -59,22 +78,48 @@ export class PostsService {
     return toPost(row, this.assets.base);
   }
 
-  /** Author only. The previous text is kept as a revision; an unchanged text is a no-op. */
+  /**
+   * Author only. The previous text is kept as a revision; an unchanged text is a no-op.
+   * Mentions and tags are re-parsed from the new text; only members mentioned for the
+   * first time are told.
+   */
   async update(viewerId: string, postId: string, input: UpdatePostData): Promise<Post> {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      select: { authorId: true, content: true },
+      select: {
+        authorId: true,
+        content: true,
+        createdAt: true,
+        mentions: { select: { userId: true } },
+      },
     });
     if (!post) throw notFound('Post not found');
     if (post.authorId !== viewerId) throw forbidden('You can only edit your own posts');
     if (post.content !== input.content) {
+      const entities = extractEntities(input.content);
+      const mentioned = await this.users.findByUsernames(entities.mentions);
       await this.prisma.$transaction([
         this.prisma.postRevision.create({ data: { postId, content: post.content } }),
         this.prisma.post.update({
           where: { id: postId },
           data: { content: input.content, editedAt: new Date() },
         }),
+        this.prisma.postMention.deleteMany({ where: { postId } }),
+        this.prisma.postMention.createMany({
+          data: mentioned.map((user) => ({ postId, userId: user.id })),
+        }),
+        this.prisma.postHashtag.deleteMany({ where: { postId } }),
+        this.prisma.postHashtag.createMany({
+          data: entities.hashtags.map((tag) => ({ postId, tag, createdAt: post.createdAt })),
+        }),
       ]);
+      const before = new Set(post.mentions.map((mention) => mention.userId));
+      await emitMentions(
+        this.events,
+        viewerId,
+        mentioned.filter((user) => !before.has(user.id)).map((user) => user.id),
+        { postId, commentId: null },
+      );
     }
     return this.getById(viewerId, postId);
   }
@@ -100,6 +145,11 @@ export class PostsService {
   async byAuthor(viewerId: string, authorId: string, query: CursorQuery): Promise<Paginated<Post>> {
     await this.users.assertExists(authorId);
     return this.list(viewerId, query, { authorId });
+  }
+
+  /** Every post carrying `tag` (already lower-cased by the DTO), newest first. */
+  byTag(viewerId: string, tag: string, query: CursorQuery): Promise<Paginated<Post>> {
+    return this.list(viewerId, query, { hashtags: { some: { tag } } });
   }
 
   async delete(viewerId: string, postId: string): Promise<void> {

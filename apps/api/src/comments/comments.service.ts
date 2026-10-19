@@ -1,17 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  Comment,
-  CommentsQuery,
-  CreateCommentData,
-  Paginated,
-  ReactionSummary,
-  ReactionType,
-  Revision,
-  UpdateCommentData,
+import {
+  type Comment,
+  type CommentsQuery,
+  type CreateCommentData,
+  type Paginated,
+  type ReactionSummary,
+  type ReactionType,
+  type Revision,
+  type UpdateCommentData,
+  extractEntities,
 } from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { forbidden, notFound } from '../common/errors.js';
+import { emitMentions } from '../common/mentions.js';
 import {
   decodeCursor,
   decodeRankedCursor,
@@ -25,6 +27,7 @@ import { CommentCreatedEvent } from '../events/comment.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PostsService } from '../posts/posts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UsersService } from '../users/users.service.js';
 import {
   type CommentRow,
   type ReactionCounts,
@@ -40,6 +43,7 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly posts: PostsService,
+    private readonly users: UsersService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
   ) {}
@@ -107,33 +111,65 @@ export class CommentsService {
     });
     if (!post) throw notFound('Post not found');
 
+    const mentioned = await this.users.findByUsernames(extractEntities(input.content).mentions);
     const row = await this.prisma.comment.create({
-      data: { postId, authorId, content: input.content },
+      data: {
+        postId,
+        authorId,
+        content: input.content,
+        mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
+      },
       select: commentSelect(authorId),
     });
     await this.events.emitAsync(
       CommentCreatedEvent.EVENT,
       new CommentCreatedEvent(row.id, postId, authorId, post.authorId),
     );
+    await emitMentions(
+      this.events,
+      authorId,
+      mentioned.map((user) => user.id),
+      { postId, commentId: row.id },
+    );
     return toComment(row, emptyCounts(), this.assets.base);
   }
 
-  /** Author only. The previous text is kept as a revision; an unchanged text is a no-op. */
+  /**
+   * Author only. The previous text is kept as a revision; an unchanged text is a no-op.
+   * Mentions are re-parsed; only members mentioned for the first time are told.
+   */
   async update(viewerId: string, commentId: string, input: UpdateCommentData): Promise<Comment> {
     const comment = await this.prisma.comment.findUnique({
       where: { id: commentId },
-      select: { authorId: true, content: true },
+      select: {
+        authorId: true,
+        content: true,
+        postId: true,
+        mentions: { select: { userId: true } },
+      },
     });
     if (!comment) throw notFound('Comment not found');
     if (comment.authorId !== viewerId) throw forbidden('You can only edit your own comments');
     if (comment.content !== input.content) {
+      const mentioned = await this.users.findByUsernames(extractEntities(input.content).mentions);
       await this.prisma.$transaction([
         this.prisma.commentRevision.create({ data: { commentId, content: comment.content } }),
         this.prisma.comment.update({
           where: { id: commentId },
           data: { content: input.content, editedAt: new Date() },
         }),
+        this.prisma.commentMention.deleteMany({ where: { commentId } }),
+        this.prisma.commentMention.createMany({
+          data: mentioned.map((user) => ({ commentId, userId: user.id })),
+        }),
       ]);
+      const before = new Set(comment.mentions.map((mention) => mention.userId));
+      await emitMentions(
+        this.events,
+        viewerId,
+        mentioned.filter((user) => !before.has(user.id)).map((user) => user.id),
+        { postId: comment.postId, commentId },
+      );
     }
     return this.getById(viewerId, commentId);
   }

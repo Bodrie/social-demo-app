@@ -26,7 +26,8 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 
 ## Web
 
-- Posts: linkify URLs/@mentions in post text, an image lightbox, a post permalink route (`/p/:id`) for notifications and sharing, and the legacy double-tap-to-like gesture on touch devices.
+- Posts: an image lightbox, a post permalink route (`/p/:id`) for notifications and sharing, and the legacy double-tap-to-like gesture on touch devices.
+- Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. `#` autocomplete in the composer and hashtags in comments were left out on purpose.
 - Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
 - Profile: cover/avatar cropping, and blocking/reporting (not in the legacy app either).
 - Activity: realtime updates for the sidebar card (push from the socket once 4f lands, or light polling), and linking excerpts to a post permalink.

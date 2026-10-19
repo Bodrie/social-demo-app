@@ -19,7 +19,7 @@ in `BACKLOG.md`.
 
 | Item | Why | Notes |
 |---|---|---|
-| **Mentions and hashtags** | `@alice` / `#topic` parsed at save time, linked in the UI; feeds notifications and search | shared parser used by API and web; entities stored per post/comment |
+| ~~**Mentions and hashtags**~~ ✅ 2026-10-19 | `@alice` / `#topic` parsed at save time, linked in the UI; feeds notifications and search | done as B1 (ADR 0013): shared parser, entities per post/comment, `/tags/:tag`, trending, `@` autocomplete, links in text |
 | **Post pages and search** | posts have no permalink, nothing can be shared or linked from a notification | `/p/:id` with comments; Postgres full-text (`tsvector`) over posts and people |
 | Notifications | nobody is told about likes, comments, follows, mentions or messages received while away | per-user notification rows, unread badge, delivered over the existing socket; web push later |
 | Moderation basics | necessary the moment the site is public | block and mute, report a post, an admin role with a small queue |
@@ -31,7 +31,7 @@ in `BACKLOG.md`.
 | Item | Notes |
 |---|---|
 | **Chat follow-ups** | delete a message, group admin and renaming, "new messages" pill when scrolled up, unread count in the tab title, notification sound |
-| Performance | `zod/mini` browser build, image `srcset`, font preload, route prefetch on hover (bundle is at 235 of 240 kB) |
+| Performance | `zod/mini` browser build, image `srcset`, font preload, route prefetch on hover (bundle is at 241 of 245 kB) |
 | Two-factor authentication (TOTP) | the email flows now exist to recover a lost device |
 | PWA manifest, web push | rides on the notifications work |
 | Observability | error tracking (Sentry free tier or self-hosted GlitchTip), a small status page |
@@ -39,4 +39,5 @@ in `BACKLOG.md`.
 ## Agreed order (2026-10-16)
 
 The owner picked, to be done directly on `dev` with one commit per item: **legal pages →
-mentions and hashtags → post pages and search → chat follow-ups**.
+mentions and hashtags → post pages and search → chat follow-ups**. Legal pages and mentions are
+done; the full sequence from here is in `IMPLEMENTATION_PLAN.md`.

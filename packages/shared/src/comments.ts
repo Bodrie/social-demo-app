@@ -50,6 +50,8 @@ export const commentSchema = z.object({
   /** Null until the first edit. */
   editedAt: z.iso.datetime().nullable(),
   reactions: reactionSummarySchema,
+  /** Members the text mentions (`@username`), resolved when the comment was saved or edited. */
+  mentions: z.array(userSummarySchema),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

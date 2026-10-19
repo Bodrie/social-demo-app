@@ -16,5 +16,6 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0009](0009-conversations-and-read-marks.md) | Conversations as records, read state per member | Accepted |
 | [0010](0010-email-verification-and-password-reset.md) | Transactional email, verified addresses, password reset | Accepted (amended by 0011) |
 | [0011](0011-pre-release-hardening.md) | Pre-release hardening: ending sessions, verification links, mail limits, release gate | Accepted |
+| [0013](0013-text-entities.md) | Text entities: one shared parser for mentions, hashtags and links; entities stored at save time | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.

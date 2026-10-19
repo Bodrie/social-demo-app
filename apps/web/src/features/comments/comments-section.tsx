@@ -12,6 +12,8 @@ import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { InlineEditor } from '@/components/inline-editor';
+import { MentionTextarea } from '@/components/mention-textarea';
+import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchCommentRevisions } from '@/lib/api/comments';
@@ -94,12 +95,12 @@ export function CommentsSection({ post }: { post: Post }) {
     <section aria-label="Comments" className="space-y-4 border-t px-5 py-4">
       <form onSubmit={onSubmit} className="flex items-start gap-3">
         <UserAvatar user={me} className="size-8" />
-        <Textarea
+        <MentionTextarea
           aria-label="Write a comment"
           placeholder="Write a comment…"
           rows={1}
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onValueChange={setText}
           onKeyDown={onKeyDown}
           className="min-h-9 py-1.5 text-sm"
         />
@@ -272,7 +273,12 @@ function CommentItem({
               />
             </div>
           ) : (
-            <p className="text-sm break-words whitespace-pre-wrap">{comment.content}</p>
+            <RichText
+              text={comment.content}
+              mentions={comment.mentions}
+              hashtags
+              className="text-sm break-words whitespace-pre-wrap"
+            />
           )}
         </div>
         <ReactionBar summary={comment.reactions} onReact={onReact} />

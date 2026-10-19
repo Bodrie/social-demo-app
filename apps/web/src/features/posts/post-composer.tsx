@@ -3,10 +3,10 @@ import { cn } from 'cn';
 import { ImageIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { MentionTextarea } from '@/components/mention-textarea';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { AttachmentPreview } from '@/features/uploads/attachment-preview';
 import { useImageUpload } from '@/features/uploads/use-image-upload';
@@ -75,12 +75,12 @@ export function PostComposer() {
         <CardContent className="flex gap-3 px-4">
           <UserAvatar user={me} className="mt-1" />
           <div className="min-w-0 flex-1 space-y-3">
-            <Textarea
+            <MentionTextarea
               ref={textareaRef}
               aria-label="New post"
               placeholder={`What's on your mind, ${firstName(me.name)}?`}
               value={content}
-              onChange={(event) => setContent(event.target.value)}
+              onValueChange={setContent}
               className="min-h-14 resize-none border-0 bg-transparent px-0 py-2 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
 

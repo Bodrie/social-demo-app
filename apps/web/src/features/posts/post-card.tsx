@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { InlineEditor } from '@/components/inline-editor';
+import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';
@@ -85,7 +86,12 @@ export function PostCard({ post }: { post: Post }) {
             onCancel={() => setEditing(false)}
           />
         ) : (
-          <p className="text-[15px]/6 break-words whitespace-pre-wrap">{post.content}</p>
+          <RichText
+            text={post.content}
+            mentions={post.mentions}
+            hashtags
+            className="text-[15px]/6 break-words whitespace-pre-wrap"
+          />
         )}
         {post.imageUrl ? (
           <img

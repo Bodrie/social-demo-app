@@ -11,6 +11,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { extractEntities } from '@the-mesh/shared';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { ActivityType, ReactionType } from '../src/generated/prisma/enums.js';
@@ -259,8 +260,56 @@ async function seed(): Promise<void> {
     ]);
   }
 
+  // --- tagged posts and mentions between the fixed accounts ------------------
+  // Dated a few days back so they sit inside the trending window without topping the feeds.
+  const [alice, bob, carol] = users;
+  if (alice && bob && carol) {
+    const tagged = [
+      {
+        author: alice,
+        content: 'Who is up for a hike this #weekend? @bob @carol bring the good snacks.',
+      },
+      {
+        author: bob,
+        content: 'New #photography set from the coast is up. Thanks @alice for the tip!',
+      },
+      { author: carol, content: 'First post on #TheMesh. Hello everyone, hello @alice!' },
+      {
+        author: alice,
+        content: 'Reading list for the #weekend: https://example.com/reading #themesh',
+      },
+    ];
+    const byUsername = new Map(users.map((user) => [user.username, user.id]));
+    for (const [index, item] of tagged.entries()) {
+      const createdAt = new Date(Date.now() - (2 + index) * 24 * 60 * 60 * 1000);
+      const entities = extractEntities(item.content);
+      const post = await prisma.post.create({
+        data: {
+          authorId: item.author.id,
+          content: item.content,
+          createdAt,
+          mentions: {
+            create: entities.mentions
+              .map((username) => byUsername.get(username))
+              .filter((id): id is string => id !== undefined)
+              .map((userId) => ({ userId })),
+          },
+          hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
+        },
+        select: { id: true },
+      });
+      await prisma.activity.create({
+        data: {
+          actorId: item.author.id,
+          type: ActivityType.POST_CREATED,
+          postId: post.id,
+          createdAt,
+        },
+      });
+    }
+  }
+
   // --- conversations between the fixed accounts ------------------------------
-  const [alice, bob] = users;
   if (alice && bob) {
     const direct = await prisma.conversation.create({
       data: {

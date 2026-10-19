@@ -77,6 +77,12 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/u/bob');
     await expect(page.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeVisible();
     await audit(page, '/u/bob');
+    await page.goto('/tags/weekend');
+    await expect(page.getByRole('heading', { level: 1, name: '#weekend' })).toBeVisible();
+    await expect(
+      page.getByRole('feed', { name: 'Posts tagged #weekend' }).getByRole('article').first(),
+    ).toBeVisible();
+    await audit(page, '/tags/weekend');
     await page.goto('/settings');
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
     await audit(page, '/settings');

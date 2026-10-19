@@ -34,6 +34,8 @@ describe('postSchema', () => {
       commentCount: 0,
       likedByMe: true,
       editedAt: null,
+      mentions: [],
+      hashtags: ['hi'],
       createdAt: '2026-10-15T10:00:00.000Z',
       updatedAt: '2026-10-15T10:00:00.000Z',
     };

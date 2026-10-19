@@ -7,6 +7,7 @@ import { type UIEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef 
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/empty-state';
+import { RichText } from '@/components/rich-text';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
@@ -322,9 +323,12 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 </a>
               ) : null}
               {message.content ? (
-                <span className={cn('block', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}>
-                  {message.content}
-                </span>
+                <RichText
+                  as="span"
+                  text={message.content}
+                  className={cn('block', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}
+                  linkClassName={mine ? 'text-primary-foreground underline' : undefined}
+                />
               ) : null}
             </div>
             {message.status === 'failed' ? (

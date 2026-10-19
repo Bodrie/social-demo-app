@@ -47,6 +47,15 @@ export class UsersService {
     if (count === 0) throw notFound('User not found');
   }
 
+  /** The members among `usernames` (lower-case), for resolving @mentions; unknown names are simply absent. */
+  async findByUsernames(usernames: readonly string[]): Promise<{ id: string; username: string }[]> {
+    if (usernames.length === 0) return [];
+    return this.prisma.user.findMany({
+      where: { username: { in: [...usernames] } },
+      select: { id: true, username: true },
+    });
+  }
+
   async summary(id: string): Promise<UserSummary | null> {
     const row = await this.prisma.user.findUnique({ where: { id }, select: userSummarySelect });
     return row ? toUserSummary(row, this.assets.base) : null;
