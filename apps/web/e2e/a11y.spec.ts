@@ -1,9 +1,10 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { type Page, expect, test } from '@playwright/test';
-import { ANONYMOUS, openHome } from './helpers.js';
+import { ANONYMOUS, animationsDone, openHome } from './helpers.js';
 
 /** WCAG 2.1 A/AA checks; `best-practice` rules are left out on purpose (too opinionated for a feed). */
 async function audit(page: Page, label: string): Promise<void> {
+  await animationsDone(page);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();

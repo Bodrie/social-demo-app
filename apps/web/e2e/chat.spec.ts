@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { contextAs, openHome } from './helpers.js';
+import { animationsDone, contextAs, openHome } from './helpers.js';
 
 // Both tests talk between alice and bob, so they must not interleave (fullyParallel is on).
 test.describe.configure({ mode: 'default' });
@@ -75,6 +75,7 @@ test.describe('chat', () => {
     await bubble.click();
     const chat = page.getByRole('dialog', { name: 'Chat with Bob Brown' });
     await expect(chat.getByText(text)).toBeVisible();
+    await animationsDone(page);
     const axe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
@@ -173,15 +174,15 @@ test.describe('chat', () => {
     await mine.hover();
     await mine.getByRole('button', { name: 'Message options' }).click();
     await page.getByRole('menuitem', { name: 'Delete message' }).click();
-    await page
-      .getByRole('alertdialog', { name: 'Delete this message?' })
-      .getByRole('button', { name: 'Delete' })
-      .click();
+    const confirm = page.getByRole('alertdialog', { name: 'Delete this message?' });
+    await confirm.getByRole('button', { name: 'Delete' }).click();
+    await expect(confirm).toHaveCount(0);
     await expect(aliceLog.getByText('Message deleted')).toBeVisible();
     await expect(aliceLog.getByText(text)).toHaveCount(0);
     await expect(bobLog.getByText('Message deleted')).toBeVisible({ timeout: 15_000 });
     await expect(bobLog.getByText(text)).toHaveCount(0);
 
+    await animationsDone(page);
     const axe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();

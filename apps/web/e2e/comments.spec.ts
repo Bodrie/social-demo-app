@@ -44,7 +44,12 @@ test.describe('editing and reactions', () => {
 
     const bobComment = comments.getByRole('listitem').filter({ hasText: 'Bob first' });
     await bobComment.getByRole('button', { name: 'Add reaction' }).click();
+    // The pill is optimistic: "Top" must not be fetched before the reaction is stored.
+    const saved = page.waitForResponse(
+      (res) => res.url().endsWith('/reaction') && res.request().method() === 'PUT',
+    );
     await page.getByRole('button', { name: 'Love' }).click();
+    expect((await saved).ok()).toBe(true);
     await expect(bobComment.getByRole('button', { name: 'Love 1' })).toHaveAttribute(
       'aria-pressed',
       'true',

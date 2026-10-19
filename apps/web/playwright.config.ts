@@ -53,6 +53,10 @@ export default defineConfig({
         // messages still go out over HTTP, but pushes such as read receipts never arrive).
         SOCKET_MAX_PER_USER: '50',
         SOCKET_CONNECTS_PER_MINUTE: '1000',
+        // The global limit counts per route and address, and every browser reaches the API
+        // from the preview proxy's address: a full run asks GET /auth/me ~100 times a minute,
+        // and the 429s that follow leave every later page without a session.
+        THROTTLE_LIMIT: '10000',
       },
     },
     {

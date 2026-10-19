@@ -97,6 +97,22 @@ export async function openHome(page: Page): Promise<void> {
   await expect(page.getByLabel('New post')).toBeVisible();
 }
 
+/**
+ * Waits for running enter/exit animations (dialogs, menus) to end. Run it before axe: mid-fade
+ * text is blended with a translucent surface (false contrast failures), and Radix keeps the
+ * page `aria-hidden` until a closing dialog has finished animating.
+ */
+export async function animationsDone(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
+}
+
 /** A second browser context signed in as another seeded member (no extra login needed). */
 export async function contextAs(browser: Browser, user: SeededUser): Promise<BrowserContext> {
   return browser.newContext({ storageState: stateFor(user) });
