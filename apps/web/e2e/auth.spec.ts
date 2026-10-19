@@ -42,6 +42,8 @@ test.describe('registration', () => {
     await expect(page).toHaveURL(/\/login$/);
 
     await page.getByRole('link', { name: 'Forgot your password?' }).click();
+    // The login page has an Email field too: wait for the lazy route before filling.
+    await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
     await page.getByLabel('Email').fill(member.email);
     await page.getByRole('button', { name: 'Send reset link' }).click();
     await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();

@@ -1,4 +1,10 @@
-import type { UserPrivate, UserPublic, UserSummary } from '@the-mesh/shared';
+import {
+  type UserPrivate,
+  type UserPublic,
+  type UserSettings,
+  type UserSummary,
+  userSettingsSchema,
+} from '@the-mesh/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** The compact shape embedded in posts, comments, activities, messages and presence. */
@@ -42,6 +48,7 @@ export function userPrivateSelect(viewerId: string) {
     ...userPublicSelect(viewerId),
     email: true,
     emailVerifiedAt: true,
+    settings: true,
     updatedAt: true,
   } satisfies Prisma.UserSelect;
 }
@@ -69,11 +76,18 @@ export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic
   };
 }
 
+/** The stored JSON with defaults applied; anything unreadable falls back to the defaults. */
+export function toUserSettings(stored: unknown): UserSettings {
+  const parsed = userSettingsSchema.safeParse(stored ?? {});
+  return parsed.success ? parsed.data : userSettingsSchema.parse({});
+}
+
 export function toUserPrivate(row: UserPrivateRow, assetsBase: string): UserPrivate {
   return {
     ...toUserPublic(row, assetsBase),
     email: row.email,
     emailVerifiedAt: row.emailVerifiedAt ? row.emailVerifiedAt.toISOString() : null,
+    settings: toUserSettings(row.settings),
     updatedAt: row.updatedAt.toISOString(),
   };
 }

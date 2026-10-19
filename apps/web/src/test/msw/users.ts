@@ -1,4 +1,9 @@
-import { type AccountExport, deleteAccountSchema, updateProfileSchema } from '@the-mesh/shared';
+import {
+  type AccountExport,
+  deleteAccountSchema,
+  updateProfileSchema,
+  updateSettingsSchema,
+} from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
 import { TEST_PASSWORD } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';
@@ -11,6 +16,16 @@ const noContent = () => new HttpResponse(null, { status: 204 });
 const assetUrl = (key: string) => `http://localhost/api/v1/uploads/${key}`;
 
 export const userHandlers = [
+  http.patch(`${API}/users/me/settings`, async ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const body = updateSettingsSchema.parse(await request.json());
+    mockDb.user.settings = {
+      ...mockDb.user.settings,
+      ...Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined)),
+    };
+    return HttpResponse.json({ user: mockDb.user });
+  }),
+
   http.get(`${API}/users/me/export`, () => {
     if (!mockDb.user) return unauthorized();
     const me = mockDb.user;

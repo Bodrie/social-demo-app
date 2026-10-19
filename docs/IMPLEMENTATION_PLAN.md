@@ -47,7 +47,7 @@ A2  account deletion + export       ✅ 2026-10-19           │
 A3  Turnstile on register           ✅ 2026-10-19           │
 A1  box + monitor + backups (owner, in parallel)           ─┘
 A4  review-pass completion + cheap Low items ✅ 2026-10-19  ─┐
-B3a chat bubbles (new, §3 B3a)                              │  v2.4
+B3a chat bubbles                    ✅ 2026-10-19           │  v2.4
 B3b chat follow-ups                                         │
 C1  newcomer experience (explore + onboarding)             ─┘
 C6  scheduler + reapers                                    ─┐
@@ -166,7 +166,7 @@ Search
 
 Tests: int (match, phrase and `-exclusion` syntax of `websearch_to_tsquery`, cursor, no SQL injection through `q`, `GET /comments/:id`); web (post page, 404, copy link, search page and header box); e2e (open a post from the feed by its timestamp, search a seeded phrase); `/p/:id` and `/search` in the a11y spec.
 
-### B3a. Chat bubbles · L · ADR 0009 amendment ("Chat surfaces")
+### B3a. Chat bubbles · L · ADR 0009 amendment ("Chat surfaces") · ✅ 2026-10-19
 
 Owner's request of 2026-10-19 (desktop sketch: four bubbles stacked on the right edge, the newest
 at the bottom with its unread badge, two chat windows docked at the bottom, side by side, to the left

@@ -4,6 +4,7 @@ import type {
   ListUsersQuery,
   Paginated,
   UpdateProfileData,
+  UpdateSettingsInput,
   UserPrivate,
   UserPublic,
   UserSummary,
@@ -18,6 +19,7 @@ import { UploadsService } from '../uploads/uploads.service.js';
 import {
   toUserPrivate,
   toUserPublic,
+  toUserSettings,
   toUserSummary,
   userPrivateSelect,
   userPublicSelect,
@@ -88,6 +90,27 @@ export class UsersService {
     const user = await this.findPrivateById(id);
     if (!user) throw notFound('User not found');
     return user;
+  }
+
+  /** Merges the given keys into the stored preferences; the answer carries every key with defaults. */
+  async updateSettings(id: string, patch: UpdateSettingsInput): Promise<UserPrivate> {
+    const current = await this.prisma.user.findUnique({
+      where: { id },
+      select: { settings: true },
+    });
+    if (!current) throw notFound('User not found');
+    const next = { ...toUserSettings(current.settings) };
+    if (patch.chatBubbles !== undefined) next.chatBubbles = patch.chatBubbles;
+    if (patch.messageSound !== undefined) next.messageSound = patch.messageSound;
+    if (patch.browserNotifications !== undefined) {
+      next.browserNotifications = patch.browserNotifications;
+    }
+    const row = await this.prisma.user.update({
+      where: { id },
+      data: { settings: next },
+      select: userPrivateSelect(id),
+    });
+    return toUserPrivate(row, this.assets.base);
   }
 
   async updateProfile(id: string, patch: UpdateProfileData): Promise<UserPrivate> {

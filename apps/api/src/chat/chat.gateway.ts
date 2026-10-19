@@ -1,4 +1,5 @@
 import { Logger, type OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -25,6 +26,7 @@ import {
 } from '@the-mesh/shared';
 import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { fieldsFromIssues, toApiError } from '../common/errors.js';
+import type { Env } from '../config/env.js';
 import { ConversationsService } from '../conversations/conversations.service.js';
 import { SessionsRevokedEvent } from '../events/auth.events.js';
 import {
@@ -53,11 +55,13 @@ const userRooms = (userIds: readonly string[]): string[] => userIds.map(userRoom
 /** Sockets whose user is in the presence list; a socket still being set up gets no list. */
 export const PRESENCE_ROOM = 'presence';
 
-/** Open sockets allowed per user (tabs/devices); more are refused at handshake. */
+/** Default for `SOCKET_MAX_PER_USER`: open sockets per user (tabs/devices); more are refused at handshake. */
 export const MAX_SOCKETS_PER_USER = 5;
 /**
- * Authenticated handshakes per user and minute, accepted or not: plenty for a few tabs on a
- * flaky network, not for a connect/disconnect loop (each one costs a lookup and a broadcast).
+ * Default for `SOCKET_CONNECTS_PER_MINUTE`: authenticated handshakes per user and minute,
+ * accepted or not. Plenty for a few tabs on a flaky network, not for a connect/disconnect loop
+ * (each one costs a lookup and a broadcast). Both limits are per user, so a test run in which
+ * every browser is the same member raises them through the environment.
  */
 export const CONNECT_LIMIT = { limit: 30, windowMs: 60_000 };
 /** Presence changes within this window go out as one broadcast of the list. */
@@ -93,10 +97,8 @@ export class ChatGateway
   private readonly readLimiter = new SocketRateLimiter(READ_LIMIT.limit, READ_LIMIT.windowMs);
   private readonly typingLimiter = new SocketRateLimiter(TYPING_LIMIT.limit, TYPING_LIMIT.windowMs);
   /** Never forgotten on disconnect (that would reset it for a loop); expired windows are swept. */
-  private readonly connectLimiter = new SocketRateLimiter(
-    CONNECT_LIMIT.limit,
-    CONNECT_LIMIT.windowMs,
-  );
+  private readonly connectLimiter: SocketRateLimiter;
+  private readonly maxSocketsPerUser: number;
   /** Accepted handshakes per user. Presence fills in later (after a lookup), so the cap counts here. */
   private readonly socketsByUser = new Map<string, number>();
   private presenceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -106,7 +108,14 @@ export class ChatGateway
     private readonly users: UsersService,
     private readonly presence: PresenceService,
     private readonly conversations: ConversationsService,
-  ) {}
+    config: ConfigService<Env, true>,
+  ) {
+    this.maxSocketsPerUser = config.get('SOCKET_MAX_PER_USER', { infer: true });
+    this.connectLimiter = new SocketRateLimiter(
+      config.get('SOCKET_CONNECTS_PER_MINUTE', { infer: true }),
+      CONNECT_LIMIT.windowMs,
+    );
+  }
 
   afterInit(server: Server): void {
     server.use((socket: ChatSocket, next) => {
@@ -122,7 +131,7 @@ export class ChatGateway
           return;
         }
         const open = this.socketsByUser.get(session.userId) ?? 0;
-        if (open >= MAX_SOCKETS_PER_USER) {
+        if (open >= this.maxSocketsPerUser) {
           next(new Error('Too many connections'));
           return;
         }

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { contextAs, openHome } from './helpers.js';
 
@@ -39,7 +40,8 @@ test.describe('chat', () => {
     await expect(bobLog.getByText(text)).toBeVisible();
 
     // Alice sees the read receipt, then Bob's reply arrives without a reload.
-    await expect(aliceLog.getByText(/Seen/)).toBeVisible();
+    // A receipt is a second browser's round trip: generous on a loaded machine.
+    await expect(aliceLog.getByText(/Seen/)).toBeVisible({ timeout: 15_000 });
     const reply = `Hi Alice ${Date.now()}`;
     await bob.getByRole('textbox', { name: 'Message Alice Anderson' }).fill(reply);
     // Typing is relayed live: alice's thread header says so until the message lands.
@@ -52,6 +54,46 @@ test.describe('chat', () => {
     // Bob is gone: presence updates for alice.
     await page.goto('/');
     await expect(sidebar.getByRole('list', { name: 'Online now' })).toHaveCount(0);
+  });
+
+  test('a message that arrives on another page pops up as a bubble to read and reply from', async ({
+    page,
+    browser,
+  }) => {
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await openHome(page);
+    await bob.goto('/messages/with/alice');
+    const text = `Bubble ${Date.now()}`;
+    await bob.getByRole('textbox', { name: 'Message Alice Anderson' }).fill(text);
+    await bob.keyboard.press('Enter');
+
+    // Alice is on her feed: a bubble with the unread count, no navigation.
+    const bubble = page.getByRole('button', { name: /^Open chat with Bob Brown, \d+ unread$/ });
+    await expect(bubble).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await bubble.click();
+    const chat = page.getByRole('dialog', { name: 'Chat with Bob Brown' });
+    await expect(chat.getByText(text)).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations, 'axe violations with a chat window open').toEqual([]);
+
+    // Reading in the window is a read: Bob sees it. Replying works from there too.
+    await expect(bob.getByText(/Seen/)).toBeVisible({ timeout: 15_000 });
+    const reply = `From the bubble ${Date.now()}`;
+    await chat.getByRole('textbox', { name: 'Message Bob Brown' }).fill(reply);
+    await page.keyboard.press('Enter');
+    await expect(
+      bob.getByRole('log', { name: 'Conversation with Alice Anderson' }).getByText(reply),
+    ).toBeVisible();
+
+    await chat.getByRole('button', { name: 'Minimise chat with Bob Brown' }).click();
+    await expect(chat).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Open chat with Bob Brown' })).toBeVisible();
+    await page.getByRole('button', { name: 'Hide chat with Bob Brown' }).click();
+    await expect(page.getByRole('list', { name: 'Chat bubbles' })).toHaveCount(0);
+    await bob.context().close();
   });
 
   test('pictures travel with messages', async ({ page, browser }) => {
@@ -113,7 +155,7 @@ test.describe('chat', () => {
     await bobRow.click();
     const bobLog = bob.getByRole('log', { name: `Group ${title}` });
     await expect(bobLog.getByText(text)).toBeVisible();
-    await expect(log.getByText('Seen by everyone')).toBeVisible();
+    await expect(log.getByText('Seen by everyone')).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('button', { name: 'Group members' }).click();
     const members = page

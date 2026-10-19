@@ -194,14 +194,10 @@ export class ConversationsService {
       where: { conversationId_userId: { conversationId: id, userId: meId } },
       data: { lastReadAt: readAt },
     });
+    // Everyone, the reader included: their other tabs lower their badge on it (review L9).
     await this.events.emitAsync(
       ConversationReadEvent.EVENT,
-      new ConversationReadEvent(
-        id,
-        meId,
-        readAt,
-        memberIdsOf(row).filter((userId) => userId !== meId),
-      ),
+      new ConversationReadEvent(id, meId, readAt, memberIdsOf(row)),
     );
     return { readAt: readAt.toISOString() };
   }

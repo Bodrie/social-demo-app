@@ -50,7 +50,14 @@ const GROUP_GAP_MS = 5 * 60 * 1000;
 const NEAR_BOTTOM_PX = 80;
 const LOAD_OLDER_PX = 200;
 
-export function Thread({ conversation }: { conversation: Conversation }) {
+type ThreadProps = {
+  conversation: Conversation;
+  /** Inside a chat window, which brings its own header. */
+  embedded?: boolean;
+  className?: string;
+};
+
+export function Thread({ conversation, embedded = false, className }: ThreadProps) {
   const me = useCurrentUser();
   const chat = useChat();
   const queryClient = useQueryClient();
@@ -58,7 +65,7 @@ export function Thread({ conversation }: { conversation: Conversation }) {
   const messages = useMemo(() => flattenPages(thread.data).toReversed(), [thread.data]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
-  const { setActiveConversation, markRead, setTyping } = chat;
+  const { activateConversation, markRead, setTyping } = chat;
 
   const peer = directPeer(conversation, me.id);
   const name = conversationName(conversation, me.id);
@@ -68,10 +75,7 @@ export function Thread({ conversation }: { conversation: Conversation }) {
     .map((userId) => memberById(conversation, userId)?.user.name ?? 'Someone');
   const typing = typingText(typingNames);
 
-  useEffect(() => {
-    setActiveConversation(conversation.id);
-    return () => setActiveConversation(null);
-  }, [setActiveConversation, conversation.id]);
+  useEffect(() => activateConversation(conversation.id), [activateConversation, conversation.id]);
 
   // Whatever is still unread gets marked once the thread is on screen.
   const hasUnread = conversation.unreadCount > 0;
@@ -174,54 +178,58 @@ export function Thread({ conversation }: { conversation: Conversation }) {
       : `${conversation.members.length} members`;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-3 border-b px-3 py-2.5">
-        <Button
-          asChild
-          variant="ghost"
-          size="icon-sm"
-          className="md:hidden"
-          aria-label="Back to conversations"
-        >
-          <Link to="/messages">
-            <ArrowLeftIcon />
-          </Link>
-        </Button>
-        {peer ? (
-          <Link
-            to={`/u/${peer.username}`}
-            className="relative shrink-0"
-            aria-hidden="true"
-            tabIndex={-1}
+    <div className={cn('flex h-full min-h-0 flex-col', className)}>
+      {embedded ? null : (
+        <header className="flex items-center gap-3 border-b px-3 py-2.5">
+          <Button
+            asChild
+            variant="ghost"
+            size="icon-sm"
+            className="md:hidden"
+            aria-label="Back to conversations"
           >
+            <Link to="/messages">
+              <ArrowLeftIcon />
+            </Link>
+          </Button>
+          {peer ? (
+            <Link
+              to={`/u/${peer.username}`}
+              className="relative shrink-0"
+              aria-hidden="true"
+              tabIndex={-1}
+            >
+              <ConversationAvatar conversation={conversation} meId={me.id} />
+              <PresenceDot online={online} />
+            </Link>
+          ) : (
             <ConversationAvatar conversation={conversation} meId={me.id} />
-            <PresenceDot online={online} />
-          </Link>
-        ) : (
-          <ConversationAvatar conversation={conversation} meId={me.id} />
-        )}
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate font-semibold">
-            {peer ? (
-              <Link to={`/u/${peer.username}`} className="hover:underline">
-                {name}
-              </Link>
-            ) : (
-              name
-            )}
-          </h2>
-          <p className={cn('truncate text-xs', typing ? 'text-primary' : 'text-muted-foreground')}>
-            {subtitle}
-          </p>
-        </div>
-        {conversation.kind === 'group' ? (
-          <GroupMembersDialog conversation={conversation}>
-            <Button variant="ghost" size="icon-sm" aria-label="Group members">
-              <UsersIcon />
-            </Button>
-          </GroupMembersDialog>
-        ) : null}
-      </header>
+          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate font-semibold">
+              {peer ? (
+                <Link to={`/u/${peer.username}`} className="hover:underline">
+                  {name}
+                </Link>
+              ) : (
+                name
+              )}
+            </h2>
+            <p
+              className={cn('truncate text-xs', typing ? 'text-primary' : 'text-muted-foreground')}
+            >
+              {subtitle}
+            </p>
+          </div>
+          {conversation.kind === 'group' ? (
+            <GroupMembersDialog conversation={conversation}>
+              <Button variant="ghost" size="icon-sm" aria-label="Group members">
+                <UsersIcon />
+              </Button>
+            </GroupMembersDialog>
+          ) : null}
+        </header>
+      )}
 
       <div
         ref={scrollRef}

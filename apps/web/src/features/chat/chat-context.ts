@@ -12,8 +12,13 @@ export type ChatContextValue = {
   /** Fire-and-forget over the socket; silently nothing without a connection. */
   setTyping: (conversationId: string, typing: boolean) => void;
   markRead: (conversationId: string) => Promise<void>;
-  /** The thread on screen; messages arriving there are read on arrival. */
-  setActiveConversation: (conversationId: string | null) => void;
+  /**
+   * Declares a thread as on screen (the messages page or a chat window): messages arriving
+   * there are read on arrival. Returns the release; several threads can be on screen at once.
+   */
+  activateConversation: (conversationId: string) => () => void;
+  /** Every message pushed by the server, after the cache was updated (chat bubbles listen). */
+  subscribeToMessages: (listener: (message: Message) => void) => () => void;
 };
 
 export const ChatContext = createContext<ChatContextValue | null>(null);

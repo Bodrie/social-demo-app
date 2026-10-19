@@ -1,12 +1,15 @@
+import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { UserSummary } from '@the-mesh/shared';
 import type { Server } from 'socket.io';
 import { mockDeep } from 'vitest-mock-extended';
+import type { Env } from '../config/env.js';
 import type { ConversationsService } from '../conversations/conversations.service.js';
 import type { UsersService } from '../users/users.service.js';
 import {
   CONNECT_LIMIT,
   ChatGateway,
+  MAX_SOCKETS_PER_USER,
   PRESENCE_BROADCAST_DELAY_MS,
   PRESENCE_ROOM,
 } from './chat.gateway.js';
@@ -18,6 +21,15 @@ const jwt = new JwtService({
   secret: 'unit-test-secret-unit-test-secret-unit-test',
   signOptions: { expiresIn: 60 },
 });
+
+/** The defaults, as the real `ConfigService` would answer without the variables set. */
+const limits = {
+  SOCKET_MAX_PER_USER: MAX_SOCKETS_PER_USER,
+  SOCKET_CONNECTS_PER_MINUTE: CONNECT_LIMIT.limit,
+};
+const config = {
+  get: (key: keyof typeof limits) => limits[key],
+} as unknown as ConfigService<Env, true>;
 
 const summary = (n: number): UserSummary => ({
   id: `0199b6a0-0000-7000-8000-00000000000${n}`,
@@ -50,7 +62,7 @@ describe('ChatGateway', () => {
   beforeEach(() => {
     users = mockDeep<UsersService>();
     presence = new PresenceService();
-    gateway = new ChatGateway(jwt, users, presence, mockDeep<ConversationsService>());
+    gateway = new ChatGateway(jwt, users, presence, mockDeep<ConversationsService>(), config);
     broadcast = vi.fn();
     server = { to: vi.fn(() => ({ emit: broadcast })), use: vi.fn() };
     gateway.server = server as unknown as Server;

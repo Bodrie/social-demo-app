@@ -66,9 +66,30 @@ export const userPublicSchema = userSummarySchema.extend({
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
 
+/**
+ * Account-level preferences, stored as JSON on the user row. Unknown keys are dropped and
+ * missing ones get their default, so the row can start empty and gain keys over time.
+ */
+export const userSettingsSchema = z.object({
+  /** Floating chat bubbles for messages that arrive while the viewer is elsewhere (ADR 0009). */
+  chatBubbles: z.boolean().default(true),
+  messageSound: z.boolean().default(false),
+  browserNotifications: z.boolean().default(false),
+});
+export type UserSettings = z.infer<typeof userSettingsSchema>;
+
+/** `PATCH /users/me/settings`: any subset of the keys. */
+export const updateSettingsSchema = z.object({
+  chatBubbles: z.boolean().optional(),
+  messageSound: z.boolean().optional(),
+  browserNotifications: z.boolean().optional(),
+});
+export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+
 /** The user's own profile (adds private fields). */
 export const userPrivateSchema = userPublicSchema.extend({
   email: z.string(),
+  settings: userSettingsSchema,
   /** Null until the address was confirmed through the link we mailed; the app is closed until then. */
   emailVerifiedAt: z.iso.datetime().nullable(),
   updatedAt: z.iso.datetime(),

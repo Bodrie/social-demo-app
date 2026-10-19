@@ -24,6 +24,7 @@ import { REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
 import { cn } from 'cn';
 import { AccountCard } from './account-card';
+import { ChatSettings } from './chat-settings';
 import { PasswordForm } from './password-form';
 
 const THEMES = [
@@ -64,6 +65,20 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <PasswordForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle asChild>
+            <h2>Chat</h2>
+          </CardTitle>
+          <CardDescription>
+            How messages reach you while you are elsewhere in the app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChatSettings />
         </CardContent>
       </Card>
 

@@ -9,7 +9,7 @@ export class MessageSentEvent {
   ) {}
 }
 
-/** `readerId` caught up in a conversation; `memberIds` are the others, who show the receipt. */
+/** `readerId` caught up in a conversation; `memberIds` are every member, the reader's own tabs included. */
 export class ConversationReadEvent {
   static readonly EVENT = 'conversation.read';
   constructor(

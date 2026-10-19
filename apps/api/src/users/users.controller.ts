@@ -4,7 +4,12 @@ import type { MeResponse, Paginated, UserPublic } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto, UsernameParamDto } from '../common/params.dto.js';
-import { ListUsersQueryDto, SuggestionsQueryDto, UpdateProfileDto } from './users.dto.js';
+import {
+  ListUsersQueryDto,
+  SuggestionsQueryDto,
+  UpdateProfileDto,
+  UpdateSettingsDto,
+} from './users.dto.js';
 import { UsersService } from './users.service.js';
 
 @ApiTags('users')
@@ -27,6 +32,15 @@ export class UsersController {
     @Body() body: UpdateProfileDto,
   ): Promise<MeResponse> {
     return { user: await this.users.updateProfile(user.id, body) };
+  }
+
+  /** Account-level preferences; any subset of the keys, answered with the full profile. */
+  @Patch('me/settings')
+  async updateSettings(
+    @CurrentUser() user: AuthUser,
+    @Body() body: UpdateSettingsDto,
+  ): Promise<MeResponse> {
+    return { user: await this.users.updateSettings(user.id, body) };
   }
 
   @Get('suggestions')

@@ -47,6 +47,10 @@ export const envSchema = z.object({
   TRUST_PROXY: z.string().default('false').transform(parseTrustProxy),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+  /** Open chat sockets allowed per user (tabs and devices); more are refused at handshake. */
+  SOCKET_MAX_PER_USER: z.coerce.number().int().positive().default(5),
+  /** Authenticated socket handshakes per user and minute, accepted or not. */
+  SOCKET_CONNECTS_PER_MINUTE: z.coerce.number().int().positive().default(30),
   /** HS256 secret for access tokens. Generate with `openssl rand -base64 48`. */
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_ACCESS_TTL_SECONDS: z.coerce

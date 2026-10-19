@@ -1,6 +1,8 @@
 import { cn } from 'cn';
 import { useEffect, useRef } from 'react';
 import { Outlet, ScrollRestoration, useLocation, useMatches } from 'react-router';
+import { useCurrentUser } from '@/features/auth/current-user';
+import { ChatBubbles } from '@/features/chat/bubbles/chat-bubbles';
 import { Header } from './header';
 import { LeftBar } from './left-bar';
 import { NavigationProgress } from './navigation-progress';
@@ -17,6 +19,7 @@ const isWide = (handle: unknown): boolean =>
  * main area (header, left bar), focus moves to the new page content.
  */
 export function AppShell() {
+  const me = useCurrentUser();
   const wide = useMatches().some((match) => isWide(match.handle));
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
@@ -61,6 +64,7 @@ export function AppShell() {
           </div>
         )}
       </div>
+      {me.settings.chatBubbles ? <ChatBubbles /> : null}
     </div>
   );
 }

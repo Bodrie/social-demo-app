@@ -12,7 +12,11 @@ if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
-      matches: false,
+      // Width queries follow jsdom's window (1024 wide, assignable), so a test can be "a phone"
+      // with `window.innerWidth = 390` before rendering; everything else never matches.
+      matches: /\(min-width: (\d+)px\)/.test(query)
+        ? window.innerWidth >= Number(/\(min-width: (\d+)px\)/.exec(query)?.[1])
+        : false,
       media: query,
       onchange: null,
       addEventListener: () => undefined,

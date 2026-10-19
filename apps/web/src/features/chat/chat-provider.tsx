@@ -69,7 +69,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState<UserSummary[]>([]);
   const [typing, setTypingMap] = useState<TypingMap>(() => new Map());
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const activeConversation = useRef<string | null>(null);
+  /** Threads on screen, counted: the messages page and up to two chat windows at once. */
+  const activeConversations = useRef(new Map<string, number>());
+  const messageListeners = useRef(new Set<(message: Message) => void>());
   const socketRef = useRef<ChatSocket | null>(null);
 
   const setPeerTyping = useCallback((conversationId: string, userId: string, isTyping: boolean) => {
@@ -150,17 +152,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const fromOther = message.senderId !== me.id;
       const onScreen =
         fromOther &&
-        activeConversation.current === message.conversationId &&
+        activeConversations.current.has(message.conversationId) &&
         document.visibilityState === 'visible';
       if (fromOther) setPeerTyping(message.conversationId, message.senderId, false);
       appendToThread(queryClient, message.conversationId, message);
       upsertConversation(queryClient, message, { countUnread: fromOther && !onScreen });
       if (onScreen) void markRead(message.conversationId);
+      for (const listener of messageListeners.current) listener(message);
     });
     const onRead = guarded(
       conversationReadPayloadSchema,
+      // My own read, made in another tab, lowers this tab's badge too (review L9).
       ({ conversationId, userId, readAt }: ConversationReadPayload) =>
-        setMemberReadAt(queryClient, conversationId, userId, readAt, { clearUnread: false }),
+        setMemberReadAt(queryClient, conversationId, userId, readAt, {
+          clearUnread: userId === me.id,
+        }),
     );
     const onTyping = guarded(
       typingUpdateSchema,
@@ -276,8 +282,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (socket?.connected) socket.emit(SOCKET_EVENTS.typing, { conversationId, typing: isTyping });
   }, []);
 
-  const setActiveConversation = useCallback((conversationId: string | null) => {
-    activeConversation.current = conversationId;
+  const activateConversation = useCallback((conversationId: string) => {
+    const active = activeConversations.current;
+    active.set(conversationId, (active.get(conversationId) ?? 0) + 1);
+    return () => {
+      const left = (active.get(conversationId) ?? 1) - 1;
+      if (left <= 0) active.delete(conversationId);
+      else active.set(conversationId, left);
+    };
+  }, []);
+
+  const subscribeToMessages = useCallback((listener: (message: Message) => void) => {
+    messageListeners.current.add(listener);
+    return () => {
+      messageListeners.current.delete(listener);
+    };
   }, []);
 
   const value = useMemo<ChatContextValue>(
@@ -289,9 +308,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       setTyping,
       markRead,
-      setActiveConversation,
+      activateConversation,
+      subscribeToMessages,
     }),
-    [connected, online, typing, sendMessage, setTyping, markRead, setActiveConversation],
+    [
+      connected,
+      online,
+      typing,
+      sendMessage,
+      setTyping,
+      markRead,
+      activateConversation,
+      subscribeToMessages,
+    ],
   );
 
   return <ChatContext value={value}>{children}</ChatContext>;

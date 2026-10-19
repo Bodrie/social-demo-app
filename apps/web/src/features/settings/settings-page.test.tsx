@@ -61,6 +61,20 @@ describe('SettingsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
   });
 
+  it('stores the chat bubbles preference on the account', async () => {
+    signedInAs(alice);
+    renderApp('/settings');
+    const user = userEvent.setup();
+    const toggle = await screen.findByRole('switch', {
+      name: 'Show chat bubbles for new messages',
+    });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    expect(toggle).not.toBeChecked();
+    await waitFor(() => expect(mockDb.user?.settings.chatBubbles).toBe(false));
+  });
+
   it('keeps the session and says so when signing out everywhere fails', async () => {
     signedInAs(alice);
     server.use(

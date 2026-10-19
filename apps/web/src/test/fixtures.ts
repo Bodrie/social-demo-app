@@ -47,6 +47,7 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     followsMe: false,
     email: 'alice@example.com',
     emailVerifiedAt: '2026-10-15T10:05:00.000Z',
+    settings: { chatBubbles: true, messageSound: false, browserNotifications: false },
     ...overrides,
   };
 }

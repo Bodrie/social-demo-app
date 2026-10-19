@@ -27,6 +27,8 @@ model User {
   website         String?
   avatarKey       String?   @map("avatar_key")
   coverKey        String?   @map("cover_key")
+  /// Account-level preferences (`userSettingsSchema` in shared); keys are added as features land.
+  settings        Json      @default("{}") @db.JsonB
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 

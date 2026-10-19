@@ -645,3 +645,47 @@ describe('group lifecycle pushes', () => {
     carolSocket.close();
   });
 });
+
+describe('read marks reach the reader too', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  it("pushes conversation:read to the reader's other tabs as well as to the others (review L9)", async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const otherTab = connect(t, { cookie: `access_token=${aliceSession.token}` });
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await Promise.all([connected(otherTab), connected(bobSocket)]);
+
+    const direct = (
+      await aliceSession.agent.put(`/api/v1/conversations/direct/${bob.id}`).expect(200)
+    ).body as { id: string };
+    await bobSession.agent
+      .post(`/api/v1/conversations/${direct.id}/messages`)
+      .send({ content: 'hi' })
+      .expect(201);
+
+    const tabHears = waitFor<{ conversationId: string; userId: string }>(
+      otherTab,
+      'conversation:read',
+    );
+    const bobHears = waitFor<{ conversationId: string; userId: string }>(
+      bobSocket,
+      'conversation:read',
+    );
+    await aliceSession.agent.post(`/api/v1/conversations/${direct.id}/read`).expect(200);
+    expect(await tabHears).toMatchObject({ conversationId: direct.id, userId: alice.id });
+    expect(await bobHears).toMatchObject({ conversationId: direct.id, userId: alice.id });
+
+    otherTab.close();
+    bobSocket.close();
+  });
+});

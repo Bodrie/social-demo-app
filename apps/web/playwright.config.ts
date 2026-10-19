@@ -48,6 +48,11 @@ export default defineConfig({
         EMAIL_TRANSPORT: 'outbox',
         EMAIL_OUTBOX_DIR: OUTBOX_DIR,
         LOG_LEVEL: process.env.E2E_API_LOG_LEVEL ?? 'warn',
+        // Every worker is signed in as alice, so the per-user socket limits meant for one
+        // person's tabs would refuse her handshakes in a full run (`Too many connections`:
+        // messages still go out over HTTP, but pushes such as read receipts never arrive).
+        SOCKET_MAX_PER_USER: '50',
+        SOCKET_CONNECTS_PER_MINUTE: '1000',
       },
     },
     {
