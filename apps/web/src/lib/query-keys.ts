@@ -25,6 +25,9 @@ export const queryKeys = {
     feed: ['posts', 'list', 'feed'] as const,
     byUser: (userId: string) => ['posts', 'list', 'user', userId] as const,
     byTag: (tag: string) => ['posts', 'list', 'tag', tag] as const,
+    search: (q: string) => ['posts', 'list', 'search', q] as const,
+    /** One post as a one-item list, so every cache helper (likes, edits, deletes) reaches it. */
+    detail: (postId: string) => ['posts', 'list', 'detail', postId] as const,
   },
   tags: {
     all: ['tags'] as const,
@@ -35,6 +38,8 @@ export const queryKeys = {
     /** Prefix for every sort order of one post's comments. */
     ofPost: (postId: string) => ['comments', postId] as const,
     forPost: (postId: string, sort: CommentSort) => ['comments', postId, sort] as const,
+    /** A comment fetched alone for a permalink that points past the loaded pages. */
+    single: (commentId: string) => ['comments', 'single', commentId] as const,
   },
   revisions: {
     post: (postId: string) => ['revisions', 'post', postId] as const,

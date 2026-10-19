@@ -6,6 +6,7 @@ import {
   type Paginated,
   type Post,
   type Revision,
+  type SearchQuery,
   type UpdatePostData,
   extractEntities,
 } from '@the-mesh/shared';
@@ -15,7 +16,7 @@ import { emitMentions } from '../common/mentions.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { toRevision } from '../common/revisions.js';
 import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
-import type { Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -150,6 +151,32 @@ export class PostsService {
   /** Every post carrying `tag` (already lower-cased by the DTO), newest first. */
   byTag(viewerId: string, tag: string, query: CursorQuery): Promise<Paginated<Post>> {
     return this.list(viewerId, query, { hashtags: { some: { tag } } });
+  }
+
+  /**
+   * Full-text search over the content: `search_vector` is a generated column (ADR 0014),
+   * matched with `websearch_to_tsquery` so quotes, `or` and `-word` work as people expect.
+   * Newest first with the usual keyset; the ids come from raw SQL (Prisma has no `@@`), the
+   * rows from the normal select so the shape is the feed's.
+   */
+  async search(viewerId: string, query: SearchQuery): Promise<Paginated<Post>> {
+    const cursor = decodeCursor(query.cursor);
+    const after = cursor
+      ? Prisma.sql`AND (created_at < ${cursor.createdAt} OR (created_at = ${cursor.createdAt} AND id < ${cursor.id}::uuid))`
+      : Prisma.empty;
+    const matches = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM posts
+      WHERE search_vector @@ websearch_to_tsquery('simple', ${query.q})
+      ${after}
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${query.limit + 1}`;
+    if (matches.length === 0) return { items: [], nextCursor: null };
+    const rows = await this.prisma.post.findMany({
+      where: { id: { in: matches.map((match) => match.id) } },
+      select: postSelect(viewerId),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base));
   }
 
   async delete(viewerId: string, postId: string): Promise<void> {

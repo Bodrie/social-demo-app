@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { SearchBox } from '@/features/search/search-box';
 import { LeftBar } from './left-bar';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
@@ -28,11 +29,13 @@ export function Header() {
             <SheetHeader>
               <SheetTitle>Navigation</SheetTitle>
             </SheetHeader>
+            <SearchBox className="mx-2 mb-3" onSubmitted={() => setMenuOpen(false)} />
             <LeftBar className="px-2" onNavigate={() => setMenuOpen(false)} />
           </SheetContent>
         </Sheet>
         <Logo />
         <div className="flex-1" />
+        <SearchBox className="hidden w-64 md:block" />
         <ThemeToggle />
         <UserMenu />
       </div>

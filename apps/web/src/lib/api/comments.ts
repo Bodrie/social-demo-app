@@ -23,6 +23,9 @@ export const fetchComments = (
     signal,
   });
 
+export const fetchComment = (commentId: string, signal?: AbortSignal): Promise<Comment> =>
+  api.get(`/comments/${commentId}`, commentSchema, { signal });
+
 export const createComment = (postId: string, input: CreateCommentInput): Promise<Comment> =>
   api.post(`/posts/${postId}/comments`, input, { schema: commentSchema });
 

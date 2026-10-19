@@ -80,10 +80,19 @@ describe('PostCard', () => {
     renderApp('/');
     const user = userEvent.setup();
 
-    expect(await screen.findAllByRole('article')).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Post options' })).toHaveLength(1);
+    const articles = await screen.findAllByRole('article');
+    expect(articles).toHaveLength(2);
+    const mine = articles.find((article) => within(article).queryByText('Mine'));
+    const theirs = articles.find((article) => within(article).queryByText('Theirs'));
+    if (!mine || !theirs) throw new Error('cards not found');
 
-    await user.click(screen.getByRole('button', { name: 'Post options' }));
+    // Everyone gets a menu (copy link); only the author sees the destructive items.
+    await user.click(within(theirs).getByRole('button', { name: 'Post options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Copy link' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Delete post' })).toBeNull();
+    await user.keyboard('{Escape}');
+
+    await user.click(within(mine).getByRole('button', { name: 'Post options' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete post' }));
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
 

@@ -47,6 +47,31 @@ export const postHandlers = [
     return HttpResponse.json(paginate(mockDb.posts, new URL(request.url)));
   }),
 
+  http.get(`${API}/posts/:id`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    return post ? HttpResponse.json(post) : notFound('Post');
+  }),
+
+  /** Every word must occur in the text, like the API's `websearch_to_tsquery` does for plain words. */
+  http.get(`${API}/search/posts`, ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const url = new URL(request.url);
+    const words = (url.searchParams.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+    const posts = mockDb.posts.filter((post) =>
+      words.every((word) => post.content.toLowerCase().includes(word)),
+    );
+    return HttpResponse.json(paginate(posts, url));
+  }),
+
+  http.get(`${API}/comments/:id`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const comment = mockDb.comments.find((item) => item.id === param(params.id));
+    return comment
+      ? HttpResponse.json(withReactions(comment, mockDb.user.id))
+      : notFound('Comment');
+  }),
+
   http.get(`${API}/users/:userId/posts`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
     const posts = mockDb.posts.filter((post) => post.author.id === param(params.userId));

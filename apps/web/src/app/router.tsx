@@ -69,6 +69,18 @@ export const routes: RouteObject[] = [
                 ],
               },
               {
+                path: 'p/:postId',
+                lazy: async () => ({
+                  Component: (await import('@/features/posts/post-page')).PostPage,
+                }),
+              },
+              {
+                path: 'search',
+                lazy: async () => ({
+                  Component: (await import('@/features/search/search-page')).SearchPage,
+                }),
+              },
+              {
                 path: 'tags/:tag',
                 lazy: async () => ({
                   Component: (await import('@/features/tags/tag-page')).TagPage,

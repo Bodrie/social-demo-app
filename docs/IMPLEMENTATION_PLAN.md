@@ -42,7 +42,7 @@ before the opening; A1 is the owner's and runs in parallel.
 
 ```
 B1  mentions, hashtags, URL links   ✅ 2026-10-19           ─┐
-B2  post pages + search                                     │  v2.3 – before the opening (≈ 2026-10-29)
+B2  post pages + search             ✅ 2026-10-19           │  v2.3 – before the opening (≈ 2026-10-29)
 A2  account deletion + export                               │
 A3  Turnstile on register                                   │
 A1  box + monitor + backups (owner, in parallel)           ─┘
@@ -148,7 +148,7 @@ Web
 
 Tests: shared parser (boundaries, emails, trailing punctuation, Unicode tags, limits) ~15; int (resolution, unknown mention ignored, re-parse on edit removes stale rows, tag feed with cursor, case folding, trending); web (rich text, autocomplete, tag page); e2e (post with a tag → tag page lists it; mention links to the profile); `/tags/:tag` in the a11y spec. Bundle: the popover adds to the first paint (composer is in the entry chunk); load the autocomplete list lazily or raise the budget with the reason in the commit.
 
-### B2. Post pages and search · M · ADR 0014 "Search in Postgres"
+### B2. Post pages and search · M · ADR 0014 "Search in Postgres" · ✅ 2026-10-19
 
 **Decision (owner): a `/search` page with People and Posts tabs; `/users` stays the directory.**
 

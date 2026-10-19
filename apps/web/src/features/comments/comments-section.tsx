@@ -7,7 +7,7 @@ import {
 } from '@the-mesh/shared';
 import { cn } from 'cn';
 import { Loader2Icon, MoreHorizontalIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useState } from 'react';
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
@@ -31,6 +31,7 @@ import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { flattenPages } from '@/lib/infinite';
 import { ReactionBar } from './reaction-bar';
 import {
+  useComment,
   useComments,
   useCreateComment,
   useDeleteComment,
@@ -43,9 +44,25 @@ const SORTS: { value: CommentSort; label: string }[] = [
   { value: 'top', label: 'Top' },
 ];
 
-export function CommentsSection({ post }: { post: Post }) {
+type CommentsSectionProps = {
+  post: Post;
+  /** Controlled sort; without it the section keeps its own. */
+  sort?: CommentSort;
+  onSortChange?: (sort: CommentSort) => void;
+  /** Rings this comment; fetched alone when it is not among the loaded pages. */
+  highlightId?: string | null;
+};
+
+export function CommentsSection({
+  post,
+  sort: controlledSort,
+  onSortChange,
+  highlightId = null,
+}: CommentsSectionProps) {
   const me = useCurrentUser();
-  const [sort, setSort] = useState<CommentSort>('newest');
+  const [ownSort, setOwnSort] = useState<CommentSort>('newest');
+  const sort = controlledSort ?? ownSort;
+  const setSort = onSortChange ?? setOwnSort;
   const comments = useComments(post.id, sort);
   const create = useCreateComment(post.id);
   const remove = useDeleteComment(post.id);
@@ -53,7 +70,14 @@ export function CommentsSection({ post }: { post: Post }) {
   const react = useReactToComment(post.id);
   const [text, setText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const items = flattenPages(comments.data);
+  const loaded = flattenPages(comments.data);
+  const highlightLoaded = highlightId !== null && loaded.some((c) => c.id === highlightId);
+  // Past the loaded pages (or on another sort order): fetch the one comment and pin it on top.
+  const single = useComment(highlightId, comments.isSuccess && !highlightLoaded);
+  const items =
+    single.data && !loaded.some((c) => c.id === single.data?.id)
+      ? [single.data, ...loaded]
+      : loaded;
   const canSend = text.trim().length > 0 && !create.isPending;
 
   const send = () => {
@@ -150,6 +174,7 @@ export function CommentsSection({ post }: { post: Post }) {
             <CommentItem
               key={comment.id}
               comment={comment}
+              highlighted={comment.id === highlightId}
               isAuthor={comment.author.id === me.id}
               canDelete={comment.author.id === me.id || post.author.id === me.id}
               editing={editingId === comment.id}
@@ -183,6 +208,7 @@ export function CommentsSection({ post }: { post: Post }) {
 
 type CommentItemProps = {
   comment: Comment;
+  highlighted: boolean;
   isAuthor: boolean;
   canDelete: boolean;
   editing: boolean;
@@ -196,6 +222,7 @@ type CommentItemProps = {
 
 function CommentItem({
   comment,
+  highlighted,
   isAuthor,
   canDelete,
   editing,
@@ -207,13 +234,29 @@ function CommentItem({
   onReact,
 }: CommentItemProps) {
   const profile = `/u/${comment.author.username}`;
+  const itemRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (highlighted && typeof itemRef.current?.scrollIntoView === 'function') {
+      itemRef.current.scrollIntoView({ block: 'center' });
+    }
+  }, [highlighted]);
   return (
-    <li className="flex gap-3">
+    <li
+      ref={itemRef}
+      id={`comment-${comment.id}`}
+      data-highlighted={highlighted || undefined}
+      className="flex gap-3"
+    >
       <Link to={profile} aria-hidden="true" tabIndex={-1}>
         <UserAvatar user={comment.author} className="size-8" />
       </Link>
       <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="bg-muted rounded-lg px-3 py-2">
+        <div
+          className={cn(
+            'bg-muted rounded-lg px-3 py-2',
+            highlighted && 'ring-primary/50 ring-2 ring-offset-2 ring-offset-card',
+          )}
+        >
           <div className="flex items-baseline gap-2">
             <Link to={profile} className="truncate text-sm font-semibold hover:underline">
               {comment.author.name}

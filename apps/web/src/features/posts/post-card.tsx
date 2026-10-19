@@ -1,4 +1,4 @@
-import { POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
+import { type CommentSort, POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
 import { cn } from 'cn';
 import { HeartIcon, MessageCircleIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -18,10 +18,27 @@ import { isApiClientError } from '@/lib/api/client';
 import { fetchPostRevisions } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
 
-export function PostCard({ post }: { post: Post }) {
+type PostCardProps = {
+  post: Post;
+  /** The post's own page: comments open and not collapsible, the picture taller. */
+  expanded?: boolean;
+  /** Controlled comment sort (the post page keeps it in the URL). */
+  commentSort?: CommentSort;
+  onCommentSortChange?: (sort: CommentSort) => void;
+  /** A comment to scroll to and ring (`?comment=` on the post page). */
+  highlightCommentId?: string | null;
+};
+
+export function PostCard({
+  post,
+  expanded = false,
+  commentSort,
+  onCommentSortChange,
+  highlightCommentId,
+}: PostCardProps) {
   const me = useCurrentUser();
   const toggleLike = useToggleLike();
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(expanded);
   const [editing, setEditing] = useState(false);
   const update = useUpdatePost();
   const profile = `/u/${post.author.username}`;
@@ -46,9 +63,11 @@ export function PostCard({ post }: { post: Post }) {
           </Link>
           <p className="text-muted-foreground truncate text-xs">
             @{post.author.username} ·{' '}
-            <time dateTime={post.createdAt} title={formatDateTime(post.createdAt)}>
-              {formatRelativeTime(post.createdAt)}
-            </time>
+            <Link to={`/p/${post.id}`} className="hover:underline">
+              <time dateTime={post.createdAt} title={formatDateTime(post.createdAt)}>
+                {formatRelativeTime(post.createdAt)}
+              </time>
+            </Link>
             {post.editedAt ? (
               <>
                 {' · '}
@@ -61,7 +80,7 @@ export function PostCard({ post }: { post: Post }) {
             ) : null}
           </p>
         </div>
-        {post.author.id === me.id ? <PostMenu post={post} onEdit={() => setEditing(true)} /> : null}
+        <PostMenu post={post} isAuthor={post.author.id === me.id} onEdit={() => setEditing(true)} />
       </header>
 
       <div className="px-5 pt-3">
@@ -99,7 +118,10 @@ export function PostCard({ post }: { post: Post }) {
             alt={`Posted by ${post.author.name}`}
             loading="lazy"
             decoding="async"
-            className="mt-3 max-h-[32rem] w-full rounded-lg border object-cover"
+            className={cn(
+              'mt-3 w-full rounded-lg border object-cover',
+              expanded ? 'max-h-[40rem]' : 'max-h-[32rem]',
+            )}
           />
         ) : null}
       </div>
@@ -116,20 +138,35 @@ export function PostCard({ post }: { post: Post }) {
           <span className="sr-only">{post.likedByMe ? 'Unlike' : 'Like'}</span>{' '}
           <span className="tabular-nums">{post.likeCount}</span>
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-expanded={commentsOpen}
-          className={cn('gap-1.5', commentsOpen && 'text-primary')}
-          onClick={() => setCommentsOpen((open) => !open)}
-        >
-          <MessageCircleIcon />
-          <span className="sr-only">Comments</span>{' '}
-          <span className="tabular-nums">{post.commentCount}</span>
-        </Button>
+        {expanded ? (
+          <span className="text-primary inline-flex h-8 items-center gap-1.5 px-3 text-sm font-medium">
+            <MessageCircleIcon className="size-4" aria-hidden="true" />
+            <span className="sr-only">Comments</span>{' '}
+            <span className="tabular-nums">{post.commentCount}</span>
+          </span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={commentsOpen}
+            className={cn('gap-1.5', commentsOpen && 'text-primary')}
+            onClick={() => setCommentsOpen((open) => !open)}
+          >
+            <MessageCircleIcon />
+            <span className="sr-only">Comments</span>{' '}
+            <span className="tabular-nums">{post.commentCount}</span>
+          </Button>
+        )}
       </footer>
 
-      {commentsOpen ? <CommentsSection post={post} /> : null}
+      {commentsOpen ? (
+        <CommentsSection
+          post={post}
+          sort={commentSort}
+          onSortChange={onCommentSortChange}
+          highlightId={highlightCommentId}
+        />
+      ) : null}
     </article>
   );
 }

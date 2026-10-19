@@ -1,7 +1,9 @@
 import {
   infiniteQueryOptions,
+  queryOptions,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import type {
@@ -18,6 +20,7 @@ import {
   clearReaction,
   createComment,
   deleteComment,
+  fetchComment,
   fetchComments,
   setReaction,
   updateComment,
@@ -46,6 +49,18 @@ export const commentsQueryOptions = (postId: string, sort: CommentSort) =>
 
 export function useComments(postId: string, sort: CommentSort) {
   return useInfiniteQuery(commentsQueryOptions(postId, sort));
+}
+
+/** A highlighted comment that is not among the loaded pages; `enabled` false skips the request. */
+export function useComment(commentId: string | null, enabled: boolean) {
+  return useQuery(
+    queryOptions({
+      queryKey: queryKeys.comments.single(commentId ?? ''),
+      queryFn: ({ signal }) => fetchComment(commentId ?? '', signal),
+      enabled: enabled && commentId !== null,
+      retry: false,
+    }),
+  );
 }
 
 /** Applies `update` to one comment in every cached sort order of its post. */

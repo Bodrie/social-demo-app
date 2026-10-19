@@ -20,7 +20,7 @@ in `BACKLOG.md`.
 | Item | Why | Notes |
 |---|---|---|
 | ~~**Mentions and hashtags**~~ ✅ 2026-10-19 | `@alice` / `#topic` parsed at save time, linked in the UI; feeds notifications and search | done as B1 (ADR 0013): shared parser, entities per post/comment, `/tags/:tag`, trending, `@` autocomplete, links in text |
-| **Post pages and search** | posts have no permalink, nothing can be shared or linked from a notification | `/p/:id` with comments; Postgres full-text (`tsvector`) over posts and people |
+| ~~**Post pages and search**~~ ✅ 2026-10-19 | posts have no permalink, nothing can be shared or linked from a notification | done as B2 (ADR 0014): `/p/:id` with comments, copy link, `GET /search/posts` on a generated tsvector, `/search` with Posts and People tabs |
 | Notifications | nobody is told about likes, comments, follows, mentions or messages received while away | per-user notification rows, unread badge, delivered over the existing socket; web push later |
 | Moderation basics | necessary the moment the site is public | block and mute, report a post, an admin role with a small queue |
 | Email and sessions in Settings | change the address (confirm the new one first), re-send verification, list of sessions with "sign out this device" | refresh tokens already record user agent and IP |
@@ -39,5 +39,5 @@ in `BACKLOG.md`.
 ## Agreed order (2026-10-16)
 
 The owner picked, to be done directly on `dev` with one commit per item: **legal pages →
-mentions and hashtags → post pages and search → chat follow-ups**. Legal pages and mentions are
-done; the full sequence from here is in `IMPLEMENTATION_PLAN.md`.
+mentions and hashtags → post pages and search → chat follow-ups**. The first three are done; the
+full sequence from here is in `IMPLEMENTATION_PLAN.md`.

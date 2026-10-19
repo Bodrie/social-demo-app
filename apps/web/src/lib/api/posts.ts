@@ -14,6 +14,12 @@ import { type PageOptions, queryString } from './query';
 export const fetchFeed = ({ cursor, signal }: PageOptions): Promise<PostList> =>
   api.get(`/posts${queryString({ cursor })}`, postListSchema, { signal });
 
+export const fetchPost = (postId: string, signal?: AbortSignal): Promise<Post> =>
+  api.get(`/posts/${postId}`, postSchema, { signal });
+
+export const fetchSearchPosts = (q: string, { cursor, signal }: PageOptions): Promise<PostList> =>
+  api.get(`/search/posts${queryString({ q, cursor })}`, postListSchema, { signal });
+
 export const fetchUserPosts = (
   userId: string,
   { cursor, signal }: PageOptions,

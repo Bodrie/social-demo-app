@@ -244,7 +244,8 @@ export class CommentsService {
     if (count === 0) throw notFound('Comment not found');
   }
 
-  private async getById(viewerId: string, commentId: string): Promise<Comment> {
+  /** One comment by id; any member may read any comment (posts are visible to every member). */
+  async getById(viewerId: string, commentId: string): Promise<Comment> {
     const row = await this.prisma.comment.findUnique({
       where: { id: commentId },
       select: commentSelect(viewerId),

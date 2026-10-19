@@ -55,6 +55,12 @@ export class PostCommentsController {
 export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
 
+  /** A single comment, for permalinks (`/p/:postId?comment=:id`) that point past the first page. */
+  @Get(':id')
+  byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<Comment> {
+    return this.comments.getById(user.id, params.id);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,

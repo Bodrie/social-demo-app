@@ -1,6 +1,7 @@
 import type { Post } from '@the-mesh/shared';
-import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { LinkIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,14 +17,28 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDeletePost } from './use-post-mutations';
 
-/** Actions the author has on their own post. */
-export function PostMenu({ post, onEdit }: { post: Post; onEdit: () => void }) {
+const postUrl = (postId: string): string => `${window.location.origin}/p/${postId}`;
+
+type PostMenuProps = { post: Post; isAuthor: boolean; onEdit: () => void };
+
+/** Copy link for everyone; edit and delete for the author. */
+export function PostMenu({ post, isAuthor, onEdit }: PostMenuProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const remove = useDeletePost();
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(postUrl(post.id));
+      toast.success('Link copied');
+    } catch {
+      toast.error('Could not copy the link');
+    }
+  };
 
   return (
     <>
@@ -34,12 +49,20 @@ export function PostMenu({ post, onEdit }: { post: Post; onEdit: () => void }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onEdit}>
-            <PencilIcon /> Edit post
+          <DropdownMenuItem onSelect={() => void copyLink()}>
+            <LinkIcon /> Copy link
           </DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onSelect={() => setConfirmOpen(true)}>
-            <Trash2Icon /> Delete post
-          </DropdownMenuItem>
+          {isAuthor ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onEdit}>
+                <PencilIcon /> Edit post
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirmOpen(true)}>
+                <Trash2Icon /> Delete post
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 

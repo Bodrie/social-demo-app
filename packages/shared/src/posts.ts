@@ -50,3 +50,16 @@ export type UpdatePostData = z.output<typeof updatePostSchema>;
 
 export const feedQuerySchema = cursorQuerySchema;
 export type FeedQuery = z.output<typeof feedQuerySchema>;
+
+export const SEARCH_MIN_LENGTH = 2;
+export const SEARCH_MAX_LENGTH = 100;
+
+/** `GET /search/posts`: full-text search over post content (`websearch_to_tsquery` syntax). */
+export const searchQuerySchema = cursorQuerySchema.extend({
+  q: z
+    .string()
+    .trim()
+    .min(SEARCH_MIN_LENGTH, `At least ${SEARCH_MIN_LENGTH} characters`)
+    .max(SEARCH_MAX_LENGTH, `At most ${SEARCH_MAX_LENGTH} characters`),
+});
+export type SearchQuery = z.output<typeof searchQuerySchema>;

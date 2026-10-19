@@ -26,7 +26,8 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 
 ## Web
 
-- Posts: an image lightbox, a post permalink route (`/p/:id`) for notifications and sharing, and the legacy double-tap-to-like gesture on touch devices.
+- Posts: an image lightbox and the legacy double-tap-to-like gesture on touch devices.
+- Search (ADR 0014): results are newest first; relevance ranking (`ts_rank` with a ranked cursor), highlighting of matched words and a stemmed per-language column are the upgrades when the volume asks for them. People search stays `ILIKE`.
 - Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. `#` autocomplete in the composer and hashtags in comments were left out on purpose.
 - Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
 - Profile: cover/avatar cropping, and blocking/reporting (not in the legacy app either).

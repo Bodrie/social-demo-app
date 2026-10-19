@@ -83,6 +83,23 @@ test.describe('accessibility (signed in)', () => {
       page.getByRole('feed', { name: 'Posts tagged #weekend' }).getByRole('article').first(),
     ).toBeVisible();
     await audit(page, '/tags/weekend');
+    await page.goto('/search?q=weekend');
+    await expect(
+      page
+        .getByRole('feed', { name: /Posts matching/ })
+        .getByRole('article')
+        .first(),
+    ).toBeVisible();
+    await audit(page, '/search');
+    await page
+      .getByRole('feed', { name: /Posts matching/ })
+      .getByRole('article')
+      .first()
+      .locator('a[href^="/p/"]')
+      .first()
+      .click();
+    await expect(page.getByRole('region', { name: 'Comments' })).toBeVisible();
+    await audit(page, '/p/:id');
     await page.goto('/settings');
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
     await audit(page, '/settings');
