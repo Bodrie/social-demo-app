@@ -1,39 +1,105 @@
 # Runbook – running The Mesh on one Ubuntu box
 
-Target: Ubuntu Server 24.04, Docker Engine, no static IP, inbound traffic through a
-Cloudflare Tunnel (plan §2.11, decision D12). Everything lives in `/opt/the-mesh`.
+Target: Ubuntu Server 24.04 on an Intel Core i5-6500 (64-bit x86; the images are built for
+`linux/amd64` only), Docker Engine, no static IP, inbound traffic through a Cloudflare Tunnel
+(plan §2.11, decision D12). Everything lives in `/opt/the-mesh`.
 The public address is **https://social.bodrie.dev**, a subdomain of `bodrie.dev` (domain at
 Cloudflare Registrar, DNS on Cloudflare). The apex and `www` stay free for other sites.
 
+The box never builds anything and holds no source code. CI builds two images, the API and the
+web app (the built frontend inside Caddy), and publishes them to GHCR; the box keeps only the
+`deploy/` files (compose file, scripts, `.env`) and pulls those images, together with the stock
+`postgres` and `cloudflared` images (§4).
+
 ## 1. One-time server setup
 
+From your own account on the box (the one with sudo). `dpkg --print-architecture` prints
+`amd64`, Debian's name for 64-bit x86 on Intel and AMD alike; `arm64` would mean an ARM board,
+for which no images are built.
+
+The box is shared: Frigate, Cockpit and an MQTT broker already run there. The Mesh sits next to
+them as its own compose project (`the-mesh`: its own network, volumes and containers) and needs
+nothing from them; the steps below only make sure it does not collide with them.
+
+### 1.1 Docker
+
+Docker is already installed for the other services. The Mesh needs Docker Engine with the
+Compose v2 plugin, and not the snap (the snap only reads files under `$HOME`, so it cannot use
+`/opt/the-mesh`):
+
 ```bash
-# Docker Engine from Docker's repository (not the snap).
+sudo docker version --format '{{.Server.Version}}'   # the engine answers
+docker compose version                                # "Docker Compose version v2.…"
+snap list docker 2>/dev/null                          # prints nothing: not the snap
+```
+
+If `docker compose` is unknown, add the plugin: `sudo apt-get install docker-compose-plugin`
+with Docker's repository, `docker-compose-v2` with Ubuntu's `docker.io` package. On a box
+without Docker, install it from Docker's apt repository first (as on
+docs.docker.com/engine/install/ubuntu):
+
+```bash
 sudo apt-get update && sudo apt-get install -y ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
 sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin unattended-upgrades
+```
 
-# A service user that can talk to Docker, and the deploy directory.
+### 1.2 Service user and deploy directory
+
+```bash
 sudo useradd -r -m -s /bin/bash -G docker mesh
 sudo mkdir -p /opt/the-mesh && sudo chown mesh:mesh /opt/the-mesh
+```
 
-# No inbound ports are needed with the tunnel; keep SSH reachable from the LAN only.
+### 1.3 Firewall (optional)
+
+The Mesh needs no inbound port: cloudflared dials out, and the stack publishes nothing but
+`127.0.0.1:8080`. If ufw is already active (`sudo ufw status verbose`), there is nothing to
+add. Turning it on for the first time on this shared box blocks every service that listens on
+the host itself without an `allow` rule: Cockpit (9090/tcp), a broker installed on the host
+rather than in a container, containers with `network_mode: host`, and containers that reach
+such a service through the host (their traffic comes from the Docker subnets,
+172.16.0.0/12). Ports that Docker publishes bypass ufw either way. List the listeners first
+(`sudo ss -tulpn`), allow each one, and make sure your own address (first field of
+`echo $SSH_CLIENT`) is inside the SSH range, or `ufw enable` drops the session:
+
+```bash
 sudo ufw default deny incoming && sudo ufw default allow outgoing
-sudo ufw allow from 192.168.0.0/16 to any port 22 proto tcp   # adjust to your LAN
+sudo ufw allow from 10.0.10.0/24 to any port 22 proto tcp     # SSH from the LAN
+sudo ufw allow from 10.0.10.0/24 to any port 9090 proto tcp   # Cockpit; one rule per host-level service
 sudo ufw enable
 ```
 
-Copy the contents of this repository's `deploy/` directory to `/opt/the-mesh`
-(`scp -r deploy/* mesh@box:/opt/the-mesh/`), then as the `mesh` user:
+### 1.4 Deploy files and `.env`
+
+Switch to the service user (`sudo -iu mesh`; it has no password and no SSH key), fetch this
+repository's `deploy/` directory from `main` (dotfiles included) and create `.env`:
 
 ```bash
 cd /opt/the-mesh
+curl -fsSL https://github.com/Bodrie/social-demo-app/archive/refs/heads/main.tar.gz \
+  | tar -xz -C /opt/the-mesh --strip-components=2 social-demo-app-main/deploy
 cp .env.example .env && chmod 600 .env
-# Fill in: PUBLIC_URL=https://social.bodrie.dev, POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 48),
-# TUNNEL_TOKEN (section 2).
+# Hex for the database password: it is placed inside DATABASE_URL, where the `/` that most
+# base64 strings contain breaks the URL. It is fixed at the first start (the volume keeps it).
+sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" .env
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env
+nano .env   # SMTP_URL (Resend API key, §2.6) and TUNNEL_TOKEN (§2.2); PUBLIC_URL is already right
 ```
+
+Running the `curl … | tar` line again later refreshes the compose file and the scripts after
+`deploy/` changed on `main`; it never touches `.env` (copy changed unit files to
+`/etc/systemd/system` again, §3).
 
 ## 2. Domain and Cloudflare Tunnel (`social.bodrie.dev`)
 
@@ -167,38 +233,52 @@ Provider switch: any SMTP submission URL works (Postmark, Brevo, SES); only `.en
 
 ## 3. First start
 
+As `mesh`:
+
 ```bash
 cd /opt/the-mesh
+ss -ltn | grep ':8080 '           # prints nothing; if another service holds 8080, set WEB_PORT=8081 in .env and use that port below
 docker compose --profile tunnel pull
 docker compose --profile tunnel up -d
-docker compose logs -f api        # "Applying database migrations…" then the Nest banner
+docker compose logs -f api        # "Applying database migrations…", then "API listening on port 3000 (production)"; Ctrl-C
+docker compose ps                 # within a minute: postgres, api and web "(healthy)", cloudflared "Up"
 curl -s http://127.0.0.1:8080/api/v1/auth/me   # {"statusCode":401,...} means Caddy → API works
+docker compose logs cloudflared | grep -i 'registered tunnel connection'   # four lines: the tunnel is up
 ```
 
-The api container applies pending Prisma migrations on every start (`MIGRATE_ON_START`).
-There is no seed in production; the first member registers through the app.
+The site is now live; run the checks of §2.5 from another machine. At home, use
+https://social.bodrie.dev as well: the stack has no LAN port (cloudflared reaches Caddy over the
+Docker network, which is why the tunnel route is `http://web:80` and never the box's LAN
+address). The api container applies pending Prisma migrations on every start
+(`MIGRATE_ON_START`). There is no seed in production; the first member registers through the
+app.
 
-Enable the timers (updates every 5 minutes, backups nightly):
+Enable the timers (updates every 5 minutes, backups nightly) from your own account, since
+`mesh` has no sudo:
 
 ```bash
 sudo cp /opt/the-mesh/systemd/*.service /opt/the-mesh/systemd/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now mesh-update.timer mesh-backup.timer
-systemctl list-timers mesh-*
+systemctl list-timers 'mesh-*'
+sudo systemctl start mesh-backup.service && sudo ls -lh /home/mesh/mesh-backups   # one backup now: the unit works
 ```
 
 ## 4. Releases (pull-based)
 
 1. Merge to `main`: once every CI job (checks, integration, e2e) has passed, CI runs
    `.github/workflows/docker.yml`, which publishes `ghcr.io/<owner>/the-mesh-api` and
-   `the-mesh-web` tagged `latest` and `sha-<short>`. A tag `vX.Y.Z` (same CI run) adds `vX.Y.Z`
-   and `vX.Y`. A red run publishes nothing, so the box keeps what it has.
+   `the-mesh-web` tagged `latest` and `sha-<short>`. A git tag `vX.Y.Z` (same CI run) also
+   publishes `X.Y.Z` and `X.Y`: the image tags drop the `v`, so git tag `v2.0.0` is image
+   `2.0.0`. A red run publishes nothing, so the box keeps what it has.
 2. The box runs `update.sh` every 5 minutes: `docker compose pull && up -d`. Nothing happens
    when the tag's digest did not change.
-3. To pin a release: `TAG=v2.0.0` in `.env`, then `./update.sh`. Rollback = set the previous
-   tag and run it again (migrations are forward-only; see §6 before rolling back across one).
+3. To pin a release: `TAG=2.0.0` in `.env` (no `v`), then `./update.sh`. Rollback = set the
+   previous tag and run it again (migrations are forward-only; see §6 before rolling back
+   across one).
 4. GHCR packages are private by default on first push: make them public (package settings)
-   or create a read token on the box (`docker login ghcr.io`).
+   or create a read token on the box (`docker login ghcr.io`). `the-mesh-api` and
+   `the-mesh-web` are public (checked 2026-10-19), so the box pulls without a login.
 
 ## 5. Backups and restore
 
@@ -240,8 +320,8 @@ volumes) before it is needed.
 | Tunnel reconnects | normal after an IP change; if it stays "Down", `docker compose --profile tunnel restart cloudflared` and check the token in `.env` |
 | Migrations manually | `docker compose exec api sh -c 'cd apps/api && ./node_modules/.bin/prisma migrate deploy'` |
 | Database shell | `docker compose exec postgres psql -U mesh -d mesh` |
-| Disk | `docker system df`; `docker image prune -f` runs in update.sh |
-| Mail not arriving | `docker compose logs api | grep -i mail`; Resend → Emails for bounces; DNS records still DNS-only and verified |
+| Disk | `df -h /var/lib/docker /home/mesh` and `docker system df`: if Frigate records to the same disk it can fill it, and a full disk takes Postgres down. `update.sh` runs `docker image prune -f`, which is host-wide but removes only untagged images that no container uses |
+| Mail not arriving | `docker compose logs --since 1h api \| grep -iE 'mail\|smtp'`: `EAUTH` = wrong API key in `SMTP_URL`; a connection timeout = the network blocks port 465, use `smtp.resend.com:2465` (also implicit TLS). A registration whose mail failed still created the account: sign in and press *Send the email again*. Resend → Emails for bounces; DNS records still DNS-only and verified |
 | Rotate `JWT_SECRET` | change it in `.env`, `docker compose up -d api` (every member must sign in again) |
 | Cache headers (after a web change) | `curl -sI http://127.0.0.1:8080/ \| grep -i cache-control` → `no-cache`; `curl -sI http://127.0.0.1:8080/assets/does-not-exist.js \| grep -iE 'HTTP\|content-type\|cache'` → `404`, `no-store`, never `text/html` |
 | Log size | each container keeps at most 5 × 20 MB (`logging` in `docker-compose.yml`); `docker compose logs --since 1h api` |

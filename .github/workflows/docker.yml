@@ -3,9 +3,10 @@ name: Docker images
 # Called by CI (ci.yml) once every check, the integration tests and the end-to-end tests
 # have passed, so nothing untested is ever published: the box pulls `latest` on a timer.
 # On pull requests both images are built only (catches Dockerfile breakage); on pushes to
-# main they are published to GHCR as `latest` + `sha-…`, on release tags as `vX.Y.Z`,
-# `vX.Y` and `latest`. The server pulls what `TAG` in its .env points at. The caller's
-# event and ref apply here, and its concurrency group covers this workflow too.
+# main they are published to GHCR as `latest` + `sha-…`, on release tags `vX.Y.Z` as
+# `X.Y.Z`, `X.Y` (the semver patterns drop the `v`) and `latest`. The server pulls what `TAG`
+# in its .env points at. The caller's event and ref apply here, and its concurrency group
+# covers this workflow too.
 on:
   workflow_call:
 
