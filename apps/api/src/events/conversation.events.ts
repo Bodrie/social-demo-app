@@ -9,6 +9,15 @@ export class MessageSentEvent {
   ) {}
 }
 
+/** The sender deleted a message: `message` is its new state (content gone, `deletedAt` set). */
+export class MessageDeletedEvent {
+  static readonly EVENT = 'message.deleted';
+  constructor(
+    readonly message: Message,
+    readonly memberIds: readonly string[],
+  ) {}
+}
+
 /** `readerId` caught up in a conversation; `memberIds` are every member, the reader's own tabs included. */
 export class ConversationReadEvent {
   static readonly EVENT = 'conversation.read';
@@ -20,7 +29,7 @@ export class ConversationReadEvent {
   ) {}
 }
 
-/** A group was created or gained members; every current member should refetch it. */
+/** A group was created, renamed, or its members or their roles changed; every current member should refetch it. */
 export class ConversationUpdatedEvent {
   static readonly EVENT = 'conversation.updated';
   constructor(

@@ -1,4 +1,10 @@
-import type { Conversation, ConversationMember, UserSummary } from '@the-mesh/shared';
+import type {
+  Conversation,
+  ConversationMember,
+  Message,
+  SystemLine,
+  UserSummary,
+} from '@the-mesh/shared';
 import { firstName } from '@/lib/names';
 
 export function otherMembers(conversation: Conversation, meId: string): ConversationMember[] {
@@ -59,4 +65,55 @@ export function seenText(
   if (second === undefined) return `Seen by ${first}`;
   if (names.length === 2) return `Seen by ${first} and ${second}`;
   return `Seen by ${first}, ${second} and ${names.length - 2} more`;
+}
+
+export function isAdmin(conversation: Conversation, userId: string): boolean {
+  return conversation.members.some(
+    (member) => member.user.id === userId && member.role === 'admin',
+  );
+}
+
+/** "Alice", "Alice and Bob", "Alice, Bob and 2 others". */
+function listNames(names: readonly string[]): string {
+  const [first, second] = names;
+  if (first === undefined) return 'someone';
+  if (second === undefined) return first;
+  if (names.length === 2) return `${first} and ${second}`;
+  const rest = names.length - 2;
+  return `${first}, ${second} and ${rest} ${rest === 1 ? 'other' : 'others'}`;
+}
+
+/**
+ * The sentence of a system line: "Alice added Bob", "Bob left", "You removed Carol",
+ * "Alice renamed the group to “Trip”". People still in the conversation are called by their
+ * current name; the others by the name stored with the line.
+ */
+export function systemLineText(line: SystemLine, conversation: Conversation, meId: string): string {
+  const nameOf = (person: { id: string; name: string }, subject: boolean): string => {
+    if (person.id === meId) return subject ? 'You' : 'you';
+    return memberById(conversation, person.id)?.user.name ?? person.name;
+  };
+  const actor = nameOf(line.actor, true);
+  const people = listNames(line.users.map((person) => nameOf(person, false)));
+  switch (line.type) {
+    case 'members_added':
+      return `${actor} added ${people}`;
+    case 'member_left':
+      return `${actor} left the group`;
+    case 'member_removed':
+      return `${actor} removed ${people}`;
+    case 'renamed':
+      return `${actor} renamed the group to “${line.title ?? ''}”`;
+    default:
+      return '';
+  }
+}
+
+/** What a message reads as in a list row or a notification; never empty. */
+export function messagePreview(message: Message, conversation: Conversation, meId: string): string {
+  if (message.deletedAt) return 'Message deleted';
+  if (message.kind === 'system') {
+    return message.system ? systemLineText(message.system, conversation, meId) : '';
+  }
+  return message.content || 'Picture';
 }

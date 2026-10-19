@@ -1,4 +1,9 @@
-import type { Conversation, Message } from '@the-mesh/shared';
+import {
+  type Conversation,
+  type Message,
+  type SystemLine,
+  systemLineSchema,
+} from '@the-mesh/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 
@@ -6,20 +11,33 @@ export const messageSelect = {
   id: true,
   conversationId: true,
   senderId: true,
+  kind: true,
   content: true,
   imageKey: true,
+  deletedAt: true,
+  systemMeta: true,
   createdAt: true,
 } satisfies Prisma.MessageSelect;
 
 export type MessageRow = Prisma.MessageGetPayload<{ select: typeof messageSelect }>;
+
+/** A system line whose stored subject no longer parses is shown as nothing rather than crashing a thread. */
+function systemLineOf(row: MessageRow): SystemLine | null {
+  if (row.kind !== 'system') return null;
+  const parsed = systemLineSchema.safeParse(row.systemMeta);
+  return parsed.success ? parsed.data : null;
+}
 
 export function toMessage(row: MessageRow, assetsBase: string): Message {
   return {
     id: row.id,
     conversationId: row.conversationId,
     senderId: row.senderId,
+    kind: row.kind,
     content: row.content,
     imageUrl: row.imageKey === null ? null : `${assetsBase}/${row.imageKey}`,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+    system: systemLineOf(row),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -33,7 +51,7 @@ export const conversationSelect = {
   createdAt: true,
   lastMessageAt: true,
   members: {
-    select: { joinedAt: true, lastReadAt: true, user: { select: userSummarySelect } },
+    select: { role: true, joinedAt: true, lastReadAt: true, user: { select: userSummarySelect } },
     orderBy: [{ joinedAt: 'asc' }, { userId: 'asc' }],
   },
   messages: {
@@ -47,6 +65,9 @@ export type ConversationRow = Prisma.ConversationGetPayload<{ select: typeof con
 
 export const memberIdsOf = (row: ConversationRow): string[] =>
   row.members.map((member) => member.user.id);
+
+export const isAdminOf = (row: ConversationRow, userId: string): boolean =>
+  row.members.some((member) => member.user.id === userId && member.role === 'admin');
 
 export function toConversation(
   row: ConversationRow,
@@ -63,6 +84,7 @@ export function toConversation(
     lastMessageAt: row.lastMessageAt ? row.lastMessageAt.toISOString() : null,
     members: row.members.map((member) => ({
       user: toUserSummary(member.user, assetsBase),
+      role: member.role,
       joinedAt: member.joinedAt.toISOString(),
       lastReadAt: member.lastReadAt ? member.lastReadAt.toISOString() : null,
     })),

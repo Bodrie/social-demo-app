@@ -52,6 +52,21 @@ describe('chat bubbles', () => {
     expect(screen.getByRole('button', { name: 'Open chat with Bob Brown' })).toBeInTheDocument();
   });
 
+  it('raises no bubble for a system line', async () => {
+    signedInAs(alice);
+    const group = seedDirect(alice.id, bob.id);
+    await onHome();
+    const line = makeMessage(group.id, bob.id, '', {
+      kind: 'system',
+      system: { type: 'renamed', actor: { id: bob.id, name: 'Bob Brown' }, users: [], title: 'X' },
+    });
+    mockDb.messages.push(line);
+    act(() => fakeSocket.serverEmit(SOCKET_EVENTS.messageNew, line));
+    push(group.id, bob.id, 'A real one');
+    await bubble('Open chat with Bob Brown, 1 unread');
+    expect(within(bubbles()).getAllByRole('listitem')).toHaveLength(1);
+  });
+
   it('ignores my own messages and hides a dismissed bubble until the next message', async () => {
     signedInAs(alice);
     const withBob = seedDirect(alice.id, bob.id);

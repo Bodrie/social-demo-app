@@ -2,10 +2,12 @@ import {
   type AddMembersInput,
   type Conversation,
   type ConversationList,
+  type ConversationRole,
   type CreateGroupInput,
   type MarkReadResult,
   type Message,
   type MessageList,
+  type RenameGroupInput,
   type SendMessageInput,
   conversationListSchema,
   conversationSchema,
@@ -16,8 +18,12 @@ import {
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
 
-export const fetchConversations = (signal?: AbortSignal): Promise<ConversationList> =>
-  api.get('/conversations', conversationListSchema, { signal });
+/** Newest activity first, a page at a time. */
+export const fetchConversations = ({
+  cursor,
+  signal,
+}: PageOptions = {}): Promise<ConversationList> =>
+  api.get(`/conversations${queryString({ cursor })}`, conversationListSchema, { signal });
 
 export const fetchConversation = (id: string, signal?: AbortSignal): Promise<Conversation> =>
   api.get(`/conversations/${id}`, conversationSchema, { signal });
@@ -34,6 +40,26 @@ export const addMembers = (id: string, input: AddMembersInput): Promise<Conversa
 
 export const leaveGroup = (id: string): Promise<void> =>
   api.delete(`/conversations/${id}/members/me`);
+
+/** Admins only. */
+export const renameGroup = (id: string, input: RenameGroupInput): Promise<Conversation> =>
+  api.patch(`/conversations/${id}`, input, { schema: conversationSchema });
+
+/** Admins only. */
+export const removeMember = (id: string, userId: string): Promise<void> =>
+  api.delete(`/conversations/${id}/members/${userId}`);
+
+/** Admins only. */
+export const setMemberRole = (
+  id: string,
+  userId: string,
+  role: ConversationRole,
+): Promise<Conversation> =>
+  api.put(`/conversations/${id}/members/${userId}/role`, { role }, { schema: conversationSchema });
+
+/** The sender takes a message back; the answer is the message as everyone sees it now. */
+export const deleteMessage = (id: string, messageId: string): Promise<Message> =>
+  api.delete(`/conversations/${id}/messages/${messageId}`, { schema: messageSchema });
 
 export const fetchMessages = (id: string, { cursor, signal }: PageOptions): Promise<MessageList> =>
   api.get(`/conversations/${id}/messages${queryString({ cursor })}`, messageListSchema, {

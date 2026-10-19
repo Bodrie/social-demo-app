@@ -1,12 +1,18 @@
 import { cn } from 'cn';
-import { useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef } from 'react';
 import { Outlet, ScrollRestoration, useLocation, useMatches } from 'react-router';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { ChatBubbles } from '@/features/chat/bubbles/chat-bubbles';
+import { useUnreadCount } from '@/features/chat/use-conversations';
+import { useDocumentBadge } from '@/lib/use-document-badge';
 import { Header } from './header';
 import { LeftBar } from './left-bar';
 import { NavigationProgress } from './navigation-progress';
 import { RightBar } from './right-bar';
+
+// Sound and browser notifications are off by default: their code loads only for people who
+// turned one on, keeping the first paint small.
+const MessageAlerts = lazy(() => import('@/features/chat/message-alerts'));
 
 const isWide = (handle: unknown): boolean =>
   typeof handle === 'object' && handle !== null && 'wide' in handle && handle.wide === true;
@@ -24,6 +30,8 @@ export function AppShell() {
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
+  // "(3) Home · The Mesh": the unread total travels in the tab title.
+  useDocumentBadge(useUnreadCount());
 
   useEffect(() => {
     if (previousPath.current === pathname) return;
@@ -65,6 +73,11 @@ export function AppShell() {
         )}
       </div>
       {me.settings.chatBubbles ? <ChatBubbles /> : null}
+      {me.settings.messageSound || me.settings.browserNotifications ? (
+        <Suspense fallback={null}>
+          <MessageAlerts />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

@@ -39,7 +39,9 @@ export function ChatBubbles() {
   useEffect(
     () =>
       subscribeToMessages((message) => {
-        if (message.senderId === me.id || onMessagesPageRef.current) return;
+        // Own messages and the server's system lines are not news to react to.
+        if (message.kind === 'system' || message.senderId === me.id || onMessagesPageRef.current)
+          return;
         dispatch({ type: 'arrive', id: message.conversationId });
       }),
     [subscribeToMessages, me.id],

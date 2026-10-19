@@ -4,7 +4,10 @@ import {
   createGroupSchema,
   GROUP_MAX_MEMBERS,
   type Message,
+  renameGroupSchema,
   sendMessageSchema,
+  setMemberRoleSchema,
+  type SystemLine,
 } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
 import { makeMessage, summaryOf } from '../fixtures';
@@ -15,6 +18,13 @@ const param = (value: string | readonly string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? '';
 const byNewest = (a: Message, b: Message) => b.createdAt.localeCompare(a.createdAt);
 const notFound = () => apiError(404, 'NOT_FOUND', 'Conversation not found');
+const forbidden = () => apiError(403, 'FORBIDDEN', 'Only group admins can do that');
+const isAdmin = (row: MockConversation, userId: string) =>
+  row.members.some((m) => m.userId === userId && m.role === 'admin');
+const personOf = (userId: string) => ({
+  id: userId,
+  name: mockDb.users.find((u) => u.id === userId)?.name ?? 'Someone',
+});
 
 const messagesOf = (conversationId: string) =>
   mockDb.messages.filter((m) => m.conversationId === conversationId).toSorted(byNewest);
@@ -25,6 +35,8 @@ export function conversationFor(viewerId: string, row: MockConversation): Conver
   const mine = row.members.find((m) => m.userId === viewerId);
   const unreadCount = messages.filter(
     (m) =>
+      m.kind === 'user' &&
+      m.deletedAt === null &&
       m.senderId !== viewerId &&
       (mine?.lastReadAt === null || m.createdAt > (mine?.lastReadAt ?? '')),
   ).length;
@@ -38,7 +50,14 @@ export function conversationFor(viewerId: string, row: MockConversation): Conver
     members: row.members.flatMap((member) => {
       const user = mockDb.users.find((u) => u.id === member.userId);
       return user
-        ? [{ user: summaryOf(user), joinedAt: member.joinedAt, lastReadAt: member.lastReadAt }]
+        ? [
+            {
+              user: summaryOf(user),
+              role: member.role,
+              joinedAt: member.joinedAt,
+              lastReadAt: member.lastReadAt,
+            },
+          ]
         : [];
     }),
     lastMessage: messages[0] ?? null,
@@ -80,6 +99,30 @@ export function storeMessage(
   return message;
 }
 
+/** A line the "server" writes about a membership change or rename; moves nobody's mark. */
+export function storeSystemLine(
+  conversationId: string,
+  actorId: string,
+  line: SystemLine,
+): Message {
+  const message = makeMessage(conversationId, actorId, '', {
+    kind: 'system',
+    system: line,
+    createdAt: new Date().toISOString(),
+  });
+  mockDb.messages.push(message);
+  return message;
+}
+
+/** The longest-standing member becomes admin when none is left (the API's `promoteIfNoAdminSql`). */
+function promoteIfNoAdmin(row: MockConversation): void {
+  if (row.members.some((m) => m.role === 'admin')) return;
+  const oldest = row.members.toSorted(
+    (a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.userId.localeCompare(b.userId),
+  )[0];
+  if (oldest) oldest.role = 'admin';
+}
+
 /** Moves the viewer's read mark to now when something is unread; returns the mark either way. */
 export function markConversationRead(viewerId: string, row: MockConversation): string {
   const member = row.members.find((m) => m.userId === viewerId);
@@ -92,9 +135,9 @@ export function markConversationRead(viewerId: string, row: MockConversation): s
 }
 
 export const conversationHandlers = [
-  http.get(`${API}/conversations`, () => {
+  http.get(`${API}/conversations`, ({ request }) => {
     if (!mockDb.user) return unauthorized();
-    return HttpResponse.json({ items: conversationsFor(mockDb.user.id), nextCursor: null });
+    return HttpResponse.json(paginate(conversationsFor(mockDb.user.id), new URL(request.url)));
   }),
 
   http.post(`${API}/conversations`, async ({ request }) => {
@@ -142,6 +185,45 @@ export const conversationHandlers = [
     return row ? HttpResponse.json(conversationFor(mockDb.user.id, row)) : notFound();
   }),
 
+  http.patch(`${API}/conversations/:id`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const me = mockDb.user.id;
+    const row = memberRow(me, param(params.id));
+    if (!row) return notFound();
+    if (row.kind !== 'group') return apiError(400, 'BAD_REQUEST', 'Only groups have a member list');
+    if (!isAdmin(row, me)) return forbidden();
+    const body = renameGroupSchema.parse(await request.json());
+    if (row.title !== body.title) {
+      row.title = body.title;
+      storeSystemLine(row.id, me, {
+        type: 'renamed',
+        actor: personOf(me),
+        users: [],
+        title: body.title,
+      });
+    }
+    return HttpResponse.json(conversationFor(me, row));
+  }),
+
+  http.delete(`${API}/conversations/:id/messages/:messageId`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const row = memberRow(mockDb.user.id, param(params.id));
+    if (!row) return notFound();
+    const message = mockDb.messages.find(
+      (m) => m.id === param(params.messageId) && m.conversationId === row.id,
+    );
+    if (!message) return apiError(404, 'NOT_FOUND', 'Message not found');
+    if (message.senderId !== mockDb.user.id) {
+      return apiError(403, 'FORBIDDEN', 'Only the sender can delete a message');
+    }
+    if (message.deletedAt === null) {
+      message.deletedAt = new Date().toISOString();
+      message.content = '';
+      message.imageUrl = null;
+    }
+    return HttpResponse.json(message);
+  }),
+
   http.get(`${API}/conversations/:id/messages`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
     const row = memberRow(mockDb.user.id, param(params.id));
@@ -185,10 +267,16 @@ export const conversationHandlers = [
       });
     }
     const joinedAt = new Date().toISOString();
-    for (const userId of new Set(body.userIds)) {
-      if (!row.members.some((m) => m.userId === userId)) {
-        row.members.push({ userId, joinedAt, lastReadAt: null });
-      }
+    for (const userId of wanted) {
+      row.members.push({ userId, role: 'member', joinedAt, lastReadAt: null });
+    }
+    if (wanted.length > 0) {
+      storeSystemLine(row.id, mockDb.user.id, {
+        type: 'members_added',
+        actor: personOf(mockDb.user.id),
+        users: wanted.map(personOf),
+        title: null,
+      });
     }
     return HttpResponse.json(conversationFor(mockDb.user.id, row));
   }),
@@ -203,7 +291,56 @@ export const conversationHandlers = [
     if (row.members.length === 0) {
       mockDb.conversations = mockDb.conversations.filter((c) => c.id !== row.id);
       mockDb.messages = mockDb.messages.filter((m) => m.conversationId !== row.id);
+    } else {
+      promoteIfNoAdmin(row);
+      storeSystemLine(row.id, me, {
+        type: 'member_left',
+        actor: personOf(me),
+        users: [],
+        title: null,
+      });
     }
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete(`${API}/conversations/:id/members/:userId`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const me = mockDb.user.id;
+    const row = memberRow(me, param(params.id));
+    if (!row) return notFound();
+    if (row.kind !== 'group') return apiError(400, 'BAD_REQUEST', 'Only groups have a member list');
+    if (!isAdmin(row, me)) return forbidden();
+    const userId = param(params.userId);
+    if (!row.members.some((m) => m.userId === userId)) {
+      return apiError(404, 'NOT_FOUND', 'That person is not in the group');
+    }
+    row.members = row.members.filter((m) => m.userId !== userId);
+    promoteIfNoAdmin(row);
+    storeSystemLine(row.id, me, {
+      type: 'member_removed',
+      actor: personOf(me),
+      users: [personOf(userId)],
+      title: null,
+    });
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.put(`${API}/conversations/:id/members/:userId/role`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const me = mockDb.user.id;
+    const row = memberRow(me, param(params.id));
+    if (!row) return notFound();
+    if (!isAdmin(row, me)) return forbidden();
+    const member = row.members.find((m) => m.userId === param(params.userId));
+    if (!member) return apiError(404, 'NOT_FOUND', 'That person is not in the group');
+    const body = setMemberRoleSchema.parse(await request.json());
+    const admins = row.members.filter((m) => m.role === 'admin').length;
+    if (body.role === 'member' && member.role === 'admin' && admins <= 1) {
+      return apiError(400, 'BAD_REQUEST', 'A group needs at least one admin', {
+        role: 'Make someone else an admin first',
+      });
+    }
+    member.role = body.role;
+    return HttpResponse.json(conversationFor(me, row));
   }),
 ];

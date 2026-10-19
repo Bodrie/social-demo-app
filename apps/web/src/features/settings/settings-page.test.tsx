@@ -75,6 +75,48 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(mockDb.user?.settings.chatBubbles).toBe(false));
   });
 
+  it('stores the sound and notification preferences, asking the browser for permission first', async () => {
+    signedInAs(alice);
+    const requestPermission = vi.fn(() => Promise.resolve('granted' as const));
+    vi.stubGlobal('Notification', { permission: 'default', requestPermission });
+    renderApp('/settings');
+    const user = userEvent.setup();
+
+    const sound = await screen.findByRole('switch', { name: 'Play a sound for new messages' });
+    expect(sound).not.toBeChecked();
+    await user.click(sound);
+    await waitFor(() => expect(mockDb.user?.settings.messageSound).toBe(true));
+
+    const notify = screen.getByRole('switch', {
+      name: 'Show browser notifications for new messages',
+    });
+    await user.click(notify);
+    await waitFor(() => expect(mockDb.user?.settings.browserNotifications).toBe(true));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(notify).toBeChecked();
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps browser notifications off when the browser refuses them', async () => {
+    signedInAs(alice);
+    vi.stubGlobal('Notification', {
+      permission: 'default',
+      requestPermission: vi.fn(() => Promise.resolve('denied' as const)),
+    });
+    renderApp('/settings');
+    const user = userEvent.setup();
+    const notify = await screen.findByRole('switch', {
+      name: 'Show browser notifications for new messages',
+    });
+    await user.click(notify);
+    expect(
+      await screen.findByText('Notifications are blocked for this site in your browser'),
+    ).toBeInTheDocument();
+    expect(notify).not.toBeChecked();
+    expect(mockDb.user?.settings.browserNotifications).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
   it('keeps the session and says so when signing out everywhere fails', async () => {
     signedInAs(alice);
     server.use(

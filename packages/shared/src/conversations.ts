@@ -14,13 +14,47 @@ export const CONVERSATION_KINDS = ['direct', 'group'] as const;
 export const conversationKindSchema = z.enum(CONVERSATION_KINDS);
 export type ConversationKind = z.infer<typeof conversationKindSchema>;
 
+/** Group admins rename, remove people and hand the role on; every member adds people and leaves. */
+export const CONVERSATION_ROLES = ['admin', 'member'] as const;
+export const conversationRoleSchema = z.enum(CONVERSATION_ROLES);
+export type ConversationRole = z.infer<typeof conversationRoleSchema>;
+
+export const MESSAGE_KINDS = ['user', 'system'] as const;
+export const messageKindSchema = z.enum(MESSAGE_KINDS);
+export type MessageKind = z.infer<typeof messageKindSchema>;
+
+/** What a system line is about: who joined, who left or was removed, the new name. */
+export const SYSTEM_LINE_TYPES = [
+  'members_added',
+  'member_left',
+  'member_removed',
+  'renamed',
+] as const;
+const personRefSchema = z.object({ id: z.uuid(), name: z.string() });
+export const systemLineSchema = z.object({
+  type: z.enum(SYSTEM_LINE_TYPES),
+  /** Who did it, named as at the time (a client prefers the current name of someone still in). */
+  actor: personRefSchema,
+  /** The people concerned (added or removed); empty for a rename. */
+  users: z.array(personRefSchema),
+  /** The new title of a rename, null otherwise. */
+  title: z.string().nullable(),
+});
+export type SystemLine = z.infer<typeof systemLineSchema>;
+
 export const messageSchema = z.object({
   id: z.uuid(),
   conversationId: z.uuid(),
   senderId: z.uuid(),
-  /** Empty when the message is a picture only. */
+  /** `system` lines are written by the server about membership changes and renames. */
+  kind: messageKindSchema,
+  /** Empty when the message is a picture only, a system line or deleted. */
   content: z.string(),
   imageUrl: z.url().nullable(),
+  /** Set once the sender deleted it: the row stays (ordering, read marks), its content is gone. */
+  deletedAt: z.iso.datetime().nullable(),
+  /** The subject of a system line; null on a user's message. */
+  system: systemLineSchema.nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Message = z.infer<typeof messageSchema>;
@@ -46,10 +80,13 @@ export type SendMessageInput = z.input<typeof sendMessageSchema>;
 export type SendMessageData = z.output<typeof sendMessageSchema>;
 
 export const messagesQuerySchema = cursorQuerySchema;
+/** The list is keyset-paginated by activity (`lastMessageAt`, else `createdAt`), newest first. */
+export const conversationsQuerySchema = cursorQuerySchema;
 
 /** Read state lives on the membership: everything up to `lastReadAt` has been seen. */
 export const conversationMemberSchema = z.object({
   user: userSummarySchema,
+  role: conversationRoleSchema,
   joinedAt: z.iso.datetime(),
   lastReadAt: z.iso.datetime().nullable(),
 });
@@ -72,7 +109,6 @@ export const conversationSchema = z.object({
 });
 export type Conversation = z.infer<typeof conversationSchema>;
 
-/** Same envelope as every list; `nextCursor` is null until conversations are paginated. */
 export const conversationListSchema = paginatedSchema(conversationSchema);
 export type ConversationList = z.infer<typeof conversationListSchema>;
 
@@ -81,19 +117,29 @@ const memberIdsSchema = z
   .min(1, 'Pick at least one person')
   .max(GROUP_MAX_MEMBERS - 1, `At most ${GROUP_MAX_MEMBERS} members`);
 
+const groupTitleSchema = z
+  .string()
+  .trim()
+  .min(1, 'Give the group a name')
+  .max(GROUP_TITLE_MAX_LENGTH, `At most ${GROUP_TITLE_MAX_LENGTH} characters`);
+
 export const createGroupSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1, 'Give the group a name')
-    .max(GROUP_TITLE_MAX_LENGTH, `At most ${GROUP_TITLE_MAX_LENGTH} characters`),
-  /** The other members; the creator is added by the server. */
+  title: groupTitleSchema,
+  /** The other members; the creator is added by the server (as its admin). */
   memberIds: memberIdsSchema,
 });
 export type CreateGroupInput = z.input<typeof createGroupSchema>;
 
 export const addMembersSchema = z.object({ userIds: memberIdsSchema });
 export type AddMembersInput = z.input<typeof addMembersSchema>;
+
+/** Admins only. */
+export const renameGroupSchema = z.object({ title: groupTitleSchema });
+export type RenameGroupInput = z.input<typeof renameGroupSchema>;
+
+/** Admins only; demoting the last admin is refused. */
+export const setMemberRoleSchema = z.object({ role: conversationRoleSchema });
+export type SetMemberRoleInput = z.infer<typeof setMemberRoleSchema>;
 
 export const markReadResultSchema = z.object({ readAt: z.iso.datetime() });
 export type MarkReadResult = z.infer<typeof markReadResultSchema>;
@@ -105,8 +151,10 @@ export const SOCKET_EVENTS = {
   presenceUpdate: 'presence:update',
   /** client → server with ack: SendMessagePayload → MessageAck. */
   messageSend: 'message:send',
-  /** server → client (every member): a persisted Message. */
+  /** server → client (every member): a persisted Message (a system line included). */
   messageNew: 'message:new',
+  /** server → client (every member): the Message as it is now, `deletedAt` set and content gone. */
+  messageDeleted: 'message:deleted',
   /** client → server with ack: MarkReadPayload → MarkReadAck. */
   messageRead: 'message:read',
   /** server → client (the other members): ConversationReadPayload – `userId` caught up. */
@@ -169,6 +217,7 @@ export type ConversationRef = z.infer<typeof conversationRefSchema>;
 export type ServerToClientEvents = {
   [SOCKET_EVENTS.presenceUpdate]: (users: PresenceUpdate) => void;
   [SOCKET_EVENTS.messageNew]: (message: Message) => void;
+  [SOCKET_EVENTS.messageDeleted]: (message: Message) => void;
   [SOCKET_EVENTS.conversationRead]: (payload: ConversationReadPayload) => void;
   [SOCKET_EVENTS.conversationUpdate]: (payload: ConversationRef) => void;
   [SOCKET_EVENTS.conversationRemoved]: (payload: ConversationRef) => void;

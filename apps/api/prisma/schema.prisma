@@ -327,6 +327,20 @@ enum ConversationKind {
   @@map("conversation_kind")
 }
 
+enum ConversationRole {
+  admin
+  member
+
+  @@map("conversation_role")
+}
+
+enum MessageKind {
+  user
+  system
+
+  @@map("message_kind")
+}
+
 /// A direct conversation is the single thread between two people; a group has a title and members.
 model Conversation {
   id            String           @id @default(uuid(7)) @db.Uuid
@@ -349,10 +363,12 @@ model Conversation {
 
 /// Read state is per member: everything created up to `lastReadAt` has been seen.
 model ConversationMember {
-  conversationId String    @map("conversation_id") @db.Uuid
-  userId         String    @map("user_id") @db.Uuid
-  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz(3)
-  lastReadAt     DateTime? @map("last_read_at") @db.Timestamptz(3)
+  conversationId String           @map("conversation_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  /// Group admins rename, remove members and hand the role on; the creator starts as one.
+  role           ConversationRole @default(member)
+  joinedAt       DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
+  lastReadAt     DateTime?        @map("last_read_at") @db.Timestamptz(3)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -363,13 +379,20 @@ model ConversationMember {
 }
 
 model Message {
-  id             String   @id @default(uuid(7)) @db.Uuid
-  conversationId String   @map("conversation_id") @db.Uuid
-  senderId       String   @map("sender_id") @db.Uuid
-  /// Empty when the message is a picture only.
+  id             String      @id @default(uuid(7)) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  /// For a system line: who caused it.
+  senderId       String      @map("sender_id") @db.Uuid
+  /// `system` lines are written by the server about membership changes and renames.
+  kind           MessageKind @default(user)
+  /// Empty when the message is a picture only, a system line or deleted.
   content        String
-  imageKey       String?  @map("image_key")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  imageKey       String?     @map("image_key")
+  /// Soft delete by the sender: the row stays for ordering and read marks, content and picture go.
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  /// The subject of a system line (shared `systemLineSchema`).
+  systemMeta     Json?       @map("system_meta") @db.JsonB
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)

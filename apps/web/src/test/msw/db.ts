@@ -2,6 +2,7 @@ import type {
   Activity,
   Comment,
   ConversationKind,
+  ConversationRole,
   Message,
   Post,
   ReactionSummary,
@@ -21,7 +22,12 @@ export type MockConversation = {
   title: string | null;
   createdById: string | null;
   createdAt: string;
-  members: { userId: string; joinedAt: string; lastReadAt: string | null }[];
+  members: {
+    userId: string;
+    role: ConversationRole;
+    joinedAt: string;
+    lastReadAt: string | null;
+  }[];
 };
 let conversationSequence = 0;
 
@@ -117,13 +123,20 @@ export function seedConversation(
 ): MockConversation {
   conversationSequence += 1;
   const createdAt = options.createdAt ?? '2026-10-15T08:00:00.000Z';
+  const createdById = options.createdById ?? (kind === 'group' ? memberIds[0] : null) ?? null;
   const conversation: MockConversation = {
     id: testId('conversation', conversationSequence),
     kind,
     title: options.title ?? null,
-    createdById: options.createdById ?? (kind === 'group' ? memberIds[0] : null) ?? null,
+    createdById,
     createdAt,
-    members: memberIds.map((userId) => ({ userId, joinedAt: createdAt, lastReadAt: null })),
+    // Like the API: the creator of a group is its admin.
+    members: memberIds.map((userId) => ({
+      userId,
+      role: kind === 'group' && userId === createdById ? 'admin' : 'member',
+      joinedAt: createdAt,
+      lastReadAt: null,
+    })),
   };
   mockDb.conversations.push(conversation);
   return conversation;

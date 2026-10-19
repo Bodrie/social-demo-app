@@ -2,7 +2,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Conversation } from '@the-mesh/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
-import { ArrowLeftIcon, Loader2Icon, UsersIcon } from 'lucide-react';
+import {
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  Loader2Icon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  Trash2Icon,
+  UsersIcon,
+} from 'lucide-react';
 import {
   type UIEvent,
   useCallback,
@@ -16,7 +24,23 @@ import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/empty-state';
 import { RichText } from '@/components/rich-text';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { isApiClientError } from '@/lib/api/client';
@@ -28,23 +52,27 @@ import { ConversationAvatar } from './conversation-avatar';
 import {
   conversationName,
   directPeer,
+  isAdmin,
   memberById,
   seenText,
+  systemLineText,
   typingText,
 } from './conversation-display';
 import { GroupMembersDialog } from './group-members-dialog';
+import { GroupTitleEditor } from './group-title-editor';
 import {
   type ThreadMessage,
   appendToThread,
   markFailedInThread,
   removeFromThread,
   replaceInThread,
+  replaceMessage,
   upsertConversation,
 } from './message-cache';
 import { MessageComposer, type OutgoingMessage } from './message-composer';
 import { PresenceDot } from './presence-dot';
 import { TypingIndicator } from './typing-indicator';
-import { useMessages } from './use-conversations';
+import { useDeleteMessage, useMessages } from './use-conversations';
 
 const GROUP_GAP_MS = 5 * 60 * 1000;
 const NEAR_BOTTOM_PX = 80;
@@ -65,10 +93,14 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
   const messages = useMemo(() => flattenPages(thread.data).toReversed(), [thread.data]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // Messages from others that arrived while the viewer was scrolled up, offered as a pill.
+  const [newBelow, setNewBelow] = useState(0);
+  const [renaming, setRenaming] = useState(false);
   const { activateConversation, markRead, setTyping } = chat;
 
   const peer = directPeer(conversation, me.id);
   const name = conversationName(conversation, me.id);
+  const admin = conversation.kind === 'group' && isAdmin(conversation, me.id);
   const online = peer ? chat.isOnline(peer.id) : false;
   const typingNames = chat
     .typingIn(conversation.id)
@@ -101,14 +133,21 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       return;
     }
     const since = newestSeenAt.current;
-    const fresh = messages.findLast(
+    const arrived = messages.filter(
       (message) => message.senderId !== me.id && message.createdAt > since,
     );
+    const fresh = arrived.at(-1);
     if (latest && latest > since) newestSeenAt.current = latest;
-    if (fresh) {
+    if (!fresh) return;
+    if (fresh.kind === 'system') {
+      if (fresh.system) setAnnouncement(systemLineText(fresh.system, conversation, me.id));
+    } else {
       const sender = firstName(memberById(conversation, fresh.senderId)?.user.name ?? 'Someone');
       setAnnouncement(`${sender}: ${fresh.content || 'sent a picture'}`);
     }
+    // Scrolled up through the history: the new messages wait below, behind a pill.
+    const unseen = arrived.filter((message) => message.kind === 'user').length;
+    if (!stickToBottom.current && unseen > 0) setNewBelow((count) => count + unseen);
   }, [messages, me.id, conversation, thread.isPending]);
 
   // Stay pinned to the newest message (or the typing dots) unless the viewer scrolled up.
@@ -133,9 +172,17 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
     const element = event.currentTarget;
     stickToBottom.current =
       element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM_PX;
+    if (stickToBottom.current) setNewBelow((count) => (count === 0 ? count : 0));
     if (element.scrollTop < LOAD_OLDER_PX && thread.hasNextPage && !thread.isFetchingNextPage) {
       void loadOlder();
     }
+  };
+
+  const jumpToNewest = () => {
+    const element = scrollRef.current;
+    stickToBottom.current = true;
+    setNewBelow(0);
+    if (element) element.scrollTop = element.scrollHeight;
   };
 
   const send = async (outgoing: OutgoingMessage, retryOf?: string) => {
@@ -144,9 +191,12 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       id: `pending-${crypto.randomUUID()}`,
       conversationId: conversation.id,
       senderId: me.id,
+      kind: 'user',
       content: outgoing.content,
       imageUrl: outgoing.previewUrl ?? null,
       imageKey: outgoing.imageKey,
+      deletedAt: null,
+      system: null,
       createdAt: new Date().toISOString(),
       status: 'sending',
     };
@@ -206,21 +256,40 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
             <ConversationAvatar conversation={conversation} meId={me.id} />
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="truncate font-semibold">
-              {peer ? (
-                <Link to={`/u/${peer.username}`} className="hover:underline">
-                  {name}
-                </Link>
-              ) : (
-                name
-              )}
-            </h2>
-            <p
-              className={cn('truncate text-xs', typing ? 'text-primary' : 'text-muted-foreground')}
-            >
-              {subtitle}
-            </p>
+            {renaming ? (
+              <GroupTitleEditor conversation={conversation} onDone={() => setRenaming(false)} />
+            ) : (
+              <>
+                <h2 className="truncate font-semibold">
+                  {peer ? (
+                    <Link to={`/u/${peer.username}`} className="hover:underline">
+                      {name}
+                    </Link>
+                  ) : (
+                    name
+                  )}
+                </h2>
+                <p
+                  className={cn(
+                    'truncate text-xs',
+                    typing ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                >
+                  {subtitle}
+                </p>
+              </>
+            )}
           </div>
+          {admin && !renaming ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Rename group"
+              onClick={() => setRenaming(true)}
+            >
+              <PencilIcon />
+            </Button>
+          ) : null}
           {conversation.kind === 'group' ? (
             <GroupMembersDialog conversation={conversation}>
               <Button variant="ghost" size="icon-sm" aria-label="Group members">
@@ -231,59 +300,72 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
         </header>
       )}
 
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
-        tabIndex={0}
-        role="log"
-        aria-label={peer ? `Conversation with ${name}` : `Group ${name}`}
-        // Off: with the default "polite" every page of history, every optimistic bubble and
-        // every "Sending…"/"Seen" swap would be read out. New messages from others are
-        // announced once, through the status line below the log.
-        aria-live="off"
-      >
-        {thread.isPending ? (
-          <ThreadSkeleton />
-        ) : thread.isError ? (
-          <ErrorState
-            message="Could not load this conversation."
-            onRetry={() => void thread.refetch()}
-          />
-        ) : (
-          <>
-            {thread.isFetchingNextPage ? (
-              <div className="text-muted-foreground flex justify-center py-2">
-                <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
-                <span className="sr-only">Loading older messages</span>
-              </div>
-            ) : null}
-            {messages.length === 0 ? (
-              <p className="text-muted-foreground py-10 text-center text-sm">
-                {peer
-                  ? `This is the beginning of your conversation with ${name}.`
-                  : `This is the beginning of ${name}. Say hi to everyone.`}
-              </p>
-            ) : (
-              <MessageList
-                messages={messages}
-                meId={me.id}
-                conversation={conversation}
-                onRetry={(message) =>
-                  void send(
-                    {
-                      content: message.content,
-                      imageKey: message.imageKey,
-                      previewUrl: message.imageUrl ?? undefined,
-                    },
-                    message.id,
-                  )
-                }
-              />
-            )}
-            {typing ? <TypingIndicator text={typing} className="mt-1" /> : null}
-          </>
-        )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+          tabIndex={0}
+          role="log"
+          aria-label={peer ? `Conversation with ${name}` : `Group ${name}`}
+          // Off: with the default "polite" every page of history, every optimistic bubble and
+          // every "Sending…"/"Seen" swap would be read out. New messages from others are
+          // announced once, through the status line below the log.
+          aria-live="off"
+        >
+          {thread.isPending ? (
+            <ThreadSkeleton />
+          ) : thread.isError ? (
+            <ErrorState
+              message="Could not load this conversation."
+              onRetry={() => void thread.refetch()}
+            />
+          ) : (
+            <>
+              {thread.isFetchingNextPage ? (
+                <div className="text-muted-foreground flex justify-center py-2">
+                  <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+                  <span className="sr-only">Loading older messages</span>
+                </div>
+              ) : null}
+              {messages.length === 0 ? (
+                <p className="text-muted-foreground py-10 text-center text-sm">
+                  {peer
+                    ? `This is the beginning of your conversation with ${name}.`
+                    : `This is the beginning of ${name}. Say hi to everyone.`}
+                </p>
+              ) : (
+                <MessageList
+                  messages={messages}
+                  meId={me.id}
+                  conversation={conversation}
+                  onRetry={(message) =>
+                    void send(
+                      {
+                        content: message.content,
+                        imageKey: message.imageKey,
+                        previewUrl: message.imageUrl ?? undefined,
+                      },
+                      message.id,
+                    )
+                  }
+                />
+              )}
+              {typing ? <TypingIndicator text={typing} className="mt-1" /> : null}
+            </>
+          )}
+        </div>
+        {newBelow > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+            aria-label={`${newBelow} new ${newBelow === 1 ? 'message' : 'messages'}, scroll to ${newBelow === 1 ? 'it' : 'them'}`}
+            onClick={jumpToNewest}
+          >
+            <ArrowDownIcon /> {newBelow} new {newBelow === 1 ? 'message' : 'messages'}
+          </Button>
+        ) : null}
       </div>
 
       <output aria-live="polite" className="sr-only block">
@@ -306,13 +388,30 @@ type MessageListProps = {
   onRetry: (message: ThreadMessage) => void;
 };
 
+const isSystem = (message: ThreadMessage | undefined): boolean => message?.kind === 'system';
+
 function MessageList({ messages, meId, conversation, onRetry }: MessageListProps) {
-  const lastMine = messages.findLast((m) => m.senderId === meId && !m.status);
+  const queryClient = useQueryClient();
+  const deleteMessage = useDeleteMessage(conversation.id);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const lastMine = messages.findLast(
+    (m) => m.senderId === meId && !m.status && m.kind === 'user' && m.deletedAt === null,
+  );
   const seen = lastMine ? seenText(conversation, meId, lastMine.createdAt) : null;
   const showSeenOn = seen ? lastMine?.id : undefined;
   const isGroup = conversation.kind === 'group';
   const senderName = (userId: string) =>
     memberById(conversation, userId)?.user.name ?? 'A former member';
+
+  const confirmDelete = () => {
+    if (!deleting) return;
+    deleteMessage.mutate(deleting, {
+      onSuccess: (message) => replaceMessage(queryClient, message),
+      onError: (error) =>
+        toast.error(isApiClientError(error) ? error.message : 'Could not delete the message'),
+    });
+    setDeleting(null);
+  };
 
   return (
     <ol className="flex flex-col gap-0.5">
@@ -321,13 +420,37 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         const next = messages[index + 1];
         const mine = message.senderId === meId;
         const newDay = !previous || !dayjs(previous.createdAt).isSame(message.createdAt, 'day');
-        const startOfRun = newDay || previous?.senderId !== message.senderId;
+        if (message.kind === 'system') {
+          return (
+            <li key={message.id} className="flex flex-col items-center">
+              {newDay ? (
+                <div className="text-muted-foreground my-3 w-full text-center text-xs font-medium">
+                  {formatDayLabel(message.createdAt)}
+                </div>
+              ) : null}
+              <p
+                className="text-muted-foreground my-1.5 max-w-[85%] text-center text-xs"
+                title={formatDateTime(message.createdAt)}
+              >
+                {message.system ? systemLineText(message.system, conversation, meId) : null}
+              </p>
+            </li>
+          );
+        }
+        // System lines break a run of messages from one person, like a day does.
+        const startOfRun = newDay || isSystem(previous) || previous?.senderId !== message.senderId;
         const endOfGroup =
           !next ||
+          isSystem(next) ||
           next.senderId !== message.senderId ||
           dayjs(next.createdAt).diff(message.createdAt) > GROUP_GAP_MS;
+        const deleted = message.deletedAt !== null;
+        const canDelete = mine && !deleted && !message.status;
         return (
-          <li key={message.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
+          <li
+            key={message.id}
+            className={cn('group flex flex-col', mine ? 'items-end' : 'items-start')}
+          >
             <span className="sr-only">{mine ? 'You' : senderName(message.senderId)}: </span>
             {newDay ? (
               <div className="text-muted-foreground my-3 w-full text-center text-xs font-medium">
@@ -339,42 +462,69 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 {firstName(senderName(message.senderId))}
               </p>
             ) : null}
-            <div
-              title={formatDateTime(message.createdAt)}
-              className={cn(
-                'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
-                message.imageUrl ? 'p-1' : 'px-3.5 py-2',
-                mine
-                  ? 'bg-primary text-primary-foreground rounded-br-md'
-                  : 'bg-muted rounded-bl-md',
-                message.status === 'sending' && 'opacity-70',
-                message.status === 'failed' && 'bg-destructive/15 text-foreground',
-              )}
-            >
-              {message.imageUrl ? (
-                <a
-                  href={message.imageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-                >
-                  <span className="sr-only">(opens in a new tab)</span>
-                  <img
-                    src={message.imageUrl}
-                    alt={`Sent by ${mine ? 'you' : senderName(message.senderId)}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="max-h-72 w-auto max-w-full object-cover"
+            <div className={cn('flex max-w-full items-center gap-1', mine && 'flex-row-reverse')}>
+              <div
+                title={formatDateTime(message.createdAt)}
+                className={cn(
+                  'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
+                  message.imageUrl ? 'p-1' : 'px-3.5 py-2',
+                  deleted
+                    ? 'text-muted-foreground border border-dashed bg-transparent italic'
+                    : mine
+                      ? 'bg-primary text-primary-foreground rounded-br-md'
+                      : 'bg-muted rounded-bl-md',
+                  message.status === 'sending' && 'opacity-70',
+                  message.status === 'failed' && 'bg-destructive/15 text-foreground',
+                )}
+              >
+                {deleted ? <span className="block">Message deleted</span> : null}
+                {message.imageUrl ? (
+                  <a
+                    href={message.imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    <span className="sr-only">(opens in a new tab)</span>
+                    <img
+                      src={message.imageUrl}
+                      alt={`Sent by ${mine ? 'you' : senderName(message.senderId)}`}
+                      loading="lazy"
+                      decoding="async"
+                      className="max-h-72 w-auto max-w-full object-cover"
+                    />
+                  </a>
+                ) : null}
+                {message.content ? (
+                  <RichText
+                    as="span"
+                    text={message.content}
+                    className={cn('block', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}
+                    linkClassName={mine ? 'text-primary-foreground underline' : undefined}
                   />
-                </a>
-              ) : null}
-              {message.content ? (
-                <RichText
-                  as="span"
-                  text={message.content}
-                  className={cn('block', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}
-                  linkClassName={mine ? 'text-primary-foreground underline' : undefined}
-                />
+                ) : null}
+              </div>
+              {canDelete ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Message options"
+                      className="text-muted-foreground shrink-0 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100"
+                    >
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align={mine ? 'end' : 'start'}>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setDeleting(message.id)}
+                    >
+                      <Trash2Icon /> Delete message
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
             </div>
             {message.status === 'failed' ? (
@@ -393,6 +543,22 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
           </li>
         );
       })}
+      <AlertDialog open={deleting !== null} onOpenChange={(next) => !next && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It is removed for everyone in the conversation. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteMessage.isPending}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ol>
   );
 }

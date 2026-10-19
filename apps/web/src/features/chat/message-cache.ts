@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { Conversation, ConversationList, Message, MessageList } from '@the-mesh/shared';
+import type { Conversation, Message, MessageList } from '@the-mesh/shared';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchMessages } from '@/lib/api/conversations';
 import {
@@ -11,7 +11,13 @@ import {
   prependItem,
 } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
-import { conversationQueryOptions, forgetConversation, putInList } from './use-conversations';
+import {
+  type ConversationPages,
+  conversationQueryOptions,
+  forgetConversation,
+  moveToTop,
+  putInList,
+} from './use-conversations';
 
 /** A message as the thread shows it; `status` and `imageKey` only exist on optimistic copies. */
 export type ThreadMessage = Message & { status?: 'sending' | 'failed'; imageKey?: string };
@@ -97,19 +103,31 @@ export function removeFromThread(
   );
 }
 
+/**
+ * A message changed on the server (deleted by its sender): the thread and the list snippet show
+ * the new copy. Nothing moves, since the message keeps its place.
+ */
+export function replaceMessage(queryClient: QueryClient, message: Message): void {
+  queryClient.setQueryData<ThreadPages>(
+    queryKeys.conversations.messages(message.conversationId),
+    (data) => data && mapItems(data, (item) => (item.id === message.id ? message : item)),
+  );
+  patchConversation(queryClient, message.conversationId, (conversation) =>
+    conversation.lastMessage?.id === message.id
+      ? { ...conversation, lastMessage: message }
+      : conversation,
+  );
+}
+
 /** Applies the same change to the list row and the detail query of one conversation. */
 function patchConversation(
   queryClient: QueryClient,
   conversationId: string,
   patch: (conversation: Conversation) => Conversation,
 ): void {
-  queryClient.setQueryData<ConversationList>(
+  queryClient.setQueryData<ConversationPages>(
     queryKeys.conversations.list,
-    (list) =>
-      list && {
-        ...list,
-        items: list.items.map((row) => (row.id === conversationId ? patch(row) : row)),
-      },
+    (pages) => pages && mapItems(pages, (row) => (row.id === conversationId ? patch(row) : row)),
   );
   queryClient.setQueryData<Conversation>(
     queryKeys.conversations.detail(conversationId),
@@ -146,19 +164,22 @@ export function setMemberReadAt(
 
 /**
  * A message arrived (push or ack): the conversation moves to the top with it as the last
- * message, and the sender's read mark follows it. A conversation the list has never seen
- * is inserted from its detail query when that is loaded, otherwise the list is refetched.
+ * message, and the sender's read mark follows it (not for a system line, which the server
+ * writes without touching anyone's mark). A conversation the list has never seen is inserted
+ * from its detail query when that is loaded, otherwise the list is refetched.
  */
 export function upsertConversation(
   queryClient: QueryClient,
   message: Message,
   options: { countUnread: boolean },
 ): void {
-  const list = queryClient.getQueryData<ConversationList>(queryKeys.conversations.list);
-  if (!list) return;
-  const existing = list.items.find((row) => row.id === message.conversationId);
+  const pages = queryClient.getQueryData<ConversationPages>(queryKeys.conversations.list);
+  if (!pages) return;
+  const existing = flattenPages(pages).find((row) => row.id === message.conversationId);
   const bump = (conversation: Conversation): Conversation => ({
-    ...withReadMark(conversation, message.senderId, message.createdAt),
+    ...(message.kind === 'system'
+      ? conversation
+      : withReadMark(conversation, message.senderId, message.createdAt)),
     lastMessage: message,
     lastMessageAt: message.createdAt,
   });
@@ -178,10 +199,10 @@ export function upsertConversation(
     ...bump(existing),
     unreadCount: existing.unreadCount + (options.countUnread ? 1 : 0),
   };
-  queryClient.setQueryData<ConversationList>(queryKeys.conversations.list, {
-    ...list,
-    items: [updated, ...list.items.filter((row) => row.id !== message.conversationId)],
-  });
+  queryClient.setQueryData<ConversationPages>(
+    queryKeys.conversations.list,
+    moveToTop(pages, updated),
+  );
   queryClient.setQueryData<Conversation>(
     queryKeys.conversations.detail(message.conversationId),
     (conversation) =>
@@ -240,17 +261,20 @@ export function mergeNewestPage(
   newest: MessageList,
   heldBefore: ReadonlySet<string>,
 ): ThreadPages {
+  const fresh = new Map(newest.items.map((message) => [message.id, message]));
+  // A held message may have been deleted meanwhile: the server's copy wins where it has one.
+  const refreshed = mapItems(data, (message) => fresh.get(message.id) ?? message);
   const held = new Set(flattenPages(data).map((message) => message.id));
   const missing = newest.items.filter((message) => !held.has(message.id));
-  if (missing.length === 0) return data;
+  if (missing.length === 0) return refreshed;
 
   const oldest = newest.items.at(-1);
   const reachesBack =
     newest.nextCursor === null || (oldest !== undefined && heldBefore.has(oldest.id));
-  const [first, ...rest] = data.pages;
+  const [first, ...rest] = refreshed.pages;
   if (reachesBack && first) {
     const items = [...first.items, ...missing].toSorted(newestFirst);
-    return { ...data, pages: [{ ...first, items }, ...rest] };
+    return { ...refreshed, pages: [{ ...first, items }, ...rest] };
   }
 
   const newestAt = newest.items[0]?.createdAt ?? '';

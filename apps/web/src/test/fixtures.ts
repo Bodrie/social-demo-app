@@ -137,8 +137,11 @@ export function makeMessage(
     id: testId('message', sequence),
     conversationId,
     senderId,
+    kind: 'user',
     content,
     imageUrl: null,
+    deletedAt: null,
+    system: null,
     createdAt: new Date(BASE_TIME - 3_600_000 + sequence * 60_000).toISOString(),
     ...overrides,
   };

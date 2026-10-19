@@ -48,7 +48,7 @@ A3  Turnstile on register           ✅ 2026-10-19           │
 A1  box + monitor + backups (owner, in parallel)           ─┘
 A4  review-pass completion + cheap Low items ✅ 2026-10-19  ─┐
 B3a chat bubbles                    ✅ 2026-10-19           │  v2.4
-B3b chat follow-ups                                         │
+B3b chat follow-ups                 ✅ 2026-10-19           │
 C1  newcomer experience (explore + onboarding)             ─┘
 C6  scheduler + reapers                                    ─┐
 B4  notifications                                           │  v2.5
@@ -242,11 +242,11 @@ patch, own-room read push. E2E (`chat.spec.ts`): bob writes while alice is on th
 bubble → alice opens it and replies → bob sees "Seen"; `mobile.spec.ts`: the row and the panel on
 carol's phone viewport; axe on the open state (bubbles + one window) in both themes and viewports.
 
-### B3b. Chat follow-ups · M–L · ADR 0009 amendment
+### B3b. Chat follow-ups · M–L · ADR 0009 amendment · ✅ 2026-10-19
 
 **Decision (owner): system lines are in.**
 
-- **Delete a message** (sender only, any age): soft delete, `messages.deleted_at`, content cleared and `image_key` discarded on delete; the row stays so ordering and read marks hold; shape gains `deletedAt` and the bubble shows "Message deleted". `DELETE /conversations/:id/messages/:messageId`; `MessageDeletedEvent` → `message:deleted` push → `message-cache.ts` patches the bubble. Conversation snippet recomputed from the newest non-deleted message.
+- **Delete a message** (sender only, any age): soft delete, `messages.deleted_at`, content cleared and `image_key` discarded on delete; the row stays so ordering and read marks hold; shape gains `deletedAt` and the bubble shows "Message deleted". `DELETE /conversations/:id/messages/:messageId`; `MessageDeletedEvent` → `message:deleted` push → `message-cache.ts` patches the bubble. Conversation snippet recomputed from the newest non-deleted message. *Built as: the newest message stays the snippet and reads "Message deleted", so the push alone keeps every client in step.*
 - **Group roles**: `conversation_members.role enum (admin | member)`, creator is admin (migration backfills from `created_by_id`). Admins rename (`PATCH /conversations/:id { title }`), remove members (`DELETE /conversations/:id/members/:userId`), promote (`PUT /conversations/:id/members/:userId/role`). Anyone still adds people and leaves (ADR 0009). Last admin leaving promotes the longest-standing member. Removal emits `ConversationLeftEvent` for the removed person (they get `conversation:removed`) and `ConversationUpdatedEvent` for the rest. `GroupMembersDialog` grows the admin actions and a rename field; the thread header title is inline-editable for admins (`InlineEditor`).
 - **System lines** for membership changes and renames ("alice added bob", "carol renamed the group"): `messages.kind enum (user | system)` with a small JSON `meta`, rendered centred, excluded from unread counts and from bubble triggers (B3a rule 1 ignores `system`).
 - **Reading UX**: "New messages ↓" pill when a push arrives while scrolled up (the thread already knows the scroll position for history loading); unread total in the tab title (`(3) Messages · The Mesh`, a `useDocumentBadge` util shared with B4); sound and browser `Notification` for messages while the tab is hidden, both behind the B3a preferences (`messageSound`, `browserNotifications`; permission requested only from the switch).

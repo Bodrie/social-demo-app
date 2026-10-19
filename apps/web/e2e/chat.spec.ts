@@ -35,7 +35,8 @@ test.describe('chat', () => {
     await bob.goto('/messages');
     const bobList = bob.getByRole('list', { name: 'Conversations' });
     await expect(bobList.getByRole('listitem').first()).toContainText(text);
-    await bobList.getByRole('link', { name: /Alice Anderson/ }).click();
+    // Anchored: the seeded group's snippet is a system line that names Alice too.
+    await bobList.getByRole('link', { name: /^Alice Anderson/ }).click();
     const bobLog = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
     await expect(bobLog.getByText(text)).toBeVisible();
 
@@ -121,6 +122,70 @@ test.describe('chat', () => {
     const bobLog = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
     const received = bobLog.getByRole('listitem').filter({ hasText: caption });
     await expect(received.getByRole('img', { name: 'Sent by Alice Anderson' })).toBeVisible();
+    await bob.context().close();
+  });
+
+  test('an admin renames the group and a sender takes a message back, live for the other member', async ({
+    page,
+    browser,
+  }) => {
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await openHome(bob);
+    await openHome(page);
+    await page.goto('/messages');
+
+    const title = `Admins ${Date.now()}`;
+    await page
+      .getByRole('complementary', { name: 'Conversations' })
+      .getByRole('button', { name: 'New group' })
+      .click();
+    const dialog = page.getByRole('dialog', { name: 'New group' });
+    await dialog.getByLabel('Group name').fill(title);
+    await dialog.getByRole('searchbox').fill('bob');
+    await dialog.getByRole('button', { name: /Bob Brown/ }).click();
+    await dialog.getByRole('button', { name: 'Create group' }).click();
+    await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
+    await bob.goto(page.url());
+    await expect(bob.getByRole('log', { name: `Group ${title}` })).toBeVisible();
+
+    // The creator is the admin; Bob has no rename control. The rename reaches Bob's thread
+    // together with the system line.
+    await expect(bob.getByRole('button', { name: 'Rename group' })).toHaveCount(0);
+    const renamed = `${title} renamed`;
+    await page.getByRole('button', { name: 'Rename group' }).click();
+    await page.getByRole('textbox', { name: 'Group name' }).fill(renamed);
+    await page.keyboard.press('Enter');
+    const aliceLog = page.getByRole('log', { name: `Group ${renamed}` });
+    await expect(aliceLog).toBeVisible();
+    await expect(aliceLog.getByText(`You renamed the group to “${renamed}”`)).toBeVisible();
+    const bobLog = bob.getByRole('log', { name: `Group ${renamed}` });
+    await expect(bobLog).toBeVisible({ timeout: 15_000 });
+    await expect(
+      bobLog.getByText(`Alice Anderson renamed the group to “${renamed}”`),
+    ).toBeVisible();
+
+    // Alice sends, then takes it back: Bob's copy turns into "Message deleted".
+    const text = `Take back ${Date.now()}`;
+    await page.getByRole('textbox', { name: `Message ${renamed}` }).fill(text);
+    await page.keyboard.press('Enter');
+    await expect(bobLog.getByText(text)).toBeVisible();
+    const mine = aliceLog.getByRole('listitem').filter({ hasText: text });
+    await mine.hover();
+    await mine.getByRole('button', { name: 'Message options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete message' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Delete this message?' })
+      .getByRole('button', { name: 'Delete' })
+      .click();
+    await expect(aliceLog.getByText('Message deleted')).toBeVisible();
+    await expect(aliceLog.getByText(text)).toHaveCount(0);
+    await expect(bobLog.getByText('Message deleted')).toBeVisible({ timeout: 15_000 });
+    await expect(bobLog.getByText(text)).toHaveCount(0);
+
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations, 'axe violations with a system line and a deleted message').toEqual([]);
     await bob.context().close();
   });
 

@@ -30,7 +30,7 @@ in `BACKLOG.md`.
 
 | Item | Notes |
 |---|---|
-| **Chat follow-ups** | delete a message, group admin and renaming, "new messages" pill when scrolled up, unread count in the tab title, notification sound |
+| ~~**Chat follow-ups**~~ ✅ 2026-10-19 | done as B3b (ADR 0009 amendment 2): message deletion, group admins (rename, remove, promote), system lines, paginated list, "new messages" pill, unread count in the tab title, sound and browser notifications |
 | Performance | `zod/mini` browser build, image `srcset`, font preload, route prefetch on hover (bundle is at 241 of 245 kB) |
 | Two-factor authentication (TOTP) | the email flows now exist to recover a lost device |
 | PWA manifest, web push | rides on the notifications work |
@@ -39,5 +39,5 @@ in `BACKLOG.md`.
 ## Agreed order (2026-10-16)
 
 The owner picked, to be done directly on `dev` with one commit per item: **legal pages →
-mentions and hashtags → post pages and search → chat follow-ups**. The first three are done; the
+mentions and hashtags → post pages and search → chat follow-ups**. All four are done; the
 full sequence from here is in `IMPLEMENTATION_PLAN.md`.

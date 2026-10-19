@@ -34,6 +34,7 @@ import {
   ConversationLeftEvent,
   ConversationReadEvent,
   ConversationUpdatedEvent,
+  MessageDeletedEvent,
   MessageSentEvent,
 } from '../events/conversation.events.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
@@ -278,6 +279,11 @@ export class ChatGateway
   @OnEvent(MessageSentEvent.EVENT)
   onMessageSent(event: MessageSentEvent): void {
     this.emitTo(event.memberIds, SOCKET_EVENTS.messageNew, event.message);
+  }
+
+  @OnEvent(MessageDeletedEvent.EVENT)
+  onMessageDeleted(event: MessageDeletedEvent): void {
+    this.emitTo(event.memberIds, SOCKET_EVENTS.messageDeleted, event.message);
   }
 
   @OnEvent(ConversationReadEvent.EVENT)

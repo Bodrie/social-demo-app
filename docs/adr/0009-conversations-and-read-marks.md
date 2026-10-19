@@ -32,6 +32,39 @@ JSON column validated by the shared `userSettingsSchema` and changed through
 for the chat follow-ups. Reads are now pushed to **every** member, the reader included, so the
 reader's other tabs lower their badge (review L9).
 
+## Amendment 2026-10-19: chat follow-ups (plan B3b)
+
+- **Deleting a message.** The sender can take a message back at any age. It is a soft delete:
+  `messages.deleted_at` is set, the text is cleared and the picture is discarded, but the row
+  keeps its place so ordering, keyset cursors and read marks hold. Everyone sees "Message
+  deleted" (the list snippet too, when it was the newest message); deleted messages count for
+  nobody as unread. `DELETE /conversations/:id/messages/:messageId` answers the message as it is
+  now, and `message:deleted` pushes the same to every member.
+- **Group roles.** `conversation_members.role` (`admin` | `member`). The creator starts as admin
+  (the migration backfills existing groups from `created_by_id`, falling back to the
+  longest-standing member). Admins rename the group (`PATCH /conversations/:id`), remove people
+  (`DELETE /conversations/:id/members/:userId`) and hand the role on or take it back
+  (`PUT /conversations/:id/members/:userId/role`); demoting the last admin is refused. Anyone
+  still adds people and leaves. When the last admin leaves, is removed or deletes their account,
+  the longest-standing member is promoted (`promoteIfNoAdminSql`, run inside the same
+  transaction). This supersedes the "no admin roles, no renaming, no removing others" line above.
+- **System lines.** Membership changes and renames are written into the thread by the server as
+  messages of `kind = system` with a small JSON subject (`system_meta`, the shared
+  `systemLineSchema`: type, actor, people concerned, new title, with names as at the time so a
+  line still reads after someone left). They are pushed like any message (`message:new`), move
+  the conversation up the list and become its snippet, but count for nobody as unread, move no
+  read mark, raise no chat bubble and no alert, and cannot be deleted.
+- **List pagination.** `GET /conversations` is keyset-paginated on the activity stamp
+  (`COALESCE(last_message_at, created_at)`, so a new group without messages sorts by its
+  creation) and the id; the page's ids come from SQL and are hydrated afterwards. The web list
+  is an infinite query and loads more on scroll.
+- **Reading UX.** A "n new messages" pill when a push arrives while the reader is scrolled up;
+  the unread total in the tab title (`(3) Messages · The Mesh`, one owner for the title and one
+  for the badge in `lib/document-title.ts`); a sound (Web Audio, no asset) and a browser
+  `Notification` for messages that arrive while the tab is hidden, each behind its account
+  preference (`messageSound`, `browserNotifications`). The permission is requested only from the
+  Settings switch.
+
 ## Consequences
 
 - The web client addresses threads by conversation id (`/messages/:conversationId`); `/messages/with/:username` resolves a person to their direct thread and redirects. Group avatars, member lists, per-member read receipts and multi-person typing all derive from the conversation's `members`.

@@ -195,11 +195,17 @@ describe('DELETE /users/me', () => {
     expect(await updated).toEqual({ conversationId: group.id });
     const stays = await t.prisma.conversation.findUniqueOrThrow({
       where: { id: group.id },
-      select: { lastMessageAt: true, members: { select: { userId: true } }, messages: true },
+      select: {
+        lastMessageAt: true,
+        members: { select: { userId: true, role: true }, orderBy: { joinedAt: 'asc' } },
+        messages: true,
+      },
     });
     expect(stays.members.map((member) => member.userId).toSorted()).toEqual(
       [friend.id, third.id].toSorted(),
     );
+    // I was the group's only admin: the longest-standing member takes over.
+    expect(stays.members.filter((member) => member.role === 'admin')).toHaveLength(1);
     expect(stays.messages).toEqual([]);
     expect(stays.lastMessageAt).toBeNull();
 

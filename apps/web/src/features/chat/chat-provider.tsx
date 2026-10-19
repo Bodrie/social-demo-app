@@ -27,6 +27,7 @@ import {
   appendToThread,
   heldMessageIds,
   refreshConversation,
+  replaceMessage,
   resyncConversations,
   setMemberReadAt,
   upsertConversation,
@@ -149,7 +150,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       };
     const onPresence = guarded(presenceUpdateSchema, (users: PresenceUpdate) => setOnline(users));
     const onMessage = guarded(messageSchema, (message: Message) => {
-      const fromOther = message.senderId !== me.id;
+      // A system line (the server about a membership change or rename) is shown but is nobody's
+      // unread and reads nothing.
+      const fromOther = message.kind === 'user' && message.senderId !== me.id;
       const onScreen =
         fromOther &&
         activeConversations.current.has(message.conversationId) &&
@@ -160,6 +163,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (onScreen) void markRead(message.conversationId);
       for (const listener of messageListeners.current) listener(message);
     });
+    const onMessageDeleted = guarded(messageSchema, (message: Message) =>
+      replaceMessage(queryClient, message),
+    );
     const onRead = guarded(
       conversationReadPayloadSchema,
       // My own read, made in another tab, lowers this tab's badge too (review L9).
@@ -231,6 +237,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.on('connect_error', onConnectError);
       socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
       socket.on(SOCKET_EVENTS.messageNew, onMessage);
+      socket.on(SOCKET_EVENTS.messageDeleted, onMessageDeleted);
       socket.on(SOCKET_EVENTS.conversationRead, onRead);
       socket.on(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
       socket.on(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
@@ -245,6 +252,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         clearTimeout(retryTimer);
         socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
         socket.off(SOCKET_EVENTS.messageNew, onMessage);
+        socket.off(SOCKET_EVENTS.messageDeleted, onMessageDeleted);
         socket.off(SOCKET_EVENTS.conversationRead, onRead);
         socket.off(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
         socket.off(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);

@@ -6,6 +6,7 @@ import { verifyPassword } from '../auth/password.js';
 import { validationError } from '../common/errors.js';
 import { EmailService } from '../email/email.service.js';
 import { SessionsRevokedEvent } from '../events/auth.events.js';
+import { promoteIfNoAdminSql } from '../conversations/roles.js';
 import { ConversationDeletedEvent, ConversationLeftEvent } from '../events/conversation.events.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -200,13 +201,15 @@ export class AccountService {
         where: { id: { in: removed.map((conversation) => conversation.id) } },
       }),
       this.prisma.user.delete({ where: { id: userId } }),
-      // Groups that stay: their newest message may have been this member's.
+      // Groups that stay: their newest message may have been this member's, and the member
+      // may have been their last admin.
       ...(left.length > 0
         ? [
             this.prisma.$executeRaw`
               UPDATE conversations c
               SET last_message_at = (SELECT max(m.created_at) FROM messages m WHERE m.conversation_id = c.id)
               WHERE c.id IN (${Prisma.join(left.map((group) => Prisma.sql`${group.id}::uuid`))})`,
+            ...left.map((group) => this.prisma.$executeRaw(promoteIfNoAdminSql(group.id))),
           ]
         : []),
     ]);

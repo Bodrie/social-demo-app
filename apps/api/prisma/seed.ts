@@ -125,7 +125,7 @@ async function seed(): Promise<void> {
       // Demo accounts are born verified; real members confirm their address through the mailed link.
       (u) => ({ ...u, passwordHash, emailVerifiedAt: new Date() }),
     ),
-    select: { id: true, username: true },
+    select: { id: true, username: true, name: true },
   });
   const userIds = users.map((u) => u.id);
 
@@ -385,7 +385,13 @@ async function seed(): Promise<void> {
         kind: 'group',
         title: 'Weekend plans',
         createdById: alice.id,
-        members: { create: groupMembers.map((userId) => ({ userId })) },
+        // The creator is the admin; the others are plain members.
+        members: {
+          create: groupMembers.map((userId) => ({
+            userId,
+            role: userId === alice.id ? 'admin' : 'member',
+          })),
+        },
       },
       select: { id: true },
     });
@@ -393,16 +399,47 @@ async function seed(): Promise<void> {
       conversationId: group.id,
       senderId: groupMembers[i % groupMembers.length] ?? alice.id,
       content: faker.lorem.sentence(),
-      createdAt: new Date(Date.now() - (6 - i) * 5 * 60_000),
+      createdAt: new Date(Date.now() - (8 - i) * 5 * 60_000),
     }));
     await prisma.message.createMany({ data: chatter });
-    const lastChatter = chatter.at(-1)?.createdAt;
+    // One message Bob took back, and the line the server wrote when Alice brought the others in.
+    const [third, fourth] = users.slice(3, 5);
+    await prisma.message.create({
+      data: {
+        conversationId: group.id,
+        senderId: bob.id,
+        content: '',
+        deletedAt: new Date(Date.now() - 9 * 60_000),
+        createdAt: new Date(Date.now() - 10 * 60_000),
+      },
+    });
+    const systemLine = await prisma.message.create({
+      data: {
+        conversationId: group.id,
+        senderId: alice.id,
+        kind: 'system',
+        content: '',
+        systemMeta: {
+          type: 'members_added',
+          actor: { id: alice.id, name: alice.name },
+          users: [third, fourth].flatMap((user) =>
+            user ? [{ id: user.id, name: user.name }] : [],
+          ),
+          title: null,
+        },
+        createdAt: new Date(Date.now() - 5 * 60_000),
+      },
+      select: { createdAt: true },
+    });
     await prisma.conversation.update({
       where: { id: group.id },
       data: {
-        lastMessageAt: lastChatter,
+        lastMessageAt: systemLine.createdAt,
         members: {
-          updateMany: { where: { userId: { not: alice.id } }, data: { lastReadAt: lastChatter } },
+          updateMany: {
+            where: { userId: { not: alice.id } },
+            data: { lastReadAt: systemLine.createdAt },
+          },
           update: {
             where: { conversationId_userId: { conversationId: group.id, userId: alice.id } },
             data: { lastReadAt: chatter[2]?.createdAt },
