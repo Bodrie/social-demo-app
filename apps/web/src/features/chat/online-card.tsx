@@ -15,7 +15,9 @@ export function OnlineCard({ className }: { className?: string }) {
   return (
     <Card className={cn('gap-3 py-4', className)}>
       <CardHeader className="px-4">
-        <CardTitle>Online now</CardTitle>
+        <CardTitle asChild>
+          <h2>Online now</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent className="px-4">
         {!connected ? (

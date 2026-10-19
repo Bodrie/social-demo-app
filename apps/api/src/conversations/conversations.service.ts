@@ -156,10 +156,11 @@ export class ConversationsService {
         },
         select: messageSelect,
       });
-      await tx.conversation.update({
-        where: { id },
-        data: { lastMessageAt: message.createdAt },
-      });
+      // Two concurrent sends commit in any order; the stamp keeps the newest (review L15).
+      await tx.$executeRaw`
+        UPDATE conversations
+        SET last_message_at = GREATEST(COALESCE(last_message_at, ${message.createdAt}), ${message.createdAt})
+        WHERE id = ${id}::uuid`;
       // Writing counts as having read everything before it.
       await tx.conversationMember.update({
         where: { conversationId_userId: { conversationId: id, userId: meId } },
@@ -179,11 +180,13 @@ export class ConversationsService {
   async markRead(meId: string, id: string): Promise<MarkReadResult> {
     const row = await this.rowForMember(meId, id);
     const mine = row.members.find((member) => member.user.id === meId);
+    // The newest message itself, not the denormalised stamp: under concurrent sends the two
+    // can briefly disagree, and a mark "caught up" with the stamp would leave unread counts
+    // behind (review L15).
+    const newest = row.messages[0]?.createdAt ?? row.lastMessageAt;
     const caughtUp =
-      row.lastMessageAt === null ||
-      (mine?.lastReadAt !== null &&
-        mine?.lastReadAt !== undefined &&
-        mine.lastReadAt >= row.lastMessageAt);
+      newest === null ||
+      (mine?.lastReadAt !== null && mine?.lastReadAt !== undefined && mine.lastReadAt >= newest);
     if (caughtUp) return { readAt: (mine?.lastReadAt ?? new Date()).toISOString() };
 
     const readAt = new Date();
@@ -207,18 +210,30 @@ export class ConversationsService {
   async addMembers(meId: string, id: string, input: AddMembersInput): Promise<Conversation> {
     const row = await this.groupForMember(meId, id);
     const wanted = await this.resolveMembers(meId, input.userIds, 'userIds');
-    const current = new Set(memberIdsOf(row));
-    const toAdd = wanted.filter((userId) => !current.has(userId));
-    if (current.size + toAdd.length > GROUP_MAX_MEMBERS) {
-      throw badRequest(`A group can have at most ${GROUP_MAX_MEMBERS} members`, {
-        userIds: `At most ${GROUP_MAX_MEMBERS} members`,
+    // The cap is checked and the rows are written under a lock on the group, so two
+    // concurrent additions cannot both pass the count (review L16).
+    const added = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM conversations WHERE id = ${id}::uuid FOR UPDATE`;
+      const members = await tx.conversationMember.findMany({
+        where: { conversationId: id },
+        select: { userId: true },
       });
-    }
-    if (toAdd.length === 0) return this.withUnreadOne(row, meId);
-    await this.prisma.conversationMember.createMany({
-      data: toAdd.map((userId) => ({ conversationId: id, userId })),
-      skipDuplicates: true,
+      const current = new Set(members.map((member) => member.userId));
+      const toAdd = wanted.filter((userId) => !current.has(userId));
+      if (current.size + toAdd.length > GROUP_MAX_MEMBERS) {
+        throw badRequest(`A group can have at most ${GROUP_MAX_MEMBERS} members`, {
+          userIds: `At most ${GROUP_MAX_MEMBERS} members`,
+        });
+      }
+      if (toAdd.length > 0) {
+        await tx.conversationMember.createMany({
+          data: toAdd.map((userId) => ({ conversationId: id, userId })),
+          skipDuplicates: true,
+        });
+      }
+      return toAdd.length;
     });
+    if (added === 0) return this.withUnreadOne(row, meId);
     const updated = await this.rowForMember(meId, id);
     await this.events.emitAsync(
       ConversationUpdatedEvent.EVENT,

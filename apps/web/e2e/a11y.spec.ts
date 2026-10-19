@@ -77,6 +77,11 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/u/bob');
     await expect(page.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeVisible();
     await audit(page, '/u/bob');
+    await page.goto('/u/bob/followers');
+    await expect(
+      page.getByRole('list', { name: 'Followers' }).getByRole('listitem').first(),
+    ).toBeVisible();
+    await audit(page, '/u/bob/followers');
     await page.goto('/tags/weekend');
     await expect(page.getByRole('heading', { level: 1, name: '#weekend' })).toBeVisible();
     await expect(
@@ -114,13 +119,17 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/messages/with/bob');
     await expect(page.getByRole('log', { name: 'Conversation with Bob Brown' })).toBeVisible();
     await audit(page, '/messages (direct)');
+    await page.getByRole('button', { name: 'New message' }).click();
+    await expect(page.getByRole('dialog', { name: 'New message' })).toBeVisible();
+    await audit(page, 'new message dialog');
+    await page.keyboard.press('Escape');
     await page
       .getByRole('list', { name: 'Conversations' })
       .getByRole('link', { name: /Weekend plans/ })
       .click();
     await expect(page.getByRole('log', { name: 'Group Weekend plans' })).toBeVisible();
     await audit(page, '/messages (group)');
-    await page.getByRole('button', { name: 'Members' }).click();
+    await page.getByRole('button', { name: 'Group members' }).click();
     await expect(page.getByRole('dialog', { name: 'Weekend plans' })).toBeVisible();
     await audit(page, 'group members dialog');
     await page.keyboard.press('Escape');

@@ -10,10 +10,10 @@ in `BACKLOG.md`.
 | Item | Why | Notes |
 |---|---|---|
 | First deployment on the box, uptime check, off-box backups | nothing has run on the real box yet | runbook §1–3 (Docker log rotation is in the compose file since the pre-release review); rehearse the restore drill of runbook §5 once; Cloudflare health check or any monitor on `/api/v1/auth/me` (401 = healthy) |
-| **Legal pages** (privacy notice, terms) | required once strangers can register; EU hosting | `/privacy`, `/terms`, linked from the auth pages, the register form and the app |
+| ~~**Legal pages** (privacy notice, terms)~~ ✅ 2026-10-16 | required once strangers can register; EU hosting | done as R1: `/privacy`, `/terms`, linked from the auth pages, the register form and the app |
 | ~~Account deletion and data export~~ ✅ 2026-10-19 | GDPR rights; cascades already exist in the schema | done as A2 (ADR 0012): `DELETE /users/me` with the password, `GET /users/me/export`, Settings → Your account |
 | ~~Spam protection on registration~~ ✅ 2026-10-19 | email verification alone does not stop bots | done as A3 (ADR 0012): Turnstile on the register form, verified by the API, runbook §2.7 |
-| Finish the review pass | four tracks never produced a report | accessibility sweep, shared-contract drift, ops/docs drift, test coverage; one or two agents at a time |
+| ~~Finish the review pass~~ ✅ 2026-10-19 | four tracks never produced a report | done as A4: `docs/REVIEW_2026-10-19.md` (accessibility, contract drift, ops/docs drift, test coverage) plus the cheap Low items |
 
 ## 2. Product features with the most impact
 

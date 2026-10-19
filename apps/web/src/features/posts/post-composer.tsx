@@ -1,8 +1,8 @@
 import { POST_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
-import { cn } from 'cn';
 import { ImageIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CharacterCounter } from '@/components/character-counter';
 import { MentionTextarea } from '@/components/mention-textarea';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
@@ -109,17 +109,7 @@ export function PostComposer() {
               </Button>
               <EmojiPickerButton onPick={insertEmoji} />
               <span className="flex-1" />
-              {remaining <= COUNTER_THRESHOLD ? (
-                <span
-                  className={cn(
-                    'text-xs tabular-nums',
-                    remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground',
-                  )}
-                  aria-live="polite"
-                >
-                  {remaining}
-                </span>
-              ) : null}
+              {remaining <= COUNTER_THRESHOLD ? <CharacterCounter remaining={remaining} /> : null}
               <Button type="submit" size="sm" disabled={!canSubmit}>
                 {createPost.isPending ? 'Posting…' : 'Post'}
               </Button>

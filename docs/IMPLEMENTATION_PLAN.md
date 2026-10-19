@@ -46,7 +46,7 @@ B2  post pages + search             ✅ 2026-10-19           │  v2.3 – befor
 A2  account deletion + export       ✅ 2026-10-19           │
 A3  Turnstile on register           ✅ 2026-10-19           │
 A1  box + monitor + backups (owner, in parallel)           ─┘
-A4  review-pass completion + cheap Low items               ─┐
+A4  review-pass completion + cheap Low items ✅ 2026-10-19  ─┐
 B3a chat bubbles (new, §3 B3a)                              │  v2.4
 B3b chat follow-ups                                         │
 C1  newcomer experience (explore + onboarding)             ─┘
@@ -104,7 +104,7 @@ Tests: int (wrong password → field error, cascades incl. a group where the use
 - Tests: int with a fake verifier (accepted, refused, unavailable); web with the key unset plus one test that stubs the widget global; e2e unchanged (no key in CI). Runbook §2: create the widget in the Cloudflare dashboard, where the two secrets go.
 - ADR: one section in ADR 0012.
 
-### A4. Finish the review pass and the cheap Low items · M
+### A4. Finish the review pass and the cheap Low items · M · ✅ 2026-10-19 (`docs/REVIEW_2026-10-19.md`)
 
 The four tracks the 2026-10-16 pass never reported on, each a read-and-fix commit with a short
 report appended to `PRE_RELEASE_REVIEW_2026-10-16.md` (or a new `REVIEW_2026-10.md`):

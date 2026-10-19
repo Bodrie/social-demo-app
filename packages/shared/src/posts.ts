@@ -1,13 +1,9 @@
 import { z } from 'zod';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
 import { postImageKeySchema } from './uploads.js';
-import { type UserSummary, userSummarySchema } from './users.js';
+import { userSummarySchema } from './users.js';
 
 export const POST_MAX_LENGTH = 500;
-
-/** @deprecated use `userSummarySchema` / `UserSummary`; kept for one phase. */
-export const postAuthorSchema = userSummarySchema;
-export type PostAuthor = UserSummary;
 
 export const postSchema = z.object({
   id: z.uuid(),

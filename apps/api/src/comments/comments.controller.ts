@@ -15,7 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Comment, Paginated, ReactionSummary, Revision } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { IdParamDto, PostIdParamDto } from '../common/params.dto.js';
+import { CursorQueryDto, IdParamDto, PostIdParamDto } from '../common/params.dto.js';
 import {
   CommentsQueryDto,
   CreateCommentDto,
@@ -71,8 +71,11 @@ export class CommentsController {
   }
 
   @Get(':id/revisions')
-  revisions(@Param() params: IdParamDto): Promise<Paginated<Revision>> {
-    return this.comments.revisions(params.id);
+  revisions(
+    @Param() params: IdParamDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Revision>> {
+    return this.comments.revisions(params.id, query);
   }
 
   /** Sets or switches the caller's reaction; answers with the fresh summary. */

@@ -3,7 +3,15 @@ import type { Conversation } from '@the-mesh/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
 import { ArrowLeftIcon, Loader2Icon, UsersIcon } from 'lucide-react';
-import { type UIEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  type UIEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/empty-state';
@@ -76,6 +84,28 @@ export function Thread({ conversation }: { conversation: Conversation }) {
     document.addEventListener('visibilitychange', readIfVisible);
     return () => document.removeEventListener('visibilitychange', readIfVisible);
   }, [hasUnread, markRead, conversation.id]);
+
+  // One announcement per message from somebody else, and none for the history that was
+  // already there (or is loaded on scroll-up).
+  const [announcement, setAnnouncement] = useState('');
+  const newestSeenAt = useRef<string | null>(null);
+  useEffect(() => {
+    if (thread.isPending) return;
+    const latest = messages.at(-1)?.createdAt ?? null;
+    if (newestSeenAt.current === null) {
+      newestSeenAt.current = latest ?? '';
+      return;
+    }
+    const since = newestSeenAt.current;
+    const fresh = messages.findLast(
+      (message) => message.senderId !== me.id && message.createdAt > since,
+    );
+    if (latest && latest > since) newestSeenAt.current = latest;
+    if (fresh) {
+      const sender = firstName(memberById(conversation, fresh.senderId)?.user.name ?? 'Someone');
+      setAnnouncement(`${sender}: ${fresh.content || 'sent a picture'}`);
+    }
+  }, [messages, me.id, conversation, thread.isPending]);
 
   // Stay pinned to the newest message (or the typing dots) unless the viewer scrolled up.
   const messageCount = messages.length;
@@ -171,23 +201,22 @@ export function Thread({ conversation }: { conversation: Conversation }) {
           <ConversationAvatar conversation={conversation} meId={me.id} />
         )}
         <div className="min-w-0 flex-1">
-          {peer ? (
-            <Link
-              to={`/u/${peer.username}`}
-              className="block truncate font-semibold hover:underline"
-            >
-              {name}
-            </Link>
-          ) : (
-            <p className="truncate font-semibold">{name}</p>
-          )}
+          <h2 className="truncate font-semibold">
+            {peer ? (
+              <Link to={`/u/${peer.username}`} className="hover:underline">
+                {name}
+              </Link>
+            ) : (
+              name
+            )}
+          </h2>
           <p className={cn('truncate text-xs', typing ? 'text-primary' : 'text-muted-foreground')}>
             {subtitle}
           </p>
         </div>
         {conversation.kind === 'group' ? (
           <GroupMembersDialog conversation={conversation}>
-            <Button variant="ghost" size="icon-sm" aria-label="Members">
+            <Button variant="ghost" size="icon-sm" aria-label="Group members">
               <UsersIcon />
             </Button>
           </GroupMembersDialog>
@@ -201,7 +230,10 @@ export function Thread({ conversation }: { conversation: Conversation }) {
         tabIndex={0}
         role="log"
         aria-label={peer ? `Conversation with ${name}` : `Group ${name}`}
-        aria-live="polite"
+        // Off: with the default "polite" every page of history, every optimistic bubble and
+        // every "Sending…"/"Seen" swap would be read out. New messages from others are
+        // announced once, through the status line below the log.
+        aria-live="off"
       >
         {thread.isPending ? (
           <ThreadSkeleton />
@@ -246,6 +278,10 @@ export function Thread({ conversation }: { conversation: Conversation }) {
         )}
       </div>
 
+      <output aria-live="polite" className="sr-only block">
+        {announcement}
+      </output>
+
       <MessageComposer
         recipientName={name}
         onSend={(outgoing) => void send(outgoing)}
@@ -284,6 +320,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
           dayjs(next.createdAt).diff(message.createdAt) > GROUP_GAP_MS;
         return (
           <li key={message.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
+            <span className="sr-only">{mine ? 'You' : senderName(message.senderId)}: </span>
             {newDay ? (
               <div className="text-muted-foreground my-3 w-full text-center text-xs font-medium">
                 {formatDayLabel(message.createdAt)}
@@ -313,6 +350,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                   rel="noreferrer"
                   className="block overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
+                  <span className="sr-only">(opens in a new tab)</span>
                   <img
                     src={message.imageUrl}
                     alt={`Sent by ${mine ? 'you' : senderName(message.senderId)}`}
@@ -344,7 +382,6 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 {message.id === showSeenOn ? ` · ${seen}` : ''}
               </p>
             ) : null}
-            <span className="sr-only">{mine ? 'You' : senderName(message.senderId)}</span>
           </li>
         );
       })}

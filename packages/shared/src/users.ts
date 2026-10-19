@@ -100,8 +100,9 @@ export const updateProfileSchema = z.object({
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type UpdateProfileData = z.output<typeof updateProfileSchema>;
 
+export const USER_SEARCH_MAX_LENGTH = 80;
 export const listUsersQuerySchema = cursorQuerySchema.extend({
-  q: z.string().trim().max(80).optional(),
+  q: z.string().trim().max(USER_SEARCH_MAX_LENGTH).optional(),
 });
 export type ListUsersQuery = z.output<typeof listUsersQuerySchema>;
 

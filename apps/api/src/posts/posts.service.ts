@@ -13,8 +13,8 @@ import {
 import { AssetsService } from '../assets/assets.service.js';
 import { forbidden, notFound } from '../common/errors.js';
 import { emitMentions } from '../common/mentions.js';
-import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
-import { toRevision } from '../common/revisions.js';
+import { decodeCursor, keysetAfter, paginate, paginateBy } from '../common/pagination.js';
+import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
 import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -126,14 +126,14 @@ export class PostsService {
   }
 
   /** Previous versions, most recently replaced first. Visible to anyone who can see the post. */
-  async revisions(postId: string): Promise<Paginated<Revision>> {
+  async revisions(postId: string, query: CursorQuery): Promise<Paginated<Revision>> {
     await this.assertExists(postId);
     const rows = await this.prisma.postRevision.findMany({
-      where: { postId },
+      where: { postId, ...revisionsAfter(decodeCursor(query.cursor)) },
       orderBy: [{ editedAt: 'desc' }, { id: 'desc' }],
-      take: 50,
+      take: query.limit + 1,
     });
-    return { items: rows.map(toRevision), nextCursor: null };
+    return paginateBy(rows, query.limit, revisionKey, toRevision);
   }
 
   /** The viewer's own posts plus those of everyone they follow, newest first. */

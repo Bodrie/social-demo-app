@@ -23,6 +23,7 @@ export function ActivityItem({ activity, className }: ActivityItemProps) {
           className="text-muted-foreground text-xs"
         >
           {formatRelativeTime(activity.createdAt)}
+          <span className="sr-only"> ({formatDateTime(activity.createdAt)})</span>
         </time>
       </div>
     </li>

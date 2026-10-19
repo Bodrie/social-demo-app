@@ -1,8 +1,9 @@
 import {
-  type Conversation,
-  type Message,
   addMembersSchema,
+  type Conversation,
   createGroupSchema,
+  GROUP_MAX_MEMBERS,
+  type Message,
   sendMessageSchema,
 } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
@@ -101,9 +102,19 @@ export const conversationHandlers = [
     const me = mockDb.user.id;
     const body = createGroupSchema.parse(await request.json());
     const memberIds = [...new Set(body.memberIds)].filter((id) => id !== me);
+    if (memberIds.length === 0) {
+      return apiError(400, 'BAD_REQUEST', 'Pick at least one other person', {
+        memberIds: 'Pick at least one other person',
+      });
+    }
     if (memberIds.some((id) => !mockDb.users.some((u) => u.id === id))) {
       return apiError(400, 'BAD_REQUEST', 'Unknown member', {
         memberIds: 'Someone on the list does not exist',
+      });
+    }
+    if (memberIds.length + 1 > GROUP_MAX_MEMBERS) {
+      return apiError(400, 'BAD_REQUEST', `A group can have at most ${GROUP_MAX_MEMBERS} members`, {
+        memberIds: `At most ${GROUP_MAX_MEMBERS} members`,
       });
     }
     const row = seedConversation('group', [me, ...memberIds], {
@@ -160,6 +171,19 @@ export const conversationHandlers = [
     if (!row) return notFound();
     if (row.kind !== 'group') return apiError(400, 'BAD_REQUEST', 'Only groups have a member list');
     const body = addMembersSchema.parse(await request.json());
+    const wanted = [...new Set(body.userIds)].filter(
+      (userId) => !row.members.some((m) => m.userId === userId),
+    );
+    if (wanted.some((userId) => !mockDb.users.some((u) => u.id === userId))) {
+      return apiError(400, 'BAD_REQUEST', 'Unknown member', {
+        userIds: 'Someone on the list does not exist',
+      });
+    }
+    if (row.members.length + wanted.length > GROUP_MAX_MEMBERS) {
+      return apiError(400, 'BAD_REQUEST', `A group can have at most ${GROUP_MAX_MEMBERS} members`, {
+        userIds: `At most ${GROUP_MAX_MEMBERS} members`,
+      });
+    }
     const joinedAt = new Date().toISOString();
     for (const userId of new Set(body.userIds)) {
       if (!row.members.some((m) => m.userId === userId)) {

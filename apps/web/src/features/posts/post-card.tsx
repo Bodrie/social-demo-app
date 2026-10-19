@@ -1,7 +1,7 @@
 import { type CommentSort, POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
 import { cn } from 'cn';
 import { HeartIcon, MessageCircleIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
@@ -11,6 +11,7 @@ import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { CommentsSection } from '@/features/comments/comments-section';
+import { focusLater } from '@/lib/focus';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { PostMenu } from './post-menu';
 import { useToggleLike, useUpdatePost } from './use-post-mutations';
@@ -40,6 +41,12 @@ export function PostCard({
   const toggleLike = useToggleLike();
   const [commentsOpen, setCommentsOpen] = useState(expanded);
   const [editing, setEditing] = useState(false);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  // The editor replaces the text and takes focus; when it goes, focus returns to the menu.
+  const stopEditing = () => {
+    setEditing(false);
+    focusLater(menuRef);
+  };
   const update = useUpdatePost();
   const profile = `/u/${post.author.username}`;
   const headingId = `post-${post.id}-author`;
@@ -67,6 +74,7 @@ export function PostCard({
               <time dateTime={post.createdAt} title={formatDateTime(post.createdAt)}>
                 {formatRelativeTime(post.createdAt)}
               </time>
+              <span className="sr-only">, {formatDateTime(post.createdAt)}, open post</span>
             </Link>
             {post.editedAt ? (
               <>
@@ -74,13 +82,18 @@ export function PostCard({
                 <EditedMarker
                   editedAt={post.editedAt}
                   queryKey={queryKeys.revisions.post(post.id)}
-                  fetchRevisions={(signal) => fetchPostRevisions(post.id, signal)}
+                  fetchRevisions={(options) => fetchPostRevisions(post.id, options)}
                 />
               </>
             ) : null}
           </p>
         </div>
-        <PostMenu post={post} isAuthor={post.author.id === me.id} onEdit={() => setEditing(true)} />
+        <PostMenu
+          post={post}
+          isAuthor={post.author.id === me.id}
+          onEdit={() => setEditing(true)}
+          triggerRef={menuRef}
+        />
       </header>
 
       <div className="px-5 pt-3">
@@ -94,7 +107,7 @@ export function PostCard({
               update.mutate(
                 { postId: post.id, input: { content } },
                 {
-                  onSuccess: () => setEditing(false),
+                  onSuccess: stopEditing,
                   onError: (error) =>
                     toast.error(
                       isApiClientError(error) ? error.message : 'Could not save the post',
@@ -102,7 +115,7 @@ export function PostCard({
                 },
               )
             }
-            onCancel={() => setEditing(false)}
+            onCancel={stopEditing}
           />
         ) : (
           <RichText

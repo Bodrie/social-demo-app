@@ -115,7 +115,7 @@ test.describe('chat', () => {
     await expect(bobLog.getByText(text)).toBeVisible();
     await expect(log.getByText('Seen by everyone')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Members' }).click();
+    await page.getByRole('button', { name: 'Group members' }).click();
     const members = page
       .getByRole('dialog', { name: title })
       .getByRole('list', { name: 'Members' });

@@ -1,14 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   type ConversationReadPayload,
+  conversationReadPayloadSchema,
   type ConversationRef,
+  conversationRefSchema,
   type Message,
+  messageSchema,
   type PresenceUpdate,
-  SOCKET_EVENTS,
+  presenceUpdateSchema,
   type SendMessageInput,
+  SOCKET_EVENTS,
   type TypingUpdate,
+  typingUpdateSchema,
   type UserSummary,
 } from '@the-mesh/shared';
+import type { z } from 'zod';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
@@ -127,8 +133,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (heldBeforeGap) void resyncConversations(queryClient, heldBeforeGap);
       heldBeforeGap = null;
     };
-    const onPresence = (users: PresenceUpdate) => setOnline(users);
-    const onMessage = (message: Message) => {
+    /**
+     * A push whose shape drifted from the shared contract is dropped instead of corrupting the
+     * cache (HTTP responses are parsed the same way in the API client).
+     */
+    const guarded =
+      <T,>(schema: z.ZodType<T>, handler: (payload: T) => void) =>
+      (payload: unknown) => {
+        const parsed = schema.safeParse(payload);
+        if (parsed.success) handler(parsed.data);
+        // oxlint-disable-next-line no-console -- a dropped push should be visible while developing
+        else if (import.meta.env.DEV) console.warn('Dropped a socket push', parsed.error.issues);
+      };
+    const onPresence = guarded(presenceUpdateSchema, (users: PresenceUpdate) => setOnline(users));
+    const onMessage = guarded(messageSchema, (message: Message) => {
       const fromOther = message.senderId !== me.id;
       const onScreen =
         fromOther &&
@@ -138,15 +156,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       appendToThread(queryClient, message.conversationId, message);
       upsertConversation(queryClient, message, { countUnread: fromOther && !onScreen });
       if (onScreen) void markRead(message.conversationId);
-    };
-    const onRead = ({ conversationId, userId, readAt }: ConversationReadPayload) =>
-      setMemberReadAt(queryClient, conversationId, userId, readAt, { clearUnread: false });
-    const onTyping = ({ conversationId, userId, typing: isTyping }: TypingUpdate) =>
-      setPeerTyping(conversationId, userId, isTyping);
-    const onConversationUpdate = ({ conversationId }: ConversationRef) =>
-      void refreshConversation(queryClient, conversationId);
-    const onConversationRemoved = ({ conversationId }: ConversationRef) =>
-      forgetConversation(queryClient, conversationId);
+    });
+    const onRead = guarded(
+      conversationReadPayloadSchema,
+      ({ conversationId, userId, readAt }: ConversationReadPayload) =>
+        setMemberReadAt(queryClient, conversationId, userId, readAt, { clearUnread: false }),
+    );
+    const onTyping = guarded(
+      typingUpdateSchema,
+      ({ conversationId, userId, typing: isTyping }: TypingUpdate) =>
+        setPeerTyping(conversationId, userId, isTyping),
+    );
+    const onConversationUpdate = guarded(
+      conversationRefSchema,
+      ({ conversationId }: ConversationRef) =>
+        void refreshConversation(queryClient, conversationId),
+    );
+    const onConversationRemoved = guarded(conversationRefSchema, ({ conversationId }) =>
+      forgetConversation(queryClient, conversationId),
+    );
 
     // socket.io-client is its own chunk; it loads once the shell is already on screen.
     void (async () => {

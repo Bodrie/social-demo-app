@@ -8,6 +8,7 @@ import {
 import { cn } from 'cn';
 import { Loader2Icon, MoreHorizontalIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { focusLater } from '@/lib/focus';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
@@ -70,6 +71,7 @@ export function CommentsSection({
   const react = useReactToComment(post.id);
   const [text, setText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const loaded = flattenPages(comments.data);
   const highlightLoaded = highlightId !== null && loaded.some((c) => c.id === highlightId);
   // Past the loaded pages (or on another sort order): fetch the one comment and pin it on top.
@@ -120,6 +122,7 @@ export function CommentsSection({
       <form onSubmit={onSubmit} className="flex items-start gap-3">
         <UserAvatar user={me} className="size-8" />
         <MentionTextarea
+          ref={composerRef}
           aria-label="Write a comment"
           placeholder="Write a comment…"
           rows={1}
@@ -182,7 +185,10 @@ export function CommentsSection({
               onEdit={() => setEditingId(comment.id)}
               onCancelEdit={() => setEditingId(null)}
               onSaveEdit={(content) => saveEdit(comment, content)}
-              onDelete={() => remove.mutate(comment.id)}
+              // The deleted item took the focused menu with it; the composer is the next stop.
+              onDelete={() =>
+                remove.mutate(comment.id, { onSuccess: () => focusLater(composerRef) })
+              }
               onReact={(type) =>
                 react.mutate({ commentId: comment.id, current: comment.reactions, type })
               }
@@ -235,11 +241,18 @@ function CommentItem({
 }: CommentItemProps) {
   const profile = `/u/${comment.author.username}`;
   const itemRef = useRef<HTMLLIElement>(null);
+  const optionsRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (highlighted && typeof itemRef.current?.scrollIntoView === 'function') {
       itemRef.current.scrollIntoView({ block: 'center' });
     }
   }, [highlighted]);
+  // When the editor closes, focus returns to the menu that opened it.
+  const wasEditing = useRef(editing);
+  useEffect(() => {
+    if (wasEditing.current && !editing) focusLater(optionsRef);
+    wasEditing.current = editing;
+  }, [editing]);
   return (
     <li
       ref={itemRef}
@@ -264,6 +277,7 @@ function CommentItem({
             <span className="text-muted-foreground shrink-0 text-xs">
               <time dateTime={comment.createdAt} title={formatDateTime(comment.createdAt)}>
                 {formatRelativeTime(comment.createdAt)}
+                <span className="sr-only"> ({formatDateTime(comment.createdAt)})</span>
               </time>
               {comment.editedAt ? (
                 <>
@@ -271,7 +285,7 @@ function CommentItem({
                   <EditedMarker
                     editedAt={comment.editedAt}
                     queryKey={queryKeys.revisions.comment(comment.id)}
-                    fetchRevisions={(signal) => fetchCommentRevisions(comment.id, signal)}
+                    fetchRevisions={(options) => fetchCommentRevisions(comment.id, options)}
                   />
                 </>
               ) : null}
@@ -280,6 +294,7 @@ function CommentItem({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    ref={optionsRef}
                     variant="ghost"
                     size="icon-xs"
                     className="text-muted-foreground -mr-1 ml-auto"

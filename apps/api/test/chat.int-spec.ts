@@ -588,3 +588,60 @@ describe('chat', () => {
       .expect(401);
   });
 });
+
+describe('group lifecycle pushes', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  it('tells every member about a new group, a newcomer and a leaver, and the leaver about the end', async () => {
+    const [alice, bob, carol] = await Promise.all([
+      createUser(t.prisma),
+      createUser(t.prisma),
+      createUser(t.prisma),
+    ]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const carolSession = await sessionFor(t, carol);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    const carolSocket = connect(t, { cookie: `access_token=${carolSession.token}` });
+    await Promise.all([connected(bobSocket), connected(carolSocket)]);
+
+    // Creation reaches bob (a member) but not carol (not yet).
+    const bobTold = waitFor<{ conversationId: string }>(bobSocket, 'conversation:update');
+    const carolHeard = collectUntil<unknown>(carolSocket, 'conversation:update', bobTold);
+    const created = await aliceSession.agent
+      .post('/api/v1/conversations')
+      .send({ title: 'Lifecycle', memberIds: [bob.id] })
+      .expect(201);
+    const groupId = (created.body as { id: string }).id;
+    expect((await bobTold).conversationId).toBe(groupId);
+    expect(await carolHeard).toEqual([]);
+
+    // Adding carol: she and bob both hear "update".
+    const bobAgain = waitFor<{ conversationId: string }>(bobSocket, 'conversation:update');
+    const carolNow = waitFor<{ conversationId: string }>(carolSocket, 'conversation:update');
+    await aliceSession.agent
+      .post(`/api/v1/conversations/${groupId}/members`)
+      .send({ userIds: [carol.id] })
+      .expect(200);
+    expect((await bobAgain).conversationId).toBe(groupId);
+    expect((await carolNow).conversationId).toBe(groupId);
+
+    // Bob leaves: bob gets "removed", carol gets "update".
+    const bobRemoved = waitFor<{ conversationId: string }>(bobSocket, 'conversation:removed');
+    const carolUpdated = waitFor<{ conversationId: string }>(carolSocket, 'conversation:update');
+    await bobSession.agent.delete(`/api/v1/conversations/${groupId}/members/me`).expect(204);
+    expect((await bobRemoved).conversationId).toBe(groupId);
+    expect((await carolUpdated).conversationId).toBe(groupId);
+
+    bobSocket.close();
+    carolSocket.close();
+  });
+});

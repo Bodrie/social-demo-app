@@ -59,6 +59,9 @@ export const userHandlers = [
     const viewer = mockDb.user;
     const url = new URL(request.url);
     const q = (url.searchParams.get('q') ?? '').toLowerCase();
+    if (q.length > 80) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { q: 'Too long' });
+    }
     const users = mockDb.users
       .filter((user) => !q || user.name.toLowerCase().includes(q) || user.username.includes(q))
       .map((user) => toPublic(user, viewer.id));
@@ -149,11 +152,5 @@ export const userHandlers = [
       (f) => !(f.followerId === viewer.id && f.followingId === userId),
     );
     return noContent();
-  }),
-
-  http.get(`${API}/users/:id`, ({ params }) => {
-    if (!mockDb.user) return unauthorized();
-    const user = mockDb.users.find((candidate) => candidate.id === param(params.id));
-    return user ? HttpResponse.json(toPublic(user, mockDb.user.id)) : notFound();
   }),
 ];

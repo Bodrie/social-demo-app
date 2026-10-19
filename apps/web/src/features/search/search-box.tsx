@@ -1,3 +1,4 @@
+import { SEARCH_MAX_LENGTH } from '@the-mesh/shared';
 import { cn } from 'cn';
 import { SearchIcon } from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';
@@ -37,6 +38,7 @@ export function SearchBox({ className, onSubmitted }: SearchBoxProps) {
           type="search"
           placeholder="Search posts and people"
           autoComplete="off"
+          maxLength={SEARCH_MAX_LENGTH}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           className="bg-background/60 pl-9"

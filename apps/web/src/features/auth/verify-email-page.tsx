@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FullPageSpinner } from '@/components/full-page-spinner';
+import { SessionError } from '@/components/session-error';
 import { isApiClientError } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/use-page-title';
 import { AuthLayout } from './auth-layout';
@@ -124,6 +125,7 @@ function WaitingRoom() {
   const logout = useLogout();
 
   if (me.status === 'loading') return <FullPageSpinner label="Checking your session" />;
+  if (me.status === 'error') return <SessionError retry={me.retry} />;
   if (me.status === 'anonymous') return <Navigate to="/login" replace />;
   if (me.user.emailVerifiedAt !== null) return <Navigate to="/" replace />;
 

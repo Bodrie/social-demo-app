@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { AccountModule } from './account/account.module.js';
 import { ActivitiesModule } from './activities/activities.module.js';
 import { AssetsModule } from './assets/assets.module.js';
@@ -67,7 +67,7 @@ import { UsersModule } from './users/users.module.js';
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
-    { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
+    // No response serializer: nothing is annotated with @ZodSerializerDto (backlog: @ZodResponse).
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     // Order matters: rate limiting first, then authentication.
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },

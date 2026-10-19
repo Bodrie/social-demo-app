@@ -47,12 +47,19 @@ export const meQueryOptions = queryOptions({
 export type MeState =
   | { status: 'loading'; user: undefined }
   | { status: 'anonymous'; user: null }
+  /** /auth/me failed for a reason other than "no session" (the API is down, a 5xx, no network). */
+  | { status: 'error'; user: undefined; retry: () => void }
   | { status: 'authenticated'; user: UserPrivate };
 
-/** The current session. `loading` only until the first /auth/me answer arrives. */
+/**
+ * The current session. `loading` only until the first /auth/me answer arrives; a request that
+ * fails for any reason but 401 is `error`, never "anonymous" (review L8): valid cookies must
+ * not land on the sign-in page because the API was restarting.
+ */
 export function useMe(): MeState {
-  const { data, isPending } = useQuery(meQueryOptions);
+  const { data, isPending, isError, refetch } = useQuery(meQueryOptions);
   if (isPending) return { status: 'loading', user: undefined };
+  if (isError) return { status: 'error', user: undefined, retry: () => void refetch() };
   if (!data) return { status: 'anonymous', user: null };
   return { status: 'authenticated', user: data.user };
 }
@@ -96,6 +103,9 @@ export function watchOtherTabs(queryClient: QueryClient): () => void {
   const own = new BroadcastChannel(SESSION_CHANNEL);
   channel = own;
   own.addEventListener('message', () => {
+    // Announcements are deliberate sign-ins and sign-outs; if this one turns out to be a
+    // sign-out, the redirect to /login must not keep the page for the next person.
+    deliberateSignOutAt = Date.now();
     void queryClient.refetchQueries({ queryKey: queryKeys.me });
   });
   return () => {
@@ -110,7 +120,21 @@ export function startSession(queryClient: QueryClient, me: MeResponse): void {
   announceSessionChange();
 }
 
-export function endSession(queryClient: QueryClient): void {
+/** When the viewer (or another tab) signed out on purpose, within the last few seconds. */
+let deliberateSignOutAt = 0;
+const DELIBERATE_SIGN_OUT_WINDOW_MS = 5_000;
+
+export function signedOutDeliberately(): boolean {
+  return Date.now() - deliberateSignOutAt < DELIBERATE_SIGN_OUT_WINDOW_MS;
+}
+
+/**
+ * Drops the session. `deliberate` marks a sign-out the person asked for (as opposed to a
+ * session that was found to be lost), so the guard does not send the next person who signs
+ * in on this browser to the previous one's page (review L7).
+ */
+export function endSession(queryClient: QueryClient, options: { deliberate?: boolean } = {}): void {
+  if (options.deliberate) deliberateSignOutAt = Date.now();
   setMe(queryClient, null);
   dropSessionData(queryClient);
 }

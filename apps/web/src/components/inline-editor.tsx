@@ -1,5 +1,5 @@
-import { cn } from 'cn';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { CharacterCounter } from '@/components/character-counter';
 import { MentionTextarea } from '@/components/mention-textarea';
 import { Button } from '@/components/ui/button';
 
@@ -64,14 +64,7 @@ export function InlineEditor({
         className="min-h-16 text-[15px]/6"
       />
       <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            'text-xs tabular-nums',
-            remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground',
-          )}
-        >
-          {remaining}
-        </span>
+        <CharacterCounter remaining={remaining} />
         <span className="flex-1" />
         <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
           Cancel

@@ -340,7 +340,7 @@ describe('messages', () => {
     const user = userEvent.setup();
     await screen.findByRole('log', { name: 'Group Trip' });
 
-    await user.click(screen.getByRole('button', { name: 'Members' }));
+    await user.click(screen.getByRole('button', { name: 'Group members' }));
     const dialog = await screen.findByRole('dialog', { name: 'Trip' });
     expect(membersList(dialog).map((item) => item.textContent)).toEqual([
       expect.stringContaining('Alice Anderson (you)'),

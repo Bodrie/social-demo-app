@@ -47,15 +47,6 @@ jobs:
 
       - run: pnpm turbo run lint typecheck test build --cache-dir=.turbo
 
-      - name: Upload web build
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v7
-        with:
-          name: web-dist
-          path: apps/web/dist
-          if-no-files-found: error
-          retention-days: 7
-
   integration:
     name: Integration
     runs-on: ubuntu-latest

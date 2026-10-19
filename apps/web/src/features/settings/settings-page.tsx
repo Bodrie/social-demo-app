@@ -43,7 +43,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Appearance</CardTitle>
+          <CardTitle asChild>
+            <h2>Appearance</h2>
+          </CardTitle>
           <CardDescription>Follow the system or pick a side.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -53,7 +55,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Password</CardTitle>
+          <CardTitle asChild>
+            <h2>Password</h2>
+          </CardTitle>
           <CardDescription>
             Changing it signs out every other device; this one stays signed in.
           </CardDescription>
@@ -65,7 +69,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Sessions</CardTitle>
+          <CardTitle asChild>
+            <h2>Sessions</h2>
+          </CardTitle>
           <CardDescription>
             Signed in somewhere you do not recognise? End every session, this one included.
           </CardDescription>
@@ -77,7 +83,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>About</CardTitle>
+          <CardTitle asChild>
+            <h2>About</h2>
+          </CardTitle>
           <CardDescription>
             {APP_NAME} is a demo social network. The small print lives here.
           </CardDescription>
@@ -139,11 +147,12 @@ function SignOutEverywhere() {
   const [open, setOpen] = useState(false);
   const signOut = useMutation({
     mutationFn: logoutEverywhere,
-    onSettled: () => {
+    onSuccess: () => {
       toast.success('Signed out everywhere');
-      endSession(queryClient);
+      endSession(queryClient, { deliberate: true });
       announceSessionChange();
     },
+    onError: () => toast.error('Could not sign out everywhere. Please try again.'),
   });
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>

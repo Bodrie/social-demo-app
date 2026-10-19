@@ -11,7 +11,9 @@ export function TrendingCard({ className }: { className?: string }) {
   return (
     <Card className={cn('gap-3 py-4', className)}>
       <CardHeader className="px-4">
-        <CardTitle>Trending</CardTitle>
+        <CardTitle asChild>
+          <h2>Trending</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent className="px-4">
         <ul aria-label="Trending tags" className="space-y-2">

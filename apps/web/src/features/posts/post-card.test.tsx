@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw/http';
 import { deferred } from '@/test/deferred';
-import { alice, summaryOf } from '@/test/fixtures';
+import { alice, summaryOf, testId } from '@/test/fixtures';
 import { apiError, mockDb, seedPosts, signedInAs } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { renderApp } from '@/test/render';
@@ -121,5 +121,27 @@ describe('PostCard', () => {
     await user.click(within(article).getByRole('button', { name: 'edited' }));
     const history = await screen.findByRole('list', { name: 'Previous versions' });
     expect(within(history).getByText('Frist post')).toBeInTheDocument();
+  });
+
+  it('loads older versions of a long edit history on demand', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { editedAt: new Date().toISOString() });
+    mockDb.postRevisions.set(
+      post!.id,
+      Array.from({ length: 25 }, (_, index) => ({
+        id: testId('comment', 900 + index),
+        content: `Version ${25 - index}`,
+        editedAt: new Date(Date.now() - index * 60_000).toISOString(),
+      })),
+    );
+    renderApp('/');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'edited' }));
+    const history = await screen.findByRole('list', { name: 'Previous versions' });
+    expect(within(history).getAllByRole('listitem')).toHaveLength(20);
+    await user.click(screen.getByRole('button', { name: 'Show older versions' }));
+    await waitFor(() => expect(within(history).getAllByRole('listitem')).toHaveLength(25));
+    expect(screen.queryByRole('button', { name: 'Show older versions' })).toBeNull();
   });
 });

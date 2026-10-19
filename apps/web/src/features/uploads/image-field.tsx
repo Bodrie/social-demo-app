@@ -86,12 +86,19 @@ export function ImageField({
             type="button"
             variant="outline"
             size="sm"
+            aria-label={`${previewUrl ? 'Change' : 'Upload'} ${label.toLowerCase()}`}
             onClick={() => inputRef.current?.click()}
           >
             {previewUrl ? 'Change' : 'Upload'}
           </Button>
           {previewUrl ? (
-            <Button type="button" variant="ghost" size="sm" onClick={remove}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={`Remove ${label.toLowerCase()}`}
+              onClick={remove}
+            >
               Remove
             </Button>
           ) : null}

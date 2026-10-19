@@ -87,9 +87,11 @@ describe('uploads', () => {
   });
 
   it('404s on unknown files and refuses path tricks', async () => {
-    await request(t.server)
+    const missing = await request(t.server)
       .get('/api/v1/uploads/avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp')
       .expect(404);
+    // A missing file must not be cached for a year by browsers or Cloudflare (review L11).
+    expect(missing.headers['cache-control'] ?? '').not.toMatch(/immutable/);
     const traversal = await request(t.server)
       .get('/api/v1/uploads/avatar/..%2F..%2F.env')
       .expect(400);

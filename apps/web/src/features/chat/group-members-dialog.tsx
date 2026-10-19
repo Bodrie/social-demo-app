@@ -1,6 +1,7 @@
+import { GROUP_MAX_MEMBERS } from '@the-mesh/shared';
 import type { Conversation } from '@the-mesh/shared';
 import { LogOutIcon, UserPlusIcon } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/user-avatar';
@@ -43,15 +44,25 @@ export function GroupMembersDialog({ conversation, children }: GroupMembersDialo
   const addMembers = useAddMembers(conversation.id);
   const leaveGroup = useLeaveGroup();
   const memberIds = conversation.members.map((member) => member.user.id);
+  const pickerId = useId();
 
-  const add = (userId: string) =>
+  const add = (userId: string) => {
+    if (conversation.members.length >= GROUP_MAX_MEMBERS) {
+      toast.error(`A group can have at most ${GROUP_MAX_MEMBERS} members`);
+      return;
+    }
     addMembers.mutate(
       { userIds: [userId] },
       {
         onError: (error) =>
-          toast.error(isApiClientError(error) ? error.message : 'Could not add that person'),
+          toast.error(
+            isApiClientError(error)
+              ? (error.fields.userIds ?? error.message)
+              : 'Could not add that person',
+          ),
       },
     );
+  };
 
   const leave = () =>
     leaveGroup.mutate(conversation.id, {
@@ -105,8 +116,10 @@ export function GroupMembersDialog({ conversation, children }: GroupMembersDialo
         </ul>
         {adding ? (
           <PeoplePicker
+            id={pickerId}
             searchLabel="Search people to add"
             excludeIds={memberIds}
+            focusOnMount
             onPick={(user) => add(user.id)}
           />
         ) : null}
@@ -115,7 +128,8 @@ export function GroupMembersDialog({ conversation, children }: GroupMembersDialo
             type="button"
             variant="outline"
             size="sm"
-            aria-pressed={adding}
+            aria-expanded={adding}
+            aria-controls={adding ? pickerId : undefined}
             onClick={() => setAdding((value) => !value)}
           >
             <UserPlusIcon /> Add people

@@ -27,7 +27,9 @@ export function AccountCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your account</CardTitle>
+        <CardTitle asChild>
+          <h2>Your account</h2>
+        </CardTitle>
         <CardDescription>
           Take a copy of everything your account holds, or delete the account for good.
         </CardDescription>
@@ -90,7 +92,7 @@ function DeleteAccount() {
       {
         onSuccess: () => {
           toast.success('Your account was deleted');
-          endSession(queryClient);
+          endSession(queryClient, { deliberate: true });
           announceSessionChange();
         },
         onError: (failure) =>

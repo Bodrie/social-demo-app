@@ -1,11 +1,11 @@
 import {
   Controller,
   Get,
-  Header,
   HttpCode,
   Param,
   Post,
   Query,
+  Res,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
@@ -14,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { UploadResponse } from '@the-mesh/shared';
+import type { Response } from 'express';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { Public } from '../auth/public.decorator.js';
@@ -52,10 +53,14 @@ export class UploadsController {
   @Public()
   @SkipThrottle()
   @Get(':kind/:file')
-  @Header('Cache-Control', 'public, max-age=31536000, immutable')
-  async serve(@Param() params: UploadPathDto): Promise<StreamableFile> {
+  async serve(
+    @Param() params: UploadPathDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
     const stream = await this.uploads.open(`${params.kind}/${params.file}`);
     if (!stream) throw notFound('File not found');
+    // Only a file that exists is immutable; a 404 must not be cached for a year (review L11).
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     return new StreamableFile(stream, {
       type: 'image/webp',
       disposition: 'inline',
@@ -65,6 +70,9 @@ export class UploadsController {
         error.message.includes('ENOENT') ? notFound('File not found') : error,
       );
       response.statusCode = body.statusCode;
+      // `response` is the same object as `res`, typed narrowly by Nest.
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       response.send(JSON.stringify(body));
     });
   }

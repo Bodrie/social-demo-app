@@ -74,6 +74,11 @@ function updateCommentEverywhere(
     { queryKey: queryKeys.comments.ofPost(postId) },
     (data) => data && mapItems(data, (item) => (item.id === commentId ? update(item) : item)),
   );
+  // A comment pinned from a permalink lives outside the post's lists (review, contract #1).
+  queryClient.setQueryData<Comment>(
+    queryKeys.comments.single(commentId),
+    (comment) => comment && update(comment),
+  );
 }
 
 export function useCreateComment(postId: string) {
@@ -117,6 +122,7 @@ export function useDeleteComment(postId: string) {
         { queryKey: queryKeys.comments.ofPost(postId) },
         (data) => data && filterItems(data, (comment) => comment.id !== commentId),
       );
+      queryClient.removeQueries({ queryKey: queryKeys.comments.single(commentId) });
       updatePostEverywhere(queryClient, postId, (post) => ({
         ...post,
         commentCount: Math.max(0, post.commentCount - 1),

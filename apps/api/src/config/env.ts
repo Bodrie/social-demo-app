@@ -23,6 +23,16 @@ export function parseTrustProxy(value: string): boolean | number | string {
   return value.trim();
 }
 
+/**
+ * Compose passes `${VAR:-}` for optional settings, so an unset variable arrives as "" rather
+ * than being absent; for these, an empty string means "not configured".
+ */
+const unsetWhenEmpty = <T extends z.ZodType>(schema: T) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    schema.optional(),
+  );
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -74,9 +84,9 @@ export const envSchema = z.object({
    * Cloudflare Turnstile secret: with it, registration needs a passed bot check. Without it the
    * check is skipped (development, tests); production refuses that unless `CAPTCHA=off`.
    */
-  TURNSTILE_SECRET: z.string().min(1).optional(),
+  TURNSTILE_SECRET: unsetWhenEmpty(z.string().min(1)),
   /** `off` is the explicit choice to run registration without a bot check in production. */
-  CAPTCHA: z.enum(['turnstile', 'off']).optional(),
+  CAPTCHA: unsetWhenEmpty(z.enum(['turnstile', 'off'])),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -91,6 +101,8 @@ const PRODUCTION_EXPLICIT = [
   'SMTP_URL',
 ] as const;
 const PLACEHOLDER_SECRET = /^change-me/i;
+/** The value `deploy/.env.example` ships; a real Turnstile secret has no `_x…` tail. */
+const PLACEHOLDER_TURNSTILE = /^0x4AAAAAAA_x+$/;
 
 function assertProductionSafe(config: Record<string, unknown>): void {
   if (config.NODE_ENV !== 'production') return;
@@ -103,10 +115,9 @@ function assertProductionSafe(config: Record<string, unknown>): void {
   if (typeof config.JWT_SECRET === 'string' && PLACEHOLDER_SECRET.test(config.JWT_SECRET)) {
     problems.push('JWT_SECRET still has the placeholder value');
   }
-  if (
-    typeof config.COOKIE_SECURE === 'string' &&
-    config.COOKIE_SECURE.trim().toLowerCase() === 'false'
-  ) {
+  // `z.stringbool()` also accepts "0", "no" and "off": judge the parsed value, not the spelling.
+  const cookieSecure = z.stringbool().safeParse(config.COOKIE_SECURE);
+  if (cookieSecure.success && !cookieSecure.data) {
     problems.push('COOKIE_SECURE cannot be false');
   }
   if (config.EMAIL_TRANSPORT !== 'smtp') {
@@ -117,6 +128,9 @@ function assertProductionSafe(config: Record<string, unknown>): void {
     problems.push(
       'TURNSTILE_SECRET must be set (or CAPTCHA=off to leave registration unprotected)',
     );
+  }
+  if (PLACEHOLDER_TURNSTILE.test(secret)) {
+    problems.push('TURNSTILE_SECRET still has the placeholder value');
   }
   if (problems.length > 0) {
     throw new Error(`Invalid production configuration:\n- ${problems.join('\n- ')}`);

@@ -38,5 +38,8 @@ export const unlikePost = (postId: string): Promise<void> => api.delete(`/posts/
 export const updatePost = (postId: string, input: UpdatePostInput): Promise<Post> =>
   api.patch(`/posts/${postId}`, input, { schema: postSchema });
 
-export const fetchPostRevisions = (postId: string, signal?: AbortSignal): Promise<RevisionList> =>
-  api.get(`/posts/${postId}/revisions`, revisionListSchema, { signal });
+export const fetchPostRevisions = (
+  postId: string,
+  { cursor, signal }: PageOptions,
+): Promise<RevisionList> =>
+  api.get(`/posts/${postId}/revisions${queryString({ cursor })}`, revisionListSchema, { signal });

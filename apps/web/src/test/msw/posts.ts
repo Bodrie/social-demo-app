@@ -57,7 +57,11 @@ export const postHandlers = [
   http.get(`${API}/search/posts`, ({ request }) => {
     if (!mockDb.user) return unauthorized();
     const url = new URL(request.url);
-    const words = (url.searchParams.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+    const q = url.searchParams.get('q') ?? '';
+    if (q.trim().length < 2 || q.length > 100) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { q: 'Invalid query' });
+    }
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     const posts = mockDb.posts.filter((post) =>
       words.every((word) => post.content.toLowerCase().includes(word)),
     );
@@ -126,6 +130,7 @@ export const postHandlers = [
 
   http.get(`${API}/posts/:postId/comments`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
+    if (!mockDb.posts.some((item) => item.id === param(params.postId))) return notFound('Post');
     const viewerId = mockDb.user.id;
     const url = new URL(request.url);
     const comments = mockDb.comments
@@ -186,13 +191,12 @@ export const postHandlers = [
     return HttpResponse.json(post);
   }),
 
-  http.get(`${API}/posts/:id/revisions`, ({ params }) => {
+  http.get(`${API}/posts/:id/revisions`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
     if (!mockDb.posts.some((item) => item.id === param(params.id))) return notFound('Post');
-    return HttpResponse.json({
-      items: mockDb.postRevisions.get(param(params.id)) ?? [],
-      nextCursor: null,
-    });
+    return HttpResponse.json(
+      paginate(mockDb.postRevisions.get(param(params.id)) ?? [], new URL(request.url)),
+    );
   }),
 
   http.patch(`${API}/comments/:id`, async ({ request, params }) => {
@@ -213,13 +217,12 @@ export const postHandlers = [
     return HttpResponse.json(withReactions(comment, mockDb.user.id));
   }),
 
-  http.get(`${API}/comments/:id/revisions`, ({ params }) => {
+  http.get(`${API}/comments/:id/revisions`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
     if (!mockDb.comments.some((item) => item.id === param(params.id))) return notFound('Comment');
-    return HttpResponse.json({
-      items: mockDb.commentRevisions.get(param(params.id)) ?? [],
-      nextCursor: null,
-    });
+    return HttpResponse.json(
+      paginate(mockDb.commentRevisions.get(param(params.id)) ?? [], new URL(request.url)),
+    );
   }),
 
   http.put(`${API}/comments/:id/reaction`, async ({ request, params }) => {

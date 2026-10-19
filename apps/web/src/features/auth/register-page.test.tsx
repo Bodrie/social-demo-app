@@ -60,6 +60,19 @@ describe('RegisterPage with the bot check', () => {
     expect(mockDb.user).toBeNull();
   });
 
+  it('says so when the bot check cannot load', async () => {
+    window.turnstile = {
+      render: vi.fn(() => {
+        throw new Error('script blocked');
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    renderApp('/register');
+    expect(await screen.findByRole('alert')).toHaveTextContent('The bot check could not load');
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled();
+  });
+
   it('keeps the button disabled until the check has answered', async () => {
     window.turnstile = { render: vi.fn(() => 'widget-1'), reset: vi.fn(), remove: vi.fn() };
     renderApp('/register');

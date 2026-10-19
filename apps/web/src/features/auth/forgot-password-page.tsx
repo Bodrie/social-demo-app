@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type ForgotPasswordInput, forgotPasswordSchema } from '@the-mesh/shared';
 import { Loader2Icon, MailCheckIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,11 @@ export function ForgotPasswordPage() {
     </>
   );
 
+  // The form that had focus is gone with the submit; the new heading says what happened.
+  useEffect(() => {
+    if (sentTo) document.getElementById('auth-title')?.focus();
+  }, [sentTo]);
+
   if (sentTo) {
     return (
       <AuthLayout
@@ -51,7 +56,7 @@ export function ForgotPasswordPage() {
         subtitle="If that address has an account, a link is on its way."
         footer={footer}
       >
-        <div className="bg-muted flex items-start gap-3 rounded-lg p-4 text-sm" aria-live="polite">
+        <div className="bg-muted flex items-start gap-3 rounded-lg p-4 text-sm">
           <MailCheckIcon className="text-primary mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <p>
             We sent a password reset link to <strong className="font-semibold">{sentTo}</strong> if

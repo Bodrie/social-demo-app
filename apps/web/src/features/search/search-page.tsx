@@ -1,4 +1,4 @@
-import { SEARCH_MIN_LENGTH, hashtagSchema } from '@the-mesh/shared';
+import { SEARCH_MAX_LENGTH, SEARCH_MIN_LENGTH, hashtagSchema } from '@the-mesh/shared';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -24,7 +24,7 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const type: SearchType = params.get('type') === 'people' ? 'people' : 'posts';
   // The box owns the text; the URL mirrors the settled query so searches can be shared.
-  const [input, setInput] = useState(params.get('q') ?? '');
+  const [input, setInput] = useState((params.get('q') ?? '').slice(0, SEARCH_MAX_LENGTH));
   const q = useDebouncedValue(input.trim(), 300);
 
   useEffect(() => {
@@ -72,6 +72,7 @@ export function SearchPage() {
             aria-label="Search posts and people"
             placeholder="What are you looking for?"
             autoComplete="off"
+            maxLength={SEARCH_MAX_LENGTH}
             value={input}
             onChange={(event) => setInput(event.target.value)}
             className="pr-9 pl-9"

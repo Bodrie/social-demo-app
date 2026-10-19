@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http } from 'msw/http';
 import { alice } from '@/test/fixtures';
-import { mockDb, signedInAs } from '@/test/msw/handlers';
+import { apiError, mockDb, signedInAs } from '@/test/msw/handlers';
+import { server } from '@/test/msw/server';
 import { renderApp } from '@/test/render';
 
 describe('AccountCard', () => {
@@ -22,6 +24,20 @@ describe('AccountCard', () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(downloads[0]).toMatch(/^the-mesh-export-alice-\d{4}-\d{2}-\d{2}\.json$/);
     click.mockRestore();
+  });
+
+  it('asks to wait a minute when the export was just downloaded', async () => {
+    signedInAs(alice);
+    server.use(
+      http.get('*/api/v1/users/me/export', () =>
+        apiError(429, 'TOO_MANY_REQUESTS', 'Too many requests'),
+      ),
+    );
+    renderApp('/settings');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Download your data' }));
+    expect(await screen.findByText(/Try again in a minute/)).toBeInTheDocument();
   });
 
   it('puts a wrong password on the field and keeps the account', async () => {

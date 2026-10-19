@@ -37,9 +37,11 @@ export const deleteComment = (commentId: string): Promise<void> =>
 
 export const fetchCommentRevisions = (
   commentId: string,
-  signal?: AbortSignal,
+  { cursor, signal }: PageOptions,
 ): Promise<RevisionList> =>
-  api.get(`/comments/${commentId}/revisions`, revisionListSchema, { signal });
+  api.get(`/comments/${commentId}/revisions${queryString({ cursor })}`, revisionListSchema, {
+    signal,
+  });
 
 export const setReaction = (commentId: string, type: ReactionType): Promise<ReactionSummary> =>
   api.put(`/comments/${commentId}/reaction`, { type }, { schema: reactionSummarySchema });

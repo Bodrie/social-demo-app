@@ -41,6 +41,30 @@ describe('MentionTextarea', () => {
     expect(box).toHaveValue('@carol ');
   });
 
+  it('moves the highlight with the arrow keys and inserts the highlighted member', async () => {
+    signedInAs(alice);
+    renderApp('/');
+    const user = userEvent.setup();
+    const box = await screen.findByLabelText('New post');
+
+    await user.type(box, '@');
+    const listbox = await screen.findByRole('listbox', { name: 'Members' });
+    await waitFor(() => expect(within(listbox).getAllByRole('option')).toHaveLength(3));
+    const [first, second, third] = within(listbox).getAllByRole('option');
+    expect(first).toHaveAttribute('aria-selected', 'true');
+
+    await user.keyboard('{ArrowDown}');
+    expect(second).toHaveAttribute('aria-selected', 'true');
+    expect(box).toHaveAttribute('aria-activedescendant', second?.id);
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    expect(first).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{ArrowUp}');
+    expect(third).toHaveAttribute('aria-selected', 'true');
+
+    await user.keyboard('{Enter}');
+    expect(box).toHaveValue(`@${third?.textContent?.match(/@(\w+)/)?.[1]} `);
+  });
+
   it('does not open inside an email address or after a word', async () => {
     signedInAs(alice);
     renderApp('/');

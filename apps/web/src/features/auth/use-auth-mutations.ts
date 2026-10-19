@@ -67,7 +67,7 @@ export function useLogout() {
     // The cookies are gone either way; make the UI (and the other tabs) agree even if the
     // request failed.
     onSettled: () => {
-      endSession(queryClient);
+      endSession(queryClient, { deliberate: true });
       announceSessionChange();
     },
   });

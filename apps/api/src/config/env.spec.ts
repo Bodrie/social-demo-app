@@ -99,6 +99,18 @@ describe('production safety', () => {
     expect(
       validateEnv({ ...production, TURNSTILE_SECRET: undefined, CAPTCHA: 'off' }).CAPTCHA,
     ).toBe('off');
+    expect(() =>
+      validateEnv({ ...production, TURNSTILE_SECRET: '0x4AAAAAAA_xxxxxxxxxxxxxxxxxxxxxxxxx' }),
+    ).toThrow(/placeholder/);
+  });
+
+  it('treats the empty strings compose passes for unset optionals as "not set"', () => {
+    // `TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}` reaches the container as "" when .env lacks it.
+    const parsed = validateEnv({ ...production, CAPTCHA: '' });
+    expect(parsed.CAPTCHA).toBeUndefined();
+    expect(parsed.TURNSTILE_SECRET).toBe(production.TURNSTILE_SECRET);
+    const off = validateEnv({ ...production, TURNSTILE_SECRET: '', CAPTCHA: 'off' });
+    expect(off.TURNSTILE_SECRET).toBeUndefined();
   });
 
   it('refuses development defaults and the placeholder secret', () => {
@@ -113,6 +125,12 @@ describe('production safety', () => {
       }),
     ).toThrow(/placeholder/);
     expect(() => validateEnv({ ...production, COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
+    for (const spelling of ['0', 'no', 'off', 'FALSE']) {
+      expect(() => validateEnv({ ...production, COOKIE_SECURE: spelling })).toThrow(
+        /COOKIE_SECURE/,
+      );
+    }
+    expect(validateEnv({ ...production, COOKIE_SECURE: 'true' }).COOKIE_SECURE).toBe(true);
   });
 
   it('insists on real mail settings', () => {

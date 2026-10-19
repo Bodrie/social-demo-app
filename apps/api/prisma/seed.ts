@@ -33,6 +33,22 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL is not set');
 }
 
+/**
+ * The seed truncates every table and wipes the upload folders: it must never meet a database
+ * that is not a developer's own (review L13). `SEED_FORCE=1` is the explicit override.
+ */
+function assertSeedTarget(url: string): void {
+  if (process.env.SEED_FORCE === '1') return;
+  const host = new URL(url).hostname;
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+  if (process.env.NODE_ENV === 'production' || !local) {
+    throw new Error(
+      `Refusing to seed "${host}" (NODE_ENV=${process.env.NODE_ENV ?? 'development'}): the seed destroys every table. Set SEED_FORCE=1 if you really mean it.`,
+    );
+  }
+}
+assertSeedTarget(databaseUrl);
+
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
 
@@ -77,7 +93,7 @@ async function truncateAll(): Promise<void> {
   );
   // Generated files from previous runs are orphans once their rows are gone.
   await Promise.all(
-    ['avatar', 'post', 'message'].map((kind) =>
+    ['avatar', 'cover', 'post', 'message'].map((kind) =>
       rm(path.join(uploadsDir, kind), { recursive: true, force: true }),
     ),
   );

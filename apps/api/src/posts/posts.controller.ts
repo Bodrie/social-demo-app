@@ -15,7 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Paginated, Post as PostItem, Revision } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { IdParamDto, UserIdParamDto } from '../common/params.dto.js';
+import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
 import { CreatePostDto, FeedQueryDto, UpdatePostDto } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 
@@ -51,8 +51,11 @@ export class PostsController {
   }
 
   @Get(':id/revisions')
-  revisions(@Param() params: IdParamDto): Promise<Paginated<Revision>> {
-    return this.posts.revisions(params.id);
+  revisions(
+    @Param() params: IdParamDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Revision>> {
+    return this.posts.revisions(params.id, query);
   }
 
   @Delete(':id')

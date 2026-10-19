@@ -1,26 +1,30 @@
-import { type QueryKey, useQuery } from '@tanstack/react-query';
+import { type QueryKey, useInfiniteQuery } from '@tanstack/react-query';
 import type { RevisionList } from '@the-mesh/shared';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
+import { NO_CURSOR, flattenPages } from '@/lib/infinite';
 
 type EditedMarkerProps = {
   editedAt: string;
   queryKey: QueryKey;
-  /** Loads the previous versions; only called once the history is opened. */
-  fetchRevisions: (signal?: AbortSignal) => Promise<RevisionList>;
+  /** Loads a page of previous versions; only called once the history is opened. */
+  fetchRevisions: (options: { cursor?: string; signal?: AbortSignal }) => Promise<RevisionList>;
 };
 
-/** "edited" next to a timestamp; opens the list of previous versions. */
+/** "edited" next to a timestamp; opens the list of previous versions, older ones on demand. */
 export function EditedMarker({ editedAt, queryKey, fetchRevisions }: EditedMarkerProps) {
   const [open, setOpen] = useState(false);
-  const history = useQuery({
+  const history = useInfiniteQuery({
     queryKey,
-    queryFn: ({ signal }) => fetchRevisions(signal),
-    select: (list) => list.items,
+    queryFn: ({ pageParam, signal }) => fetchRevisions({ cursor: pageParam, signal }),
+    initialPageParam: NO_CURSOR,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: open,
   });
+  const revisions = flattenPages(history.data);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -43,22 +47,37 @@ export function EditedMarker({ editedAt, queryKey, fetchRevisions }: EditedMarke
             </div>
           ) : history.isError ? (
             <p className="text-destructive p-3 text-sm">Could not load the history.</p>
-          ) : history.data.length === 0 ? (
+          ) : revisions.length === 0 ? (
             <p className="text-muted-foreground p-3 text-sm">No previous versions.</p>
           ) : (
-            <ol aria-label="Previous versions" className="divide-y">
-              {history.data.map((revision) => (
-                <li key={revision.id} className="space-y-1 px-3 py-2">
-                  <p className="text-muted-foreground text-xs">
-                    Until{' '}
-                    <time dateTime={revision.editedAt} title={formatDateTime(revision.editedAt)}>
-                      {formatRelativeTime(revision.editedAt)}
-                    </time>
-                  </p>
-                  <p className="text-sm break-words whitespace-pre-wrap">{revision.content}</p>
-                </li>
-              ))}
-            </ol>
+            <>
+              <ol aria-label="Previous versions" className="divide-y">
+                {revisions.map((revision) => (
+                  <li key={revision.id} className="space-y-1 px-3 py-2">
+                    <p className="text-muted-foreground text-xs">
+                      Until{' '}
+                      <time dateTime={revision.editedAt} title={formatDateTime(revision.editedAt)}>
+                        {formatRelativeTime(revision.editedAt)}
+                      </time>
+                    </p>
+                    <p className="text-sm break-words whitespace-pre-wrap">{revision.content}</p>
+                  </li>
+                ))}
+              </ol>
+              {history.hasNextPage ? (
+                <div className="border-t p-2">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    disabled={history.isFetchingNextPage}
+                    onClick={() => void history.fetchNextPage()}
+                  >
+                    {history.isFetchingNextPage ? 'Loading…' : 'Show older versions'}
+                  </Button>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </PopoverContent>

@@ -78,7 +78,9 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
         <main className="flex flex-1 items-center justify-center px-4 pb-12 sm:px-6">
           <div className="w-full max-w-sm space-y-8">
             <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+              <h1 id="auth-title" tabIndex={-1} className="text-3xl font-semibold tracking-tight">
+                {title}
+              </h1>
               <p className="text-muted-foreground text-sm/6">{subtitle}</p>
             </div>
             {children}

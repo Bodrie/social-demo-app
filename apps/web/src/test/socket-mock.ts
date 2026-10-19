@@ -1,4 +1,14 @@
-import { SOCKET_EVENTS, markReadPayloadSchema, sendMessagePayloadSchema } from '@the-mesh/shared';
+import {
+  conversationReadPayloadSchema,
+  conversationRefSchema,
+  markReadPayloadSchema,
+  messageSchema,
+  presenceUpdateSchema,
+  sendMessagePayloadSchema,
+  SOCKET_EVENTS,
+  typingUpdateSchema,
+} from '@the-mesh/shared';
+import type { z } from 'zod';
 import { markConversationRead, storeMessage } from './msw/conversations';
 import { mockDb } from './msw/db';
 
@@ -9,6 +19,16 @@ type AckHandler = (payload: unknown) => unknown;
  * Stands in for socket.io-client in jsdom. Tests drive the "server" side with
  * `serverEmit()` and inspect what the app sent through `emitted`.
  */
+
+/** What each server push carries; a test that emits something else is wrong, not the app. */
+const PUSH_SCHEMAS: Record<string, z.ZodType> = {
+  [SOCKET_EVENTS.presenceUpdate]: presenceUpdateSchema,
+  [SOCKET_EVENTS.messageNew]: messageSchema,
+  [SOCKET_EVENTS.conversationRead]: conversationReadPayloadSchema,
+  [SOCKET_EVENTS.conversationUpdate]: conversationRefSchema,
+  [SOCKET_EVENTS.conversationRemoved]: conversationRefSchema,
+  [SOCKET_EVENTS.typingUpdate]: typingUpdateSchema,
+};
 export class FakeSocket {
   connected = false;
   /** Like socket.io's: whether it would reconnect by itself (false once refused or server-closed). */
@@ -67,8 +87,10 @@ export class FakeSocket {
     return handler(payload);
   }
 
-  /** A push from the server. */
+  /** A push from the server; the payload must be what the shared contract says the API sends. */
   serverEmit(event: string, ...args: unknown[]): void {
+    const schema = PUSH_SCHEMAS[event];
+    if (schema) schema.parse(args[0]);
     this.fire(event, ...args);
   }
 

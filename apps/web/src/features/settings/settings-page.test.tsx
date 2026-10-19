@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http } from 'msw/http';
 import { alice } from '@/test/fixtures';
-import { mockDb, signedInAs } from '@/test/msw/handlers';
+import { apiError, mockDb, signedInAs } from '@/test/msw/handlers';
+import { server } from '@/test/msw/server';
 import { renderApp } from '@/test/render';
 
 async function fill(user: ReturnType<typeof userEvent.setup>, values: [string, string, string]) {
@@ -57,5 +59,22 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign out everywhere' }));
     await user.click(await screen.findByRole('button', { name: 'Sign out everywhere' }));
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('keeps the session and says so when signing out everywhere fails', async () => {
+    signedInAs(alice);
+    server.use(
+      http.post('*/api/v1/auth/logout-all', () => apiError(500, 'INTERNAL_ERROR', 'boom')),
+    );
+    renderApp('/settings');
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { level: 1, name: 'Settings' });
+
+    await user.click(screen.getByRole('button', { name: 'Sign out everywhere' }));
+    await user.click(await screen.findByRole('button', { name: 'Sign out everywhere' }));
+
+    expect(await screen.findByText(/Could not sign out everywhere/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(mockDb.user).not.toBeNull();
   });
 });

@@ -94,7 +94,7 @@ cp .env.example .env && chmod 600 .env
 # base64 strings contain breaks the URL. It is fixed at the first start (the volume keeps it).
 sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" .env
 sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env
-nano .env   # SMTP_URL (Resend API key, §2.6) and TUNNEL_TOKEN (§2.2); PUBLIC_URL is already right
+nano .env   # SMTP_URL (Resend API key, §2.6), TUNNEL_TOKEN (§2.2) and TURNSTILE_SECRET (§2.7, the placeholder is refused); PUBLIC_URL is already right
 ```
 
 Running the `curl … | tar` line again later refreshes the compose file and the scripts after

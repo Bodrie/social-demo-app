@@ -4,6 +4,7 @@ import {
   type Comment,
   type CommentsQuery,
   type CreateCommentData,
+  type CursorQuery,
   type Paginated,
   type ReactionSummary,
   type ReactionType,
@@ -20,9 +21,10 @@ import {
   encodeCursor,
   encodeRankedCursor,
   keysetAfter,
+  paginateBy,
   paginateWith,
 } from '../common/pagination.js';
-import { toRevision } from '../common/revisions.js';
+import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
 import { CommentCreatedEvent } from '../events/comment.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PostsService } from '../posts/posts.service.js';
@@ -175,14 +177,14 @@ export class CommentsService {
   }
 
   /** Previous versions, most recently replaced first. */
-  async revisions(commentId: string): Promise<Paginated<Revision>> {
+  async revisions(commentId: string, query: CursorQuery): Promise<Paginated<Revision>> {
     await this.assertExists(commentId);
     const rows = await this.prisma.commentRevision.findMany({
-      where: { commentId },
+      where: { commentId, ...revisionsAfter(decodeCursor(query.cursor)) },
       orderBy: [{ editedAt: 'desc' }, { id: 'desc' }],
-      take: 50,
+      take: query.limit + 1,
     });
-    return { items: rows.map(toRevision), nextCursor: null };
+    return paginateBy(rows, query.limit, revisionKey, toRevision);
   }
 
   /** Sets (or switches) the viewer's reaction. Idempotent for the same type. */

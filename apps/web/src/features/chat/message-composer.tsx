@@ -1,8 +1,8 @@
 import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
-import { cn } from 'cn';
 import { ImageIcon, SendIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CharacterCounter } from '@/components/character-counter';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { EmojiPickerButton } from '@/features/posts/emoji-picker-button';
@@ -149,16 +149,7 @@ export function MessageComposer({
           onKeyDown={onKeyDown}
           className="max-h-40 min-h-9 flex-1 resize-none py-1.5 text-sm"
         />
-        {remaining <= 100 ? (
-          <span
-            className={cn(
-              'pb-2 text-xs tabular-nums',
-              remaining < 0 ? 'text-destructive' : 'text-muted-foreground',
-            )}
-          >
-            {remaining}
-          </span>
-        ) : null}
+        {remaining <= 100 ? <CharacterCounter remaining={remaining} className="pb-2" /> : null}
         <Button type="submit" size="icon-sm" aria-label="Send" disabled={!canSend}>
           <SendIcon />
         </Button>

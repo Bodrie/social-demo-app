@@ -15,7 +15,9 @@ export function SuggestionsCard({ className }: { className?: string }) {
   return (
     <Card className={cn('gap-3 py-4', className)}>
       <CardHeader className="px-4">
-        <CardTitle>Suggestions for you</CardTitle>
+        <CardTitle asChild>
+          <h2>Suggestions for you</h2>
+        </CardTitle>
         <CardAction>
           <Button asChild variant="link" size="sm" className="h-auto p-0">
             <Link to="/users">See all</Link>

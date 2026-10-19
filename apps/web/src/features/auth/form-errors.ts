@@ -19,7 +19,8 @@ export function applyApiErrors<T extends FieldValues>(
   for (const name of fieldNames) {
     const message = error.fields[name];
     if (message) {
-      setError(name, { type: 'server', message });
+      // The first field with a problem takes focus, so the message is heard (aria-describedby).
+      setError(name, { type: 'server', message }, { shouldFocus: !attached });
       attached = true;
     }
   }
