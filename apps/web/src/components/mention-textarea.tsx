@@ -5,7 +5,7 @@
  */
 /* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/click-events-have-key-events */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import type { UserSummary } from '@beso/shared';
+import type { TrendingTag, UserSummary } from '@beso/shared';
 import { cn } from 'cn';
 import {
   type ChangeEvent,
@@ -21,6 +21,7 @@ import {
 import { UserAvatar } from '@/components/user-avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { insertText } from '@/features/posts/insert-text';
+import { fetchTagSuggestions } from '@/lib/api/tags';
 import { fetchUsers } from '@/lib/api/users';
 import { sortMentionMatches } from '@/lib/mention-match';
 import { queryKeys } from '@/lib/query-keys';
@@ -29,15 +30,30 @@ import { useDebouncedValue } from '@/lib/use-debounced-value';
 const SUGGESTION_COUNT = 6;
 /** `@` plus what was typed so far, at the caret, after a non-word character or the start. */
 const ACTIVE_MENTION = /(?:^|[^\p{L}\p{N}_@#])@([A-Za-z0-9_]{0,30})$/u;
+/** `#` plus at least one tag character (the parser's alphabet), likewise at the caret. */
+const ACTIVE_TAG = /(?:^|[^\p{L}\p{N}_@#])#([\p{L}\p{N}_]{1,50})$/u;
 
-type ActiveMention = { start: number; query: string };
+/** What is being typed at the caret: a handle after `@` or a tag after `#`. */
+type Active = { kind: 'mention' | 'tag'; start: number; query: string };
 
-function activeMentionAt(value: string, caret: number): ActiveMention | null {
-  const match = ACTIVE_MENTION.exec(value.slice(0, caret));
-  if (!match) return null;
-  const query = match[1] ?? '';
-  return { start: caret - query.length - 1, query };
+function activeAt(value: string, caret: number): Active | null {
+  const before = value.slice(0, caret);
+  const mention = ACTIVE_MENTION.exec(before);
+  if (mention) {
+    const query = mention[1] ?? '';
+    return { kind: 'mention', start: caret - query.length - 1, query };
+  }
+  const tag = ACTIVE_TAG.exec(before);
+  if (tag) {
+    const query = tag[1] ?? '';
+    return { kind: 'tag', start: caret - query.length - 1, query };
+  }
+  return null;
 }
+
+type Option =
+  | { kind: 'mention'; id: string; user: UserSummary }
+  | { kind: 'tag'; id: string; tag: TrendingTag };
 
 type MentionTextareaProps = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange'> & {
   value: string;
@@ -46,9 +62,10 @@ type MentionTextareaProps = Omit<ComponentProps<typeof Textarea>, 'value' | 'onC
 };
 
 /**
- * A textarea that offers members while an `@handle` is being typed. Arrow keys move, Enter or
- * Tab inserts `@username `, Escape closes; the list is a listbox the textarea controls through
- * `aria-activedescendant`, so nothing steals focus from the text.
+ * A textarea that offers members while an `@handle` is being typed and tags while a `#tag`
+ * is. Arrow keys move, Enter or Tab inserts `@username ` or `#tag `, Escape closes; the list
+ * is a listbox the textarea controls through `aria-activedescendant`, so nothing steals focus
+ * from the text. A `#` with no known tag offers nothing: the writer is coining one.
  */
 export function MentionTextarea({
   value,
@@ -70,38 +87,60 @@ export function MentionTextarea({
     [ref],
   );
   const listboxId = useId();
-  const [active, setActive] = useState<ActiveMention | null>(null);
+  const [active, setActive] = useState<Active | null>(null);
   const [highlighted, setHighlighted] = useState(0);
   const query = useDebouncedValue(active?.query ?? '', 150);
 
-  const suggestions = useQuery({
+  const members = useQuery({
     queryKey: queryKeys.users.mentions(query),
     queryFn: ({ signal }) => fetchUsers({ q: query || undefined, signal }),
-    enabled: active !== null,
+    enabled: active?.kind === 'mention',
     select: (data) => data.items.slice(0, SUGGESTION_COUNT) as UserSummary[],
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+  const tags = useQuery({
+    queryKey: queryKeys.tags.suggest(query),
+    queryFn: ({ signal }) => fetchTagSuggestions(query, signal),
+    enabled: active?.kind === 'tag' && query.length > 0,
+    select: (data) => data.items,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
   // The server answers the debounced query; filtering and ranking with the live one keeps the
   // list consistent with what is typed (and instant) while that answer is on its way.
-  const options =
-    active && suggestions.data ? sortMentionMatches(suggestions.data, active.query) : [];
+  const options: Option[] = !active
+    ? []
+    : active.kind === 'mention'
+      ? sortMentionMatches(members.data ?? [], active.query).map((user) => ({
+          kind: 'mention',
+          id: `${listboxId}-${user.id}`,
+          user,
+        }))
+      : (tags.data ?? [])
+          .filter((tag) => tag.tag.startsWith(active.query.toLowerCase()))
+          .map((tag) => ({ kind: 'tag', id: `${listboxId}-tag-${tag.tag}`, tag }));
   const open = active !== null && options.length > 0;
   const current = options[Math.min(highlighted, options.length - 1)];
 
   const track = (element: HTMLTextAreaElement, nextValue = element.value) => {
-    const next = activeMentionAt(nextValue, element.selectionStart ?? nextValue.length);
+    const next = activeAt(nextValue, element.selectionStart ?? nextValue.length);
     setActive((previous) =>
-      previous?.start === next?.start && previous?.query === next?.query ? previous : next,
+      previous?.kind === next?.kind &&
+      previous?.start === next?.start &&
+      previous?.query === next?.query
+        ? previous
+        : next,
     );
     if (next?.start !== active?.start) setHighlighted(0);
   };
 
-  const pick = (user: UserSummary) => {
+  const pick = (option: Option) => {
     const element = innerRef.current;
     if (!active) return;
     const caret = element?.selectionStart ?? value.length;
-    const next = insertText(value, active.start, caret, `@${user.username} `);
+    const text = option.kind === 'mention' ? `@${option.user.username} ` : `#${option.tag.tag} `;
+    const next = insertText(value, active.start, caret, text);
     onValueChange(next.value);
     setActive(null);
     requestAnimationFrame(() => {
@@ -139,6 +178,8 @@ export function MentionTextarea({
     onKeyDown?.(event);
   };
 
+  const noun = active?.kind === 'tag' ? 'tag' : 'member';
+
   return (
     <div className="relative min-w-0 flex-1">
       <Textarea
@@ -148,7 +189,7 @@ export function MentionTextarea({
         className={className}
         aria-autocomplete="list"
         aria-controls={open ? listboxId : undefined}
-        aria-activedescendant={open && current ? `${listboxId}-${current.id}` : undefined}
+        aria-activedescendant={open && current ? current.id : undefined}
         onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
           onValueChange(event.target.value);
           track(event.target, event.target.value);
@@ -164,34 +205,47 @@ export function MentionTextarea({
         }}
       />
       <span className="sr-only" aria-live="polite">
-        {open ? `${options.length} member suggestions, use the arrow keys` : ''}
+        {open ? `${options.length} ${noun} suggestions, use the arrow keys` : ''}
       </span>
       {open ? (
         <div
           id={listboxId}
           role="listbox"
-          aria-label="Members"
+          aria-label={active?.kind === 'tag' ? 'Tags' : 'Members'}
           className="bg-popover text-popover-foreground absolute top-full right-0 left-0 z-20 mt-1 max-h-64 overflow-y-auto rounded-md border p-1 shadow-md"
         >
-          {options.map((user) => (
+          {options.map((option, index) => (
             <div
-              key={user.id}
-              id={`${listboxId}-${user.id}`}
+              key={option.id}
+              id={option.id}
               role="option"
-              aria-selected={current?.id === user.id}
+              aria-selected={current?.id === option.id}
               tabIndex={-1}
               className={cn(
                 'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
-                current?.id === user.id && 'bg-accent text-accent-foreground',
+                current?.id === option.id && 'bg-accent text-accent-foreground',
               )}
               // The textarea keeps focus: a mousedown would blur it and close the list.
               onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setHighlighted(options.indexOf(user))}
-              onClick={() => pick(user)}
+              onMouseEnter={() => setHighlighted(index)}
+              onClick={() => pick(option)}
             >
-              <UserAvatar user={user} className="size-6" />
-              <span className="truncate font-medium">{user.name}</span>
-              <span className="text-muted-foreground truncate text-xs">@{user.username}</span>
+              {option.kind === 'mention' ? (
+                <>
+                  <UserAvatar user={option.user} className="size-6" />
+                  <span className="truncate font-medium">{option.user.name}</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    @{option.user.username}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="truncate font-medium">#{option.tag.tag}</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {option.tag.count} {option.tag.count === 1 ? 'post' : 'posts'}
+                  </span>
+                </>
+              )}
             </div>
           ))}
         </div>

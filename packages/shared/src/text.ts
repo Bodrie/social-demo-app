@@ -136,6 +136,26 @@ export type TrendingTag = z.infer<typeof trendingTagSchema>;
 export const trendingTagListSchema = paginatedSchema(trendingTagSchema);
 export type TrendingTagList = z.infer<typeof trendingTagListSchema>;
 
+/**
+ * `GET /tags/suggest?q=`: what the writer has typed after `#`, folded like a tag (a leading
+ * `#` tolerated, lower-cased); unlike a whole tag it needs no letter yet.
+ */
+export const tagSuggestQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .transform((value) => (value.startsWith('#') ? value.slice(1) : value))
+    .pipe(
+      z
+        .string()
+        .toLowerCase()
+        .min(1, 'Type something after #')
+        .max(HASHTAG_MAX_LENGTH, `At most ${HASHTAG_MAX_LENGTH} characters`)
+        .regex(HASHTAG_PATTERN, 'Letters, digits and underscores only'),
+    ),
+});
+export type TagSuggestQuery = z.output<typeof tagSuggestQuerySchema>;
+
 export const trendingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(5),
 });

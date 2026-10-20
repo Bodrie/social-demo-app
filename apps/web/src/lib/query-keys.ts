@@ -38,6 +38,8 @@ export const queryKeys = {
   tags: {
     all: ['tags'] as const,
     trending: ['tags', 'trending'] as const,
+    /** The `#` autocomplete's answers for one prefix. */
+    suggest: (q: string) => ['tags', 'suggest', q] as const,
   },
   comments: {
     all: ['comments'] as const,

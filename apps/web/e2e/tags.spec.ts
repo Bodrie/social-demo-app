@@ -15,6 +15,13 @@ test.describe('mentions and hashtags', () => {
     await expect(listbox.getByRole('option', { name: /Bob Brown/ })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(box).toHaveValue(`Trying #${tag} with @bob `);
+    // The `#` trigger offers the seeded tag; the pick lands next to the mention.
+    await box.pressSequentially('on the #week');
+    await expect(
+      page.getByRole('listbox', { name: 'Tags' }).getByRole('option', { name: /#weekend/ }),
+    ).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(box).toHaveValue(`Trying #${tag} with @bob on the #weekend `);
     await page.getByRole('button', { name: 'Post', exact: true }).click();
 
     const post = page

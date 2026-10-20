@@ -232,4 +232,46 @@ describe('text entities (mentions, hashtags)', () => {
       await request(t.server).get('/api/v1/tags/trending').expect(401);
     });
   });
+  describe('GET /tags/suggest', () => {
+    it('offers tags starting with the prefix, folded, from the last 90 days, most used first', async () => {
+      const me = await createUser(t.prisma);
+      const agent = await agentFor(t, me);
+      await t.prisma.postHashtag.deleteMany({});
+      await createPost(agent, '#summer #sunday');
+      await createPost(agent, '#Summer #spring');
+      const old = await createPost(agent, '#sunset');
+      await t.prisma.postHashtag.updateMany({
+        where: { postId: old.id },
+        data: { createdAt: new Date(Date.now() - 91 * 24 * 60 * 60 * 1000) },
+      });
+      const suggest = async (q: string) =>
+        trendingTagListSchema.parse(
+          (await agent.get(`/api/v1/tags/suggest?q=${encodeURIComponent(q)}`).expect(200)).body,
+        ).items;
+
+      const summer = [
+        { tag: 'summer', count: 2 },
+        { tag: 'sunday', count: 1 },
+      ];
+      expect(await suggest('su')).toEqual(summer);
+      expect(await suggest('#SU')).toEqual(summer);
+      expect(await suggest('sp')).toEqual([{ tag: 'spring', count: 1 }]);
+      expect(await suggest('zz')).toEqual([]);
+      await agent.get('/api/v1/tags/suggest').expect(400);
+      await agent.get('/api/v1/tags/suggest?q=a%20b').expect(400);
+
+      // At most eight, by use then name.
+      await createPost(agent, '#t1 #t2 #t3 #t4 #t5 #t6 #t7 #t8 #t9');
+      expect((await suggest('t')).map((item) => item.tag)).toEqual([
+        't1',
+        't2',
+        't3',
+        't4',
+        't5',
+        't6',
+        't7',
+        't8',
+      ]);
+    });
+  });
 });

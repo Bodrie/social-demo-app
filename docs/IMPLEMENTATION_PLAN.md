@@ -59,7 +59,7 @@ B5  moderation (a + b)              ✅ 2026-10-20          ─┐
 D1  email change, sessions list     ✅ 2026-10-20           │  v2.6
 C2  comment replies                 ✅ 2026-10-20          ─┘
 C5  chat extras (edit, reactions, role lines, sound) ✅ 2026-10-20 ─┐
-B6  # autocomplete                                          │  v2.7
+B6  # autocomplete                  ✅ 2026-10-20           │  v2.7
 C7  realtime activity                                       │
 D4  picture cropping                                       ─┘
 D2  richer posts · D3 TOTP · E1–E4                             later minors
@@ -301,13 +301,14 @@ a snapshot.*
 - Web: `/admin` lazy route guarded by `role` (hidden from nav for members; direct visit → 404 page), a reports table with filters, target preview and the actions; `userPrivateSchema` gains `role`.
 - Tests: int for every visibility rule (feed, profile, tags, search, comments, direct chat, suggestions), report limits, guard 403s, suspension end to end; web (menus, dialogs, Privacy card, admin page); e2e (bob blocks alice → alice sees the blocked profile and bob's posts vanish from her feed; a carol report shows up for an admin).
 
-### B6. `#` autocomplete · S
+### B6. `#` autocomplete · S · ✅ 2026-10-20
 
 Pulled from the backlog on 2026-10-20 (owner); B1 left it out on purpose.
 
 - API: `GET /tags/suggest?q=` → `{ items: [{ tag, count }] }`: distinct tags starting with `q` (folded like `TagParamDto`, 1–50 chars) among the posts of the last 90 days, ordered by count then tag, at most 8; served by the existing primary key `(tag, post_id)`. Same module as trending (`tags/`); the 60 s cache the backlog mentions for trending applies to both if the query log ever asks.
 - Web: `MentionTextarea` gains a second trigger: `#` followed by at least one character opens the same listbox with tags (`queryKeys.tags.suggest(q)`), Enter or Tab inserts `#tag `, and a `q` with no match offers nothing (the writer still types a new tag). The composer, the comment box and `InlineEditor` get it without changes.
 - Tests: int (prefix, folding, window, limit), web (both triggers in one textarea, keyboard), e2e in `tags.spec.ts`.
+- As built (2026-10-20): as planned; the prefix query (`tagSuggestQuerySchema`) folds like a tag but needs no letter yet, the answers reuse `trendingTagListSchema`, and the listbox is labelled "Tags" with the post count per tag. No cache yet (nothing in the query log asks for one).
 
 ---
 

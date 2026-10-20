@@ -100,4 +100,34 @@ describe('MentionTextarea', () => {
       '/u/bob',
     );
   });
+  it('offers tags while a #tag is typed, inserts the pick, and still offers members after it', async () => {
+    signedInAs(alice);
+    const [first, ...rest] = seedPosts(3);
+    first!.hashtags = ['weekend', 'welcome'];
+    for (const post of rest) post.hashtags = ['weekend'];
+    renderApp('/');
+    const user = userEvent.setup();
+    const box = await screen.findByLabelText('New post');
+
+    await user.type(box, 'Plans for the #we');
+    const tags = await screen.findByRole('listbox', { name: 'Tags' });
+    const options = within(tags).getAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      '#weekend3 posts',
+      '#welcome1 post',
+    ]);
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    expect(box).toHaveAttribute('aria-activedescendant', options[0]!.id);
+
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(box).toHaveValue('Plans for the #welcome ');
+    expect(screen.queryByRole('listbox')).toBeNull();
+
+    // The other trigger in the same box, right after.
+    await user.type(box, 'with @bo');
+    const members = await screen.findByRole('listbox', { name: 'Members' });
+    expect(within(members).getAllByRole('option')).toHaveLength(1);
+    await user.keyboard('{Tab}');
+    expect(box).toHaveValue('Plans for the #welcome with @bob ');
+  });
 });

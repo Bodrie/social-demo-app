@@ -5,7 +5,7 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { FeedQueryDto } from '../posts/posts.dto.js';
 import { PostsService } from '../posts/posts.service.js';
-import { TagParamDto, TrendingQueryDto } from './tags.dto.js';
+import { TagParamDto, TagSuggestQueryDto, TrendingQueryDto } from './tags.dto.js';
 import { TagsService } from './tags.service.js';
 
 @ApiTags('tags')
@@ -19,6 +19,12 @@ export class TagsController {
   @Get('trending')
   trending(@Query() query: TrendingQueryDto): Promise<Paginated<TrendingTag>> {
     return this.tags.trending(query.limit);
+  }
+
+  /** Tags starting with `q`, for the `#` autocomplete; an unknown prefix is an empty list. */
+  @Get('suggest')
+  suggest(@Query() query: TagSuggestQueryDto): Promise<Paginated<TrendingTag>> {
+    return this.tags.suggest(query.q);
   }
 
   /** Every post carrying the tag, newest first; an unknown tag is simply an empty list. */
