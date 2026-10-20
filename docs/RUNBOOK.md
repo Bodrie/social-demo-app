@@ -227,8 +227,12 @@ over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is ver
    arrive within seconds, from `noreply@social.bodrie.dev`, and pass DKIM/SPF/DMARC ("show
    original" in Gmail). Resend → Emails shows every delivery and bounce.
 
-`noreply` has no inbox; replies bounce. If you ever want to receive mail on the subdomain,
-Cloudflare **Email Routing** (free) can forward it, with its own MX records on `social`.
+`noreply` has no inbox; replies bounce. Nothing on `social.bodrie.dev` receives mail until
+Cloudflare **Email Routing** (free) is set up for the subdomain: dashboard → `bodrie.dev` →
+Email → Email Routing → enable it for the subdomain `social.bodrie.dev` (it adds MX and SPF
+records on `social`, next to Resend's `send.social` / `rsend.social`, which it leaves alone) →
+custom address `admin@social.bodrie.dev` → the mailbox you read. Do that before publishing
+`admin@social.bodrie.dev` as `VITE_CONTACT_EMAIL` on the legal pages.
 Provider switch: any SMTP submission URL works (Postmark, Brevo, SES); only `.env` changes.
 
 ### 2.7 Bot check on registration (Cloudflare Turnstile)
@@ -277,7 +281,9 @@ https://social.bodrie.dev as well: the stack has no LAN port (cloudflared reache
 Docker network, which is why the tunnel route is `http://web:80` and never the box's LAN
 address). The api container applies pending Prisma migrations on every start
 (`MIGRATE_ON_START`). There is no seed in production; the first member registers through the
-app.
+app. An address listed in `ADMIN_EMAILS` is promoted at API start and at **sign-in** only:
+registration plus the confirmation link signs the browser in without a sign-in, so the first
+admin signs out and in once before **Admin** appears in the account menu.
 
 Enable the timers (updates every 5 minutes, backups nightly) from your own account, since
 `beso` has no sudo:
@@ -289,6 +295,12 @@ sudo systemctl enable --now beso-update.timer beso-backup.timer
 systemctl list-timers 'beso-*'
 sudo systemctl start beso-backup.service && sudo ls -lh /home/beso/beso-backups   # one backup now: the unit works
 ```
+
+Enabling `beso-update.timer` runs `update.sh` at once (`OnUnitActiveSec` counts from the last
+run, and there was none), so let `systemctl status beso-update.service` say "Deactivated
+successfully" before starting the backup by hand: both scripts drive Docker, and `update.sh`
+ends with `docker image prune -f`. The backup pulls no image of its own (the uploads archive
+is streamed out of the api container), so the nightly runs cannot collide with the updater.
 
 ## 4. Releases (pull-based)
 
