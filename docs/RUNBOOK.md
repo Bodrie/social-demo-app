@@ -236,7 +236,8 @@ over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is ver
 Cloudflare **Email Routing** (free) is set up for the subdomain: dashboard → `bodrie.dev` →
 Email → Email Routing → enable it for the subdomain `social.bodrie.dev` (it adds MX and SPF
 records on `social`, next to Resend's `send.social` / `rsend.social`, which it leaves alone) →
-custom address `admin@social.bodrie.dev` → the mailbox you read. Do that before publishing
+custom address `admin@social.bodrie.dev` → the mailbox you read (one destination per address;
+several mailboxes need an Email Worker). Do that before publishing
 `admin@social.bodrie.dev` as `VITE_CONTACT_EMAIL` on the legal pages.
 Provider switch: any SMTP submission URL works (Postmark, Brevo, SES); only `.env` changes.
 
