@@ -61,6 +61,11 @@ sudo useradd -r -m -s /bin/bash -G docker beso
 sudo mkdir -p /opt/beso && sudo chown beso:beso /opt/beso
 ```
 
+While there, make sure the clock is disciplined: `timedatectl` must say `System clock
+synchronized: yes` and `NTP service: active`, otherwise `sudo timedatectl set-ntp true`
+(the box of 2026-10-20 was 95 s slow with NTP off). Tokens, `timestamptz` columns, the
+daily 04:00 UTC job and the backup stamps all read this clock.
+
 ### 1.3 Firewall (optional)
 
 BeSo needs no inbound port: cloudflared dials out, and the stack publishes nothing but
@@ -231,7 +236,8 @@ over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is ver
 Cloudflare **Email Routing** (free) is set up for the subdomain: dashboard → `bodrie.dev` →
 Email → Email Routing → enable it for the subdomain `social.bodrie.dev` (it adds MX and SPF
 records on `social`, next to Resend's `send.social` / `rsend.social`, which it leaves alone) →
-custom address `admin@social.bodrie.dev` → the mailbox you read. Do that before publishing
+custom address `admin@social.bodrie.dev` → the mailbox you read (one destination per address;
+several mailboxes need an Email Worker). Do that before publishing
 `admin@social.bodrie.dev` as `VITE_CONTACT_EMAIL` on the legal pages.
 Provider switch: any SMTP submission URL works (Postmark, Brevo, SES); only `.env` changes.
 
