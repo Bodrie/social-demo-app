@@ -61,6 +61,11 @@ sudo useradd -r -m -s /bin/bash -G docker beso
 sudo mkdir -p /opt/beso && sudo chown beso:beso /opt/beso
 ```
 
+While there, make sure the clock is disciplined: `timedatectl` must say `System clock
+synchronized: yes` and `NTP service: active`, otherwise `sudo timedatectl set-ntp true`
+(the box of 2026-10-20 was 95 s slow with NTP off). Tokens, `timestamptz` columns, the
+daily 04:00 UTC job and the backup stamps all read this clock.
+
 ### 1.3 Firewall (optional)
 
 BeSo needs no inbound port: cloudflared dials out, and the stack publishes nothing but
