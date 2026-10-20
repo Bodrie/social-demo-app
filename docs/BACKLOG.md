@@ -3,13 +3,12 @@
 Real but deferred work, grouped by area. Each line says where it came from and what would trigger it. The owner's v2.1 requests live in the plan (§4.8), not here.
 
 ## Security / robustness
-- **Orphaned uploads reaper** – uploads that are never attached stay on disk. A daily job deleting `uploads` rows (and files) with no reference older than 24 h; needs a scheduler (`@nestjs/schedule`). Trigger: disk usage, or before opening the app publicly.
 - **Unauthenticated socket handshakes** – handshakes are limited per user and presence broadcasts are coalesced (ADR 0011), but a handshake without a valid token is only refused after a JWT check, with no per-address limit (engine.io answers before the HTTP throttler). A Cloudflare rate-limiting rule on `/socket.io/*` if such floods show up.
 - **Decode concurrency for uploads** – `UPLOAD_MAX_PIXELS` is 25 MP; add a small semaphore (or `sharp.concurrency(1)`) if memory spikes are observed.
 
 ## Contract / docs
 - **`@ZodResponse` on every handler** – gives runtime output validation and real response schemas in `/api/docs/openapi.json` (today: inputs, auth and operation ids only). Do it when a typed client from the document is wanted; the web uses the shared zod schemas directly.
-- **Email follow-ups** – change the email address (new address must be confirmed before it replaces the old one; until then the address is read-only, ADR 0011), re-send from Settings, an admin view of unverified accounts, a reaper for accounts never verified after N days.
+- **Email follow-ups** – change the email address (new address must be confirmed before it replaces the old one; until then the address is read-only, ADR 0011), re-send from Settings, an admin view of unverified accounts. (Accounts never verified are removed after 30 days since C6.)
 - **Activity post excerpts without author** – "alice liked bob's post" needs `post.author`; add `author: UserSummary` to the post excerpt when the web needs it.
 - **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
 

@@ -21,6 +21,8 @@ model User {
   passwordHash    String    @map("password_hash")
   /// Set once the address was confirmed through a mailed link; the app is closed until then.
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  /// When the "confirm or the account is removed" mail went out (JobsService); unverified accounts only.
+  expiryWarnedAt  DateTime? @map("expiry_warned_at") @db.Timestamptz(3)
   name            String
   bio             String?
   city            String?

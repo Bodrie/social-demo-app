@@ -55,7 +55,8 @@ export class UploadsService {
 
   /**
    * Removes files whose rows are already gone (an account was deleted and the `uploads` rows
-   * cascaded with it). Best effort, one failure does not stop the others.
+   * cascaded with it, or the orphan reaper took them). Best effort, one failure does not stop
+   * the others.
    */
   async deleteFiles(keys: readonly string[]): Promise<void> {
     await Promise.all(
@@ -63,10 +64,28 @@ export class UploadsService {
         try {
           await this.storage.delete(key);
         } catch (error) {
-          this.logger.warn({ err: error, key }, 'Could not delete the file of a deleted account');
+          this.logger.warn({ err: error, key }, 'Could not delete the file of a removed upload');
         }
       }),
     );
+  }
+
+  /**
+   * Housekeeping (JobsService): uploads older than `before` that no profile, post or message
+   * ever attached. The rows go first, re-checking the references in the same statement so an
+   * attach racing the job is refused ("Unknown upload") rather than left pointing at nothing;
+   * the files follow, best effort. Returns the count.
+   */
+  async deleteOrphans(before: Date): Promise<number> {
+    const rows = await this.prisma.$queryRaw<{ key: string }[]>`
+      DELETE FROM uploads u
+      WHERE u.created_at < ${before}
+        AND NOT EXISTS (SELECT 1 FROM users x WHERE x.avatar_key = u.key OR x.cover_key = u.key)
+        AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.image_key = u.key)
+        AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.image_key = u.key)
+      RETURNING u.key`;
+    await this.deleteFiles(rows.map((row) => row.key));
+    return rows.length;
   }
 
   /** Deletes a file once nothing references it any more. Best effort, never throws. */

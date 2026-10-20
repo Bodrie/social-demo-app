@@ -91,6 +91,11 @@ export const envSchema = z.object({
   TURNSTILE_SECRET: unsetWhenEmpty(z.string().min(1)),
   /** `off` is the explicit choice to run registration without a bot check in production. */
   CAPTCHA: unsetWhenEmpty(z.enum(['turnstile', 'off'])),
+  /**
+   * Whether this process runs the daily housekeeping jobs (`JobsService`). On when there is one
+   * API container; set to false on every container but one when there are several.
+   */
+  JOBS_ENABLED: z.stringbool().default(true),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -9,5 +9,6 @@ import { AccountService } from './account.service.js';
   imports: [AuthModule, UploadsModule, EmailModule],
   controllers: [AccountController],
   providers: [AccountService],
+  exports: [AccountService],
 })
 export class AccountModule {}

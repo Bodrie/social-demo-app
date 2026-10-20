@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { AccountExport, DeleteAccountData } from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
+import { EmailTokensService } from '../auth/email-tokens.service.js';
 import { verifyPassword } from '../auth/password.js';
 import { validationError } from '../common/errors.js';
 import { EmailService } from '../email/email.service.js';
@@ -14,6 +15,13 @@ import { UploadsService } from '../uploads/uploads.service.js';
 import { toUserPrivate, userPrivateSelect } from '../users/users.mapper.js';
 
 const iso = (date: Date): string => date.toISOString();
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Accounts that never confirm their address stay closed and are removed (ADR 0012, C6): one
+ * warning mail, then erasure. Both counted in days since registration; the daily jobs apply it.
+ */
+export const UNVERIFIED_ACCOUNT_POLICY = { warnAfterDays: 23, deleteAfterDays: 30 } as const;
 
 /** The member's own account as a whole: a copy of it, and its end (ADR 0012). */
 @Injectable()
@@ -24,6 +32,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
     private readonly email: EmailService,
+    private readonly emailTokens: EmailTokensService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
   ) {}
@@ -153,18 +162,87 @@ export class AccountService {
   }
 
   /**
-   * Erases the account (ADR 0012): the password is checked first, then one transaction deletes
-   * the user row (everything else cascades), the direct threads and the groups where this was
-   * the last member, keeps the denormalised counters of what remains correct, and afterwards
-   * the files go, the sockets are cut, the other members are told and a last mail is sent.
+   * The member's own request (ADR 0012): the password is checked first, then the account is
+   * erased and a last mail confirms it.
    */
   async delete(userId: string, input: DeleteAccountData): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
+      select: { passwordHash: true, email: true, name: true },
+    });
+    if (!(await verifyPassword(user.passwordHash, input.password))) {
+      throw validationError({ password: 'Wrong password' });
+    }
+    await this.erase(userId);
+    void this.email
+      .sendAccountDeleted({ email: user.email, name: user.name })
+      .catch((error: unknown) =>
+        this.logger.warn({ err: error }, 'Could not send the account deletion notice'),
+      );
+    this.logger.log({ userId }, 'Account deleted');
+  }
+
+  /**
+   * Housekeeping (JobsService): one mail, with a fresh confirmation link, to every account
+   * created before `before` that never confirmed its address, saying when it will be removed.
+   * Stamped on the row so it goes out once; an account that already had its share of
+   * confirmation mails this hour is skipped and picked up by the next run.
+   */
+  async warnUnverified(before: Date, now: Date): Promise<number> {
+    const users = await this.prisma.user.findMany({
+      where: { emailVerifiedAt: null, expiryWarnedAt: null, createdAt: { lt: before } },
+      select: { id: true, email: true, name: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    let sent = 0;
+    for (const user of users) {
+      // oxlint-disable-next-line no-await-in-loop -- one account at a time keeps the mail rate flat
+      const token = await this.emailTokens.issue(user.id, 'verify_email', now);
+      if (!token) {
+        this.logger.log({ userId: user.id }, 'Expiry warning skipped (mail limit reached)');
+        continue;
+      }
+      // oxlint-disable-next-line no-await-in-loop -- see above
+      await this.email.sendUnverifiedExpiry(user, token, {
+        afterDays: UNVERIFIED_ACCOUNT_POLICY.deleteAfterDays,
+        on: new Date(user.createdAt.getTime() + UNVERIFIED_ACCOUNT_POLICY.deleteAfterDays * DAY_MS),
+      });
+      // oxlint-disable-next-line no-await-in-loop -- see above
+      await this.prisma.user.update({ where: { id: user.id }, data: { expiryWarnedAt: now } });
+      sent += 1;
+    }
+    return sent;
+  }
+
+  /**
+   * Housekeeping (JobsService): accounts created before `before` that never confirmed their
+   * address are erased like a member's own request, without the last mail (the address was
+   * never shown to be anyone's).
+   */
+  async eraseUnverified(before: Date): Promise<number> {
+    const users = await this.prisma.user.findMany({
+      where: { emailVerifiedAt: null, createdAt: { lt: before } },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    for (const user of users) {
+      // oxlint-disable-next-line no-await-in-loop -- one transaction at a time
+      await this.erase(user.id);
+      this.logger.log({ userId: user.id }, 'Unverified account removed');
+    }
+    return users.length;
+  }
+
+  /**
+   * Erases the account (ADR 0012): one transaction deletes the user row (everything else
+   * cascades), the direct threads and the groups where this was the last member, and keeps
+   * the denormalised counters of what remains correct; afterwards the files go, the sockets
+   * are cut and the other members are told.
+   */
+  async erase(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
       select: {
-        passwordHash: true,
-        email: true,
-        name: true,
         uploads: { select: { key: true } },
         conversations: {
           select: {
@@ -174,9 +252,6 @@ export class AccountService {
         },
       },
     });
-    if (!(await verifyPassword(user.passwordHash, input.password))) {
-      throw validationError({ password: 'Wrong password' });
-    }
 
     const removed: { id: string; others: string[] }[] = [];
     const left: { id: string; remaining: string[] }[] = [];
@@ -232,11 +307,5 @@ export class AccountService {
         ),
     ]);
     await this.uploads.deleteFiles(user.uploads.map((upload) => upload.key));
-    void this.email
-      .sendAccountDeleted({ email: user.email, name: user.name })
-      .catch((error: unknown) =>
-        this.logger.warn({ err: error }, 'Could not send the account deletion notice'),
-      );
-    this.logger.log({ userId }, 'Account deleted');
   }
 }

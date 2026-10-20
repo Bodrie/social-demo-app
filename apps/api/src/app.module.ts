@@ -18,6 +18,7 @@ import { HttpThrottlerGuard } from './common/guards/http-throttler.guard.js';
 import { type Env, validateEnv } from './config/env.js';
 import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -64,6 +65,7 @@ import { UsersModule } from './users/users.module.js';
     ActivitiesModule,
     ConversationsModule,
     ChatModule,
+    JobsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

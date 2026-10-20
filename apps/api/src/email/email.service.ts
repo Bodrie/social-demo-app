@@ -6,6 +6,7 @@ import {
   accountDeletedEmail,
   passwordChangedEmail,
   passwordResetEmail,
+  unverifiedExpiryEmail,
   verificationEmail,
 } from './templates.js';
 
@@ -59,6 +60,32 @@ export class EmailService {
   /** Sent after the account is gone; the address is the only thing we still know. */
   sendAccountDeleted(to: Recipient): Promise<void> {
     return this.mailer.send({ to: to.email, ...accountDeletedEmail({ name: to.name }) });
+  }
+
+  /**
+   * The one warning an unconfirmed account gets before it is removed: a fresh confirmation
+   * link and the date after which the account goes (JobsService).
+   */
+  sendUnverifiedExpiry(
+    to: Recipient,
+    token: string,
+    removal: { afterDays: number; on: Date },
+  ): Promise<void> {
+    return this.mailer.send({
+      to: to.email,
+      ...unverifiedExpiryEmail({
+        name: to.name,
+        link: this.link('/verify-email', token),
+        hours: VERIFY_EMAIL_TTL_MS / 3_600_000,
+        afterDays: removal.afterDays,
+        removalDate: removal.on.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'UTC',
+        }),
+      }),
+    });
   }
 
   private link(path: string, token: string): string {

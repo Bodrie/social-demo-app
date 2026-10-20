@@ -106,6 +106,18 @@ export class RefreshTokensService {
     await this.events.emitAsync(SessionsRevokedEvent.EVENT, new SessionsRevokedEvent(userId));
   }
 
+  /**
+   * Housekeeping (JobsService). `issueWith` already drops a user's expired tokens when they
+   * sign in; this catches the sessions that simply never came back. Rotated tokens stay until
+   * they expire: reuse detection needs them. Returns the count.
+   */
+  async deleteExpired(now: Date): Promise<number> {
+    const { count } = await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: now } },
+    });
+    return count;
+  }
+
   private async issueWith(
     writer: Writer,
     userId: string,

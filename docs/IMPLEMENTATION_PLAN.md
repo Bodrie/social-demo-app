@@ -50,7 +50,7 @@ A1  box + monitor + backups (owner, in parallel)           ─┘
 A4  review-pass completion + cheap Low items ✅ 2026-10-19  ─┐
 B3a chat bubbles                    ✅ 2026-10-19           │  v2.4
 B3b chat follow-ups                 ✅ 2026-10-19           ─┘
-C6  scheduler + reapers                                    ─┐
+C6  scheduler + reapers             ✅ 2026-10-20          ─┐
 B4  notifications                                           │  v2.5
 C3  bookmarks (a) + reposts (b)                            ─┘
 B5  moderation (a: block/mute/report, b: admin queue)      ─┐
@@ -329,9 +329,10 @@ make it harder.
 
 Message editing (would reuse revisions), reactions on messages, voice notes. Backlog.
 
-### C6. Scheduler and reapers · S
+### C6. Scheduler and reapers · S · ✅ 2026-10-20 (ADR 0012 amendment)
 
 - `@nestjs/schedule` (catalog entry, `allowBuilds` check) with a `JobsModule`; jobs guarded by a `JOBS_ENABLED` env so only one container runs them. Daily: orphaned uploads older than 24 h (rows and files, through `StorageService`), expired `email_tokens` and `refresh_tokens`, unverified accounts older than 30 days (backlog; mail a warning at day 23), notifications older than 90 days (B4). Each job logs counts. Int test per job with a frozen clock.
+- *Built as:* `jobs/` with `JobsService.runDaily(now)` (the jobs in order, one failure never stops the next, overlapping runs skipped) and `JobsScheduler` (registers the 04:00 UTC cron only when `JOBS_ENABLED`); each job lives with its table (`EmailTokensService.deleteExpired`, `RefreshTokensService.deleteExpired`, `UploadsService.deleteOrphans`, `AccountService.warnUnverified` / `eraseUnverified` over the shared `erase` that `DELETE /users/me` uses). The warning mail carries a fresh confirmation link and the removal date; `users.expiry_warned_at` makes it go out once. **B4 adds the notifications prune as one more entry in `JobsService`.**
 
 ---
 

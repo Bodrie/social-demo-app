@@ -104,6 +104,37 @@ export function passwordChangedEmail(input: { name: string; link: string }): Ema
   };
 }
 
+/** The one warning before an account that never confirmed its address is removed (JobsService). */
+export function unverifiedExpiryEmail(input: {
+  name: string;
+  link: string;
+  hours: number;
+  afterDays: number;
+  removalDate: string;
+}): EmailContent {
+  const name = escapeHtml(input.name);
+  const situation = `You created a ${BRAND} account with this address but never confirmed it, so it has stayed closed. Accounts that are not confirmed are removed after ${input.afterDays} days: yours will be removed after ${input.removalDate}, with everything in it.`;
+  const validity = `The link works for ${input.hours} hours; after that, sign in and ask for a new one. If you do not want the account, there is nothing to do.`;
+  return {
+    subject: `Confirm your email address or your ${BRAND} account will be removed`,
+    text: [
+      `Hi ${input.name},`,
+      '',
+      situation,
+      '',
+      'To keep it, confirm the address now:',
+      input.link,
+      '',
+      validity,
+    ].join('\n'),
+    html: layout(
+      'Confirm your email address to keep your account',
+      [`Hi ${name},`, escapeHtml(situation), escapeHtml(validity)],
+      { label: 'Confirm email address', href: input.link },
+    ),
+  };
+}
+
 /** The last mail an account gets: confirmation that it, and everything it published, is gone. */
 export function accountDeletedEmail(input: { name: string }): EmailContent {
   const name = escapeHtml(input.name);

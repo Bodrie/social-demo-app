@@ -70,10 +70,43 @@ and how to keep denormalised counters honest.
   follows the theme, the submit button waits for its token, and a refused registration resets
   the widget because tokens work once.
 
+## Retention: unconfirmed accounts, tokens and abandoned uploads (C6, 2026-10-20)
+
+- **An account that never confirms its address is removed after 30 days**, with one warning
+  mail at day 23 that carries a fresh confirmation link and the date after which the account
+  goes. Until then the account is closed anyway (the guard answers 403 to unverified
+  sessions), so what is removed is a row other people may have followed, mentioned or
+  messaged; the erasure is the same `AccountService.erase` the member's own `DELETE /users/me`
+  uses (threads tidied, counters corrected, files and sockets gone), without the last mail: an
+  address that was never confirmed is written to once, not twice. The warning is stamped on
+  the row (`users.expiry_warned_at`) so a missed night cannot send it again, and an account
+  that already had its share of confirmation mails that hour is simply picked up by the next
+  run. No index was added: the users table is scanned once a night.
+- **Expired tokens go by `expires_at`**, email and refresh tokens alike. A rotated refresh
+  token stays until it expires because reuse detection needs it (ADR 0011); the hourly mail
+  limits look only at the last hour, so dropping expired email tokens changes nothing they
+  count.
+- **Uploads nobody attached within 24 hours are deleted**, rows first: the statement
+  re-checks the four columns that can reference a key (`users.avatar_key`, `users.cover_key`,
+  `posts.image_key`, `messages.image_key`) so an attach racing the job is refused rather than
+  left pointing at a missing file; the files follow through `StorageService`, best effort, as
+  everywhere.
+- **One process runs the jobs.** `JobsService.runDaily` runs them in order, each on its own
+  (a failure is logged, the next job still runs, a run that overlaps the previous one is
+  skipped) and logs a count per job; `JobsScheduler` registers the 04:00 UTC cron through
+  `SchedulerRegistry` only when `JOBS_ENABLED` is true, so a second API container with it set
+  to false has no timer at all, and the test environment never runs anything it did not call
+  itself. Every job takes the clock as a parameter and never uses `now()` in SQL, which is
+  what makes the integration tests deterministic.
+
 ## Consequences
 
 - Deleting an account removes the member's words from conversations others still have.
   The confirmation dialog says so.
+- A registration whose address was mistyped is forgotten after a month; the warning mail is
+  the only one such an address ever gets. Adding a retention rule is one more entry in
+  `JobsService` and one integration test; a second API container needs `JOBS_ENABLED=false`,
+  which the runbook says.
 - Content the member posted keeps living only in other people's exports made earlier, and in
   backups for 14 days (`RUNBOOK.md` §7), as the privacy notice states.
 - A future "anonymise instead of erase" option would be a second path, not a change to this

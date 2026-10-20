@@ -109,4 +109,15 @@ export class EmailTokensService {
       data: { usedAt: new Date() },
     });
   }
+
+  /**
+   * Housekeeping (JobsService): an expired token can never be spent, and the hourly limits
+   * only look at the last hour, so nothing is lost by dropping the rows. Returns the count.
+   */
+  async deleteExpired(now: Date): Promise<number> {
+    const { count } = await this.prisma.emailToken.deleteMany({
+      where: { expiresAt: { lt: now } },
+    });
+    return count;
+  }
 }
