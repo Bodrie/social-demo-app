@@ -277,7 +277,8 @@ describe('messages', () => {
 
     const log = await screen.findByRole('log', { name: 'Group Trip' });
     expect(screen.getByText('3 members')).toBeInTheDocument();
-    expect(await screen.findByText(/beginning of Trip/)).toBeInTheDocument();
+    // The thread opens on the line the server wrote about its creation.
+    expect(await within(log).findByText('You created the group')).toBeInTheDocument();
     expect(rowsOf()[0]).toHaveTextContent('Trip');
     const group = mockDb.conversations.find((c) => c.title === 'Trip');
     expect(group?.members.map((m) => m.userId).toSorted()).toEqual(

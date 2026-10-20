@@ -2,15 +2,18 @@ import {
   addMembersSchema,
   type Conversation,
   createGroupSchema,
+  editMessageSchema,
   GROUP_MAX_MEMBERS,
   type Message,
+  messageReactionInputSchema,
   renameGroupSchema,
+  type Revision,
   sendMessageSchema,
   setMemberRoleSchema,
   type SystemLine,
 } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
-import { makeMessage, summaryOf } from '../fixtures';
+import { makeMessage, summaryOf, testId } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';
 import { type MockConversation, mockDb, paginate, seedConversation, seedDirect } from './db';
 
@@ -164,6 +167,12 @@ export const conversationHandlers = [
       title: body.title,
       createdById: me,
       createdAt: new Date().toISOString(),
+    });
+    storeSystemLine(row.id, me, {
+      type: 'group_created',
+      actor: personOf(me),
+      users: [],
+      title: body.title,
     });
     return HttpResponse.json(conversationFor(me, row), { status: 201 });
   }),
@@ -340,7 +349,92 @@ export const conversationHandlers = [
         role: 'Make someone else an admin first',
       });
     }
-    member.role = body.role;
+    if (member.role !== body.role) {
+      member.role = body.role;
+      storeSystemLine(row.id, me, {
+        type: body.role === 'admin' ? 'admin_added' : 'admin_removed',
+        actor: personOf(me),
+        users: [personOf(member.userId)],
+        title: null,
+      });
+    }
     return HttpResponse.json(conversationFor(me, row));
   }),
+
+  http.patch(`${API}/conversations/:id/messages/:messageId`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const row = memberRow(mockDb.user.id, param(params.id));
+    if (!row) return notFound();
+    const message = changeableMessage(row.id, param(params.messageId));
+    if (message instanceof HttpResponse) return message;
+    if (message.senderId !== mockDb.user.id) {
+      return apiError(403, 'FORBIDDEN', 'Only the sender can edit a message');
+    }
+    const body = editMessageSchema.parse(await request.json());
+    if (body.content !== message.content) {
+      const revisions = mockDb.messageRevisions.get(message.id) ?? [];
+      revisionSeq += 1;
+      revisions.unshift({
+        id: testId('message', 900 + revisionSeq),
+        content: message.content,
+        editedAt: new Date().toISOString(),
+      });
+      mockDb.messageRevisions.set(message.id, revisions);
+      message.content = body.content;
+      message.editedAt = new Date().toISOString();
+    }
+    return HttpResponse.json(message);
+  }),
+
+  http.get(`${API}/conversations/:id/messages/:messageId/revisions`, ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const row = memberRow(mockDb.user.id, param(params.id));
+    if (!row) return notFound();
+    const revisions: Revision[] = mockDb.messageRevisions.get(param(params.messageId)) ?? [];
+    return HttpResponse.json(paginate(revisions, new URL(request.url)));
+  }),
+
+  http.put(`${API}/conversations/:id/messages/:messageId/reaction`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const me = mockDb.user.id;
+    const row = memberRow(me, param(params.id));
+    if (!row) return notFound();
+    const message = changeableMessage(row.id, param(params.messageId));
+    if (message instanceof HttpResponse) return message;
+    const body = messageReactionInputSchema.parse(await request.json());
+    message.reactions = [
+      ...message.reactions.filter((reaction) => reaction.userId !== me),
+      { userId: me, type: body.type },
+    ];
+    return HttpResponse.json(message);
+  }),
+
+  http.delete(`${API}/conversations/:id/messages/:messageId/reaction`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const me = mockDb.user.id;
+    const row = memberRow(me, param(params.id));
+    if (!row) return notFound();
+    const message = changeableMessage(row.id, param(params.messageId));
+    if (message instanceof HttpResponse) return message;
+    message.reactions = message.reactions.filter((reaction) => reaction.userId !== me);
+    return HttpResponse.json(message);
+  }),
 ];
+
+let revisionSeq = 0;
+
+/** A user's message of the conversation that is not deleted, or the error the API would give. */
+function changeableMessage(
+  conversationId: string,
+  messageId: string,
+): Message | ReturnType<typeof apiError> {
+  const message = mockDb.messages.find(
+    (m) => m.id === messageId && m.conversationId === conversationId,
+  );
+  if (!message) return apiError(404, 'NOT_FOUND', 'Message not found');
+  if (message.kind === 'system') {
+    return apiError(400, 'BAD_REQUEST', 'System lines cannot be changed');
+  }
+  if (message.deletedAt) return apiError(400, 'BAD_REQUEST', 'A deleted message cannot be changed');
+  return message;
+}

@@ -55,6 +55,7 @@ export const userHandlers = [
       followers: [],
       messages: [],
       uploads: [],
+      messageReactions: [],
     };
     return HttpResponse.json(data);
   }),

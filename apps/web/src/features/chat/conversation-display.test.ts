@@ -1,10 +1,11 @@
-import type { Conversation } from '@the-mesh/shared';
+import type { Conversation, SystemLine } from '@the-mesh/shared';
 import { alice, bob, carol, makeMessage, summaryOf } from '@/test/fixtures';
 import {
   conversationName,
   directPeer,
   isAdmin,
   messagePreview,
+  reactionSummaryOf,
   readBy,
   seenText,
   systemLineText,
@@ -87,7 +88,7 @@ describe('readBy / seenText', () => {
 
 /** A system line by Alice, recorded under a name she no longer carries. */
 const line = (
-  type: 'members_added' | 'member_left' | 'member_removed' | 'renamed',
+  type: SystemLine['type'],
   users: { id: string; name: string }[] = [],
   title: string | null = null,
 ) => ({ type, actor: { id: alice.id, name: 'Old Name' }, users, title });
@@ -112,6 +113,33 @@ describe('systemLineText / messagePreview', () => {
     expect(systemLineText(line('renamed', [], 'Weekend'), group, bob.id)).toBe(
       'Alice Anderson renamed the group to “Weekend”',
     );
+    expect(systemLineText(line('group_created', [], 'Trip'), group, bob.id)).toBe(
+      'Alice Anderson created the group',
+    );
+    expect(systemLineText(line('admin_added', [{ id: bob.id, name: 'B' }]), group, bob.id)).toBe(
+      'Alice Anderson made you an admin',
+    );
+    expect(
+      systemLineText(line('admin_removed', [{ id: bob.id, name: 'B' }]), group, alice.id),
+    ).toBe('You removed Bob Brown as admin');
+  });
+
+  it("sums a message's reactions from the viewer's side", () => {
+    expect(
+      reactionSummaryOf(
+        [
+          { userId: alice.id, type: 'LIKE' },
+          { userId: bob.id, type: 'LIKE' },
+          { userId: carol.id, type: 'WOW' },
+        ],
+        bob.id,
+      ),
+    ).toEqual({ counts: { LIKE: 2, LOVE: 0, LAUGH: 0, WOW: 1, SAD: 0 }, total: 3, mine: 'LIKE' });
+    expect(reactionSummaryOf([], alice.id)).toEqual({
+      counts: { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 },
+      total: 0,
+      mine: null,
+    });
   });
 
   it('previews a deleted message, a system line and a picture', () => {

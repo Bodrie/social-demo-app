@@ -4,16 +4,20 @@ import {
   type ConversationList,
   type ConversationRole,
   type CreateGroupInput,
+  type EditMessageInput,
   type MarkReadResult,
   type Message,
   type MessageList,
+  type ReactionType,
   type RenameGroupInput,
+  type RevisionList,
   type SendMessageInput,
   conversationListSchema,
   conversationSchema,
   markReadResultSchema,
   messageListSchema,
   messageSchema,
+  revisionListSchema,
 } from '@the-mesh/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
@@ -60,6 +64,40 @@ export const setMemberRole = (
 /** The sender takes a message back; the answer is the message as everyone sees it now. */
 export const deleteMessage = (id: string, messageId: string): Promise<Message> =>
   api.delete(`/conversations/${id}/messages/${messageId}`, { schema: messageSchema });
+
+/** The sender changes the text; the answer is the message as everyone sees it now. */
+export const editMessage = (
+  id: string,
+  messageId: string,
+  input: EditMessageInput,
+): Promise<Message> =>
+  api.patch(`/conversations/${id}/messages/${messageId}`, input, { schema: messageSchema });
+
+export const fetchMessageRevisions = (
+  id: string,
+  messageId: string,
+  { cursor, signal }: PageOptions,
+): Promise<RevisionList> =>
+  api.get(
+    `/conversations/${id}/messages/${messageId}/revisions${queryString({ cursor })}`,
+    revisionListSchema,
+    { signal },
+  );
+
+/** Sets or switches my reaction; the answer is the message with everyone's reactions. */
+export const setMessageReaction = (
+  id: string,
+  messageId: string,
+  type: ReactionType,
+): Promise<Message> =>
+  api.put(
+    `/conversations/${id}/messages/${messageId}/reaction`,
+    { type },
+    { schema: messageSchema },
+  );
+
+export const clearMessageReaction = (id: string, messageId: string): Promise<Message> =>
+  api.delete(`/conversations/${id}/messages/${messageId}/reaction`, { schema: messageSchema });
 
 export const fetchMessages = (id: string, { cursor, signal }: PageOptions): Promise<MessageList> =>
   api.get(`/conversations/${id}/messages${queryString({ cursor })}`, messageListSchema, {

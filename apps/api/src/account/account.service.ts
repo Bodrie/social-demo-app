@@ -79,6 +79,10 @@ export class AccountService {
           select: { commentId: true, type: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
         },
+        messageReactions: {
+          select: { messageId: true, type: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        },
         following: {
           select: { createdAt: true, followee: { select: { id: true, username: true } } },
           orderBy: { createdAt: 'asc' },
@@ -94,7 +98,9 @@ export class AccountService {
             content: true,
             imageKey: true,
             createdAt: true,
+            editedAt: true,
             conversation: { select: { title: true } },
+            revisions: { select: { content: true, editedAt: true }, orderBy: { editedAt: 'asc' } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -163,6 +169,16 @@ export class AccountService {
         content: message.content,
         imageUrl: url(message.imageKey),
         createdAt: iso(message.createdAt),
+        editedAt: message.editedAt === null ? null : iso(message.editedAt),
+        revisions: message.revisions.map((r) => ({
+          content: r.content,
+          editedAt: iso(r.editedAt),
+        })),
+      })),
+      messageReactions: user.messageReactions.map((reaction) => ({
+        messageId: reaction.messageId,
+        type: reaction.type,
+        createdAt: iso(reaction.createdAt),
       })),
       uploads: user.uploads.map((upload) => ({
         key: upload.key,

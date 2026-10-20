@@ -25,6 +25,8 @@ type AckHandler = (payload: unknown) => unknown;
 const PUSH_SCHEMAS: Record<string, z.ZodType> = {
   [SOCKET_EVENTS.presenceUpdate]: presenceUpdateSchema,
   [SOCKET_EVENTS.messageNew]: messageSchema,
+  [SOCKET_EVENTS.messageDeleted]: messageSchema,
+  [SOCKET_EVENTS.messageUpdated]: messageSchema,
   [SOCKET_EVENTS.conversationRead]: conversationReadPayloadSchema,
   [SOCKET_EVENTS.conversationUpdate]: conversationRefSchema,
   [SOCKET_EVENTS.conversationRemoved]: conversationRefSchema,

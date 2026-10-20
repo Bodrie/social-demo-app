@@ -49,6 +49,7 @@ model User {
   targetedBy       Activity[]           @relation("ActivityTargetUser")
   refreshTokens    RefreshToken[]
   sentMessages     Message[]            @relation("MessageSender")
+  messageReactions MessageReaction[]
   conversations    ConversationMember[]
   createdGroups    Conversation[]       @relation("ConversationCreator")
   uploads          Upload[]
@@ -615,15 +616,46 @@ model Message {
   /// Empty when the message is a picture only, a system line or deleted.
   content        String
   imageKey       String?     @map("image_key")
+  /// Null until the sender edited the text; previous texts live in message_revisions.
+  editedAt       DateTime?   @map("edited_at") @db.Timestamptz(3)
   /// Soft delete by the sender: the row stays for ordering and read marks, content and picture go.
   deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(3)
   /// The subject of a system line (shared `systemLineSchema`).
   systemMeta     Json?       @map("system_meta") @db.JsonB
   createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User              @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  revisions    MessageRevision[]
+  reactions    MessageReaction[]
 
   @@index([conversationId, createdAt, id])
   @@map("messages")
+}
+
+model MessageRevision {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  messageId String   @map("message_id") @db.Uuid
+  content   String
+  editedAt  DateTime @default(now()) @map("edited_at") @db.Timestamptz(3)
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, editedAt(sort: Desc)])
+  @@map("message_revisions")
+}
+
+/// One reaction per member and message (ADR 0009 amendment 3); no counter, threads are not ranked by it.
+model MessageReaction {
+  messageId String       @map("message_id") @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  type      ReactionType
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("message_reactions")
 }

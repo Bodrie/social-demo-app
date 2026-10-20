@@ -57,6 +57,7 @@ export const mockDb = {
   reactions: [] as { commentId: string; userId: string; type: ReactionType }[],
   commentRevisions: new Map<string, Revision[]>(),
   postRevisions: new Map<string, Revision[]>(),
+  messageRevisions: new Map<string, Revision[]>(),
   uploads: 0,
   /** Links the fake API "mailed"; tests read the token here instead of an inbox. */
   emailTokens: [] as { token: string; kind: 'verify' | 'reset' | 'change'; email: string }[],
@@ -98,6 +99,7 @@ export function resetMockDb(): void {
   mockDb.reactions = [];
   mockDb.commentRevisions = new Map();
   mockDb.postRevisions = new Map();
+  mockDb.messageRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.emailTokens = [];
   mockDb.sessions = [];

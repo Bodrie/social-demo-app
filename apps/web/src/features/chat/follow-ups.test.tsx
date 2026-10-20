@@ -218,4 +218,86 @@ describe('chat follow-ups', () => {
     expect(rowsOf()[0]).toHaveTextContent('Member 22');
     expect(rowsOf()[22]).toHaveTextContent('Member 00');
   });
+  it('edits my message in place, keeps the history, and follows an edit pushed by the other side', async () => {
+    signedInAs(alice);
+    const withBob = seedDirect(alice.id, bob.id);
+    const mine = makeMessage(withBob.id, alice.id, 'Teh plan');
+    const his = makeMessage(withBob.id, bob.id, 'Sounds good');
+    mockDb.messages.push(mine, his);
+    seedReadMark(withBob.id, alice.id, his.createdAt);
+    renderApp(`/messages/${withBob.id}`);
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    await within(log).findByText('Teh plan');
+
+    await user.click(within(log).getByRole('button', { name: 'Message options' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit message' }));
+    const editor = within(log).getByLabelText('Edit message');
+    await user.clear(editor);
+    await user.type(editor, 'The plan{Enter}');
+    expect(await within(log).findByText('The plan')).toBeInTheDocument();
+    expect(within(log).queryByLabelText('Edit message')).toBeNull();
+    expect(mockDb.messages.find((m) => m.id === mine.id)).toMatchObject({ content: 'The plan' });
+    await user.click(within(log).getByRole('button', { name: 'edited' }));
+    const history = await screen.findByRole('list', { name: 'Previous versions' });
+    expect(within(history).getByText('Teh plan')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    // Bob's edit arrives by push: his bubble and the list snippet change, nothing is read.
+    act(() =>
+      fakeSocket.serverEmit(SOCKET_EVENTS.messageUpdated, {
+        ...his,
+        content: 'Sounds great',
+        editedAt: new Date().toISOString(),
+      }),
+    );
+    expect(await within(log).findByText('Sounds great')).toBeInTheDocument();
+    expect(within(log).queryByText('Sounds good')).toBeNull();
+    expect(rowsOf()[0]).toHaveTextContent('Sounds great');
+    expect(readEvents()).toHaveLength(0);
+  });
+
+  it('reacts to a message, sees the pills follow a pushed reaction, and takes its own back', async () => {
+    signedInAs(alice);
+    const withBob = seedDirect(alice.id, bob.id);
+    const his = makeMessage(withBob.id, bob.id, 'Pizza tonight?');
+    mockDb.messages.push(his);
+    seedReadMark(withBob.id, alice.id, his.createdAt);
+    renderApp(`/messages/${withBob.id}`);
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    await within(log).findByText('Pizza tonight?');
+
+    await user.click(within(log).getByRole('button', { name: 'Add reaction' }));
+    await user.click(await screen.findByRole('button', { name: 'Love' }));
+    expect(await within(log).findByRole('button', { name: 'Love 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() =>
+      expect(mockDb.messages.find((m) => m.id === his.id)?.reactions).toEqual([
+        { userId: alice.id, type: 'LOVE' },
+      ]),
+    );
+
+    // Bob reacts too: the count follows; a reaction is nobody's unread and reads nothing.
+    his.reactions = [
+      { userId: alice.id, type: 'LOVE' },
+      { userId: bob.id, type: 'LOVE' },
+    ];
+    act(() => fakeSocket.serverEmit(SOCKET_EVENTS.messageUpdated, { ...his }));
+    expect(await within(log).findByRole('button', { name: 'Love 2' })).toBeInTheDocument();
+    expect(readEvents()).toHaveLength(0);
+
+    await user.click(within(log).getByRole('button', { name: 'Love 2' }));
+    expect(await within(log).findByRole('button', { name: 'Love 1' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await waitFor(() =>
+      expect(mockDb.messages.find((m) => m.id === his.id)?.reactions).toEqual([
+        { userId: bob.id, type: 'LOVE' },
+      ]),
+    );
+  });
 });

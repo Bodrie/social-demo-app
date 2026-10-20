@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { reactionTypeSchema, setReactionSchema } from './comments.js';
 import { apiErrorSchema } from './errors.js';
 import { uuidSchema } from './common.js';
 import type { Notification } from './notifications.js';
@@ -24,12 +25,18 @@ export const MESSAGE_KINDS = ['user', 'system'] as const;
 export const messageKindSchema = z.enum(MESSAGE_KINDS);
 export type MessageKind = z.infer<typeof messageKindSchema>;
 
-/** What a system line is about: who joined, who left or was removed, the new name. */
+/**
+ * What a system line is about: who joined, who left or was removed, the new name, who became
+ * or stopped being an admin, that the group was created (ADR 0009 amendment 3).
+ */
 export const SYSTEM_LINE_TYPES = [
   'members_added',
   'member_left',
   'member_removed',
   'renamed',
+  'group_created',
+  'admin_added',
+  'admin_removed',
 ] as const;
 const personRefSchema = z.object({ id: z.uuid(), name: z.string() });
 export const systemLineSchema = z.object({
@@ -43,6 +50,13 @@ export const systemLineSchema = z.object({
 });
 export type SystemLine = z.infer<typeof systemLineSchema>;
 
+/**
+ * One member's reaction. Messages carry the plain list, not a per-viewer summary: a push is the
+ * same for every member, and each client works out counts and its own reaction from it.
+ */
+export const messageReactionSchema = z.object({ userId: z.uuid(), type: reactionTypeSchema });
+export type MessageReaction = z.infer<typeof messageReactionSchema>;
+
 export const messageSchema = z.object({
   id: z.uuid(),
   conversationId: z.uuid(),
@@ -52,10 +66,14 @@ export const messageSchema = z.object({
   /** Empty when the message is a picture only, a system line or deleted. */
   content: z.string(),
   imageUrl: z.url().nullable(),
+  /** Null until the sender edited the text; the previous texts are its revisions. */
+  editedAt: z.iso.datetime().nullable(),
   /** Set once the sender deleted it: the row stays (ordering, read marks), its content is gone. */
   deletedAt: z.iso.datetime().nullable(),
   /** The subject of a system line; null on a user's message. */
   system: systemLineSchema.nullable(),
+  /** Empty on system lines and deleted messages. */
+  reactions: z.array(messageReactionSchema),
   createdAt: z.iso.datetime(),
 });
 export type Message = z.infer<typeof messageSchema>;
@@ -79,6 +97,20 @@ export const sendMessageSchema = z
   });
 export type SendMessageInput = z.input<typeof sendMessageSchema>;
 export type SendMessageData = z.output<typeof sendMessageSchema>;
+
+/** The sender changes the text (the picture stays); an unchanged text is a no-op. */
+export const editMessageSchema = z.object({
+  content: z
+    .string()
+    .trim()
+    .min(1, 'Write something first')
+    .max(MESSAGE_MAX_LENGTH, `At most ${MESSAGE_MAX_LENGTH} characters`),
+});
+export type EditMessageInput = z.input<typeof editMessageSchema>;
+export type EditMessageData = z.output<typeof editMessageSchema>;
+
+/** One reaction per member and message; `PUT` sets or switches it, `DELETE` removes it. */
+export const messageReactionInputSchema = setReactionSchema;
 
 export const messagesQuerySchema = cursorQuerySchema;
 /** The list is keyset-paginated by activity (`lastMessageAt`, else `createdAt`), newest first. */
@@ -156,6 +188,8 @@ export const SOCKET_EVENTS = {
   messageNew: 'message:new',
   /** server → client (every member): the Message as it is now, `deletedAt` set and content gone. */
   messageDeleted: 'message:deleted',
+  /** server → client (every member): the Message as it is now after an edit or a reaction. */
+  messageUpdated: 'message:updated',
   /** client → server with ack: MarkReadPayload → MarkReadAck. */
   messageRead: 'message:read',
   /** server → client (the other members): ConversationReadPayload – `userId` caught up. */
@@ -221,6 +255,7 @@ export type ServerToClientEvents = {
   [SOCKET_EVENTS.presenceUpdate]: (users: PresenceUpdate) => void;
   [SOCKET_EVENTS.messageNew]: (message: Message) => void;
   [SOCKET_EVENTS.messageDeleted]: (message: Message) => void;
+  [SOCKET_EVENTS.messageUpdated]: (message: Message) => void;
   [SOCKET_EVENTS.conversationRead]: (payload: ConversationReadPayload) => void;
   [SOCKET_EVENTS.conversationUpdate]: (payload: ConversationRef) => void;
   [SOCKET_EVENTS.conversationRemoved]: (payload: ConversationRef) => void;

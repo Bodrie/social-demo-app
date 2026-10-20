@@ -103,9 +103,22 @@ export function removeFromThread(
   );
 }
 
+/** Applies `patch` to one message of a loaded thread (an optimistic reaction, before the server copy arrives). */
+export function patchMessage(
+  queryClient: QueryClient,
+  conversationId: string,
+  messageId: string,
+  patch: (message: ThreadMessage) => ThreadMessage,
+): void {
+  queryClient.setQueryData<ThreadPages>(
+    queryKeys.conversations.messages(conversationId),
+    (data) => data && mapItems(data, (item) => (item.id === messageId ? patch(item) : item)),
+  );
+}
+
 /**
- * A message changed on the server (deleted by its sender): the thread and the list snippet show
- * the new copy. Nothing moves, since the message keeps its place.
+ * A message changed on the server (deleted, edited or reacted to): the thread and the list
+ * snippet show the new copy. Nothing moves, since the message keeps its place.
  */
 export function replaceMessage(queryClient: QueryClient, message: Message): void {
   queryClient.setQueryData<ThreadPages>(

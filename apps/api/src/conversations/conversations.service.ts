@@ -6,11 +6,14 @@ import {
   type ConversationRole,
   type CreateGroupInput,
   type CursorQuery,
+  type EditMessageData,
   GROUP_MAX_MEMBERS,
   type MarkReadResult,
   type Message,
   type Paginated,
+  type ReactionType,
   type RenameGroupInput,
+  type Revision,
   type SendMessageData,
   type SystemLine,
 } from '@the-mesh/shared';
@@ -21,14 +24,17 @@ import {
   encodeCursor,
   keysetAfter,
   paginate,
+  paginateBy,
   paginateWith,
 } from '../common/pagination.js';
+import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
 import {
   ConversationLeftEvent,
   ConversationReadEvent,
   ConversationUpdatedEvent,
   MessageDeletedEvent,
   MessageSentEvent,
+  MessageUpdatedEvent,
 } from '../events/conversation.events.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { VisibilityService } from '../moderation/visibility.service.js';
@@ -101,21 +107,34 @@ export class ConversationsService {
     }
   }
 
+  /** The creator is the first admin; the thread opens on a line saying who created the group. */
   async createGroup(meId: string, input: CreateGroupInput): Promise<Conversation> {
     const members = await this.resolveMembers(meId, input.memberIds, 'memberIds');
-    const row = await this.prisma.conversation.create({
-      data: {
-        kind: 'group',
-        title: input.title,
-        createdById: meId,
-        members: {
-          create: [
-            { userId: meId, role: 'admin' },
-            ...members.map((member) => ({ userId: member.id })),
-          ],
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.conversation.create({
+        data: {
+          kind: 'group',
+          title: input.title,
+          createdById: meId,
+          members: {
+            create: [
+              { userId: meId, role: 'admin' },
+              ...members.map((member) => ({ userId: member.id })),
+            ],
+          },
         },
-      },
-      select: conversationSelect,
+        select: conversationSelect,
+      });
+      await this.writeSystemLine(tx, created.id, meId, {
+        type: 'group_created',
+        actor: this.personOf(created, meId),
+        users: [],
+        title: input.title,
+      });
+      return tx.conversation.findUniqueOrThrow({
+        where: { id: created.id },
+        select: conversationSelect,
+      });
     });
     await this.events.emitAsync(
       ConversationUpdatedEvent.EVENT,
@@ -255,6 +274,69 @@ export class ConversationsService {
       new MessageDeletedEvent(message, memberIdsOf(row)),
     );
     return message;
+  }
+
+  /**
+   * The sender changes the text of a message (the picture stays): the previous text is kept as
+   * a revision, `editedAt` is stamped and everyone gets the new copy. An unchanged text is a
+   * no-op. Deleted messages and system lines cannot be edited.
+   */
+  async editMessage(
+    meId: string,
+    id: string,
+    messageId: string,
+    input: EditMessageData,
+  ): Promise<Message> {
+    const row = await this.rowForMember(meId, id);
+    const existing = await this.userMessage(id, messageId);
+    if (existing.senderId !== meId) throw forbidden('Only the sender can edit a message');
+    if (existing.content === input.content) return this.toMessage(existing);
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.messageRevision.create({ data: { messageId, content: existing.content } }),
+      this.prisma.message.update({
+        where: { id: messageId },
+        data: { content: input.content, editedAt: new Date() },
+        select: messageSelect,
+      }),
+    ]);
+    return this.announceUpdate(updated, row);
+  }
+
+  /** Previous texts of a message, most recently replaced first; members only. */
+  async messageRevisions(
+    meId: string,
+    id: string,
+    messageId: string,
+    query: CursorQuery,
+  ): Promise<Paginated<Revision>> {
+    await this.rowForMember(meId, id);
+    await this.userMessage(id, messageId);
+    const rows = await this.prisma.messageRevision.findMany({
+      where: { messageId, ...revisionsAfter(decodeCursor(query.cursor)) },
+      orderBy: [{ editedAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return paginateBy(rows, query.limit, revisionKey, toRevision);
+  }
+
+  /** Sets or switches the caller's reaction; everyone gets the message with its reactions. */
+  async react(meId: string, id: string, messageId: string, type: ReactionType): Promise<Message> {
+    const row = await this.rowForMember(meId, id);
+    await this.userMessage(id, messageId);
+    await this.prisma.messageReaction.upsert({
+      where: { messageId_userId: { messageId, userId: meId } },
+      create: { messageId, userId: meId, type },
+      update: { type },
+    });
+    return this.announceUpdate(await this.messageRow(messageId), row);
+  }
+
+  /** Removes the caller's reaction, if any. */
+  async unreact(meId: string, id: string, messageId: string): Promise<Message> {
+    const row = await this.rowForMember(meId, id);
+    await this.userMessage(id, messageId);
+    await this.prisma.messageReaction.deleteMany({ where: { messageId, userId: meId } });
+    return this.announceUpdate(await this.messageRow(messageId), row);
   }
 
   /** Moves the caller's read mark to now; the others hear about it only when it actually moved. */
@@ -425,15 +507,25 @@ export class ConversationsService {
         role: 'Make someone else an admin first',
       });
     }
-    await this.prisma.conversationMember.update({
-      where: { conversationId_userId: { conversationId: id, userId } },
-      data: { role },
+    const line = await this.prisma.$transaction(async (tx) => {
+      await tx.conversationMember.update({
+        where: { conversationId_userId: { conversationId: id, userId } },
+        data: { role },
+      });
+      return this.writeSystemLine(tx, id, meId, {
+        type: role === 'admin' ? 'admin_added' : 'admin_removed',
+        actor: this.personOf(row, meId),
+        users: [{ id: target.user.id, name: target.user.name }],
+        title: null,
+      });
     });
     const updated = await this.rowForMember(meId, id);
+    const memberIds = memberIdsOf(updated);
     await this.events.emitAsync(
       ConversationUpdatedEvent.EVENT,
-      new ConversationUpdatedEvent(id, memberIdsOf(updated)),
+      new ConversationUpdatedEvent(id, memberIds),
     );
+    await this.events.emitAsync(MessageSentEvent.EVENT, new MessageSentEvent(line, memberIds));
     return this.withUnreadOne(updated, meId);
   }
 
@@ -498,6 +590,35 @@ export class ConversationsService {
       throw badRequest('Unknown member', { [field]: 'Someone on the list does not exist' });
     }
     return found;
+  }
+
+  /** A message of the conversation that can still be edited or reacted to: a user's, not deleted. */
+  private async userMessage(conversationId: string, messageId: string): Promise<MessageRow> {
+    const existing = await this.prisma.message.findFirst({
+      where: { id: messageId, conversationId },
+      select: messageSelect,
+    });
+    if (!existing) throw notFound('Message not found');
+    if (existing.kind === 'system') throw badRequest('System lines cannot be changed');
+    if (existing.deletedAt) throw badRequest('A deleted message cannot be changed');
+    return existing;
+  }
+
+  private messageRow(messageId: string): Promise<MessageRow> {
+    return this.prisma.message.findUniqueOrThrow({
+      where: { id: messageId },
+      select: messageSelect,
+    });
+  }
+
+  /** Every member, the actor's own tabs included, gets the message as it is now. */
+  private async announceUpdate(updated: MessageRow, row: ConversationRow): Promise<Message> {
+    const message = this.toMessage(updated);
+    await this.events.emitAsync(
+      MessageUpdatedEvent.EVENT,
+      new MessageUpdatedEvent(message, memberIdsOf(row)),
+    );
+    return message;
   }
 
   private personOf(row: ConversationRow, userId: string): PersonRef {

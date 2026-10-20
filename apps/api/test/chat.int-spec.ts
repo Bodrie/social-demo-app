@@ -10,6 +10,7 @@ import {
   messageListSchema,
   messageSchema,
   presenceUpdateSchema,
+  revisionListSchema,
   typingUpdateSchema,
   uploadResponseSchema,
 } from '@the-mesh/shared';
@@ -912,5 +913,168 @@ describe('chat follow-ups (B3b): pagination, deletion, roles and system lines', 
     });
     bobSocket.close();
     carolSocket.close();
+  });
+});
+
+describe('chat extras (C5): editing, reactions and the new system lines', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  const say = (agent: TestAgent, conversationId: string, content: string) =>
+    agent.post(`/api/v1/conversations/${conversationId}/messages`).send({ content }).expect(201);
+  const directBetween = async (agent: TestAgent, userId: string) =>
+    conversationSchema.parse(
+      (await agent.put(`/api/v1/conversations/direct/${userId}`).expect(200)).body,
+    );
+
+  it('lets the sender edit the text, keeps the history and pushes the new copy to everyone', async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await connected(bobSocket);
+    const direct = await directBetween(aliceSession.agent, bob.id);
+    const message = messageSchema.parse(
+      (await say(aliceSession.agent, direct.id, 'teh text')).body,
+    );
+    expect(message).toMatchObject({ editedAt: null, reactions: [] });
+    const path = `/api/v1/conversations/${direct.id}/messages/${message.id}`;
+
+    await bobSession.agent.patch(path).send({ content: 'nope' }).expect(403);
+    await aliceSession.agent.patch(path).send({ content: '  ' }).expect(400);
+    // An unchanged text changes nothing.
+    const same = messageSchema.parse(
+      (await aliceSession.agent.patch(path).send({ content: 'teh text' }).expect(200)).body,
+    );
+    expect(same.editedAt).toBeNull();
+
+    const pushed = waitFor<unknown>(bobSocket, 'message:updated');
+    const edited = messageSchema.parse(
+      (await aliceSession.agent.patch(path).send({ content: 'the text' }).expect(200)).body,
+    );
+    expect(edited).toMatchObject({ id: message.id, content: 'the text' });
+    expect(edited.editedAt).not.toBeNull();
+    expect(messageSchema.parse(await pushed)).toEqual(edited);
+    const revisions = revisionListSchema.parse(
+      (await bobSession.agent.get(`${path}/revisions`).expect(200)).body,
+    );
+    expect(revisions.items.map((revision) => revision.content)).toEqual(['teh text']);
+    // The list snippet follows; the edit itself is nothing new to read.
+    const bobList = await listFor(bobSession.agent);
+    expect(bobList.items[0]?.lastMessage).toEqual(edited);
+    expect(bobList.items[0]?.unreadCount).toBe(1);
+
+    // A deleted message cannot be edited any more.
+    await aliceSession.agent.delete(path).expect(200);
+    await aliceSession.agent.patch(path).send({ content: 'again' }).expect(400);
+    bobSocket.close();
+  });
+
+  it('takes one reaction per member, switches and removes it, with a push and nobody’s unread', async () => {
+    const [alice, bob, carol] = await Promise.all([
+      createUser(t.prisma),
+      createUser(t.prisma),
+      createUser(t.prisma),
+    ]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const carolSession = await sessionFor(t, carol);
+    const aliceSocket = connect(t, { cookie: `access_token=${aliceSession.token}` });
+    await connected(aliceSocket);
+    const direct = await directBetween(aliceSession.agent, bob.id);
+    const message = messageSchema.parse(
+      (await say(aliceSession.agent, direct.id, 'react to me')).body,
+    );
+    const path = `/api/v1/conversations/${direct.id}/messages/${message.id}/reaction`;
+
+    const pushed = waitFor<unknown>(aliceSocket, 'message:updated');
+    const loved = messageSchema.parse(
+      (await bobSession.agent.put(path).send({ type: 'LOVE' }).expect(200)).body,
+    );
+    expect(loved.reactions).toEqual([{ userId: bob.id, type: 'LOVE' }]);
+    expect(messageSchema.parse(await pushed)).toEqual(loved);
+    // Switching keeps one entry per member; a second member adds theirs.
+    const liked = messageSchema.parse(
+      (await bobSession.agent.put(path).send({ type: 'LIKE' }).expect(200)).body,
+    );
+    expect(liked.reactions).toEqual([{ userId: bob.id, type: 'LIKE' }]);
+    const both = messageSchema.parse(
+      (await aliceSession.agent.put(path).send({ type: 'WOW' }).expect(200)).body,
+    );
+    expect(both.reactions).toEqual([
+      { userId: bob.id, type: 'LIKE' },
+      { userId: alice.id, type: 'WOW' },
+    ]);
+    const removed = messageSchema.parse((await bobSession.agent.delete(path).expect(200)).body);
+    expect(removed.reactions).toEqual([{ userId: alice.id, type: 'WOW' }]);
+    await bobSession.agent.delete(path).expect(200);
+
+    // Reactions read nothing and are nobody's unread; outsiders and bad targets are refused.
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(1);
+    await bobSession.agent.put(path).send({ type: 'HUG' }).expect(400);
+    await carolSession.agent.put(path).send({ type: 'LIKE' }).expect(404);
+    await aliceSession.agent
+      .delete(`/api/v1/conversations/${direct.id}/messages/${message.id}`)
+      .expect(200);
+    await bobSession.agent.put(path).send({ type: 'LIKE' }).expect(400);
+    aliceSocket.close();
+  });
+
+  it('writes a line when a group is created and when an admin role changes', async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await connected(bobSocket);
+
+    const group = conversationSchema.parse(
+      (
+        await aliceSession.agent
+          .post('/api/v1/conversations')
+          .send({ title: 'Lines', memberIds: [bob.id] })
+          .expect(201)
+      ).body,
+    );
+    expect(group.lastMessage).toMatchObject({
+      kind: 'system',
+      senderId: alice.id,
+      system: { type: 'group_created', actor: { id: alice.id }, users: [], title: 'Lines' },
+    });
+    // The line cannot be reacted to.
+    await bobSession.agent
+      .put(`/api/v1/conversations/${group.id}/messages/${group.lastMessage?.id}/reaction`)
+      .send({ type: 'LIKE' })
+      .expect(400);
+
+    const promoted = waitFor<unknown>(bobSocket, 'message:new');
+    await aliceSession.agent
+      .put(`/api/v1/conversations/${group.id}/members/${bob.id}/role`)
+      .send({ role: 'admin' })
+      .expect(200);
+    expect(messageSchema.parse(await promoted)).toMatchObject({
+      kind: 'system',
+      system: { type: 'admin_added', actor: { id: alice.id }, users: [{ id: bob.id }] },
+    });
+    await bobSession.agent
+      .put(`/api/v1/conversations/${group.id}/members/${alice.id}/role`)
+      .send({ role: 'member' })
+      .expect(200);
+    const history = messageListSchema.parse(
+      (await aliceSession.agent.get(`/api/v1/conversations/${group.id}/messages`).expect(200)).body,
+    );
+    expect(history.items.map((row) => row.system?.type)).toEqual([
+      'admin_removed',
+      'admin_added',
+      'group_created',
+    ]);
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(0);
+    bobSocket.close();
   });
 });

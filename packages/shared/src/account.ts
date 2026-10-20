@@ -64,7 +64,12 @@ export const accountExportSchema = z.object({
       content: z.string(),
       imageUrl: z.string().nullable(),
       createdAt: z.iso.datetime(),
+      editedAt: z.iso.datetime().nullable(),
+      revisions: z.array(revisionEntrySchema),
     }),
+  ),
+  messageReactions: z.array(
+    z.object({ messageId: z.uuid(), type: reactionTypeSchema, createdAt: z.iso.datetime() }),
   ),
   uploads: z.array(
     z.object({

@@ -182,8 +182,10 @@ export function makeMessage(
     kind: 'user',
     content,
     imageUrl: null,
+    editedAt: null,
     deletedAt: null,
     system: null,
+    reactions: [],
     createdAt: new Date(BASE_TIME - 3_600_000 + sequence * 60_000).toISOString(),
     ...overrides,
   };

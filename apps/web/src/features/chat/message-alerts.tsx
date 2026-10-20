@@ -15,9 +15,12 @@ const notificationsGranted = (): boolean =>
   typeof Notification !== 'undefined' && Notification.permission === 'granted';
 
 /**
- * Sound and browser notifications for messages that arrive while the tab is in the
- * background, each behind its account preference (Settings → Chat). The permission is only
- * ever asked for from that switch; here a missing one simply means no notification.
+ * Sound and browser notifications for messages from others, each behind its account
+ * preference (Settings → Chat). The sound plays for every message not on screen in this tab
+ * (exactly when a bubble appears or the badge goes up), hidden tab or not; the browser
+ * notification only while the tab is hidden, since a visible tab shows the bubble instead.
+ * The permission is only ever asked for from that switch; here a missing one simply means no
+ * notification.
  */
 export default function MessageAlerts() {
   const me = useCurrentUser();
@@ -31,11 +34,11 @@ export default function MessageAlerts() {
 
   useEffect(
     () =>
-      subscribeToMessages((message: Message) => {
+      subscribeToMessages((message: Message, { onScreen }) => {
         if (message.kind !== 'user' || message.senderId === me.id) return;
-        if (document.visibilityState !== 'hidden') return;
         const { messageSound, browserNotifications } = settings.current;
-        if (messageSound) playMessageSound();
+        if (messageSound && !onScreen) playMessageSound();
+        if (document.visibilityState !== 'hidden') return;
         if (!browserNotifications || !notificationsGranted()) return;
         const conversation =
           queryClient.getQueryData<Conversation>(

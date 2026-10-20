@@ -1,6 +1,15 @@
 import type { Message, SendMessageInput, UserSummary } from '@the-mesh/shared';
 import { createContext, useContext } from 'react';
 
+/** What the receiving tab knew when a message was pushed. */
+export type MessageContext = {
+  /**
+   * The conversation was on screen in this tab (the open thread or a chat window, tab visible),
+   * so the message was read on arrival: no bubble, no badge, no sound.
+   */
+  onScreen: boolean;
+};
+
 export type ChatContextValue = {
   /** The socket is open; sends go over it, otherwise over HTTP. */
   connected: boolean;
@@ -17,8 +26,10 @@ export type ChatContextValue = {
    * there are read on arrival. Returns the release; several threads can be on screen at once.
    */
   activateConversation: (conversationId: string) => () => void;
-  /** Every message pushed by the server, after the cache was updated (chat bubbles listen). */
-  subscribeToMessages: (listener: (message: Message) => void) => () => void;
+  /** Every message pushed by the server, after the cache was updated (chat bubbles and alerts listen). */
+  subscribeToMessages: (
+    listener: (message: Message, context: MessageContext) => void,
+  ) => () => void;
 };
 
 export const ChatContext = createContext<ChatContextValue | null>(null);

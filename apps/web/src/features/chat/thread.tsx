@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { Conversation } from '@the-mesh/shared';
+import { type Conversation, MESSAGE_MAX_LENGTH, type ReactionType } from '@the-mesh/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
 import {
@@ -22,7 +22,9 @@ import {
 } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
+import { EditedMarker } from '@/components/edited-marker';
 import { ErrorState } from '@/components/empty-state';
+import { InlineEditor } from '@/components/inline-editor';
 import { RichText } from '@/components/rich-text';
 import {
   AlertDialog,
@@ -43,10 +45,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { ReactionBar, ReactionPicker } from '@/features/comments/reaction-bar';
 import { isApiClientError } from '@/lib/api/client';
+import { fetchMessageRevisions } from '@/lib/api/conversations';
 import { formatDateTime, formatDayLabel, formatTime } from '@/lib/format';
 import { flattenPages } from '@/lib/infinite';
 import { firstName } from '@/lib/names';
+import { queryKeys } from '@/lib/query-keys';
 import { useChat } from './chat-context';
 import { ConversationAvatar } from './conversation-avatar';
 import {
@@ -54,6 +59,7 @@ import {
   directPeer,
   isAdmin,
   memberById,
+  reactionSummaryOf,
   seenText,
   systemLineText,
   typingText,
@@ -73,6 +79,7 @@ import { MessageComposer, type OutgoingMessage } from './message-composer';
 import { PresenceDot } from './presence-dot';
 import { TypingIndicator } from './typing-indicator';
 import { useDeleteMessage, useMessages } from './use-conversations';
+import { useEditMessage, useReactToMessage } from './use-message-actions';
 
 const GROUP_GAP_MS = 5 * 60 * 1000;
 const NEAR_BOTTOM_PX = 80;
@@ -195,8 +202,10 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       content: outgoing.content,
       imageUrl: outgoing.previewUrl ?? null,
       imageKey: outgoing.imageKey,
+      editedAt: null,
       deletedAt: null,
       system: null,
+      reactions: [],
       createdAt: new Date().toISOString(),
       status: 'sending',
     };
@@ -393,7 +402,10 @@ const isSystem = (message: ThreadMessage | undefined): boolean => message?.kind 
 function MessageList({ messages, meId, conversation, onRetry }: MessageListProps) {
   const queryClient = useQueryClient();
   const deleteMessage = useDeleteMessage(conversation.id);
+  const editMessage = useEditMessage(conversation.id);
+  const react = useReactToMessage(conversation.id);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const lastMine = messages.findLast(
     (m) => m.senderId === meId && !m.status && m.kind === 'user' && m.deletedAt === null,
   );
@@ -412,6 +424,16 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
     });
     setDeleting(null);
   };
+
+  const saveEdit = (messageId: string, content: string) =>
+    editMessage.mutate(
+      { messageId, content },
+      {
+        onSuccess: () => setEditing(null),
+        onError: (error) =>
+          toast.error(isApiClientError(error) ? error.message : 'Could not save the message'),
+      },
+    );
 
   return (
     <ol className="flex flex-col gap-0.5">
@@ -445,7 +467,12 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
           next.senderId !== message.senderId ||
           dayjs(next.createdAt).diff(message.createdAt) > GROUP_GAP_MS;
         const deleted = message.deletedAt !== null;
-        const canDelete = mine && !deleted && !message.status;
+        // Persisted and still there: anyone may react to it; its sender may edit or delete it.
+        const settled = !deleted && !message.status;
+        const canManage = mine && settled;
+        const isEditing = editing === message.id;
+        const reactions = settled ? reactionSummaryOf(message.reactions, meId) : null;
+        const onReact = (type: ReactionType | null) => react.mutate({ message, type });
         return (
           <li
             key={message.id}
@@ -468,6 +495,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 className={cn(
                   'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
                   message.imageUrl ? 'p-1' : 'px-3.5 py-2',
+                  isEditing && 'w-[78%]',
                   deleted
                     ? 'text-muted-foreground border border-dashed bg-transparent italic'
                     : mine
@@ -495,7 +523,21 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                     />
                   </a>
                 ) : null}
-                {message.content ? (
+                {isEditing ? (
+                  <div className={cn('text-foreground', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}>
+                    <InlineEditor
+                      initial={message.content}
+                      maxLength={MESSAGE_MAX_LENGTH}
+                      label="Edit message"
+                      pending={
+                        editMessage.isPending && editMessage.variables?.messageId === message.id
+                      }
+                      submitOnEnter
+                      onSave={(content) => saveEdit(message.id, content)}
+                      onCancel={() => setEditing(null)}
+                    />
+                  </div>
+                ) : message.content ? (
                   <RichText
                     as="span"
                     text={message.content}
@@ -504,29 +546,49 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                   />
                 ) : null}
               </div>
-              {canDelete ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Message options"
-                      className="text-muted-foreground shrink-0 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100"
-                    >
-                      <MoreHorizontalIcon />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align={mine ? 'end' : 'start'}>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => setDeleting(message.id)}
-                    >
-                      <Trash2Icon /> Delete message
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {settled ? (
+                <div className="flex shrink-0 items-center md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:has-[[data-state=open]]:opacity-100">
+                  <ReactionPicker
+                    mine={reactions?.mine ?? null}
+                    onReact={onReact}
+                    align={mine ? 'end' : 'start'}
+                  />
+                  {canManage ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Message options"
+                          className="text-muted-foreground"
+                        >
+                          <MoreHorizontalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align={mine ? 'end' : 'start'}>
+                        <DropdownMenuItem onSelect={() => setEditing(message.id)}>
+                          <PencilIcon /> Edit message
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleting(message.id)}
+                        >
+                          <Trash2Icon /> Delete message
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </div>
               ) : null}
             </div>
+            {reactions && reactions.total > 0 ? (
+              <ReactionBar
+                summary={reactions}
+                onReact={onReact}
+                picker={false}
+                className={cn('mt-0.5', mine ? 'mr-1 justify-end' : 'ml-1')}
+              />
+            ) : null}
             {message.status === 'failed' ? (
               <p className="text-destructive mt-0.5 text-xs">
                 Not sent.{' '}
@@ -534,9 +596,21 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                   Retry
                 </button>
               </p>
-            ) : endOfGroup || message.id === showSeenOn ? (
+            ) : endOfGroup || message.id === showSeenOn || message.editedAt ? (
               <p className="text-muted-foreground mt-0.5 text-xs">
                 {message.status === 'sending' ? 'Sending…' : formatTime(message.createdAt)}
+                {message.editedAt ? (
+                  <>
+                    {' · '}
+                    <EditedMarker
+                      editedAt={message.editedAt}
+                      queryKey={queryKeys.revisions.message(message.id)}
+                      fetchRevisions={(options) =>
+                        fetchMessageRevisions(conversation.id, message.id, options)
+                      }
+                    />
+                  </>
+                ) : null}
                 {message.id === showSeenOn ? ` · ${seen}` : ''}
               </p>
             ) : null}

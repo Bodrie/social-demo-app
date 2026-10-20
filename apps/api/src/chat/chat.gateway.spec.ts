@@ -5,6 +5,7 @@ import type { Server } from 'socket.io';
 import { mockDeep } from 'vitest-mock-extended';
 import type { Env } from '../config/env.js';
 import type { ConversationsService } from '../conversations/conversations.service.js';
+import { MessageUpdatedEvent } from '../events/conversation.events.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
 import type { UsersService } from '../users/users.service.js';
 import {
@@ -90,6 +91,28 @@ describe('ChatGateway', () => {
 
     expect(server.to).toHaveBeenCalledWith([`user:${recipient.id}`]);
     expect(broadcast).toHaveBeenCalledWith('notification:new', notification);
+  });
+
+  it('pushes an edited or reacted-to message to every member, the actor included', () => {
+    const [alice, bob] = [summary(1), summary(2)];
+    const message = {
+      id: '0199b6a0-0000-7000-8000-0000000000cc',
+      conversationId: '0199b6a0-0000-7000-8000-0000000000dd',
+      senderId: alice.id,
+      kind: 'user' as const,
+      content: 'fixed',
+      imageUrl: null,
+      editedAt: '2026-10-20T10:01:00.000Z',
+      deletedAt: null,
+      system: null,
+      reactions: [{ userId: bob.id, type: 'LIKE' as const }],
+      createdAt: '2026-10-20T10:00:00.000Z',
+    };
+
+    gateway.onMessageUpdated(new MessageUpdatedEvent(message, [alice.id, bob.id]));
+
+    expect(server.to).toHaveBeenCalledWith([`user:${alice.id}`, `user:${bob.id}`]);
+    expect(broadcast).toHaveBeenCalledWith('message:updated', message);
   });
 
   it('survives a failing lookup at connection: logs, closes the transport, registers nothing', async () => {

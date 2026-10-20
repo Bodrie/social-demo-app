@@ -14,8 +14,10 @@ export const messageSelect = {
   kind: true,
   content: true,
   imageKey: true,
+  editedAt: true,
   deletedAt: true,
   systemMeta: true,
+  reactions: { select: { userId: true, type: true }, orderBy: { createdAt: 'asc' } },
   createdAt: true,
 } satisfies Prisma.MessageSelect;
 
@@ -36,8 +38,10 @@ export function toMessage(row: MessageRow, assetsBase: string): Message {
     kind: row.kind,
     content: row.content,
     imageUrl: row.imageKey === null ? null : `${assetsBase}/${row.imageKey}`,
+    editedAt: row.editedAt ? row.editedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
     system: systemLineOf(row),
+    reactions: row.reactions.map((reaction) => ({ userId: reaction.userId, type: reaction.type })),
     createdAt: row.createdAt.toISOString(),
   };
 }

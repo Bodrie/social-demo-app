@@ -18,6 +18,15 @@ export class MessageDeletedEvent {
   ) {}
 }
 
+/** The sender edited a message or someone reacted to it: `message` is its new state (ADR 0009 amendment 3). */
+export class MessageUpdatedEvent {
+  static readonly EVENT = 'message.updated';
+  constructor(
+    readonly message: Message,
+    readonly memberIds: readonly string[],
+  ) {}
+}
+
 /** `readerId` caught up in a conversation; `memberIds` are every member, the reader's own tabs included. */
 export class ConversationReadEvent {
   static readonly EVENT = 'conversation.read';

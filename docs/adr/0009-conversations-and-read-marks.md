@@ -65,6 +65,38 @@ reader's other tabs lower their badge (review L9).
   preference (`messageSound`, `browserNotifications`). The permission is requested only from the
   Settings switch.
 
+## Amendment 2026-10-20: chat extras (plan C5)
+
+- **Editing a message.** The sender changes the text of a message that is neither deleted nor a
+  system line (`PATCH /conversations/:id/messages/:messageId { content }`); the picture stays.
+  The previous text is kept in `message_revisions` and `messages.edited_at` is stamped, on the
+  pattern of posts and comments (`GET …/messages/:messageId/revisions`, members only); an
+  unchanged text is a no-op. Everyone, the sender's other tabs included, gets the new copy as
+  `message:updated` and replaces the old one in place: nothing moves, no read mark changes, no
+  bubble or alert is raised, the list snippet follows. The web offers "Edit message" in the
+  sender's message menu and edits in the bubble with the shared `InlineEditor`; "edited" opens
+  the history (`EditedMarker`). Chat windows get it with the same `Thread`.
+- **Reactions on messages.** `message_reactions(message_id, user_id, type, created_at)`, one
+  per member and message, switching updates it (`PUT`/`DELETE …/messages/:messageId/reaction`,
+  answering the message). Deleted messages and system lines take none. The message carries the
+  **plain list** `reactions: [{ userId, type }]` rather than the per-viewer summary the plan
+  named: a push is the same for every member, so each client derives counts and its own
+  reaction from the list (`reactionSummaryOf`); threads are never ranked by reactions, so no
+  counter is kept. The change travels as the same `message:updated`. On the web the picker sits
+  in the bubble's hover toolbar (always visible on phones) and the pills below the bubble reuse
+  the comments' `ReactionBar`; a reaction is optimistic, counts for nobody as unread and plays
+  no sound.
+- **Two more system lines.** `group_created` ("Alice created the group", written inside the
+  creation transaction, so a new group's thread is never empty) and `admin_added` /
+  `admin_removed` ("Alice made Bob an admin", "Bob removed Alice as admin", written with the
+  role change and pushed like a rename's line).
+- **The sound rule.** The message sound (`messageSound`) plays for every message from someone
+  else that is not on screen in the receiving tab — hidden tab, or a visible tab where that
+  conversation is neither the open thread nor an open chat window — which is exactly when a
+  bubble appears or the Messages badge goes up. The browser `Notification` stays hidden-tab
+  only: a visible tab shows the bubble instead. `subscribeToMessages` listeners now receive
+  `{ onScreen }` with the message so the alerts and the bubbles agree.
+
 ## Consequences
 
 - The web client addresses threads by conversation id (`/messages/:conversationId`); `/messages/with/:username` resolves a person to their direct thread and redirects. Group avatars, member lists, per-member read receipts and multi-person typing all derive from the conversation's `members`.

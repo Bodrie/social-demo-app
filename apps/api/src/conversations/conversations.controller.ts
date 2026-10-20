@@ -12,16 +12,18 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Conversation, MarkReadResult, Message, Paginated } from '@the-mesh/shared';
+import type { Conversation, MarkReadResult, Message, Paginated, Revision } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { IdParamDto, UserIdParamDto } from '../common/params.dto.js';
+import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
 import {
   AddMembersDto,
   ConversationsQueryDto,
   CreateGroupDto,
+  EditMessageDto,
   MemberParamsDto,
   MessageParamsDto,
+  MessageReactionDto,
   MessagesQueryDto,
   RenameGroupDto,
   SendMessageDto,
@@ -103,6 +105,44 @@ export class ConversationsController {
     @Param() params: MessageParamsDto,
   ): Promise<Message> {
     return this.conversations.deleteMessage(user.id, params.id, params.messageId);
+  }
+
+  /** The sender changes the text; the previous one becomes a revision. */
+  @Patch(':id/messages/:messageId')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  editMessage(
+    @CurrentUser() user: AuthUser,
+    @Param() params: MessageParamsDto,
+    @Body() body: EditMessageDto,
+  ): Promise<Message> {
+    return this.conversations.editMessage(user.id, params.id, params.messageId, body);
+  }
+
+  @Get(':id/messages/:messageId/revisions')
+  messageRevisions(
+    @CurrentUser() user: AuthUser,
+    @Param() params: MessageParamsDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Revision>> {
+    return this.conversations.messageRevisions(user.id, params.id, params.messageId, query);
+  }
+
+  /** Sets or switches the caller's reaction; answers the message with its reactions. */
+  @Put(':id/messages/:messageId/reaction')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  react(
+    @CurrentUser() user: AuthUser,
+    @Param() params: MessageParamsDto,
+    @Body() body: MessageReactionDto,
+  ): Promise<Message> {
+    return this.conversations.react(user.id, params.id, params.messageId, body.type);
+  }
+
+  @Delete(':id/messages/:messageId/reaction')
+  @HttpCode(200)
+  unreact(@CurrentUser() user: AuthUser, @Param() params: MessageParamsDto): Promise<Message> {
+    return this.conversations.unreact(user.id, params.id, params.messageId);
   }
 
   @Post(':id/read')

@@ -2,6 +2,8 @@ import {
   addMembersSchema,
   conversationsQuerySchema,
   createGroupSchema,
+  editMessageSchema,
+  messageReactionInputSchema,
   messagesQuerySchema,
   renameGroupSchema,
   sendMessageSchema,
@@ -12,6 +14,8 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export class SendMessageDto extends createZodDto(sendMessageSchema) {}
+export class EditMessageDto extends createZodDto(editMessageSchema) {}
+export class MessageReactionDto extends createZodDto(messageReactionInputSchema) {}
 export class MessagesQueryDto extends createZodDto(messagesQuerySchema) {}
 export class ConversationsQueryDto extends createZodDto(conversationsQuerySchema) {}
 export class CreateGroupDto extends createZodDto(createGroupSchema) {}

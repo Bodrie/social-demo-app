@@ -165,12 +165,34 @@ test.describe('chat', () => {
       bobLog.getByText(`Alice Anderson renamed the group to “${renamed}”`),
     ).toBeVisible();
 
-    // Alice sends, then takes it back: Bob's copy turns into "Message deleted".
+    // Alice sends and corrects herself: Bob's copy follows, marked "edited".
     const text = `Take back ${Date.now()}`;
     await page.getByRole('textbox', { name: `Message ${renamed}` }).fill(text);
     await page.keyboard.press('Enter');
     await expect(bobLog.getByText(text)).toBeVisible();
     const mine = aliceLog.getByRole('listitem').filter({ hasText: text });
+    await mine.hover();
+    await mine.getByRole('button', { name: 'Message options' }).click();
+    await page.getByRole('menuitem', { name: 'Edit message' }).click();
+    await mine.getByLabel('Edit message').fill(`${text} (fixed)`);
+    await mine.getByLabel('Edit message').press('Enter');
+    await expect(mine.getByText(`${text} (fixed)`)).toBeVisible();
+    await expect(mine.getByRole('button', { name: 'edited' })).toBeVisible();
+    const bobsCopy = bobLog.getByRole('listitem').filter({ hasText: text });
+    await expect(bobsCopy.getByText(`${text} (fixed)`)).toBeVisible({ timeout: 15_000 });
+    await expect(bobsCopy.getByRole('button', { name: 'edited' })).toBeVisible();
+
+    // Bob reacts: Alice sees the pill at once.
+    await bobsCopy.hover();
+    await bobsCopy.getByRole('button', { name: 'Add reaction' }).click();
+    await bob.getByRole('button', { name: 'Love' }).click();
+    await expect(bobsCopy.getByRole('button', { name: 'Love 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(mine.getByRole('button', { name: 'Love 1' })).toBeVisible({ timeout: 15_000 });
+
+    // Alice takes it back: Bob's copy turns into "Message deleted", reactions and all.
     await mine.hover();
     await mine.getByRole('button', { name: 'Message options' }).click();
     await page.getByRole('menuitem', { name: 'Delete message' }).click();
@@ -181,12 +203,32 @@ test.describe('chat', () => {
     await expect(aliceLog.getByText(text)).toHaveCount(0);
     await expect(bobLog.getByText('Message deleted')).toBeVisible({ timeout: 15_000 });
     await expect(bobLog.getByText(text)).toHaveCount(0);
+    await expect(bobLog.getByRole('button', { name: 'Love 1' })).toHaveCount(0);
+
+    // A second message keeps its reaction on screen for the audit below.
+    const kept = `Kept ${Date.now()}`;
+    await page.getByRole('textbox', { name: `Message ${renamed}` }).fill(kept);
+    await page.keyboard.press('Enter');
+    const keptOnBob = bobLog.getByRole('listitem').filter({ hasText: kept });
+    await expect(keptOnBob).toBeVisible({ timeout: 15_000 });
+    await keptOnBob.hover();
+    await keptOnBob.getByRole('button', { name: 'Add reaction' }).click();
+    await bob.getByRole('button', { name: 'Haha' }).click();
+    await expect(
+      aliceLog
+        .getByRole('listitem')
+        .filter({ hasText: kept })
+        .getByRole('button', { name: 'Haha 1' }),
+    ).toBeVisible({ timeout: 15_000 });
 
     await animationsDone(page);
     const axe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
-    expect(axe.violations, 'axe violations with a system line and a deleted message').toEqual([]);
+    expect(
+      axe.violations,
+      'axe violations with a system line, an edited and a deleted message and a reaction',
+    ).toEqual([]);
     await bob.context().close();
   });
 

@@ -53,6 +53,7 @@ export const queryKeys = {
   revisions: {
     post: (postId: string) => ['revisions', 'post', postId] as const,
     comment: (commentId: string) => ['revisions', 'comment', commentId] as const,
+    message: (messageId: string) => ['revisions', 'message', messageId] as const,
   },
   activities: {
     all: ['activities'] as const,

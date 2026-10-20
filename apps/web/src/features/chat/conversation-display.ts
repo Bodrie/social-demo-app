@@ -2,6 +2,9 @@ import type {
   Conversation,
   ConversationMember,
   Message,
+  MessageReaction,
+  ReactionSummary,
+  ReactionType,
   SystemLine,
   UserSummary,
 } from '@the-mesh/shared';
@@ -104,6 +107,12 @@ export function systemLineText(line: SystemLine, conversation: Conversation, meI
       return `${actor} removed ${people}`;
     case 'renamed':
       return `${actor} renamed the group to “${line.title ?? ''}”`;
+    case 'group_created':
+      return `${actor} created the group`;
+    case 'admin_added':
+      return `${actor} made ${people} an admin`;
+    case 'admin_removed':
+      return `${actor} removed ${people} as admin`;
     default:
       return '';
   }
@@ -116,4 +125,18 @@ export function messagePreview(message: Message, conversation: Conversation, meI
     return message.system ? systemLineText(message.system, conversation, meId) : '';
   }
   return message.content || 'Picture';
+}
+
+/** Counts per type, the total and my own, from the plain list a message carries. */
+export function reactionSummaryOf(
+  reactions: readonly MessageReaction[],
+  meId: string,
+): ReactionSummary {
+  const counts: Record<ReactionType, number> = { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 };
+  let mine: ReactionType | null = null;
+  for (const reaction of reactions) {
+    counts[reaction.type] += 1;
+    if (reaction.userId === meId) mine = reaction.type;
+  }
+  return { counts, total: reactions.length, mine };
 }

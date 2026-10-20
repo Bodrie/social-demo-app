@@ -36,6 +36,7 @@ import {
   ConversationUpdatedEvent,
   MessageDeletedEvent,
   MessageSentEvent,
+  MessageUpdatedEvent,
 } from '../events/conversation.events.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
@@ -285,6 +286,12 @@ export class ChatGateway
   @OnEvent(MessageDeletedEvent.EVENT)
   onMessageDeleted(event: MessageDeletedEvent): void {
     this.emitTo(event.memberIds, SOCKET_EVENTS.messageDeleted, event.message);
+  }
+
+  /** An edit or a reaction: the same copy to every member, the actor's own tabs included. */
+  @OnEvent(MessageUpdatedEvent.EVENT)
+  onMessageUpdated(event: MessageUpdatedEvent): void {
+    this.emitTo(event.memberIds, SOCKET_EVENTS.messageUpdated, event.message);
   }
 
   @OnEvent(ConversationReadEvent.EVENT)

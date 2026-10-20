@@ -25,7 +25,7 @@ import { receiveNotification } from '@/features/notifications/use-notifications'
 import { ApiClientError, notifySessionLost, refreshSession } from '@/lib/api/client';
 import { markReadHttp, sendMessageHttp } from '@/lib/api/conversations';
 import type { ChatSocket } from '@/lib/socket';
-import { ChatContext, type ChatContextValue } from './chat-context';
+import { ChatContext, type ChatContextValue, type MessageContext } from './chat-context';
 import {
   appendToThread,
   heldMessageIds,
@@ -75,7 +75,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   /** Threads on screen, counted: the messages page and up to two chat windows at once. */
   const activeConversations = useRef(new Map<string, number>());
-  const messageListeners = useRef(new Set<(message: Message) => void>());
+  const messageListeners = useRef(new Set<(message: Message, context: MessageContext) => void>());
   const socketRef = useRef<ChatSocket | null>(null);
 
   const setPeerTyping = useCallback((conversationId: string, userId: string, isTyping: boolean) => {
@@ -160,17 +160,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       // A system line (the server about a membership change or rename) is shown but is nobody's
       // unread and reads nothing.
       const fromOther = message.kind === 'user' && message.senderId !== me.id;
-      const onScreen =
-        fromOther &&
+      const shownHere =
         activeConversations.current.has(message.conversationId) &&
         document.visibilityState === 'visible';
+      const onScreen = fromOther && shownHere;
       if (fromOther) setPeerTyping(message.conversationId, message.senderId, false);
       appendToThread(queryClient, message.conversationId, message);
       upsertConversation(queryClient, message, { countUnread: fromOther && !onScreen });
       if (onScreen) void markRead(message.conversationId);
-      for (const listener of messageListeners.current) listener(message);
+      for (const listener of messageListeners.current) listener(message, { onScreen: shownHere });
     });
+    // Deleted, edited or reacted to: the new copy takes the old one's place, nothing else moves.
     const onMessageDeleted = guarded(messageSchema, (message: Message) =>
+      replaceMessage(queryClient, message),
+    );
+    const onMessageUpdated = guarded(messageSchema, (message: Message) =>
       replaceMessage(queryClient, message),
     );
     const onRead = guarded(
@@ -242,6 +246,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
       socket.on(SOCKET_EVENTS.messageNew, onMessage);
       socket.on(SOCKET_EVENTS.messageDeleted, onMessageDeleted);
+      socket.on(SOCKET_EVENTS.messageUpdated, onMessageUpdated);
       socket.on(SOCKET_EVENTS.conversationRead, onRead);
       socket.on(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
       socket.on(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
@@ -258,6 +263,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
         socket.off(SOCKET_EVENTS.messageNew, onMessage);
         socket.off(SOCKET_EVENTS.messageDeleted, onMessageDeleted);
+        socket.off(SOCKET_EVENTS.messageUpdated, onMessageUpdated);
         socket.off(SOCKET_EVENTS.conversationRead, onRead);
         socket.off(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
         socket.off(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
@@ -306,12 +312,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const subscribeToMessages = useCallback((listener: (message: Message) => void) => {
-    messageListeners.current.add(listener);
-    return () => {
-      messageListeners.current.delete(listener);
-    };
-  }, []);
+  const subscribeToMessages = useCallback(
+    (listener: (message: Message, context: MessageContext) => void) => {
+      messageListeners.current.add(listener);
+      return () => {
+        messageListeners.current.delete(listener);
+      };
+    },
+    [],
+  );
 
   const value = useMemo<ChatContextValue>(
     () => ({

@@ -58,7 +58,7 @@ C3  bookmarks (a) + reposts (b)     ✅ 2026-10-20          ─┘
 B5  moderation (a + b)              ✅ 2026-10-20          ─┐
 D1  email change, sessions list     ✅ 2026-10-20           │  v2.6
 C2  comment replies                 ✅ 2026-10-20          ─┘
-C5  chat extras (edit, reactions, role lines, sound)       ─┐
+C5  chat extras (edit, reactions, role lines, sound) ✅ 2026-10-20 ─┐
 B6  # autocomplete                                          │  v2.7
 C7  realtime activity                                       │
 D4  picture cropping                                       ─┘
@@ -359,7 +359,7 @@ Needs the same visibility layer as B5 plus a request state on follows and rules 
 followers when a profile turns private. Parked in `BACKLOG.md` with that note; nothing in B5 should
 make it harder.
 
-### C5. Chat extras · M–L · ADR 0009 amendment 3
+### C5. Chat extras · M–L · ADR 0009 amendment 3 · ✅ 2026-10-20
 
 Pulled from the backlog on 2026-10-20 (owner). Four pieces, one commit; voice notes stay out.
 
@@ -368,6 +368,7 @@ Pulled from the backlog on 2026-10-20 (owner). Four pieces, one commit; voice no
 - **System lines for role changes and group creation**: `writeSystemLine` in `setRole` ("alice made bob an admin", "alice removed bob as admin") and in `createGroup` ("alice created the group"); `systemLineSchema` gains the types, `systemLineText` the sentences.
 - **Sound while on another page**: today `MessageAlerts` plays the sound and shows the browser notification only while the tab is hidden. New rule for the sound (`messageSound`): it also plays, in a visible tab, for a message whose conversation is not on screen there (no open chat window, not the open thread) — exactly when a bubble appears or the Messages badge goes up. The browser `Notification` stays hidden-tab only (a visible tab shows the bubble instead). No new preference key.
 - Tests: int (edit rules incl. 403 for others and 400 for deleted or system lines, revisions, reactions and their push, the new lines), gateway spec for `message:updated`, web (editor in the bubble and in a chat window, reaction pills, the snippet following an edit, the sound rule), e2e extension of `chat.spec.ts` (an edit and a reaction seen live by the other member).
+- As built (2026-10-20): the message carries `reactions` as the plain `[{ userId, type }]` list instead of a `ReactionSummary` (one push serves every member; the client sums it), the picker lives in the bubble's hover toolbar with pills below (no long-press), `subscribeToMessages` listeners get `{ onScreen }` so the sound rule and the bubbles agree, and the export carries message revisions and reactions. The chat-window variant of the editor is covered by the shared `Thread`, not by a test of its own.
 
 ### C7. Realtime activity · S
 
