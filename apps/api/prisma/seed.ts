@@ -268,7 +268,7 @@ async function seed(): Promise<void> {
       + (SELECT count(*) FROM posts q WHERE q.quoted_post_id = p.id)`;
 
   // --- comments ----------------------------------------------------------
-  const comments = await prisma.comment.createManyAndReturn({
+  const topLevel = await prisma.comment.createManyAndReturn({
     data: posts.flatMap((post) =>
       Array.from({ length: faker.number.int({ min: 0, max: 4 }) }, () => ({
         postId: post.id,
@@ -277,8 +277,23 @@ async function seed(): Promise<void> {
         createdAt: faker.date.between({ from: post.createdAt, to: new Date() }),
       })),
     ),
-    select: { id: true, authorId: true, postId: true, createdAt: true },
+    select: { id: true, authorId: true, postId: true, parentId: true, createdAt: true },
   });
+  // A few replies (one level, C2), so some threads have something to unfold.
+  const replies = await prisma.comment.createManyAndReturn({
+    data: topLevel.flatMap((parent) =>
+      Array.from({ length: faker.number.int({ min: 0, max: 2 }) }, () => ({
+        postId: parent.postId,
+        parentId: parent.id,
+        authorId: faker.helpers.arrayElement(userIds),
+        content: faker.lorem.sentence(),
+        createdAt: faker.date.between({ from: parent.createdAt, to: new Date() }),
+      })),
+    ),
+    select: { id: true, authorId: true, postId: true, parentId: true, createdAt: true },
+  });
+  const comments = [...topLevel, ...replies];
+  const parentAuthorOf = new Map(topLevel.map((c) => [c.id, c.authorId]));
   await prisma.activity.createMany({
     data: comments.map((c) => ({
       actorId: c.authorId,
@@ -313,9 +328,12 @@ async function seed(): Promise<void> {
           ? [{ userId, type: NotificationType.POST_LIKED, actorId: l.userId, postId: l.postId }]
           : [];
       }),
+      // Like the listener: a reply tells the parent's author, and the post's author unless
+      // that is the same person.
       ...comments.flatMap((c) => {
         const userId = ownPost(c.postId, c.authorId);
-        return userId
+        const parentAuthorId = c.parentId === null ? null : parentAuthorOf.get(c.parentId);
+        return userId && userId !== parentAuthorId
           ? [
               {
                 userId,
@@ -324,6 +342,21 @@ async function seed(): Promise<void> {
                 postId: c.postId,
                 commentId: c.id,
                 createdAt: c.createdAt,
+              },
+            ]
+          : [];
+      }),
+      ...replies.flatMap((r) => {
+        const userId = r.parentId === null ? undefined : parentAuthorOf.get(r.parentId);
+        return userId && userId !== r.authorId && demoIds.has(userId)
+          ? [
+              {
+                userId,
+                type: NotificationType.COMMENT_REPLIED,
+                actorId: r.authorId,
+                postId: r.postId,
+                commentId: r.id,
+                createdAt: r.createdAt,
               },
             ]
           : [];

@@ -18,9 +18,11 @@ const makeRevision = (content: string): Revision => ({
   content,
   editedAt: new Date().toISOString(),
 });
+/** As the API answers it: the viewer's reactions and the live count of replies. */
 const withReactions = (comment: Comment, viewerId: string): Comment => ({
   ...comment,
   reactions: reactionsFor(comment.id, viewerId),
+  replyCount: mockDb.comments.filter((item) => item.parentId === comment.id).length,
 });
 /** Like the API: only members that exist are mentions; tags are lower-cased and distinct. */
 export const entitiesOf = (content: string): { mentions: UserSummary[]; hashtags: string[] } => {
@@ -74,6 +76,18 @@ export const postHandlers = [
     return comment
       ? HttpResponse.json(withReactions(comment, mockDb.user.id))
       : notFound('Comment');
+  }),
+
+  /** Oldest first, like the API. */
+  http.get(`${API}/comments/:id/replies`, ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewerId = mockDb.user.id;
+    if (!mockDb.comments.some((item) => item.id === param(params.id))) return notFound('Comment');
+    const replies = mockDb.comments
+      .filter((item) => item.parentId === param(params.id))
+      .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((item) => withReactions(item, viewerId));
+    return HttpResponse.json(paginate(replies, new URL(request.url)));
   }),
 
   http.put(`${API}/posts/:id/repost`, ({ params }) => {
@@ -198,7 +212,7 @@ export const postHandlers = [
     const viewerId = mockDb.user.id;
     const url = new URL(request.url);
     const comments = mockDb.comments
-      .filter((comment) => comment.postId === param(params.postId))
+      .filter((comment) => comment.postId === param(params.postId) && comment.parentId === null)
       .map((comment) => withReactions(comment, viewerId));
     const sorted =
       url.searchParams.get('sort') === 'top'
@@ -215,7 +229,17 @@ export const postHandlers = [
     const post = mockDb.posts.find((item) => item.id === param(params.postId));
     if (!post) return notFound('Post');
     const body = createCommentSchema.parse(await request.json());
+    // A reply goes under a top-level comment of the post; a reply to a reply under its parent.
+    const target = body.parentId
+      ? mockDb.comments.find((item) => item.id === body.parentId && item.postId === post.id)
+      : undefined;
+    if (body.parentId && !target) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', {
+        parentId: 'No such comment on this post',
+      });
+    }
     const comment = makeComment(post.id, {
+      parentId: target ? (target.parentId ?? target.id) : null,
       content: body.content,
       author: summaryOf(mockDb.user),
       createdAt: new Date().toISOString(),
@@ -234,8 +258,12 @@ export const postHandlers = [
     const allowed = comment.author.id === mockDb.user.id || post?.author.id === mockDb.user.id;
     if (!allowed)
       return forbidden('Only the comment author or the post author can delete a comment');
-    mockDb.comments = mockDb.comments.filter((item) => item.id !== comment.id);
-    if (post) post.commentCount -= 1;
+    // Replies go with their parent, like the database cascade.
+    const gone = mockDb.comments.filter(
+      (item) => item.id === comment.id || item.parentId === comment.id,
+    );
+    mockDb.comments = mockDb.comments.filter((item) => !gone.includes(item));
+    if (post) post.commentCount -= gone.length;
     return noContent();
   }),
 

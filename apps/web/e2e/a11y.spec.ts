@@ -66,6 +66,30 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('a thread of replies with its composer open', async ({ page }) => {
+    await openHome(page);
+    const text = `Thread audit ${Date.now()}`;
+    await page.getByLabel('New post').fill(text);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const post = page.getByRole('article').filter({ hasText: text }).first();
+    await post.getByRole('button', { name: /^Comments/ }).click();
+    const comments = post.getByRole('region', { name: 'Comments' });
+    await comments.getByLabel('Write a comment').fill('Top comment');
+    await comments.getByLabel('Write a comment').press('Enter');
+    const top = comments.getByRole('listitem').filter({ hasText: 'Top comment' }).first();
+    await top.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    await comments.getByLabel('Write a reply').fill('A reply');
+    await comments.getByLabel('Write a reply').press('Enter');
+    await expect(top.getByRole('list', { name: 'Replies' })).toContainText('A reply');
+    await top.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    await expect(comments.getByLabel('Write a reply')).toBeVisible();
+    await audit(page, '/ (a thread of replies)');
+    await post.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete post' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('article').filter({ hasText: text })).toHaveCount(0);
+  });
+
   test('the admin queue', async ({ page }) => {
     await openHome(page);
     await page.goto('/admin');

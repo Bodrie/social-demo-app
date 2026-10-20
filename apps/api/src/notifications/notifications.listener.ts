@@ -68,9 +68,20 @@ export class NotificationsListener {
     });
   }
 
+  /** A reply tells the parent's author; the post's author hears of it too unless that is the same person. */
   @OnEvent(CommentCreatedEvent.EVENT)
-  onCommentCreated(event: CommentCreatedEvent): Promise<void> {
-    return this.notify({
+  async onCommentCreated(event: CommentCreatedEvent): Promise<void> {
+    if (event.parentAuthorId !== null) {
+      await this.notify({
+        userId: event.parentAuthorId,
+        type: 'COMMENT_REPLIED',
+        actorId: event.authorId,
+        postId: event.postId,
+        commentId: event.commentId,
+      });
+      if (event.parentAuthorId === event.postAuthorId) return;
+    }
+    await this.notify({
       userId: event.postAuthorId,
       type: 'POST_COMMENTED',
       actorId: event.authorId,

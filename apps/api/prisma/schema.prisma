@@ -339,6 +339,8 @@ model Comment {
   id             String    @id @default(uuid(7)) @db.Uuid
   postId         String    @map("post_id") @db.Uuid
   authorId       String    @map("author_id") @db.Uuid
+  /// Set on a reply: the top-level comment it sits under (one level only, C2); replies go with it.
+  parentId       String?   @map("parent_id") @db.Uuid
   content        String
   /// Null until the first edit; previous texts live in comment_revisions.
   editedAt       DateTime? @map("edited_at") @db.Timestamptz(3)
@@ -349,6 +351,8 @@ model Comment {
 
   post          Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
   author        User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent        Comment?          @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]         @relation("CommentReplies")
   activities    Activity[]
   revisions     CommentRevision[]
   reactions     CommentReaction[]
@@ -357,6 +361,7 @@ model Comment {
 
   @@index([postId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([postId, reactionsCount(sort: Desc), createdAt(sort: Desc), id(sort: Desc)])
+  @@index([parentId, createdAt, id])
   @@map("comments")
 }
 
@@ -487,6 +492,7 @@ model Activity {
 enum NotificationType {
   POST_LIKED
   POST_COMMENTED
+  COMMENT_REPLIED
   COMMENT_REACTED
   USER_FOLLOWED
   MENTIONED_IN_POST

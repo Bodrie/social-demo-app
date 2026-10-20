@@ -61,6 +61,16 @@ export class CommentsController {
     return this.comments.getById(user.id, params.id);
   }
 
+  /** The replies under a top-level comment, oldest first. */
+  @Get(':id/replies')
+  replies(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Comment>> {
+    return this.comments.replies(user.id, params.id, query);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,

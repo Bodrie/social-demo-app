@@ -57,7 +57,7 @@ B4  notifications                   ✅ 2026-10-20           │  v2.5
 C3  bookmarks (a) + reposts (b)     ✅ 2026-10-20          ─┘
 B5  moderation (a + b)              ✅ 2026-10-20          ─┐
 D1  email change, sessions list     ✅ 2026-10-20           │  v2.6
-C2  comment replies                                        ─┘
+C2  comment replies                 ✅ 2026-10-20          ─┘
 C5  chat extras (edit, reactions, role lines, sound)       ─┐
 B6  # autocomplete                                          │  v2.7
 C7  realtime activity                                       │
@@ -319,9 +319,10 @@ Dropped by the owner (reverses Q8 in §9). The explore feed, the empty-feed stat
 "follow people" step are parked in `BACKLOG.md` (Web). The slice id stays so the others keep
 their names.
 
-### C2. Comment replies · M
+### C2. Comment replies · M · ✅ 2026-10-20
 
 - One level only (Instagram style): `comments.parent_id?` (migration `comment_replies`), replies listed under their parent (`GET /comments/:id/replies?cursor=`), `replyCount` on top-level comments, the post's `commentCount` counts both. Reply to a reply inserts `@username` and attaches to the same parent. Notification `COMMENT_REPLIED` to the parent author (B4). Web: "Reply" action, "View N replies" expander, composer in context. Tests as usual; e2e in `comments.spec.ts`.
+- As built: a reply is created through the existing `POST /posts/:postId/comments` with `parentId` (the API folds a reply to a reply under its parent; another post's comment is a field error); `replyCount` is a relation count, not a column; replies are listed oldest first (`keysetAfterAscending`); the post's author is told of a reply too (`POST_COMMENTED`) unless the reply was to their own comment, and a reply that names the parent's author does not mention-notify them a second time; the web folds every thread by default, unfolds it for a permalinked reply (`?comment=` on a reply pins its parent and itself), and keeps one reply composer open at a time. v2.6 is complete.
 
 ### C3. Bookmarks and reposts · S + L · ADR 0017 "Feed items"
 

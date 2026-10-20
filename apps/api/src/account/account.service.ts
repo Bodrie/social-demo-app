@@ -65,6 +65,7 @@ export class AccountService {
           select: {
             id: true,
             postId: true,
+            parentId: true,
             content: true,
             createdAt: true,
             editedAt: true,
@@ -119,6 +120,7 @@ export class AccountService {
       comments: user.comments.map((comment) => ({
         id: comment.id,
         postId: comment.postId,
+        parentId: comment.parentId,
         content: comment.content,
         createdAt: iso(comment.createdAt),
         editedAt: comment.editedAt === null ? null : iso(comment.editedAt),

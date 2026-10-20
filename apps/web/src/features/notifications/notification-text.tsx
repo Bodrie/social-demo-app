@@ -31,6 +31,12 @@ export function NotificationText({ notification }: { notification: Notification 
           {actor} commented on your post{quotedComment}
         </>
       );
+    case 'COMMENT_REPLIED':
+      return (
+        <>
+          {actor} replied to your comment{quotedComment}
+        </>
+      );
     case 'COMMENT_REACTED':
       return (
         <>

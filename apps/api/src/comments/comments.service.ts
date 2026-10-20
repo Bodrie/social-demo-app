@@ -8,12 +8,13 @@ import {
   type Paginated,
   type ReactionSummary,
   type ReactionType,
+  type RepliesQuery,
   type Revision,
   type UpdateCommentData,
   extractEntities,
 } from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
-import { forbidden, notFound } from '../common/errors.js';
+import { forbidden, notFound, validationError } from '../common/errors.js';
 import { emitMentions } from '../common/mentions.js';
 import {
   decodeCursor,
@@ -21,6 +22,7 @@ import {
   encodeCursor,
   encodeRankedCursor,
   keysetAfter,
+  keysetAfterAscending,
   paginateBy,
   paginateWith,
 } from '../common/pagination.js';
@@ -53,6 +55,7 @@ export class CommentsService {
   ) {}
 
   /**
+   * Top-level comments only; replies come from `replies`.
    * `newest`: newest first, so a fresh comment appears right under the input.
    * `top`: most reactions first (ties newest first); the cursor carries the score too.
    */
@@ -66,6 +69,7 @@ export class CommentsService {
     const take = query.limit + 1;
     // Either side of a block sees nothing the other wrote (ADR 0016); mutes leave comments alone.
     const hidden: Prisma.CommentWhereInput = {
+      parentId: null,
       authorId: { notIn: await this.visibility.blockedIds(viewerId) },
     };
 
@@ -114,6 +118,36 @@ export class CommentsService {
     );
   }
 
+  /** Replies under a top-level comment, oldest first: a thread reads downwards. */
+  async replies(
+    viewerId: string,
+    parentId: string,
+    query: RepliesQuery,
+  ): Promise<Paginated<Comment>> {
+    await this.assertExists(parentId);
+    const cursor = decodeCursor(query.cursor);
+    const rows = await this.prisma.comment.findMany({
+      where: {
+        AND: [
+          { parentId },
+          { authorId: { notIn: await this.visibility.blockedIds(viewerId) } },
+          cursor ? keysetAfterAscending(cursor, (id) => ({ id: { gt: id } })) : {},
+        ],
+      },
+      select: commentSelect(viewerId),
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: query.limit + 1,
+    });
+    const counts = await this.countsFor(rows.map((row) => row.id));
+    return paginateWith(
+      rows,
+      query.limit,
+      (row) => encodeCursor({ createdAt: row.createdAt, id: row.id }),
+      (row) => this.map(row, counts),
+    );
+  }
+
+  /** A comment on the post, or with `parentId` a reply under one of its top-level comments. */
   async create(authorId: string, postId: string, input: CreateCommentData): Promise<Comment> {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
@@ -121,12 +155,16 @@ export class CommentsService {
     });
     if (!post) throw notFound('Post not found');
     await this.visibility.assertNotBlocked(authorId, post.authorId);
+    const parent =
+      input.parentId === undefined ? null : await this.parentFor(postId, input.parentId);
+    if (parent) await this.visibility.assertNotBlocked(authorId, parent.authorId);
 
     const mentioned = await this.users.findByUsernames(extractEntities(input.content).mentions);
     const row = await this.prisma.comment.create({
       data: {
         postId,
         authorId,
+        parentId: parent?.id ?? null,
         content: input.content,
         mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
       },
@@ -134,15 +172,46 @@ export class CommentsService {
     });
     await this.events.emitAsync(
       CommentCreatedEvent.EVENT,
-      new CommentCreatedEvent(row.id, postId, authorId, post.authorId),
+      new CommentCreatedEvent(
+        row.id,
+        postId,
+        authorId,
+        post.authorId,
+        parent?.id ?? null,
+        parent?.authorId ?? null,
+      ),
     );
+    // The parent's author hears of the reply itself; a mention would tell them twice.
     await emitMentions(
       this.events,
       authorId,
-      mentioned.map((user) => user.id),
+      mentioned.map((user) => user.id).filter((id) => id !== parent?.authorId),
       { postId, commentId: row.id },
     );
     return toComment(row, emptyCounts(), this.assets.base);
+  }
+
+  /**
+   * The top-level comment a reply goes under: `parentId` itself, or its parent when `parentId`
+   * is already a reply (one level only). Must be on the same post.
+   */
+  private async parentFor(
+    postId: string,
+    parentId: string,
+  ): Promise<{ id: string; authorId: string }> {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: parentId },
+      select: {
+        id: true,
+        postId: true,
+        authorId: true,
+        parent: { select: { id: true, authorId: true } },
+      },
+    });
+    if (!comment || comment.postId !== postId) {
+      throw validationError({ parentId: 'No such comment on this post' });
+    }
+    return comment.parent ?? { id: comment.id, authorId: comment.authorId };
   }
 
   /**

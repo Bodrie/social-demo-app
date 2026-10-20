@@ -122,11 +122,13 @@ export function makeComment(postId: string, overrides: Partial<Comment> = {}): C
   return {
     id: testId('comment', sequence),
     postId,
+    parentId: null,
     content: `Comment number ${sequence}`,
     author: summaryOf(bob),
     editedAt: null,
     reactions: emptyReactions(),
     mentions: [],
+    replyCount: 0,
     createdAt,
     updatedAt: createdAt,
     ...overrides,

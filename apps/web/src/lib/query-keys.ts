@@ -46,6 +46,9 @@ export const queryKeys = {
     forPost: (postId: string, sort: CommentSort) => ['comments', postId, sort] as const,
     /** A comment fetched alone for a permalink that points past the loaded pages. */
     single: (commentId: string) => ['comments', 'single', commentId] as const,
+    /** Prefix for every thread of replies (a reaction or edit may concern any of them). */
+    allReplies: ['comments', 'replies'] as const,
+    replies: (commentId: string) => ['comments', 'replies', commentId] as const,
   },
   revisions: {
     post: (postId: string) => ['revisions', 'post', postId] as const,

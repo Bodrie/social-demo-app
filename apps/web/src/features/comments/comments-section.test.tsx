@@ -145,4 +145,113 @@ describe('CommentsSection', () => {
       'true',
     );
   });
+  it('folds replies under a comment, unfolds them oldest first and answers in context', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { commentCount: 3 });
+    const parent = makeComment(post!.id, { content: 'Top comment' });
+    mockDb.comments.push(
+      parent,
+      makeComment(post!.id, {
+        parentId: parent.id,
+        content: 'Carol answers',
+        author: summaryOf(carol),
+        createdAt: '2026-10-01T10:00:00.000Z',
+      }),
+      makeComment(post!.id, {
+        parentId: parent.id,
+        content: 'Bob again',
+        createdAt: '2026-10-01T11:00:00.000Z',
+      }),
+    );
+    renderApp('/');
+    const { user, section } = await openComments('Comments 3');
+    const thread = (await within(section).findByText('Top comment')).closest('li')!;
+    expect(within(section).queryByRole('list', { name: 'Replies' })).toBeNull();
+
+    await user.click(within(thread).getByRole('button', { name: 'View 2 replies' }));
+    const replies = await within(thread).findByRole('list', { name: 'Replies' });
+    expect(
+      within(replies)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([expect.stringContaining('Carol answers'), expect.stringContaining('Bob again')]);
+
+    // Answering a reply names its author and lands at the end of the thread.
+    const carols = within(replies).getAllByRole('listitem')[0]!;
+    await user.click(within(carols).getByRole('button', { name: 'Reply' }));
+    const composer = within(thread).getByLabelText('Write a reply');
+    expect(composer).toHaveValue('@carol ');
+    expect(composer).toHaveFocus();
+    await user.type(composer, 'agreed{Enter}');
+    await waitFor(() => expect(within(replies).getAllByRole('listitem')).toHaveLength(3));
+    expect(within(replies).getAllByRole('listitem')[2]).toHaveTextContent('@carol agreed');
+    expect(within(thread).queryByLabelText('Write a reply')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Comments 4' })).toBeInTheDocument();
+    expect(mockDb.comments.find((c) => c.content === '@carol agreed')).toMatchObject({
+      parentId: parent.id,
+    });
+
+    await user.click(within(thread).getByRole('button', { name: 'Hide replies' }));
+    expect(within(thread).queryByRole('list', { name: 'Replies' })).toBeNull();
+    expect(within(thread).getByRole('button', { name: 'View 3 replies' })).toBeInTheDocument();
+  });
+
+  it('answers the comment itself from an empty composer, which Escape puts away', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { commentCount: 1 });
+    mockDb.comments.push(makeComment(post!.id, { content: 'Lonely comment' }));
+    renderApp('/');
+    const { user, section } = await openComments('Comments 1');
+    await within(section).findByText('Lonely comment');
+
+    const replyButton = within(section).getByRole('button', { name: 'Reply' });
+    await user.click(replyButton);
+    expect(within(section).getByLabelText('Write a reply')).toHaveValue('');
+    await user.keyboard('{Escape}');
+    expect(within(section).queryByLabelText('Write a reply')).toBeNull();
+    await waitFor(() => expect(replyButton).toHaveFocus());
+
+    // Sent, the first reply opens the thread under its comment.
+    await user.click(replyButton);
+    await user.type(within(section).getByLabelText('Write a reply'), 'First!{Enter}');
+    const replies = await within(section).findByRole('list', { name: 'Replies' });
+    expect(within(replies).getByText('First!')).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Hide replies' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Comments 2' })).toBeInTheDocument();
+  });
+
+  it('deleting a comment takes its replies and their count with it', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { commentCount: 3 });
+    mockDb.posts[0]!.author = summaryOf(alice);
+    const parent = makeComment(post!.id, { content: 'Parent' });
+    mockDb.comments.push(
+      parent,
+      makeComment(post!.id, { parentId: parent.id, content: 'Child one' }),
+      makeComment(post!.id, { parentId: parent.id, content: 'Child two' }),
+    );
+    renderApp('/');
+    const { user, section } = await openComments('Comments 3');
+    await within(section).findByText('Parent');
+
+    await user.click(within(section).getByRole('button', { name: 'Comment options' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete comment' }));
+    await waitFor(() => expect(within(section).queryByText('Parent')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Comments 0' })).toBeInTheDocument();
+    expect(mockDb.comments).toHaveLength(0);
+  });
+
+  it('opens the thread of a permalinked reply and rings it', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { commentCount: 2 });
+    const parent = makeComment(post!.id, { content: 'Parent of the link' });
+    const reply = makeComment(post!.id, { parentId: parent.id, content: 'The linked reply' });
+    mockDb.comments.push(parent, reply);
+    renderApp(`/p/${post!.id}?comment=${reply.id}`);
+
+    const linked = await screen.findByText('The linked reply');
+    expect(linked.closest('li')).toHaveAttribute('data-highlighted', 'true');
+    expect(screen.getByRole('list', { name: 'Replies' })).toBeInTheDocument();
+    expect(screen.getByText('Parent of the link')).toBeInTheDocument();
+  });
 });

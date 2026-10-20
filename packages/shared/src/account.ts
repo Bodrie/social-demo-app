@@ -40,6 +40,7 @@ export const accountExportSchema = z.object({
     z.object({
       id: z.uuid(),
       postId: z.uuid(),
+      parentId: z.uuid().nullable(),
       content: z.string(),
       createdAt: z.iso.datetime(),
       editedAt: z.iso.datetime().nullable(),

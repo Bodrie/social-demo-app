@@ -26,6 +26,15 @@ export const fetchComments = (
 export const fetchComment = (commentId: string, signal?: AbortSignal): Promise<Comment> =>
   api.get(`/comments/${commentId}`, commentSchema, { signal });
 
+/** The replies under a top-level comment, oldest first. */
+export const fetchReplies = (
+  commentId: string,
+  { cursor, signal }: PageOptions,
+): Promise<CommentList> =>
+  api.get(`/comments/${commentId}/replies${queryString({ cursor })}`, commentListSchema, {
+    signal,
+  });
+
 export const createComment = (postId: string, input: CreateCommentInput): Promise<Comment> =>
   api.post(`/posts/${postId}/comments`, input, { schema: commentSchema });
 

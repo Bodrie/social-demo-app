@@ -7,6 +7,8 @@ import { userSummarySchema } from './users.js';
 export const NOTIFICATION_TYPES = [
   'POST_LIKED',
   'POST_COMMENTED',
+  /** `comment` is the reply to your comment (C2). */
+  'COMMENT_REPLIED',
   'COMMENT_REACTED',
   'USER_FOLLOWED',
   'MENTIONED_IN_POST',

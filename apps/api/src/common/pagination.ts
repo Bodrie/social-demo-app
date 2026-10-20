@@ -40,6 +40,19 @@ export function keysetAfter<IdWhere extends object>(
   };
 }
 
+/** `keysetAfter` for the few lists read the other way (`createdAt asc, id asc`), e.g. replies. */
+export function keysetAfterAscending<IdWhere extends object>(
+  cursor: Keyset,
+  idWhere: (id: string) => IdWhere,
+) {
+  return {
+    OR: [
+      { createdAt: { gt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, ...idWhere(cursor.id) },
+    ],
+  };
+}
+
 /**
  * Keyset for lists ranked by an integer score first (`score desc, createdAt desc, id desc`),
  * e.g. comments sorted by number of reactions.

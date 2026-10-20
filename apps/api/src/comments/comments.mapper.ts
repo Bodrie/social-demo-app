@@ -13,6 +13,7 @@ export function commentSelect(viewerId: string) {
   return {
     id: true,
     postId: true,
+    parentId: true,
     content: true,
     editedAt: true,
     reactionsCount: true,
@@ -21,6 +22,7 @@ export function commentSelect(viewerId: string) {
     author: { select: userSummarySelect },
     reactions: { where: { userId: viewerId }, select: { type: true } },
     mentions: mentionsSelect,
+    _count: { select: { replies: true } },
   } satisfies Prisma.CommentSelect;
 }
 
@@ -48,11 +50,13 @@ export function toComment(row: CommentRow, counts: ReactionCounts, assetsBase: s
   return {
     id: row.id,
     postId: row.postId,
+    parentId: row.parentId,
     content: row.content,
     author: toUserSummary(row.author, assetsBase),
     editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     reactions: toReactionSummary(counts, row.reactionsCount, mine),
     mentions: row.mentions.map((mention) => toUserSummary(mention.user, assetsBase)),
+    replyCount: row._count.replies,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

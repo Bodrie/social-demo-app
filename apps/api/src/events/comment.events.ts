@@ -1,3 +1,4 @@
+/** A reply carries the top-level comment it sits under and that comment's author (C2). */
 export class CommentCreatedEvent {
   static readonly EVENT = 'comment.created';
   constructor(
@@ -5,6 +6,8 @@ export class CommentCreatedEvent {
     readonly postId: string,
     readonly authorId: string,
     readonly postAuthorId: string,
+    readonly parentId: string | null = null,
+    readonly parentAuthorId: string | null = null,
   ) {}
 }
 
