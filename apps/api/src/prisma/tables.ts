@@ -13,6 +13,7 @@ export const TABLES = [
   'comment_mentions',
   'comments',
   'post_revisions',
+  'bookmarks',
   'post_likes',
   'post_mentions',
   'post_hashtags',

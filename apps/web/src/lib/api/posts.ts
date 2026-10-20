@@ -35,6 +35,14 @@ export const likePost = (postId: string): Promise<void> => api.put(`/posts/${pos
 
 export const unlikePost = (postId: string): Promise<void> => api.delete(`/posts/${postId}/like`);
 
+export const bookmarkPost = (postId: string): Promise<void> => api.put(`/posts/${postId}/bookmark`);
+
+export const unbookmarkPost = (postId: string): Promise<void> =>
+  api.delete(`/posts/${postId}/bookmark`);
+
+export const fetchBookmarks = ({ cursor, signal }: PageOptions): Promise<PostList> =>
+  api.get(`/users/me/bookmarks${queryString({ cursor })}`, postListSchema, { signal });
+
 export const updatePost = (postId: string, input: UpdatePostInput): Promise<Post> =>
   api.patch(`/posts/${postId}`, input, { schema: postSchema });
 

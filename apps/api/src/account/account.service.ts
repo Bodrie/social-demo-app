@@ -72,6 +72,7 @@ export class AccountService {
           },
         },
         postLikes: { select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
+        bookmarks: { select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
         commentReactions: {
           select: { commentId: true, type: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
@@ -128,6 +129,10 @@ export class AccountService {
       likes: user.postLikes.map((like) => ({
         postId: like.postId,
         createdAt: iso(like.createdAt),
+      })),
+      bookmarks: user.bookmarks.map((bookmark) => ({
+        postId: bookmark.postId,
+        createdAt: iso(bookmark.createdAt),
       })),
       reactions: user.commentReactions.map((reaction) => ({
         commentId: reaction.commentId,

@@ -14,6 +14,8 @@ export const postSchema = z.object({
   commentCount: z.int().nonnegative(),
   /** Whether the requesting user has liked this post. */
   likedByMe: z.boolean(),
+  /** The viewer's private save-for-later; nobody else's are counted or shown (C3a). */
+  bookmarkedByMe: z.boolean(),
   /** Null until the first edit. */
   editedAt: z.iso.datetime().nullable(),
   /** Members the text mentions (`@username`), resolved when the post was saved or edited. */

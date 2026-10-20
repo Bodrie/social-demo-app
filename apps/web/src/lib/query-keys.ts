@@ -26,6 +26,8 @@ export const queryKeys = {
     byUser: (userId: string) => ['posts', 'list', 'user', userId] as const,
     byTag: (tag: string) => ['posts', 'list', 'tag', tag] as const,
     search: (q: string) => ['posts', 'list', 'search', q] as const,
+    /** The viewer's saved posts, newest save first; under the lists prefix like every post list. */
+    bookmarks: ['posts', 'list', 'bookmarks'] as const,
     /** One post as a one-item list, so every cache helper (likes, edits, deletes) reaches it. */
     detail: (postId: string) => ['posts', 'list', 'detail', postId] as const,
   },

@@ -88,6 +88,7 @@ export function makePost(overrides: Partial<Post> = {}): Post {
     likeCount: 0,
     commentCount: 0,
     likedByMe: false,
+    bookmarkedByMe: false,
     editedAt: null,
     mentions: [],
     hashtags: [],

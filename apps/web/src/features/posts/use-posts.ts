@@ -1,6 +1,12 @@
 import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
 import type { PostList } from '@the-mesh/shared';
-import { fetchFeed, fetchPost, fetchSearchPosts, fetchUserPosts } from '@/lib/api/posts';
+import {
+  fetchBookmarks,
+  fetchFeed,
+  fetchPost,
+  fetchSearchPosts,
+  fetchUserPosts,
+} from '@/lib/api/posts';
 import { NO_CURSOR } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -43,8 +49,19 @@ export const postQueryOptions = (postId: string) =>
     getNextPageParam: () => undefined,
   });
 
+export const bookmarksQueryOptions = infiniteQueryOptions({
+  queryKey: queryKeys.posts.bookmarks,
+  queryFn: ({ pageParam, signal }) => fetchBookmarks({ cursor: pageParam, signal }),
+  initialPageParam: NO_CURSOR,
+  getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+});
+
 export function useFeed() {
   return useInfiniteQuery(feedQueryOptions);
+}
+
+export function useBookmarks() {
+  return useInfiniteQuery(bookmarksQueryOptions);
 }
 
 export function useSearchPosts(q: string) {

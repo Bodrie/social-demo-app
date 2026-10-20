@@ -75,6 +75,18 @@ export class PostsController {
   unlike(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
     return this.posts.unlike(user.id, params.id);
   }
+
+  @Put(':id/bookmark')
+  @HttpCode(204)
+  bookmark(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.bookmark(user.id, params.id);
+  }
+
+  @Delete(':id/bookmark')
+  @HttpCode(204)
+  unbookmark(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unbookmark(user.id, params.id);
+  }
 }
 
 @ApiTags('posts')
@@ -89,5 +101,17 @@ export class UserPostsController {
     @Query() query: FeedQueryDto,
   ): Promise<Paginated<PostItem>> {
     return this.posts.byAuthor(user.id, params.userId, query);
+  }
+}
+
+/** The viewer's own saved posts (C3a); there is no list of anyone else's. */
+@ApiTags('posts')
+@Controller('users/me/bookmarks')
+export class BookmarksController {
+  constructor(private readonly posts: PostsService) {}
+
+  @Get()
+  list(@CurrentUser() user: AuthUser, @Query() query: FeedQueryDto): Promise<Paginated<PostItem>> {
+    return this.posts.bookmarks(user.id, query);
   }
 }

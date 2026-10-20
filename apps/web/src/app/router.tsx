@@ -59,6 +59,12 @@ export const routes: RouteObject[] = [
                 }),
               },
               {
+                path: 'bookmarks',
+                lazy: async () => ({
+                  Component: (await import('@/features/bookmarks/bookmarks-page')).BookmarksPage,
+                }),
+              },
+              {
                 path: 'notifications',
                 lazy: async () => ({
                   Component: (await import('@/features/notifications/notifications-page'))

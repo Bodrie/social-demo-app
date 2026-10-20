@@ -47,6 +47,7 @@ export const accountExportSchema = z.object({
     }),
   ),
   likes: z.array(z.object({ postId: z.uuid(), createdAt: z.iso.datetime() })),
+  bookmarks: z.array(z.object({ postId: z.uuid(), createdAt: z.iso.datetime() })),
   reactions: z.array(
     z.object({ commentId: z.uuid(), type: reactionTypeSchema, createdAt: z.iso.datetime() }),
   ),

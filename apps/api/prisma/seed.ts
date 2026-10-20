@@ -207,6 +207,17 @@ async function seed(): Promise<void> {
     })),
   });
 
+  // --- bookmarks (the demo accounts' private saves) ----------------------
+  await prisma.bookmark.createMany({
+    data: users.slice(0, FIXED_USERS.length).flatMap((u) =>
+      pick(
+        posts.filter((p) => p.authorId !== u.id),
+        4,
+      ).map((p) => ({ userId: u.id, postId: p.id })),
+    ),
+    skipDuplicates: true,
+  });
+
   // --- comments ----------------------------------------------------------
   const comments = await prisma.comment.createManyAndReturn({
     data: posts.flatMap((post) =>

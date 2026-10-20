@@ -1,6 +1,6 @@
 import { type CommentSort, POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { HeartIcon, MessageCircleIcon } from 'lucide-react';
+import { BookmarkIcon, HeartIcon, MessageCircleIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -14,7 +14,7 @@ import { CommentsSection } from '@/features/comments/comments-section';
 import { focusLater } from '@/lib/focus';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { PostMenu } from './post-menu';
-import { useToggleLike, useUpdatePost } from './use-post-mutations';
+import { useToggleBookmark, useToggleLike, useUpdatePost } from './use-post-mutations';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchPostRevisions } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
@@ -39,6 +39,7 @@ export function PostCard({
 }: PostCardProps) {
   const me = useCurrentUser();
   const toggleLike = useToggleLike();
+  const toggleBookmark = useToggleBookmark();
   const [commentsOpen, setCommentsOpen] = useState(expanded);
   const [editing, setEditing] = useState(false);
   const menuRef = useRef<HTMLButtonElement>(null);
@@ -171,6 +172,18 @@ export function PostCard({
             <span className="tabular-nums">{post.commentCount}</span>
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Bookmark"
+          aria-pressed={post.bookmarkedByMe}
+          className={cn('ml-auto', post.bookmarkedByMe && 'text-primary hover:text-primary')}
+          onClick={() =>
+            toggleBookmark.mutate({ postId: post.id, bookmarked: post.bookmarkedByMe })
+          }
+        >
+          <BookmarkIcon className={cn(post.bookmarkedByMe && 'fill-current')} />
+        </Button>
       </footer>
 
       {commentsOpen ? (

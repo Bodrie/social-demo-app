@@ -20,6 +20,7 @@ export function postSelect(viewerId: string) {
     author: { select: userSummarySelect },
     _count: { select: { likes: true, comments: true } },
     likes: { where: { userId: viewerId }, select: { userId: true } },
+    bookmarks: { where: { userId: viewerId }, select: { userId: true } },
     mentions: mentionsSelect,
     hashtags: { select: { tag: true }, orderBy: { tag: 'asc' } },
   } satisfies Prisma.PostSelect;
@@ -36,6 +37,7 @@ export function toPost(row: PostRow, assetsBase: string): Post {
     likeCount: row._count.likes,
     commentCount: row._count.comments,
     likedByMe: row.likes.length > 0,
+    bookmarkedByMe: row.bookmarks.length > 0,
     editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     mentions: row.mentions.map((mention) => toUserSummary(mention.user, assetsBase)),
     hashtags: row.hashtags.map((hashtag) => hashtag.tag),

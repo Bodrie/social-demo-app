@@ -46,6 +46,7 @@ export const userHandlers = [
         })),
       comments: [],
       likes: [],
+      bookmarks: [],
       reactions: [],
       following: [],
       followers: [],

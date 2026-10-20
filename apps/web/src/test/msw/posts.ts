@@ -76,6 +76,28 @@ export const postHandlers = [
       : notFound('Comment');
   }),
 
+  http.get(`${API}/users/me/bookmarks`, ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const saved = mockDb.posts.filter((post) => post.bookmarkedByMe);
+    return HttpResponse.json(paginate(saved, new URL(request.url)));
+  }),
+
+  http.put(`${API}/posts/:id/bookmark`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    post.bookmarkedByMe = true;
+    return noContent();
+  }),
+
+  http.delete(`${API}/posts/:id/bookmark`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    post.bookmarkedByMe = false;
+    return noContent();
+  }),
+
   http.get(`${API}/users/:userId/posts`, ({ request, params }) => {
     if (!mockDb.user) return unauthorized();
     const posts = mockDb.posts.filter((post) => post.author.id === param(params.userId));

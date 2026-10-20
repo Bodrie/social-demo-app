@@ -1,4 +1,4 @@
-import { LogOutIcon, ScaleIcon, SettingsIcon, UserIcon } from 'lucide-react';
+import { BookmarkIcon, LogOutIcon, ScaleIcon, SettingsIcon, UserIcon } from 'lucide-react';
 import { useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -60,6 +60,9 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => go(`/u/${user.username}`)}>
           <UserIcon /> Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => go('/bookmarks')}>
+          <BookmarkIcon /> Bookmarks
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => go('/settings')}>
           <SettingsIcon /> Settings

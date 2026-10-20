@@ -16,6 +16,7 @@ const row: PostRow = {
   },
   _count: { likes: 3, comments: 2 },
   likes: [{ userId: 'viewer' }],
+  bookmarks: [],
   mentions: [
     {
       user: {

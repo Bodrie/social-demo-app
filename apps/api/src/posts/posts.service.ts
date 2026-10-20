@@ -217,6 +217,42 @@ export class PostsService {
     }
   }
 
+  /** A private save-for-later (C3a): idempotent, no count on the post, no event, nobody told. */
+  async bookmark(viewerId: string, postId: string): Promise<void> {
+    await this.assertExists(postId);
+    await this.prisma.bookmark.createMany({
+      data: { userId: viewerId, postId },
+      skipDuplicates: true,
+    });
+  }
+
+  async unbookmark(viewerId: string, postId: string): Promise<void> {
+    await this.assertExists(postId);
+    await this.prisma.bookmark.deleteMany({ where: { userId: viewerId, postId } });
+  }
+
+  /** The viewer's saved posts, newest save first: the keyset is the bookmark's time, not the post's. */
+  async bookmarks(viewerId: string, query: CursorQuery): Promise<Paginated<Post>> {
+    const cursor = decodeCursor(query.cursor);
+    const rows = await this.prisma.bookmark.findMany({
+      where: {
+        AND: [
+          { userId: viewerId },
+          cursor ? keysetAfter(cursor, (id) => ({ postId: { lt: id } })) : {},
+        ],
+      },
+      select: { createdAt: true, postId: true, post: { select: postSelect(viewerId) } },
+      orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
+      take: query.limit + 1,
+    });
+    return paginateBy(
+      rows,
+      query.limit,
+      (row) => ({ createdAt: row.createdAt, id: row.postId }),
+      (row) => toPost(row.post, this.assets.base),
+    );
+  }
+
   private async list(
     viewerId: string,
     query: CursorQuery,

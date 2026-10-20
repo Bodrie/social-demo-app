@@ -52,6 +52,7 @@ model User {
   commentMentions  CommentMention[]
   notifications    Notification[]       @relation("NotificationRecipient")
   notificationsSent Notification[]      @relation("NotificationActor")
+  bookmarks        Bookmark[]
 
   @@map("users")
 }
@@ -101,6 +102,7 @@ model Post {
   mentions      PostMention[]
   hashtags      PostHashtag[]
   notifications Notification[]
+  bookmarks     Bookmark[]
 
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
@@ -161,6 +163,20 @@ model PostLike {
   @@id([userId, postId])
   @@index([postId])
   @@map("post_likes")
+}
+
+/// A member's private "save for later" (C3a): no count on the post, no event, nobody else sees it.
+model Bookmark {
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId, createdAt(sort: Desc), postId(sort: Desc)])
+  @@map("bookmarks")
 }
 
 model Comment {

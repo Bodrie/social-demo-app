@@ -33,6 +33,7 @@ describe('postSchema', () => {
       likeCount: 2,
       commentCount: 0,
       likedByMe: true,
+      bookmarkedByMe: false,
       editedAt: null,
       mentions: [],
       hashtags: ['hi'],
