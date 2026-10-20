@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { apiErrorSchema, meResponseSchema, sessionListSchema } from '@the-mesh/shared';
+import { apiErrorSchema, meResponseSchema, sessionListSchema } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import {

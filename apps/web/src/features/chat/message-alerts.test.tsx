@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
-import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { SOCKET_EVENTS } from '@beso/shared';
 import { alice, bob, makeMessage } from '@/test/fixtures';
 import { seedDirect } from '@/test/msw/db';
 import { mockDb, signedInAs } from '@/test/msw/handlers';

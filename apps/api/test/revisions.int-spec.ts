@@ -1,4 +1,4 @@
-import { postSchema, revisionListSchema } from '@the-mesh/shared';
+import { postSchema, revisionListSchema } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type TestAgent, createUser, login } from './setup/factories.js';

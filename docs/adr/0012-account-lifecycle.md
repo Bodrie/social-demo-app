@@ -38,7 +38,7 @@ and how to keep denormalised counters honest.
   following and followers, the member's own messages with the conversation they belong to,
   and the upload keys with URLs. Other people's content is not included: it is theirs.
   Pictures are referenced by URL rather than embedded; they are public files. Twice a minute
-  per address, served as an attachment named `the-mesh-export-<username>-<date>.json`.
+  per address, served as an attachment named `beso-export-<username>-<date>.json`.
 - **Both work before the address is confirmed** (`@AllowUnverified`): someone who registered
   by mistake must be able to leave without first proving the inbox.
 - **On the web both live in Settings → Your account**: a download button (the file is built

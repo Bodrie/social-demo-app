@@ -5,7 +5,7 @@ import {
   postListSchema,
   postSchema,
   trendingTagListSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import request from 'supertest';
 import { UserMentionedEvent } from '../src/events/user.events.js';
 import { type TestApp, createTestApp } from './setup/app.js';

@@ -1,4 +1,4 @@
-import type { ClientToServerEvents, ServerToClientEvents } from '@the-mesh/shared';
+import type { ClientToServerEvents, ServerToClientEvents } from '@beso/shared';
 import { type Socket, io } from 'socket.io-client';
 import { API_ORIGIN } from './env';
 

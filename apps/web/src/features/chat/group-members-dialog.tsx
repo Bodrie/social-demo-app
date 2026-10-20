@@ -1,5 +1,5 @@
-import { GROUP_MAX_MEMBERS } from '@the-mesh/shared';
-import type { Conversation, UserSummary } from '@the-mesh/shared';
+import { GROUP_MAX_MEMBERS } from '@beso/shared';
+import type { Conversation, UserSummary } from '@beso/shared';
 import { LogOutIcon, MoreHorizontalIcon, PencilIcon, UserPlusIcon } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router';

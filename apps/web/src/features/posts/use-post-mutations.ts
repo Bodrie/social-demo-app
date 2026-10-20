@@ -2,7 +2,7 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
-import { type Post, type UpdatePostInput, isAvailableEmbed } from '@the-mesh/shared';
+import { type Post, type UpdatePostInput, isAvailableEmbed } from '@beso/shared';
 import {
   bookmarkPost,
   createPost,

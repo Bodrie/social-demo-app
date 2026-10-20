@@ -1,6 +1,6 @@
 export type EmailContent = { subject: string; text: string; html: string };
 
-const BRAND = 'The Mesh';
+const BRAND = 'BeSo';
 
 export function escapeHtml(value: string): string {
   return value

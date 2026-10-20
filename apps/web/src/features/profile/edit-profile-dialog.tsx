@@ -4,7 +4,7 @@ import {
   type UpdateProfileInput,
   type UserPrivate,
   updateProfileSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { PencilIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { emailSchema } from '@the-mesh/shared';
+import { emailSchema } from '@beso/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2Icon } from 'lucide-react';
 import { useForm } from 'react-hook-form';

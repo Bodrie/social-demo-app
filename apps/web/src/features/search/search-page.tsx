@@ -1,4 +1,4 @@
-import { SEARCH_MAX_LENGTH, SEARCH_MIN_LENGTH, hashtagSchema } from '@the-mesh/shared';
+import { SEARCH_MAX_LENGTH, SEARCH_MIN_LENGTH, hashtagSchema } from '@beso/shared';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';

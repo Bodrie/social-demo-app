@@ -11,7 +11,7 @@ import {
   sendMessageSchema,
   setMemberRoleSchema,
   type SystemLine,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { makeMessage, summaryOf, testId } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';

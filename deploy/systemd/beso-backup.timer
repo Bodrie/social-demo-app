@@ -1,5 +1,5 @@
 [Unit]
-Description=Back up The Mesh every night at 03:30
+Description=Back up BeSo every night at 03:30
 
 [Timer]
 OnCalendar=*-*-* 03:30:00

@@ -1,4 +1,4 @@
-import { apiErrorSchema, authResponseSchema } from '@the-mesh/shared';
+import { apiErrorSchema, authResponseSchema } from '@beso/shared';
 import { JwtService } from '@nestjs/jwt';
 import { CREDENTIAL_THROTTLE } from '../src/auth/credential-throttle.js';
 import request from 'supertest';

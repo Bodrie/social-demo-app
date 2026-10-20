@@ -1,4 +1,4 @@
-import { POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
+import { POST_MAX_LENGTH, type Post } from '@beso/shared';
 import { cn } from 'cn';
 import { Repeat2Icon } from 'lucide-react';
 import { useId, useState } from 'react';

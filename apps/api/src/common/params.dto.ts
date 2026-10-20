@@ -1,4 +1,4 @@
-import { cursorQuerySchema, uuidSchema } from '@the-mesh/shared';
+import { cursorQuerySchema, uuidSchema } from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 

@@ -8,7 +8,7 @@ import {
   type VerifyEmailInput,
   meResponseSchema,
   verifyEmailResponseSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { api, isApiClientError } from './client';
 
 /** null when there is no session (401), so callers never treat "logged out" as an error. */

@@ -9,7 +9,7 @@ import {
   postListSchema,
   postSchema,
   reportSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import {

@@ -8,7 +8,7 @@ import {
   confirmEmailChangeResponseSchema,
   meResponseSchema,
   sessionListSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { api } from './client';
 
 // Account-level calls that only Settings (and the confirmation page) need; kept apart from

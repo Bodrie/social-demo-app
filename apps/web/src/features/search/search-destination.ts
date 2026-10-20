@@ -1,4 +1,4 @@
-import { hashtagSchema } from '@the-mesh/shared';
+import { hashtagSchema } from '@beso/shared';
 
 /** Where a typed query leads: a `#tag` straight to its page, anything else to the search page. */
 export function searchDestination(raw: string): string | null {

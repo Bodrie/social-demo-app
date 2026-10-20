@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Session } from '@the-mesh/shared';
+import type { Session } from '@beso/shared';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';

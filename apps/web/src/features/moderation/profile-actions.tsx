@@ -1,4 +1,4 @@
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import { BanIcon, FlagIcon, MoreHorizontalIcon, VolumeOffIcon, VolumeXIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {

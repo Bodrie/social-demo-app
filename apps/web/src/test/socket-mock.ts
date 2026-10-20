@@ -8,7 +8,7 @@ import {
   sendMessagePayloadSchema,
   SOCKET_EVENTS,
   typingUpdateSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import type { z } from 'zod';
 import { markConversationRead, storeMessage } from './msw/conversations';
 import { mockDb } from './msw/db';

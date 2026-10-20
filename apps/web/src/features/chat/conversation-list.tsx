@@ -1,4 +1,4 @@
-import type { Conversation } from '@the-mesh/shared';
+import type { Conversation } from '@beso/shared';
 import { cn } from 'cn';
 import { ImageIcon, Loader2Icon, MessageSquarePlusIcon, UsersIcon } from 'lucide-react';
 import { NavLink, useParams } from 'react-router';

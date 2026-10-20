@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Activity, CursorQuery, Paginated } from '@the-mesh/shared';
+import type { Activity, CursorQuery, Paginated } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { VisibilityService } from '../moderation/visibility.service.js';

@@ -1,5 +1,5 @@
 {
-  "name": "@the-mesh/api",
+  "name": "@beso/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -35,7 +35,7 @@
     "@nestjs/websockets": "catalog:",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
-    "@the-mesh/shared": "workspace:*",
+    "@beso/shared": "workspace:*",
     "argon2": "catalog:",
     "cookie-parser": "catalog:",
     "cron": "catalog:",

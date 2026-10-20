@@ -1,6 +1,6 @@
 import { parseOrigins, parseTrustProxy, validateEnv } from './env.js';
 
-const DATABASE_URL = 'postgresql://mesh:mesh@localhost:5433/mesh';
+const DATABASE_URL = 'postgresql://beso:beso@localhost:5433/beso';
 const JWT_SECRET = 'unit-test-secret-unit-test-secret-unit-test';
 
 describe('validateEnv', () => {
@@ -24,13 +24,13 @@ describe('validateEnv', () => {
       JWT_SECRET,
       PORT: '8080',
       TRUST_PROXY: 'true',
-      WEB_ORIGINS: 'https://the-mesh.example, https://www.the-mesh.example',
+      WEB_ORIGINS: 'https://beso.example, https://www.beso.example',
       THROTTLE_LIMIT: '5',
     });
 
     expect(env.PORT).toBe(8080);
     expect(env.TRUST_PROXY).toBe(1);
-    expect(env.WEB_ORIGINS).toEqual(['https://the-mesh.example', 'https://www.the-mesh.example']);
+    expect(env.WEB_ORIGINS).toEqual(['https://beso.example', 'https://www.beso.example']);
     expect(env.THROTTLE_LIMIT).toBe(5);
   });
 
@@ -75,13 +75,13 @@ describe('production safety', () => {
     NODE_ENV: 'production',
     DATABASE_URL,
     JWT_SECRET,
-    PUBLIC_ASSETS_URL: 'https://mesh.example/api/v1/uploads',
-    WEB_ORIGINS: 'https://mesh.example',
+    PUBLIC_ASSETS_URL: 'https://beso.example/api/v1/uploads',
+    WEB_ORIGINS: 'https://beso.example',
     TRUST_PROXY: '1',
     WEB_URL: 'https://social.bodrie.dev',
     EMAIL_TRANSPORT: 'smtp',
     SMTP_URL: 'smtps://resend:key@smtp.resend.com:465',
-    EMAIL_FROM: 'The Mesh <noreply@social.bodrie.dev>',
+    EMAIL_FROM: 'BeSo <noreply@social.bodrie.dev>',
     TURNSTILE_SECRET: '0x4AAAAAAA-secret',
   };
 

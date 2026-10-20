@@ -1,4 +1,4 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { Link, NavLink } from 'react-router';

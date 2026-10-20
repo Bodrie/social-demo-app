@@ -11,7 +11,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { extractEntities } from '@the-mesh/shared';
+import { extractEntities } from '@beso/shared';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { ActivityType, NotificationType, ReactionType } from '../src/generated/prisma/enums.js';
@@ -438,10 +438,10 @@ async function seed(): Promise<void> {
         author: bob,
         content: 'New #photography set from the coast is up. Thanks @alice for the tip!',
       },
-      { author: carol, content: 'First post on #TheMesh. Hello everyone, hello @alice!' },
+      { author: carol, content: 'First post on #BeSo. Hello everyone, hello @alice!' },
       {
         author: alice,
-        content: 'Reading list for the #weekend: https://example.com/reading #themesh',
+        content: 'Reading list for the #weekend: https://example.com/reading #beso',
       },
     ];
     const byUsername = new Map(users.map((user) => [user.username, user.id]));

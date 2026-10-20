@@ -1,4 +1,4 @@
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';

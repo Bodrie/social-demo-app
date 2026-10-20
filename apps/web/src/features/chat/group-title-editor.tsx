@@ -1,5 +1,5 @@
-import { GROUP_TITLE_MAX_LENGTH } from '@the-mesh/shared';
-import type { Conversation } from '@the-mesh/shared';
+import { GROUP_TITLE_MAX_LENGTH } from '@beso/shared';
+import type { Conversation } from '@beso/shared';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import { userPrivateSchema, userPublicSchema } from '@the-mesh/shared';
+import { userPrivateSchema, userPublicSchema } from '@beso/shared';
 import { type UserPrivateRow, toUserPrivate, toUserPublic } from './users.mapper.js';
 
 const row: UserPrivateRow = {

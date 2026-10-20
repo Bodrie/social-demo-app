@@ -1,4 +1,4 @@
-import type { Post } from '@the-mesh/shared';
+import type { Post } from '@beso/shared';
 import { FlagIcon, LinkIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { type RefObject, Suspense, lazy, useState } from 'react';
 import { toast } from 'sonner';

@@ -6,7 +6,7 @@ import {
   postSchema,
   reactionSummarySchema,
   revisionListSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';

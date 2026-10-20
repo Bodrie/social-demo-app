@@ -12,7 +12,7 @@ describe('Header', () => {
     await user.click(await screen.findByRole('button', { name: 'Switch to dark theme' }));
 
     await waitFor(() => expect(document.documentElement).toHaveClass('dark'));
-    expect(window.localStorage.getItem('the-mesh:theme')).toBe('dark');
+    expect(window.localStorage.getItem('beso:theme')).toBe('dark');
     expect(screen.getByRole('button', { name: 'Switch to light theme' })).toBeInTheDocument();
   });
 

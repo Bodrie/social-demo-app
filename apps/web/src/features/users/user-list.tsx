@@ -1,5 +1,5 @@
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import { cn } from 'cn';
 import { Loader2Icon } from 'lucide-react';
 import { EmptyState, ErrorState } from '@/components/empty-state';

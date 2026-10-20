@@ -1,5 +1,5 @@
 {
-  "name": "@the-mesh/config",
+  "name": "@beso/config",
   "version": "0.0.0",
   "private": true,
   "description": "Shared tsconfig and lint presets. Referenced by relative path from each workspace.",

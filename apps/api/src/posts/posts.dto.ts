@@ -3,7 +3,7 @@ import {
   feedQuerySchema,
   updatePostSchema,
   userPostsQuerySchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 
 export class CreatePostDto extends createZodDto(createPostSchema) {}

@@ -1,4 +1,4 @@
-import { REACTIONS, type ReactionSummary, type ReactionType } from '@the-mesh/shared';
+import { REACTIONS, type ReactionSummary, type ReactionType } from '@beso/shared';
 import { cn } from 'cn';
 import { SmilePlusIcon } from 'lucide-react';
 import { useState } from 'react';

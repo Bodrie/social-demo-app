@@ -1,4 +1,4 @@
-import type { Message } from '@the-mesh/shared';
+import type { Message } from '@beso/shared';
 
 /** A message was persisted; `memberIds` are everyone in the conversation, sender included. */
 export class MessageSentEvent {

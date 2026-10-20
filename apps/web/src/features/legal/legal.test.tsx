@@ -16,7 +16,7 @@ describe('legal pages', () => {
     // No contact email configured in tests: the repository's issue tracker is the channel.
     expect(screen.getAllByRole('link', { name: 'issue tracker' })[0]).toHaveAttribute(
       'href',
-      'https://github.com/Bodrie/social-demo-app/issues',
+      'https://github.com/Bodrie/beso/issues',
     );
     const user = userEvent.setup();
     await user.click(
@@ -54,7 +54,7 @@ describe('legal pages', () => {
     expect(screen.getByText('About')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Source code' })).toHaveAttribute(
       'href',
-      'https://github.com/Bodrie/social-demo-app',
+      'https://github.com/Bodrie/beso',
     );
   });
 
@@ -68,7 +68,7 @@ describe('legal pages', () => {
     );
     expect(within(about).getByRole('link', { name: 'Source' })).toHaveAttribute(
       'href',
-      'https://github.com/Bodrie/social-demo-app',
+      'https://github.com/Bodrie/beso',
     );
   });
 });

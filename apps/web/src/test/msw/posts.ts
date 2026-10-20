@@ -8,7 +8,7 @@ import {
   setReactionSchema,
   updateCommentSchema,
   updatePostSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { makeComment, makePost, summaryOf, testId } from '../fixtures';
 

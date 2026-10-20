@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Notification, Paginated, UnreadCount } from '@the-mesh/shared';
+import type { Notification, Paginated, UnreadCount } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto } from '../common/params.dto.js';

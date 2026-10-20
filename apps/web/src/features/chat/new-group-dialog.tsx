@@ -1,4 +1,4 @@
-import { GROUP_MAX_MEMBERS, GROUP_TITLE_MAX_LENGTH, type UserSummary } from '@the-mesh/shared';
+import { GROUP_MAX_MEMBERS, GROUP_TITLE_MAX_LENGTH, type UserSummary } from '@beso/shared';
 import { XIcon } from 'lucide-react';
 import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';

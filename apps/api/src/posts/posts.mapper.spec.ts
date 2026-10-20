@@ -1,4 +1,4 @@
-import { postSchema } from '@the-mesh/shared';
+import { postSchema } from '@beso/shared';
 import { type PostRow, toPost } from './posts.mapper.js';
 
 const row: PostRow = {

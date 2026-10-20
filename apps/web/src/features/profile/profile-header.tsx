@@ -1,4 +1,4 @@
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import dayjs from 'dayjs';
 import { CalendarIcon, LinkIcon, MapPinIcon, MessageCircleIcon } from 'lucide-react';
 import { Link } from 'react-router';

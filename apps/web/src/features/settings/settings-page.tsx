@@ -1,4 +1,4 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';

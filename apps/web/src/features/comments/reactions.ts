@@ -1,4 +1,4 @@
-import type { ReactionSummary, ReactionType } from '@the-mesh/shared';
+import type { ReactionSummary, ReactionType } from '@beso/shared';
 
 export function emptyReactions(): ReactionSummary {
   return { counts: { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 }, total: 0, mine: null };

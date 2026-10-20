@@ -55,7 +55,7 @@ describe('ActivityText', () => {
       'Bob Brown liked a post: “Hello world”',
       'Bob Brown started following Carol Clark',
       'Bob Brown updated their profile',
-      'Bob Brown joined The Mesh',
+      'Bob Brown joined BeSo',
       'Bob Brown reposted Carol Clark’s post: “Hello world”',
       'Bob Brown quoted Carol Clark’s post: “My take”',
     ]);

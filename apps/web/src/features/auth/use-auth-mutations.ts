@@ -5,7 +5,7 @@ import type {
   RegisterInput,
   ResetPasswordInput,
   VerifyEmailInput,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import {
   forgotPassword,
   login,

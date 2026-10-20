@@ -9,7 +9,7 @@ export const OPENAPI_JSON_PATH = `${OPENAPI_PATH}/openapi.json`;
 /** Swagger UI + JSON document generated from controllers and zod DTOs. Not mounted in production. */
 export function setupOpenApi(app: INestApplication): void {
   const config = new DocumentBuilder()
-    .setTitle('The Mesh API')
+    .setTitle('BeSo API')
     .setDescription(
       'Social network demo app – REST API. Browser clients authenticate with the httpOnly access cookie; other clients may send the same token as a Bearer header. Routes marked @Public() need no session.',
     )

@@ -1,12 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  CreateReportData,
-  CursorQuery,
-  Paginated,
-  Report,
-  UserSummary,
-} from '@the-mesh/shared';
+import type { CreateReportData, CursorQuery, Paginated, Report, UserSummary } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest, conflict, notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginateBy } from '../common/pagination.js';

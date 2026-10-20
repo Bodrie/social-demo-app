@@ -4,7 +4,7 @@ import {
   REPORT_REASON_LABELS,
   type ReportReason,
   type ReportTargetType,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { useId, useState } from 'react';
 import { CharacterCounter } from '@/components/character-counter';
 import { Button } from '@/components/ui/button';

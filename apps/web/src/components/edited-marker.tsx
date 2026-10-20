@@ -1,5 +1,5 @@
 import { type QueryKey, useInfiniteQuery } from '@tanstack/react-query';
-import type { RevisionList } from '@the-mesh/shared';
+import type { RevisionList } from '@beso/shared';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';

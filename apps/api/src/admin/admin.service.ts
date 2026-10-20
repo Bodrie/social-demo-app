@@ -6,7 +6,7 @@ import type {
   AdminReportsQuery,
   Paginated,
   UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { RefreshTokensService } from '../auth/refresh-tokens.service.js';
 import { CommentsService } from '../comments/comments.service.js';

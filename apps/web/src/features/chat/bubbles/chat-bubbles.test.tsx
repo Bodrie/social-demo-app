@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { SOCKET_EVENTS } from '@beso/shared';
 import { alice, bob, carol, makeMessage, makeUser, testId } from '@/test/fixtures';
 import { seedDirect, upsertUser } from '@/test/msw/db';
 import { mockDb, signedInAs } from '@/test/msw/handlers';

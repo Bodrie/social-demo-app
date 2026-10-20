@@ -13,7 +13,7 @@ import type {
   ReactionSummary,
   ReactionType,
   UpdateCommentInput,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { toast } from 'sonner';
 import { updatePostEverywhere } from '@/features/posts/post-cache';
 import {

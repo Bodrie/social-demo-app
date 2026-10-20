@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type Post, postListSchema, postSchema } from '@the-mesh/shared';
+import { type Post, postListSchema, postSchema } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';

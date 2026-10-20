@@ -1,5 +1,5 @@
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
-import type { UserSummary } from '@the-mesh/shared';
+import type { UserSummary } from '@beso/shared';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';

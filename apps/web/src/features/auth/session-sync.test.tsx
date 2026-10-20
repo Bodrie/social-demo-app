@@ -38,7 +38,7 @@ describe('one browser, several tabs', () => {
       await screen.findByLabelText('New post');
       const callsBefore = mockDb.calls.me;
 
-      const otherTab = new BroadcastChannel('the-mesh:session');
+      const otherTab = new BroadcastChannel('beso:session');
       try {
         signedInAs(bob);
         // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a BroadcastChannel has no target origin

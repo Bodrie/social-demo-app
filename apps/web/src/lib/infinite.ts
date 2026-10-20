@@ -1,5 +1,5 @@
 import type { InfiniteData } from '@tanstack/react-query';
-import type { Paginated } from '@the-mesh/shared';
+import type { Paginated } from '@beso/shared';
 
 /** The cache shape of every cursor-paginated list (`useInfiniteQuery` over `{ items, nextCursor }`). */
 export type Pages<T> = InfiniteData<Paginated<T>>;

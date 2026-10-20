@@ -1,4 +1,4 @@
-import { SEARCH_MAX_LENGTH } from '@the-mesh/shared';
+import { SEARCH_MAX_LENGTH } from '@beso/shared';
 import { cn } from 'cn';
 import { SearchIcon } from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';

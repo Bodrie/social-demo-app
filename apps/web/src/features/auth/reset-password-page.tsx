@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ResetPasswordFormInput, resetPasswordFormSchema } from '@the-mesh/shared';
+import { type ResetPasswordFormInput, resetPasswordFormSchema } from '@beso/shared';
 import { Loader2Icon, MailWarningIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';

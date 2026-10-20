@@ -1,4 +1,4 @@
-import { activitySchema } from '@the-mesh/shared';
+import { activitySchema } from '@beso/shared';
 import { type ActivityRow, excerpt, toActivity } from './activities.mapper.js';
 
 const actor = {

@@ -4,7 +4,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { ReportStatus } from '@the-mesh/shared';
+import type { ReportStatus } from '@beso/shared';
 import { toast } from 'sonner';
 import {
   adminDeleteComment,

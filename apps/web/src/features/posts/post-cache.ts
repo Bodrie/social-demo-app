@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
-import type { Post } from '@the-mesh/shared';
+import type { Post } from '@beso/shared';
 import { type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 

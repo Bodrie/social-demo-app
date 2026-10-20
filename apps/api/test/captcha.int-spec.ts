@@ -1,4 +1,4 @@
-import { apiErrorSchema, authResponseSchema } from '@the-mesh/shared';
+import { apiErrorSchema, authResponseSchema } from '@beso/shared';
 import request from 'supertest';
 import { CAPTCHA, CaptchaUnavailableError, type CaptchaVerifier } from '../src/captcha/captcha.js';
 import { type TestApp, createTestApp } from './setup/app.js';

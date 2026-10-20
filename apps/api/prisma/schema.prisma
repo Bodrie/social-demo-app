@@ -1,4 +1,4 @@
-// The Mesh – data model. Rationale: docs/REBUILD_PLAN.md §2.3, docs/adr/0002.
+// BeSo – data model. Rationale: docs/REBUILD_PLAN.md §2.3, docs/adr/0002.
 // Conventions: UUID v7 ids, snake_case tables/columns, timestamptz in UTC,
 // relation tables instead of denormalised columns.
 

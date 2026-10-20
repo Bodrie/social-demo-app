@@ -1,4 +1,4 @@
-import { apiErrorSchema, authResponseSchema, verifyEmailResponseSchema } from '@the-mesh/shared';
+import { apiErrorSchema, authResponseSchema, verifyEmailResponseSchema } from '@beso/shared';
 import { io } from 'socket.io-client';
 import request from 'supertest';
 import { EMAIL_TOKEN_POLICY } from '../src/auth/email-tokens.service.js';

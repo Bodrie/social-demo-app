@@ -47,7 +47,7 @@ function DownloadData() {
   const download = useMutation({
     mutationFn: fetchAccountExport,
     onSuccess: (data) => {
-      saveJsonFile(`the-mesh-export-${me.username}-${data.exportedAt.slice(0, 10)}.json`, data);
+      saveJsonFile(`beso-export-${me.username}-${data.exportedAt.slice(0, 10)}.json`, data);
       toast.success('Your data is downloading');
     },
     onError: (error) =>

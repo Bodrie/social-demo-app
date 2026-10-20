@@ -11,7 +11,7 @@ process.env.JWT_SECRET = 'integration-test-secret-integration-test-secret';
 process.env.COOKIE_SECURE = 'false';
 process.env.UPLOADS_DIR = inject('uploadsDir');
 process.env.EMAIL_TRANSPORT = 'outbox';
-process.env.EMAIL_OUTBOX_DIR = mkdtempSync(path.join(os.tmpdir(), 'mesh-outbox-'));
+process.env.EMAIL_OUTBOX_DIR = mkdtempSync(path.join(os.tmpdir(), 'beso-outbox-'));
 process.env.WEB_URL = 'http://localhost:5173';
 // Tests call the jobs themselves with a clock of their own; nothing may run on a timer.
 process.env.JOBS_ENABLED = 'false';

@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { Conversation, Message, MessageList } from '@the-mesh/shared';
+import type { Conversation, Message, MessageList } from '@beso/shared';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchMessages } from '@/lib/api/conversations';
 import {

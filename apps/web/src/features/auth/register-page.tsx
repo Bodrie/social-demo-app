@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type RegisterInput, registerSchema } from '@the-mesh/shared';
+import { type RegisterInput, registerSchema } from '@beso/shared';
 import { Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';

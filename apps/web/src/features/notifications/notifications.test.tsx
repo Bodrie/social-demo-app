@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { SOCKET_EVENTS } from '@beso/shared';
 import { alice, carol, makeNotification, summaryOf, testId } from '@/test/fixtures';
 import { mockDb, signedInAs } from '@/test/msw/handlers';
 import { renderApp } from '@/test/render';

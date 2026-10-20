@@ -1,6 +1,6 @@
 # Pre-release review – 2026-10-16
 
-A full-repository review of The Mesh before the first public release, done on branch `dev`
+A full-repository review of BeSo before the first public release, done on branch `dev`
 at commit `f95ca77` (merge of `main`). The goal was to find critical and high defects
 (security, data integrity, availability, user-visible breakage) and bad patterns, and to
 report only what could be traced in the code. Every item below cites the file and line it
@@ -283,7 +283,7 @@ handle {
   default and honours that header.
 
 Failure scenario: a visitor opened the app before a merge; the box redeploys within five
-minutes (`deploy/systemd/mesh-update.timer`). Opening the app again from a bookmark inside
+minutes (`deploy/systemd/beso-update.timer`). Opening the app again from a bookmark inside
 the heuristic window serves the cached old HTML, which requests `/assets/index-<oldhash>.js`;
 Caddy returns the new `index.html` as that script; the module fails on MIME type and the page
 is blank until a reload (a plain reload revalidates the HTML and fixes it, but the user does
@@ -361,7 +361,7 @@ as @x" step). The mail greeting is the attacker-chosen 80-character `name`
 (`auth.controller.ts:132-138`).
 
 Variant A (pre-hijack): the attacker registers `victim@x` with the attacker's password. The
-victim receives a genuine "Confirm your email address for The Mesh", clicks, is signed into
+victim receives a genuine "Confirm your email address for BeSo", clicks, is signed into
 the attacker's account, which is now verified. The victim posts, uploads pictures, sends DMs;
 the attacker logs in in parallel (sessions coexist) and reads and acts as the victim. With M1
 the attacker then changes the email, changes the password (`revokeOthers` evicts the victim
@@ -453,7 +453,7 @@ the new user. Minimal version: `refetchOnWindowFocus: true` on `meQueryOptions` 
 **Area:** `deploy/backup.sh:9`, `docs/RUNBOOK.md:207-213`.
 
 Evidence: `pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"` is a plain dump (no `--clean`); the
-runbook restores with `gunzip -c … | docker compose exec -T postgres psql -U mesh -d mesh`
+runbook restores with `gunzip -c … | docker compose exec -T postgres psql -U beso -d beso`
 into the live database, without `ON_ERROR_STOP` and without dropping anything.
 
 Scenario: restoring "to undo a bad data change" into a database that still has its tables:
@@ -470,7 +470,7 @@ restoring) and restore with `psql -v ON_ERROR_STOP=1`; update RUNBOOK §5 and re
 
 **Status:** CONFIRMED (workflow coupling); whether branch protection requires green CI
 could not be checked from here.
-**Area:** `.github/workflows/docker.yml:6-10,55,63`, `deploy/.env.example:4`, `deploy/systemd/mesh-update.timer`, `deploy/update.sh:9`.
+**Area:** `.github/workflows/docker.yml:6-10,55,63`, `deploy/.env.example:4`, `deploy/systemd/beso-update.timer`, `deploy/update.sh:9`.
 
 Evidence: `docker.yml` pushes `latest` on every push to `main` and has no `needs` on
 `ci.yml` and no `workflow_run` trigger (grep: none). The box tracks `TAG=latest` and polls
@@ -686,7 +686,7 @@ Grouped by area. Each line: evidence, scenario, fix.
 
 **Risk statements (no concrete bug).** Floating image tags (`node:24-slim`, `caddy:2-alpine`,
 `postgres:17-alpine`, `cloudflare/cloudflared:latest`) and GitHub actions by major tag;
-`mesh` in the `docker` group is root-equivalent on the box; no `mem_limit`/`cpus` on any
+`beso` in the `docker` group is root-equivalent on the box; no `mem_limit`/`cpus` on any
 service (a sharp decode burst can OOM the box; decode concurrency is a known deferral); the
 API runtime image carries the Prisma CLI (known deferral); new group members see the full
 history from before they joined (`conversations.int-spec.ts:180-181` pins it as intended, ADR
@@ -859,7 +859,7 @@ absence of review.
   in POST bodies, so `req.url` never carries them; `OutboxMailer` is refused in production; no
   `console.*` in `src/`; Prisma known-request errors carry no values.
 - `backup.sh`: variables expand inside the container where compose sets them; the volume
-  name matches `name: the-mesh`; `-T` suits the TTY-less systemd run.
+  name matches `name: beso`; `-T` suits the TTY-less systemd run.
 - Compose: `stop_grace_period` 20 s (api) / 30 s (postgres) with `enableShutdownHooks`;
   `depends_on: service_healthy` on postgres.
 - CI: `permissions: contents: read`; `packages: write` in `docker.yml` is only used by steps

@@ -22,7 +22,7 @@ describe('AccountCard', () => {
     expect(await screen.findByText('Your data is downloading')).toBeInTheDocument();
     expect(mockDb.calls.exports).toBe(1);
     expect(click).toHaveBeenCalledTimes(1);
-    expect(downloads[0]).toMatch(/^the-mesh-export-alice-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(downloads[0]).toMatch(/^beso-export-alice-\d{4}-\d{2}-\d{2}\.json$/);
     click.mockRestore();
   });
 

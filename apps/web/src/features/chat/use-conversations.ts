@@ -11,7 +11,7 @@ import type {
   Conversation,
   ConversationRole,
   RenameGroupInput,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import {
   addMembers,
   createGroup,

@@ -10,7 +10,7 @@ import { AuthService } from './auth.service.js';
 import { EmailTokensService } from './email-tokens.service.js';
 import { RefreshTokensService } from './refresh-tokens.service.js';
 
-const JWT_ISSUER = 'the-mesh';
+const JWT_ISSUER = 'beso';
 
 @Module({
   imports: [

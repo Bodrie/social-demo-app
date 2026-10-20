@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { MeResponse, Paginated, UserPublic } from '@the-mesh/shared';
+import type { MeResponse, Paginated, UserPublic } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto, UsernameParamDto } from '../common/params.dto.js';

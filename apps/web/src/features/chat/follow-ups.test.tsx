@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { SOCKET_EVENTS } from '@beso/shared';
 import { alice, bob, carol, makeMessage, makeUser, testId } from '@/test/fixtures';
 import { intersectAll } from '@/test/intersection-observer';
 import { seedConversation, seedDirect, seedReadMark, upsertUser } from '@/test/msw/db';
@@ -191,10 +191,10 @@ describe('chat follow-ups', () => {
     seedReadMark(withBob.id, bob.id, second?.createdAt ?? null);
     renderApp('/messages');
     const user = userEvent.setup();
-    await waitFor(() => expect(document.title).toBe('(2) Messages · The Mesh'));
+    await waitFor(() => expect(document.title).toBe('(2) Messages · BeSo'));
     await user.click(within(list()).getByRole('link', { name: /Bob Brown/ }));
     await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
-    await waitFor(() => expect(document.title).toBe('Bob Brown · Messages · The Mesh'));
+    await waitFor(() => expect(document.title).toBe('Bob Brown · Messages · BeSo'));
   });
 
   it('loads more conversations as the list is scrolled', async () => {

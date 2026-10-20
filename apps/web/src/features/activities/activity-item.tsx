@@ -1,4 +1,4 @@
-import type { Activity } from '@the-mesh/shared';
+import type { Activity } from '@beso/shared';
 import { cn } from 'cn';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';

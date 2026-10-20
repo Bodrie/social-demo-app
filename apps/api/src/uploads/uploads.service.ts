@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { UploadKind, UploadResponse } from '@the-mesh/shared';
+import type { UploadKind, UploadResponse } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest } from '../common/errors.js';
 import { PrismaService } from '../prisma/prisma.service.js';

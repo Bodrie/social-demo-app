@@ -1,4 +1,4 @@
-import { USER_SEARCH_MAX_LENGTH } from '@the-mesh/shared';
+import { USER_SEARCH_MAX_LENGTH } from '@beso/shared';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';

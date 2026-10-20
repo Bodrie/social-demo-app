@@ -18,7 +18,7 @@ describe('TagPage', () => {
       '/tags/weekend',
     );
     expect(screen.queryByText('Something else')).toBeNull();
-    expect(document.title).toBe('#weekend · The Mesh');
+    expect(document.title).toBe('#weekend · BeSo');
   });
 
   it('explains an unused tag and refuses an invalid one', async () => {

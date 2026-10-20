@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { Conversation, Message } from '@the-mesh/shared';
+import type { Conversation, Message } from '@beso/shared';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/features/auth/current-user';

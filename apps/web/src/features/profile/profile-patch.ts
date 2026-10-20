@@ -1,4 +1,4 @@
-import type { UpdateProfileData, UpdateProfileInput, UserPrivate } from '@the-mesh/shared';
+import type { UpdateProfileData, UpdateProfileInput, UserPrivate } from '@beso/shared';
 
 /** A new storage key, `null` to remove the current picture, `undefined` to leave it alone. */
 export type ImageChange = string | null | undefined;

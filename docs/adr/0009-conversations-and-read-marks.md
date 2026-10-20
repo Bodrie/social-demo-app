@@ -59,7 +59,7 @@ reader's other tabs lower their badge (review L9).
   creation) and the id; the page's ids come from SQL and are hydrated afterwards. The web list
   is an infinite query and loads more on scroll.
 - **Reading UX.** A "n new messages" pill when a push arrives while the reader is scrolled up;
-  the unread total in the tab title (`(3) Messages · The Mesh`, one owner for the title and one
+  the unread total in the tab title (`(3) Messages · BeSo`, one owner for the title and one
   for the badge in `lib/document-title.ts`); a sound (Web Audio, no asset) and a browser
   `Notification` for messages that arrive while the tab is hidden, each behind its account
   preference (`messageSound`, `browserNotifications`). The permission is requested only from the

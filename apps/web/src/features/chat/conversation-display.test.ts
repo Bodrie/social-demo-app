@@ -1,4 +1,4 @@
-import type { Conversation, SystemLine } from '@the-mesh/shared';
+import type { Conversation, SystemLine } from '@beso/shared';
 import { alice, bob, carol, makeMessage, summaryOf } from '@/test/fixtures';
 import {
   conversationName,

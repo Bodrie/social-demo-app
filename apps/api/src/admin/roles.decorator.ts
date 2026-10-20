@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import type { UserRole } from '@the-mesh/shared';
+import type { UserRole } from '@beso/shared';
 
 export const ROLES_KEY = 'roles';
 

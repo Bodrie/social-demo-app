@@ -10,7 +10,7 @@ import {
   type UpdatePostData,
   type UserPostsQuery,
   extractEntities,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest, forbidden, notFound } from '../common/errors.js';
 import { emitMentions } from '../common/mentions.js';

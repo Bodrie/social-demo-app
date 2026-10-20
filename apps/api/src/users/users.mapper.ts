@@ -4,7 +4,7 @@ import {
   type UserSettings,
   type UserSummary,
   userSettingsSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** The compact shape embedded in posts, comments, activities, messages and presence. */

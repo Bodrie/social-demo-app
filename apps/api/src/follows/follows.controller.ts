@@ -1,6 +1,6 @@
 import { Controller, Delete, Get, HttpCode, Param, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Paginated, UserPublic } from '@the-mesh/shared';
+import type { Paginated, UserPublic } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { UserIdParamDto } from '../common/params.dto.js';

@@ -9,7 +9,7 @@ import type {
   Post,
   UserPrivate,
   UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 
 export const TEST_PASSWORD = 'Password123!';
 

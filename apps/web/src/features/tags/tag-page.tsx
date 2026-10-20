@@ -1,4 +1,4 @@
-import { hashtagSchema } from '@the-mesh/shared';
+import { hashtagSchema } from '@beso/shared';
 import { useParams } from 'react-router';
 import { NotFoundPage } from '@/features/not-found/not-found-page';
 import { PostList } from '@/features/posts/post-list';

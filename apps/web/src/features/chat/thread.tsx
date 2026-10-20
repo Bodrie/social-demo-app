@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { type Conversation, MESSAGE_MAX_LENGTH, type ReactionType } from '@the-mesh/shared';
+import { type Conversation, MESSAGE_MAX_LENGTH, type ReactionType } from '@beso/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
 import {

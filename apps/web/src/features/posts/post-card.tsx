@@ -1,4 +1,4 @@
-import { type CommentSort, POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
+import { type CommentSort, POST_MAX_LENGTH, type Post } from '@beso/shared';
 import { cn } from 'cn';
 import { BookmarkIcon, HeartIcon, MessageCircleIcon, Repeat2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';

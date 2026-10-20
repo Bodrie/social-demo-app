@@ -1,8 +1,8 @@
-# Runbook – running The Mesh on one Ubuntu box
+# Runbook – running BeSo on one Ubuntu box
 
 Target: Ubuntu Server 24.04 on an Intel Core i5-6500 (64-bit x86; the images are built for
 `linux/amd64` only), Docker Engine, no static IP, inbound traffic through a Cloudflare Tunnel
-(plan §2.11, decision D12). Everything lives in `/opt/the-mesh`.
+(plan §2.11, decision D12). Everything lives in `/opt/beso`.
 The public address is **https://social.bodrie.dev**, a subdomain of `bodrie.dev` (domain at
 Cloudflare Registrar, DNS on Cloudflare). The apex and `www` stay free for other sites.
 
@@ -17,15 +17,15 @@ From your own account on the box (the one with sudo). `dpkg --print-architecture
 `amd64`, Debian's name for 64-bit x86 on Intel and AMD alike; `arm64` would mean an ARM board,
 for which no images are built.
 
-The box is shared: Frigate, Cockpit and an MQTT broker already run there. The Mesh sits next to
-them as its own compose project (`the-mesh`: its own network, volumes and containers) and needs
+The box is shared: Frigate, Cockpit and an MQTT broker already run there. BeSo sits next to
+them as its own compose project (`beso`: its own network, volumes and containers) and needs
 nothing from them; the steps below only make sure it does not collide with them.
 
 ### 1.1 Docker
 
-Docker is already installed for the other services. The Mesh needs Docker Engine with the
+Docker is already installed for the other services. BeSo needs Docker Engine with the
 Compose v2 plugin, and not the snap (the snap only reads files under `$HOME`, so it cannot use
-`/opt/the-mesh`):
+`/opt/beso`):
 
 ```bash
 sudo docker version --format '{{.Server.Version}}'   # the engine answers
@@ -57,13 +57,13 @@ sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli container
 ### 1.2 Service user and deploy directory
 
 ```bash
-sudo useradd -r -m -s /bin/bash -G docker mesh
-sudo mkdir -p /opt/the-mesh && sudo chown mesh:mesh /opt/the-mesh
+sudo useradd -r -m -s /bin/bash -G docker beso
+sudo mkdir -p /opt/beso && sudo chown beso:beso /opt/beso
 ```
 
 ### 1.3 Firewall (optional)
 
-The Mesh needs no inbound port: cloudflared dials out, and the stack publishes nothing but
+BeSo needs no inbound port: cloudflared dials out, and the stack publishes nothing but
 `127.0.0.1:8080`. If ufw is already active (`sudo ufw status verbose`), there is nothing to
 add. Turning it on for the first time on this shared box blocks every service that listens on
 the host itself without an `allow` rule: Cockpit (9090/tcp), a broker installed on the host
@@ -82,13 +82,13 @@ sudo ufw enable
 
 ### 1.4 Deploy files and `.env`
 
-Switch to the service user (`sudo -iu mesh`; it has no password and no SSH key), fetch this
+Switch to the service user (`sudo -iu beso`; it has no password and no SSH key), fetch this
 repository's `deploy/` directory from `main` (dotfiles included) and create `.env`:
 
 ```bash
-cd /opt/the-mesh
-curl -fsSL https://github.com/Bodrie/social-demo-app/archive/refs/heads/main.tar.gz \
-  | tar -xz -C /opt/the-mesh --strip-components=2 social-demo-app-main/deploy
+cd /opt/beso
+curl -fsSL https://github.com/Bodrie/beso/archive/refs/heads/main.tar.gz \
+  | tar -xz -C /opt/beso --strip-components=2 beso-main/deploy
 cp .env.example .env && chmod 600 .env
 # Hex for the database password: it is placed inside DATABASE_URL, where the `/` that most
 # base64 strings contain breaks the URL. It is fixed at the first start (the volume keeps it).
@@ -130,10 +130,10 @@ dynamic-DNS client, no certificate on the box.
 
 ### 2.2 Create the tunnel (dash.cloudflare.com → account → **Networking → Tunnels**; older UIs: Zero Trust / Cloudflare One → Networks → Tunnels)
 
-1. **Create a tunnel** → type *Cloudflared* → name it (`social.bodrie.dev` or `the-mesh`) →
+1. **Create a tunnel** → type *Cloudflared* → name it (`social.bodrie.dev` or `beso`) →
    **Save**. The tunnel's **Overview** shows *Install cloudflared connector*: pick **Docker**
    and copy the long `eyJ…` value after `--token` from the shown command. That is
-   `TUNNEL_TOKEN` for `/opt/the-mesh/.env`; the box never installs cloudflared itself, the
+   `TUNNEL_TOKEN` for `/opt/beso/.env`; the box never installs cloudflared itself, the
    compose container runs it. (*Refresh token → Rotate token* on the right invalidates it.)
 2. Still in the tunnel: **Routes** tab, or the **Add route** button in the *Routes* panel at
    the bottom of the Overview (older UIs: *Published application routes* / *Public hostname*)
@@ -215,10 +215,10 @@ over SMTP, and Resend sends it as `social.bodrie.dev` once that subdomain is ver
    Back in Resend press **Verify**; it usually turns green within minutes. The tunnel's own
    `social` record stays *Proxied*; it is unrelated to mail.
 3. **API Keys → Create** with *Sending access*, restricted to the domain. Copy it once.
-4. On the box, in `/opt/the-mesh/.env`:
+4. On the box, in `/opt/beso/.env`:
    ```
    SMTP_URL=smtps://resend:re_xxxxxxxxxxxxxxxx@smtp.resend.com:465
-   EMAIL_FROM="The Mesh <noreply@social.bodrie.dev>"
+   EMAIL_FROM="BeSo <noreply@social.bodrie.dev>"
    ```
    then `docker compose up -d api`. Compose sets `EMAIL_TRANSPORT=smtp` and
    `WEB_URL=$PUBLIC_URL` (where the links point). The API refuses to start in production
@@ -238,7 +238,7 @@ Turnstile widget (free, no puzzle for most people) and the API refuses a registr
 token Cloudflare does not confirm. The widget is made once per site; its two halves go to
 two different places (ADR 0012).
 
-1. dash.cloudflare.com → account home → **Turnstile** → **Add widget**: name `The Mesh`,
+1. dash.cloudflare.com → account home → **Turnstile** → **Add widget**: name `BeSo`,
    hostname `social.bodrie.dev` (add `localhost` only on a widget you use for local trials),
    mode **Managed**, pre-clearance off. Copy the **site key** and the **secret key**.
 2. The **site key** is public and is baked into the web bundle at build time: in the GitHub
@@ -246,7 +246,7 @@ two different places (ADR 0012).
    `VITE_TURNSTILE_SITE_KEY` (and, while there, `VITE_OPERATOR_NAME`, `VITE_CONTACT_EMAIL`,
    `VITE_REPOSITORY_URL` for the legal pages). The next CI run on `main` builds a web image
    that shows the widget. Nothing changes on the box for this half.
-3. The **secret key** goes into `/opt/the-mesh/.env` as `TURNSTILE_SECRET=…`, then
+3. The **secret key** goes into `/opt/beso/.env` as `TURNSTILE_SECRET=…`, then
    `docker compose up -d api`. The API refuses to start in production without it; to run the
    site deliberately without a bot check (a closed trial), set `CAPTCHA=off` instead.
 4. Check: open `/register` in a private window; the widget appears under the password field
@@ -259,10 +259,10 @@ and nobody can register until it is back, by design.
 
 ## 3. First start
 
-As `mesh`:
+As `beso`:
 
 ```bash
-cd /opt/the-mesh
+cd /opt/beso
 ss -ltn | grep ':8080 '           # prints nothing; if another service holds 8080, set WEB_PORT=8081 in .env and use that port below
 docker compose --profile tunnel pull
 docker compose --profile tunnel up -d
@@ -280,21 +280,21 @@ address). The api container applies pending Prisma migrations on every start
 app.
 
 Enable the timers (updates every 5 minutes, backups nightly) from your own account, since
-`mesh` has no sudo:
+`beso` has no sudo:
 
 ```bash
-sudo cp /opt/the-mesh/systemd/*.service /opt/the-mesh/systemd/*.timer /etc/systemd/system/
+sudo cp /opt/beso/systemd/*.service /opt/beso/systemd/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now mesh-update.timer mesh-backup.timer
-systemctl list-timers 'mesh-*'
-sudo systemctl start mesh-backup.service && sudo ls -lh /home/mesh/mesh-backups   # one backup now: the unit works
+sudo systemctl enable --now beso-update.timer beso-backup.timer
+systemctl list-timers 'beso-*'
+sudo systemctl start beso-backup.service && sudo ls -lh /home/beso/beso-backups   # one backup now: the unit works
 ```
 
 ## 4. Releases (pull-based)
 
 1. Merge to `main`: once every CI job (checks, integration, e2e) has passed, CI runs
-   `.github/workflows/docker.yml`, which publishes `ghcr.io/<owner>/the-mesh-api` and
-   `the-mesh-web` tagged `latest` and `sha-<short>`. A git tag `vX.Y.Z` (same CI run) also
+   `.github/workflows/docker.yml`, which publishes `ghcr.io/<owner>/beso-api` and
+   `beso-web` tagged `latest` and `sha-<short>`. A git tag `vX.Y.Z` (same CI run) also
    publishes `X.Y.Z` and `X.Y`: the image tags drop the `v`, so git tag `v2.0.0` is image
    `2.0.0`. A red run publishes nothing, so the box keeps what it has.
 2. The box runs `update.sh` every 5 minutes: `docker compose pull && up -d`. Nothing happens
@@ -303,13 +303,15 @@ sudo systemctl start mesh-backup.service && sudo ls -lh /home/mesh/mesh-backups 
    previous tag and run it again (migrations are forward-only; see §6 before rolling back
    across one).
 4. GHCR packages are private by default on first push: make them public (package settings)
-   or create a read token on the box (`docker login ghcr.io`). `the-mesh-api` and
-   `the-mesh-web` are public (checked 2026-10-19), so the box pulls without a login.
+   or create a read token on the box (`docker login ghcr.io`). `beso-api` and `beso-web` are
+   new packages since the rename (2026-10-20) and GHCR creates packages private: after the
+   first push to `main`, make both public in the package settings (as the old `the-mesh-*`
+   ones were) so the box pulls without a login.
 
 ## 5. Backups and restore
 
 `backup.sh` writes `db-<stamp>.sql.gz` (`pg_dump --clean --if-exists`) and
-`uploads-<stamp>.tar.gz` to `$BACKUP_DIR` (default `~/mesh-backups`) and keeps 14 days. Copy
+`uploads-<stamp>.tar.gz` to `$BACKUP_DIR` (default `~/beso-backups`) and keeps 14 days. Copy
 that directory off the box (rclone to object storage, a second disk, …).
 
 A restore replaces the database as a whole. Never pipe a dump into the live database as it
@@ -320,13 +322,13 @@ from an empty database and stops at the first error (`ON_ERROR_STOP`, one transa
 also works for dumps made before `--clean` was added:
 
 ```bash
-cd /opt/the-mesh && docker compose stop api
+cd /opt/beso && docker compose stop api
 # An empty database (the API is stopped; --force ends any other connection, PostgreSQL 13+).
 docker compose exec -T postgres sh -c \
   'dropdb -U "$POSTGRES_USER" --force "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
-gunzip -c ~/mesh-backups/db-<stamp>.sql.gz | docker compose exec -T postgres sh -c \
+gunzip -c ~/beso-backups/db-<stamp>.sql.gz | docker compose exec -T postgres sh -c \
   'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction -q'
-docker run --rm -v the-mesh_uploads:/data -v ~/mesh-backups:/backup alpine \
+docker run --rm -v beso_uploads:/data -v ~/beso-backups:/backup alpine \
   sh -c 'rm -rf /data/* && tar xzf /backup/uploads-<stamp>.tar.gz -C /data'
 docker compose start api   # applies any migration newer than the backup
 ```
@@ -341,12 +343,12 @@ volumes) before it is needed.
 |---|---|
 | Status | `docker compose ps` |
 | Logs | `docker compose logs -f api` / `web` / `cloudflared` |
-| Health (from the box) | `curl -s http://127.0.0.1:8080/api/v1/auth/me` (401 = healthy chain); `docker inspect --format '{{.State.Health.Status}}' the-mesh-api-1` |
+| Health (from the box) | `curl -s http://127.0.0.1:8080/api/v1/auth/me` (401 = healthy chain); `docker inspect --format '{{.State.Health.Status}}' beso-api-1` |
 | Health (public) | `curl -s https://social.bodrie.dev/api/v1/auth/me` (401); tunnel status in the Cloudflare One dashboard or `docker compose logs cloudflared` ("Registered tunnel connection") |
 | Tunnel reconnects | normal after an IP change; if it stays "Down", `docker compose --profile tunnel restart cloudflared` and check the token in `.env` |
 | Migrations manually | `docker compose exec api sh -c 'cd apps/api && ./node_modules/.bin/prisma migrate deploy'` |
-| Database shell | `docker compose exec postgres psql -U mesh -d mesh` |
-| Disk | `df -h /var/lib/docker /home/mesh` and `docker system df`: if Frigate records to the same disk it can fill it, and a full disk takes Postgres down. `update.sh` runs `docker image prune -f`, which is host-wide but removes only untagged images that no container uses |
+| Database shell | `docker compose exec postgres psql -U beso -d beso` |
+| Disk | `df -h /var/lib/docker /home/beso` and `docker system df`: if Frigate records to the same disk it can fill it, and a full disk takes Postgres down. `update.sh` runs `docker image prune -f`, which is host-wide but removes only untagged images that no container uses |
 | Mail not arriving | `docker compose logs --since 1h api \| grep -iE 'mail\|smtp'`: `EAUTH` = wrong API key in `SMTP_URL`; a connection timeout = the network blocks port 465, use `smtp.resend.com:2465` (also implicit TLS). A registration whose mail failed still created the account: sign in and press *Send the email again*. Resend → Emails for bounces; DNS records still DNS-only and verified |
 | Rotate `JWT_SECRET` | change it in `.env`, `docker compose up -d api` (every member must sign in again) |
 | Cache headers (after a web change) | `curl -sI http://127.0.0.1:8080/ \| grep -i cache-control` → `no-cache`; `curl -sI http://127.0.0.1:8080/assets/does-not-exist.js \| grep -iE 'HTTP\|content-type\|cache'` → `404`, `no-store`, never `text/html` |

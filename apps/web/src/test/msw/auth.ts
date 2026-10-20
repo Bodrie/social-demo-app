@@ -8,7 +8,7 @@ import {
   resetPasswordSchema,
   type ApiError,
   verifyEmailSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { TEST_PASSWORD, makeUser, testId } from '../fixtures';
 import { mockDb, upsertUser } from './db';

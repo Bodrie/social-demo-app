@@ -1,5 +1,5 @@
 import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
-import type { PostList } from '@the-mesh/shared';
+import type { PostList } from '@beso/shared';
 import {
   fetchBookmarks,
   fetchFeed,

@@ -1,4 +1,4 @@
-import type { Notification } from '@the-mesh/shared';
+import type { Notification } from '@beso/shared';
 import { excerpt } from '../activities/activities.mapper.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';

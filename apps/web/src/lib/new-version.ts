@@ -1,4 +1,4 @@
-const RELOADED_AT = 'the-mesh:reloaded-for-new-version';
+const RELOADED_AT = 'beso:reloaded-for-new-version';
 /** A new build that fails the same way shows the error page instead of reloading in a loop. */
 export const RELOAD_GUARD_MS = 30_000;
 

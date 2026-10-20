@@ -24,12 +24,12 @@ COPY packages/config/package.json packages/config/
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @the-mesh/web...
+    pnpm install --frozen-lockfile --filter @beso/web...
 COPY packages/config packages/config
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-RUN pnpm --filter @the-mesh/shared build \
- && pnpm --filter @the-mesh/web build
+RUN pnpm --filter @beso/shared build \
+ && pnpm --filter @beso/web build
 
 FROM caddy:2-alpine AS runtime
 COPY apps/web/docker/Caddyfile /etc/caddy/Caddyfile

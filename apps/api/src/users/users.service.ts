@@ -8,7 +8,7 @@ import type {
   UserPrivate,
   UserPublic,
   UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { conflict, notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';

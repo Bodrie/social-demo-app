@@ -1,4 +1,4 @@
-# The Mesh – notes for AI-assisted development
+# BeSo – notes for AI-assisted development
 
 ## State of the repo
 
@@ -13,7 +13,7 @@
 | `pnpm dev` | turbo: build `shared` once, then watch `shared`, `api` (`nest start --watch`) and `web` (`vite`) |
 | `pnpm check` | `turbo run lint typecheck test build` – identical to CI |
 | `pnpm test:int` | API integration tests (`apps/api/test/*.int-spec.ts`, supertest over HTTP) |
-| `pnpm --filter @the-mesh/web e2e` | Playwright against the built API (`apps/api/dist`) + `vite preview`, seeded DB; `pnpm build` first, `… exec playwright install chromium` once; `e2e:ui` for the inspector |
+| `pnpm --filter @beso/web e2e` | Playwright against the built API (`apps/api/dist`) + `vite preview`, seeded DB; `pnpm build` first, `… exec playwright install chromium` once; `e2e:ui` for the inspector |
 | `pnpm format` / `pnpm format:check` | Prettier, root `.prettierrc`; CI fails on drift |
 | `pnpm db:up` / `pnpm db:down` | PostgreSQL 17 via docker compose on `localhost:5433` (needs the `docker compose` plugin; on this box it is installed per user in `~/.docker/cli-plugins`, Docker Desktop is not needed) |
 | `pnpm db:generate` | regenerate the Prisma client into `apps/api/src/generated` (turbo runs it before api tasks) |
@@ -21,7 +21,7 @@
 | `pnpm db:deploy` / `pnpm db:check` | apply committed migrations / fail if DB and schema differ |
 | `pnpm db:seed` | **truncates everything**, then loads deterministic demo data (alice/bob/carol, password `Password123!`) |
 | `pnpm db:studio` | Prisma Studio |
-| `pnpm --filter @the-mesh/api <script>` | run one workspace's script |
+| `pnpm --filter @beso/api <script>` | run one workspace's script |
 | `docker build -f apps/api/Dockerfile .` / `-f apps/web/Dockerfile .` | production images (context = repo root) |
 | `cd deploy && docker compose up -d` | the production stack (see `docs/RUNBOOK.md`; `--profile tunnel` adds cloudflared) |
 
@@ -30,7 +30,7 @@
 - TypeScript 6.0, `strict` + `noUncheckedIndexedAccess` (from `packages/config/tsconfig/base.json`). Configuration is kept TypeScript-7-clean (no `baseUrl`, no `node10` resolution); see ADR 0007.
 - Versions are pinned exactly in the `catalog:` of `pnpm-workspace.yaml`; workspaces reference them as `"catalog:"`. When adding a dependency, put its version in the catalog.
 - ESM everywhere. In `apps/api` and `packages/shared` (`module: nodenext`) relative imports carry the `.js` extension: `import { x } from './x.js'`.
-- `packages/shared` is consumed from its `dist/`; turbo builds it before dependants (`dependsOn: ["^build"]`). Run `pnpm --filter @the-mesh/shared build` after changing it if you are not using `pnpm dev`.
+- `packages/shared` is consumed from its `dist/`; turbo builds it before dependants (`dependsOn: ["^build"]`). Run `pnpm --filter @beso/shared build` after changing it if you are not using `pnpm dev`.
 - Lint: oxlint with `--type-aware`, per-workspace `.oxlintrc.json` extending `packages/config/oxlint/base.json`. Format: Prettier only (no ESLint).
 - Tests: Vitest in every workspace. Naming: `*.spec.ts` unit tests next to the source in `apps/api`; `*.test.ts(x)` in `apps/web` and `packages/shared`; `test/*.int-spec.ts` integration tests in `apps/api`.
 - Validation schemas and DTO types that both the API and the web need go in `packages/shared` (zod 4), never duplicated. In the API a DTO is `class XDto extends createZodDto(xSchema) {}` (nestjs-zod); the global `ZodValidationPipe` validates bodies/queries/params typed with such DTOs.

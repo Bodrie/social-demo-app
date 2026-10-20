@@ -1,4 +1,4 @@
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import { cn } from 'cn';
 import { CheckIcon, SearchIcon } from 'lucide-react';
 import { type RefObject, useEffect, useRef, useState } from 'react';

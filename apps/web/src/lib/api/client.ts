@@ -1,4 +1,4 @@
-import { type ApiError, apiErrorSchema } from '@the-mesh/shared';
+import { type ApiError, apiErrorSchema } from '@beso/shared';
 import type { z } from 'zod';
 import { API_URL } from '../env';
 
@@ -65,7 +65,7 @@ let refreshInFlight: Promise<RefreshOutcome> | null = null;
  * is single-use, so two tabs refreshing together would otherwise log everyone out.
  */
 export function refreshSession(): Promise<RefreshOutcome> {
-  refreshInFlight ??= runExclusive('the-mesh:refresh', async (): Promise<RefreshOutcome> => {
+  refreshInFlight ??= runExclusive('beso:refresh', async (): Promise<RefreshOutcome> => {
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',

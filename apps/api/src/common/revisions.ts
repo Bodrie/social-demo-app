@@ -1,4 +1,4 @@
-import type { Revision } from '@the-mesh/shared';
+import type { Revision } from '@beso/shared';
 import type { Keyset } from './pagination.js';
 
 type RevisionRow = { id: string; content: string; editedAt: Date };

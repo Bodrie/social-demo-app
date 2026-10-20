@@ -16,7 +16,7 @@ describe('PostPage', () => {
     const comments = await within(article).findByRole('region', { name: 'Comments' });
     expect(await within(comments).findByText('A comment on it')).toBeInTheDocument();
     expect(within(article).queryByRole('button', { name: /^Comments/ })).toBeNull();
-    expect(document.title).toBe('Post by Bob Brown · The Mesh');
+    expect(document.title).toBe('Post by Bob Brown · BeSo');
   });
 
   it('explains a missing post and refuses a malformed id', async () => {

@@ -7,7 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { Notification, UnreadCount } from '@the-mesh/shared';
+import type { Notification, UnreadCount } from '@beso/shared';
 import {
   fetchNotifications,
   fetchUnreadNotifications,

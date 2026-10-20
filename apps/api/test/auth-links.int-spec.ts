@@ -1,4 +1,4 @@
-import { apiErrorSchema, verifyEmailResponseSchema } from '@the-mesh/shared';
+import { apiErrorSchema, verifyEmailResponseSchema } from '@beso/shared';
 import request from 'supertest';
 import { EmailTokensService } from '../src/auth/email-tokens.service.js';
 import { type TestApp, createTestApp } from './setup/app.js';

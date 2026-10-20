@@ -1,7 +1,7 @@
 # Production stack for one box: Postgres, the API, the web server and the Cloudflare
 # Tunnel. Copy this directory to the server, fill in `.env` (see .env.example) and run
 # `docker compose up -d`. Images come from GHCR (built by .github/workflows/docker.yml).
-name: the-mesh
+name: beso
 
 # Every service logs through Docker's json-file driver, which keeps everything unless told
 # otherwise; the API alone writes a line per request. At most 5 × 20 MB per container.
@@ -17,20 +17,20 @@ services:
     restart: unless-stopped
     logging: *logging
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-mesh}
+      POSTGRES_USER: ${POSTGRES_USER:-beso}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-mesh}
+      POSTGRES_DB: ${POSTGRES_DB:-beso}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-mesh} -d ${POSTGRES_DB:-mesh}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-beso} -d ${POSTGRES_DB:-beso}']
       interval: 10s
       timeout: 5s
       retries: 10
     stop_grace_period: 30s
 
   api:
-    image: ${API_IMAGE:-ghcr.io/bodrie/the-mesh-api}:${TAG:-latest}
+    image: ${API_IMAGE:-ghcr.io/bodrie/beso-api}:${TAG:-latest}
     restart: unless-stopped
     logging: *logging
     depends_on:
@@ -39,7 +39,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: '3000'
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mesh}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mesh}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-beso}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-beso}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       WEB_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL in .env}
       PUBLIC_ASSETS_URL: ${PUBLIC_URL}/api/v1/uploads
@@ -65,7 +65,7 @@ services:
     stop_grace_period: 20s
 
   web:
-    image: ${WEB_IMAGE:-ghcr.io/bodrie/the-mesh-web}:${TAG:-latest}
+    image: ${WEB_IMAGE:-ghcr.io/bodrie/beso-web}:${TAG:-latest}
     restart: unless-stopped
     logging: *logging
     depends_on:

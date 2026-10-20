@@ -1,4 +1,4 @@
-import { type AdminReport, type ReportStatus, adminReportsQuerySchema } from '@the-mesh/shared';
+import { type AdminReport, type ReportStatus, adminReportsQuerySchema } from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { summaryOf } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';

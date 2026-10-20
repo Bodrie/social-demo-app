@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { AccountExport, DeleteAccountData } from '@the-mesh/shared';
+import type { AccountExport, DeleteAccountData } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { EmailTokensService } from '../auth/email-tokens.service.js';
 import { verifyPassword } from '../auth/password.js';

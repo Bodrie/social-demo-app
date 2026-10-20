@@ -7,7 +7,7 @@ import {
   conversationSchema,
   postSchema,
   uploadResponseSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import sharp from 'sharp';
 import { type Socket, io } from 'socket.io-client';
 import request from 'supertest';
@@ -279,9 +279,7 @@ describe('GET /users/me/export', () => {
 
     const response = await agent.get('/api/v1/users/me/export').expect(200);
     expect(response.get('Content-Disposition')).toMatch(
-      new RegExp(
-        `^attachment; filename="the-mesh-export-${me.username}-\\d{4}-\\d{2}-\\d{2}\\.json"$`,
-      ),
+      new RegExp(`^attachment; filename="beso-export-${me.username}-\\d{4}-\\d{2}-\\d{2}\\.json"$`),
     );
     const data = accountExportSchema.parse(response.body);
     expect(data.user.id).toBe(me.id);

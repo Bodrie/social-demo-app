@@ -5,7 +5,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { CreateReportInput, UserPublic } from '@the-mesh/shared';
+import type { CreateReportInput, UserPublic } from '@beso/shared';
 import { toast } from 'sonner';
 import { updateUserEverywhere } from '@/features/users/user-cache';
 import { isApiClientError } from '@/lib/api/client';

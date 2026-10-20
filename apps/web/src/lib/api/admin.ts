@@ -4,7 +4,7 @@ import {
   type ReportStatus,
   adminReportListSchema,
   adminReportSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
 

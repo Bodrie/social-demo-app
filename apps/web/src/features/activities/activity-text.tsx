@@ -1,4 +1,4 @@
-import { APP_NAME, type Activity } from '@the-mesh/shared';
+import { APP_NAME, type Activity } from '@beso/shared';
 import { Link } from 'react-router';
 import { UserLink } from '@/components/user-link';
 

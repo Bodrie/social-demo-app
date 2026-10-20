@@ -1,5 +1,5 @@
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
-import type { Post } from '@the-mesh/shared';
+import type { Post } from '@beso/shared';
 import { EmptyState, ErrorState } from '@/components/empty-state';
 import { type Pages, flattenPages } from '@/lib/infinite';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';

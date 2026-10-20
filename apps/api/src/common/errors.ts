@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import { type ApiError, type ErrorCode, errorCodeSchema } from '@the-mesh/shared';
+import { type ApiError, type ErrorCode, errorCodeSchema } from '@beso/shared';
 import { Prisma } from '../generated/prisma/client.js';
 import { isRecord } from './type-guards.js';
 

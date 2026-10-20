@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Message, MessageReaction, ReactionType } from '@the-mesh/shared';
+import type { Message, MessageReaction, ReactionType } from '@beso/shared';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { clearMessageReaction, editMessage, setMessageReaction } from '@/lib/api/conversations';

@@ -1,4 +1,4 @@
-import { uploadKindSchema, uploadQuerySchema } from '@the-mesh/shared';
+import { uploadKindSchema, uploadQuerySchema } from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 

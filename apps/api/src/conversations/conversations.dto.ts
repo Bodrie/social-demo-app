@@ -9,7 +9,7 @@ import {
   sendMessageSchema,
   setMemberRoleSchema,
   uuidSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 

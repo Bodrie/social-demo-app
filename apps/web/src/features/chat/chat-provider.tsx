@@ -15,7 +15,7 @@ import {
   type TypingUpdate,
   typingUpdateSchema,
   type UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import type { z } from 'zod';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';

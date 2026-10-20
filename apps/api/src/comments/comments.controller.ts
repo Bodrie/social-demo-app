@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Comment, Paginated, ReactionSummary, Revision } from '@the-mesh/shared';
+import type { Comment, Paginated, ReactionSummary, Revision } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, IdParamDto, PostIdParamDto } from '../common/params.dto.js';

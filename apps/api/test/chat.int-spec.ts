@@ -13,7 +13,7 @@ import {
   revisionListSchema,
   typingUpdateSchema,
   uploadResponseSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { JwtService } from '@nestjs/jwt';
 import sharp from 'sharp';
 import { type Socket, io } from 'socket.io-client';

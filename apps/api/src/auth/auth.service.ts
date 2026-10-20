@@ -10,7 +10,7 @@ import type {
   RegisterData,
   Session,
   UserPrivate,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { CAPTCHA, CaptchaUnavailableError, type CaptchaVerifier } from '../captcha/captcha.js';
 import {
   badRequest,

@@ -12,7 +12,7 @@ import {
   type Revision,
   type UpdateCommentData,
   extractEntities,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { forbidden, notFound, validationError } from '../common/errors.js';
 import { emitMentions } from '../common/mentions.js';

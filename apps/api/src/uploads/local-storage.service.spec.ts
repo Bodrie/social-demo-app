@@ -12,7 +12,7 @@ describe('LocalStorageService', () => {
   let storage: LocalStorageService;
 
   beforeAll(async () => {
-    root = await mkdtemp(path.join(os.tmpdir(), 'mesh-storage-'));
+    root = await mkdtemp(path.join(os.tmpdir(), 'beso-storage-'));
     storage = new LocalStorageService({ get: () => root } as unknown as ConfigService<Env, true>);
   });
 

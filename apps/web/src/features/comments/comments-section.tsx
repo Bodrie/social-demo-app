@@ -5,7 +5,7 @@ import {
   type Post,
   type ReactionType,
   type UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { cn } from 'cn';
 import {
   CornerDownRightIcon,

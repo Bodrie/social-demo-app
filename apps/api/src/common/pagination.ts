@@ -1,4 +1,4 @@
-import type { Paginated } from '@the-mesh/shared';
+import type { Paginated } from '@beso/shared';
 import { z } from 'zod';
 import { validationError } from './errors.js';
 

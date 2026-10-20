@@ -1,4 +1,4 @@
-import { type TextToken, type UserSummary, tokenize } from '@the-mesh/shared';
+import { type TextToken, type UserSummary, tokenize } from '@beso/shared';
 import { cn } from 'cn';
 import { Link } from 'react-router';
 import { displayUrl } from '@/lib/format';

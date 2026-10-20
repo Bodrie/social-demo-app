@@ -31,7 +31,7 @@ export function AppShell() {
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
-  // "(3) Home · The Mesh": unread messages and notifications together travel in the tab title.
+  // "(3) Home · BeSo": unread messages and notifications together travel in the tab title.
   useDocumentBadge(useUnreadCount() + useUnreadNotifications());
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 import { Link } from 'react-router';
 import { OPERATOR_NAME } from '@/lib/env';
 import { ContactLine, LegalLayout, LegalList, LegalSection } from './legal-layout';

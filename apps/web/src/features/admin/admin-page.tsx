@@ -3,7 +3,7 @@ import {
   REPORT_REASON_LABELS,
   REPORT_STATUSES,
   type ReportStatus,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { cn } from 'cn';
 import { InboxIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';

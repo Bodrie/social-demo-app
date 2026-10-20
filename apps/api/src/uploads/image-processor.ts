@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { UploadKind } from '@the-mesh/shared';
+import type { UploadKind } from '@beso/shared';
 import sharp from 'sharp';
 import { badRequest, unsupportedMedia } from '../common/errors.js';
 import type { Env } from '../config/env.js';

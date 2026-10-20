@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Paginated, TrendingTag } from '@the-mesh/shared';
+import type { Paginated, TrendingTag } from '@beso/shared';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 /** Tags are "trending" by how many posts carried them in the last week. */

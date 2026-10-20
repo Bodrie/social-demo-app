@@ -16,7 +16,7 @@ import {
   type Revision,
   type SendMessageData,
   type SystemLine,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest, forbidden, notFound } from '../common/errors.js';
 import {

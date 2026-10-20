@@ -1,4 +1,4 @@
-import { type PostEmbed, isAvailableEmbed } from '@the-mesh/shared';
+import { type PostEmbed, isAvailableEmbed } from '@beso/shared';
 import { cn } from 'cn';
 import { Link } from 'react-router';
 import { RichText } from '@/components/rich-text';

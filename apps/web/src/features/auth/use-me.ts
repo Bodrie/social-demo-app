@@ -4,14 +4,14 @@ import {
   queryOptions,
   useQuery,
 } from '@tanstack/react-query';
-import type { MeResponse, UserPrivate } from '@the-mesh/shared';
+import type { MeResponse, UserPrivate } from '@beso/shared';
 import { refreshSession } from '@/lib/api/client';
 import { fetchMe } from '@/lib/api/auth';
 import { queryKeys } from '@/lib/query-keys';
 
 /** How often the waiting room asks whether the address was confirmed on another device. */
 export const UNVERIFIED_POLL_MS = 15_000;
-const SESSION_CHANNEL = 'the-mesh:session';
+const SESSION_CHANNEL = 'beso:session';
 
 /**
  * Every tab shares the cookies, so another tab (or device) may have changed who this one is

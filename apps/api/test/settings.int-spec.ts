@@ -1,4 +1,4 @@
-import { apiErrorSchema, authResponseSchema } from '@the-mesh/shared';
+import { apiErrorSchema, authResponseSchema } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type TestAgent, createUser, login } from './setup/factories.js';

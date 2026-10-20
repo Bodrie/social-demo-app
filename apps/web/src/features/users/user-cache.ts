@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
-import type { UserList, UserPublic } from '@the-mesh/shared';
+import type { UserList, UserPublic } from '@beso/shared';
 import { type Pages, flattenPages, mapItems } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 

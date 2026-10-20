@@ -12,7 +12,7 @@ test.describe('account', () => {
     await page.getByRole('button', { name: 'Download your data' }).click();
     const download = await downloading;
     expect(download.suggestedFilename()).toMatch(
-      new RegExp(`^the-mesh-export-${member.username}-\\d{4}-\\d{2}-\\d{2}\\.json$`),
+      new RegExp(`^beso-export-${member.username}-\\d{4}-\\d{2}-\\d{2}\\.json$`),
     );
 
     await page.getByRole('button', { name: 'Delete account' }).click();

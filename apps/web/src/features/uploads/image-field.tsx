@@ -1,4 +1,4 @@
-import { UPLOAD_LIMITS } from '@the-mesh/shared';
+import { UPLOAD_LIMITS } from '@beso/shared';
 import { cn } from 'cn';
 import { ImageIcon, Loader2Icon } from 'lucide-react';
 import { type ChangeEvent, useRef } from 'react';

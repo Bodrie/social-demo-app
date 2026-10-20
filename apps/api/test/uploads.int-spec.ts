@@ -1,9 +1,4 @@
-import {
-  apiErrorSchema,
-  meResponseSchema,
-  postSchema,
-  uploadResponseSchema,
-} from '@the-mesh/shared';
+import { apiErrorSchema, meResponseSchema, postSchema, uploadResponseSchema } from '@beso/shared';
 import sharp from 'sharp';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';

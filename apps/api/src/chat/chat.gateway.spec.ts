@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { Notification, UserSummary } from '@the-mesh/shared';
+import type { Notification, UserSummary } from '@beso/shared';
 import type { Server } from 'socket.io';
 import { mockDeep } from 'vitest-mock-extended';
 import type { Env } from '../config/env.js';

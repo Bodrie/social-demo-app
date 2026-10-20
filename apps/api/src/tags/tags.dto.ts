@@ -1,4 +1,4 @@
-import { hashtagSchema, trendingQuerySchema } from '@the-mesh/shared';
+import { hashtagSchema, trendingQuerySchema } from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 

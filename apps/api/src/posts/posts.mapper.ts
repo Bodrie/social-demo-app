@@ -1,4 +1,4 @@
-import type { Post, PostEmbed } from '@the-mesh/shared';
+import type { Post, PostEmbed } from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 

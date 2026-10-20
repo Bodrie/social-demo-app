@@ -5,7 +5,7 @@ import {
   deleteAccountSchema,
   updateProfileSchema,
   updateSettingsSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { TEST_PASSWORD, summaryOf, testId } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';

@@ -1,9 +1,4 @@
-import {
-  type Conversation,
-  type Message,
-  type SystemLine,
-  systemLineSchema,
-} from '@the-mesh/shared';
+import { type Conversation, type Message, type SystemLine, systemLineSchema } from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 

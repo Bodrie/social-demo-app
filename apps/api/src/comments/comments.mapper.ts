@@ -3,7 +3,7 @@ import {
   REACTION_TYPES,
   type ReactionSummary,
   type ReactionType,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { mentionsSelect } from '../posts/posts.mapper.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';

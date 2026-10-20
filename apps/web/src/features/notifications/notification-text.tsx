@@ -1,4 +1,4 @@
-import type { Notification } from '@the-mesh/shared';
+import type { Notification } from '@beso/shared';
 import { Excerpt } from '@/features/activities/activity-text';
 import { UserLink } from '@/components/user-link';
 

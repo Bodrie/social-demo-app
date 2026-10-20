@@ -1,9 +1,4 @@
-import {
-  apiErrorSchema,
-  meResponseSchema,
-  userListSchema,
-  userPublicSchema,
-} from '@the-mesh/shared';
+import { apiErrorSchema, meResponseSchema, userListSchema, userPublicSchema } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { resetDatabase } from './setup/database.js';

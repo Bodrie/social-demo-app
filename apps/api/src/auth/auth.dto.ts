@@ -7,7 +7,7 @@ import {
   registerSchema,
   resetPasswordSchema,
   verifyEmailSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 
 export class RegisterDto extends createZodDto(registerSchema) {}

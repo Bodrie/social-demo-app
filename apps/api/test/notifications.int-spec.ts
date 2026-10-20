@@ -4,7 +4,7 @@ import {
   notificationListSchema,
   postSchema,
   unreadCountSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { type Socket, io } from 'socket.io-client';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';

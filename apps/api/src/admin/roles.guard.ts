@@ -1,6 +1,6 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { UserRole } from '@the-mesh/shared';
+import type { UserRole } from '@beso/shared';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
 import { forbidden } from '../common/errors.js';
 import { ROLES_KEY } from './roles.decorator.js';

@@ -1,4 +1,4 @@
-import type { Message, SendMessageInput, UserSummary } from '@the-mesh/shared';
+import type { Message, SendMessageInput, UserSummary } from '@beso/shared';
 import { createContext, useContext } from 'react';
 
 /** What the receiving tab knew when a message was pushed. */

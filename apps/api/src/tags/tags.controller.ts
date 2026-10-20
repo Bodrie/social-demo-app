@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Paginated, Post, TrendingTag } from '@the-mesh/shared';
+import type { Paginated, Post, TrendingTag } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { FeedQueryDto } from '../posts/posts.dto.js';

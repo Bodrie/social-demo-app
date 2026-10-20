@@ -1,4 +1,4 @@
-import { type CommentSort, commentSortSchema, uuidSchema } from '@the-mesh/shared';
+import { type CommentSort, commentSortSchema, uuidSchema } from '@beso/shared';
 import { FileXIcon } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { EmptyState, ErrorState } from '@/components/empty-state';

@@ -13,7 +13,7 @@ import type {
   Revision,
   UserPrivate,
   UserPublic,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { alice, bob, carol, makePost, resetFixtureSequence, testId } from '../fixtures';
 
 type Follow = { followerId: string; followingId: string };

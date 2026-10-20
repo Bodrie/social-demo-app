@@ -23,7 +23,7 @@ import {
   markReadPayloadSchema,
   sendMessagePayloadSchema,
   typingPayloadSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { fieldsFromIssues, toApiError } from '../common/errors.js';
 import type { Env } from '../config/env.js';

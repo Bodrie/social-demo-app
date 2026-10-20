@@ -1,4 +1,4 @@
-import { UPLOAD_LIMITS, type UploadKind, type UploadResponse } from '@the-mesh/shared';
+import { UPLOAD_LIMITS, type UploadKind, type UploadResponse } from '@beso/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isApiClientError } from '@/lib/api/client';
 import { uploadImage } from '@/lib/api/uploads';

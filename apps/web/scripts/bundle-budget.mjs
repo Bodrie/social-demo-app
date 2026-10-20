@@ -13,7 +13,7 @@ import path from 'node:path';
 // threads: the fold, the nested list and the reply composer live in the comments section, which
 // the feed's card renders on demand but which shares every primitive with the card, so splitting
 // it off only added chunk overhead; measured 250.1 kB after D1 + C2. E1's zod/mini build of
-// `@the-mesh/shared` is the planned way back under 250).
+// `@beso/shared` is the planned way back under 250).
 const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 252);
 const dist = path.resolve(import.meta.dirname, '../dist');
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8');

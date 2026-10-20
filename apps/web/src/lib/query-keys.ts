@@ -1,4 +1,4 @@
-import type { CommentSort } from '@the-mesh/shared';
+import type { CommentSort } from '@beso/shared';
 
 /**
  * Query key factory. Every key starts with its feature so invalidation can be scoped,

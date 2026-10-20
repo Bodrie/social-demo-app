@@ -5,7 +5,7 @@
  */
 /* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/click-events-have-key-events */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import type { UserSummary } from '@the-mesh/shared';
+import type { UserSummary } from '@beso/shared';
 import { cn } from 'cn';
 import {
   type ChangeEvent,

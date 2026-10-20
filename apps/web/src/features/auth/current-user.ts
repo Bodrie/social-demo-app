@@ -1,4 +1,4 @@
-import type { UserPrivate } from '@the-mesh/shared';
+import type { UserPrivate } from '@beso/shared';
 import { createContext, useContext } from 'react';
 
 /**

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Post, UpdateProfileInput, UserSummary } from '@the-mesh/shared';
+import type { Post, UpdateProfileInput, UserSummary } from '@beso/shared';
 import { setMe } from '@/features/auth/use-me';
 import { updateProfile } from '@/lib/api/users';
 import { type Pages, mapItems } from '@/lib/infinite';

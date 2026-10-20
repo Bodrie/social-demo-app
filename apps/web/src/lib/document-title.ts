@@ -1,8 +1,8 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 
 /**
  * `document.title` has two owners: the page sets its name, the chat sets the unread badge in
- * front of it ("(3) Messages · The Mesh"). Both go through here so neither overwrites the other.
+ * front of it ("(3) Messages · BeSo"). Both go through here so neither overwrites the other.
  */
 const state = { title: '', badge: 0 };
 

@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SOCKET_EVENTS } from '@the-mesh/shared';
+import { SOCKET_EVENTS } from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { deferred } from '@/test/deferred';
 import { alice, bob, carol, makeMessage, summaryOf } from '@/test/fixtures';

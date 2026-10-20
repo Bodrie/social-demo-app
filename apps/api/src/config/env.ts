@@ -82,7 +82,7 @@ export const envSchema = z.object({
   EMAIL_TRANSPORT: z.enum(['outbox', 'smtp']).default('outbox'),
   /** SMTP submission URL, e.g. smtps://resend:<api key>@smtp.resend.com:465 */
   SMTP_URL: z.url().optional(),
-  EMAIL_FROM: z.string().min(3).default('The Mesh <noreply@localhost>'),
+  EMAIL_FROM: z.string().min(3).default('BeSo <noreply@localhost>'),
   EMAIL_OUTBOX_DIR: z.string().min(1).default('./outbox'),
   /**
    * Cloudflare Turnstile secret: with it, registration needs a passed bot check. Without it the

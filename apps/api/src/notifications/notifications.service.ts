@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { CursorQuery, Notification, Paginated, UnreadCount } from '@the-mesh/shared';
+import type { CursorQuery, Notification, Paginated, UnreadCount } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';

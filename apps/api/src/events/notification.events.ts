@@ -1,4 +1,4 @@
-import type { Notification } from '@the-mesh/shared';
+import type { Notification } from '@beso/shared';
 
 /** A notification was written (or refreshed) for `userId`; the gateway pushes it to their sockets. */
 export class NotificationCreatedEvent {

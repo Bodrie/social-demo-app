@@ -1,4 +1,4 @@
-import type { Notification } from '@the-mesh/shared';
+import type { Notification } from '@beso/shared';
 import { cn } from 'cn';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';

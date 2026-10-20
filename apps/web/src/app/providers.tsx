@@ -24,7 +24,7 @@ export function Providers({ children, queryClient: providedClient }: ProvidersPr
         attribute="class"
         defaultTheme="system"
         enableSystem
-        storageKey="the-mesh:theme"
+        storageKey="beso:theme"
         disableTransitionOnChange
       >
         <TooltipProvider delayDuration={300}>{children}</TooltipProvider>

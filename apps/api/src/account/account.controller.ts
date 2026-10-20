@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { AccountExport } from '@the-mesh/shared';
+import type { AccountExport } from '@beso/shared';
 import type { Response } from 'express';
 import { AllowUnverified } from '../auth/allow-unverified.decorator.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -32,7 +32,7 @@ export class AccountController {
     const date = data.exportedAt.slice(0, 10);
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="the-mesh-export-${data.user.username}-${date}.json"`,
+      `attachment; filename="beso-export-${data.user.username}-${date}.json"`,
     );
     return data;
   }

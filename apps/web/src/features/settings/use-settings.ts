@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { MeResponse, UpdateSettingsInput } from '@the-mesh/shared';
+import type { MeResponse, UpdateSettingsInput } from '@beso/shared';
 import { toast } from 'sonner';
 import { setMe, updateMe } from '@/features/auth/use-me';
 import { updateSettings } from '@/lib/api/users';

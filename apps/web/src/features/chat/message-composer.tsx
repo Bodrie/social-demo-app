@@ -1,4 +1,4 @@
-import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
+import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@beso/shared';
 import { ImageIcon, SendIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';

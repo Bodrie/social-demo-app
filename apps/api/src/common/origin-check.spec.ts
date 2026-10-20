@@ -10,8 +10,8 @@ describe('originAllowed', () => {
 
   it('accepts the API host itself on either scheme (Swagger UI, single origin behind Caddy)', () => {
     expect(originAllowed('http://localhost:3000', ALLOWED, 'localhost:3000')).toBe(true);
-    expect(originAllowed('https://mesh.example.com', ALLOWED, 'mesh.example.com')).toBe(true);
-    expect(originAllowed('https://mesh.example.com', ALLOWED, 'other.example.com')).toBe(false);
+    expect(originAllowed('https://beso.example.com', ALLOWED, 'beso.example.com')).toBe(true);
+    expect(originAllowed('https://beso.example.com', ALLOWED, 'other.example.com')).toBe(false);
   });
 
   it('lets requests without an Origin through and refuses foreign or null origins', () => {

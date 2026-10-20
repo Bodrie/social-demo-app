@@ -1,4 +1,4 @@
-import { POST_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
+import { POST_MAX_LENGTH, UPLOAD_LIMITS } from '@beso/shared';
 import { ImageIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';

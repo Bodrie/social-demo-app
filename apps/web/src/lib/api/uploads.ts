@@ -1,4 +1,4 @@
-import { type UploadKind, type UploadResponse, uploadResponseSchema } from '@the-mesh/shared';
+import { type UploadKind, type UploadResponse, uploadResponseSchema } from '@beso/shared';
 import { api } from './client';
 
 /** Sends one image as multipart; the API re-encodes it and answers with the storage key. */

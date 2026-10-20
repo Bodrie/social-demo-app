@@ -7,7 +7,7 @@ import type {
   ReactionType,
   SystemLine,
   UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { firstName } from '@/lib/names';
 
 export function otherMembers(conversation: Conversation, meId: string): ConversationMember[] {

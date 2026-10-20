@@ -17,7 +17,7 @@ import type {
   ConfirmEmailChangeResponse,
   SessionList,
   VerifyEmailResponse,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { IdParamDto } from '../common/params.dto.js';
 import type { Request, Response } from 'express';
 import { AllowUnverified } from './allow-unverified.decorator.js';

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { uploadResponseSchema } from '@the-mesh/shared';
+import { uploadResponseSchema } from '@beso/shared';
 import sharp from 'sharp';
 import request from 'supertest';
 import { EmailTokensService } from '../src/auth/email-tokens.service.js';

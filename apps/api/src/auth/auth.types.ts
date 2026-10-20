@@ -1,4 +1,4 @@
-import { type UserRole, userRoleSchema } from '@the-mesh/shared';
+import { type UserRole, userRoleSchema } from '@beso/shared';
 import type { Request } from 'express';
 import { z } from 'zod';
 

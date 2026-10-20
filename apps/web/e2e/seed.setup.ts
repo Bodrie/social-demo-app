@@ -11,7 +11,7 @@ import { OUTBOX_DIR } from './helpers.js';
  */
 setup('reset and seed the database', () => {
   rmSync(OUTBOX_DIR, { recursive: true, force: true });
-  execFileSync('pnpm', ['--filter', '@the-mesh/api', 'db:seed'], {
+  execFileSync('pnpm', ['--filter', '@beso/api', 'db:seed'], {
     cwd: path.resolve(import.meta.dirname, '../../..'),
     stdio: 'inherit',
     timeout: 180_000,
