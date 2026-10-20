@@ -16,7 +16,9 @@ export type ActivityType = z.infer<typeof activityTypeSchema>;
 
 export const ACTIVITY_EXCERPT_LENGTH = 80;
 
-const excerptSchema = z.object({ id: z.uuid(), excerpt: z.string() });
+/** A post or comment named by its id and the start of its text (activities, notifications). */
+export const excerptSchema = z.object({ id: z.uuid(), excerpt: z.string() });
+export type Excerpt = z.infer<typeof excerptSchema>;
 
 /** Something a followed user did. Subjects are present depending on `type`. */
 export const activitySchema = z.object({

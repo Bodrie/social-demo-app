@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AccountService, UNVERIFIED_ACCOUNT_POLICY } from '../account/account.service.js';
 import { EmailTokensService } from '../auth/email-tokens.service.js';
 import { RefreshTokensService } from '../auth/refresh-tokens.service.js';
+import {
+  NOTIFICATION_RETENTION_DAYS,
+  NotificationsService,
+} from '../notifications/notifications.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -31,6 +35,7 @@ export class JobsService {
     refreshTokens: RefreshTokensService,
     account: AccountService,
     uploads: UploadsService,
+    notifications: NotificationsService,
   ) {
     const { warnAfterDays, deleteAfterDays } = UNVERIFIED_ACCOUNT_POLICY;
     this.jobs = [
@@ -47,6 +52,11 @@ export class JobsService {
       {
         name: 'orphaned uploads',
         run: (now) => uploads.deleteOrphans(before(now, ORPHAN_UPLOAD_GRACE_MS)),
+      },
+      {
+        name: 'old notifications',
+        run: (now) =>
+          notifications.deleteOlderThan(before(now, NOTIFICATION_RETENTION_DAYS * DAY_MS)),
       },
     ];
   }

@@ -51,7 +51,7 @@ A4  review-pass completion + cheap Low items ✅ 2026-10-19  ─┐
 B3a chat bubbles                    ✅ 2026-10-19           │  v2.4
 B3b chat follow-ups                 ✅ 2026-10-19           ─┘
 C6  scheduler + reapers             ✅ 2026-10-20          ─┐
-B4  notifications                                           │  v2.5
+B4  notifications                   ✅ 2026-10-20           │  v2.5
 C3  bookmarks (a) + reposts (b)                            ─┘
 B5  moderation (a: block/mute/report, b: admin queue)      ─┐
 D1  email change, sessions list                             │  v2.6
@@ -253,7 +253,13 @@ carol's phone viewport; axe on the open state (bubbles + one window) in both the
 - **Conversations pagination** (backlog): keyset on `(last_message_at, id)`, `nextCursor` on `GET /conversations`, the list loads more on scroll. No schema change.
 - Seed: a deleted message and a system line in "Weekend plans". Tests: int (delete rules and push, roles and 403s, last-admin promotion, system lines, pagination), gateway spec for the new pushes, web (bubble states, pill, title badge, dialog actions), e2e extension of `chat.spec.ts` (delete seen by the other browser, rename).
 
-### B4. Notifications · L · ADR 0015 "Notifications"
+### B4. Notifications · L · ADR 0015 "Notifications" · ✅ 2026-10-20
+
+*Built as planned, with two deviations recorded in the ADR: no `NULLS NOT DISTINCT` unique and
+no partial index (Prisma cannot declare them; the service de-duplicates by lookup, comment
+types store `post_id` too, a plain `(user_id, read_at)` index serves the count), and the push
+is handled by `ChatProvider` itself (`receiveNotification`) rather than a subscription API
+nothing else needs yet. `POST_REPOSTED` arrives with C3b.*
 
 - Migration `notifications`: `notifications(id uuid7, user_id, type enum, actor_id, post_id?, comment_id?, read_at?, created_at)`, indexes `(user_id, created_at desc, id desc)` and a partial `(user_id) where read_at is null`, unique `(user_id, type, actor_id, post_id, comment_id)` nulls-not-distinct so like → unlike → like does not multiply rows. Types: `POST_LIKED`, `POST_COMMENTED`, `COMMENT_REACTED`, `USER_FOLLOWED`, `MENTIONED_IN_POST`, `MENTIONED_IN_COMMENT`, `POST_REPOSTED` (C3b), later `COMMENT_REPLIED` (C2). Chat stays out: it has its own unread counts and bubbles.
 - `NotificationsListener` modelled on `ActivitiesListener`: subscribes to `PostLikedEvent`, `CommentCreatedEvent` (recipient = post author), a new `CommentReactedEvent` (emitted by `CommentsService.react` on a new reaction), `UserFollowedEvent`, `UserMentionedEvent` (B1), `PostRepostedEvent` (C3b); never notifies the actor about themselves; `PostUnlikedEvent`/`UserUnfollowedEvent`/`PostUnrepostedEvent` delete the row (same as activities). Coalescing ("alice and 3 others liked…") is deliberately v2: the unique key makes it possible later without a migration.

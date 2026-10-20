@@ -1,10 +1,11 @@
 import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { UserSummary } from '@the-mesh/shared';
+import type { Notification, UserSummary } from '@the-mesh/shared';
 import type { Server } from 'socket.io';
 import { mockDeep } from 'vitest-mock-extended';
 import type { Env } from '../config/env.js';
 import type { ConversationsService } from '../conversations/conversations.service.js';
+import { NotificationCreatedEvent } from '../events/notification.events.js';
 import type { UsersService } from '../users/users.service.js';
 import {
   CONNECT_LIMIT,
@@ -71,6 +72,24 @@ describe('ChatGateway', () => {
   afterEach(() => {
     gateway.onModuleDestroy();
     vi.useRealTimers();
+  });
+
+  it('pushes a new notification to the recipient alone', () => {
+    const recipient = summary(1);
+    const notification: Notification = {
+      id: '0199b6a0-0000-7000-8000-0000000000aa',
+      type: 'POST_LIKED',
+      actor: summary(2),
+      post: { id: '0199b6a0-0000-7000-8000-0000000000bb', excerpt: 'Hello' },
+      comment: null,
+      readAt: null,
+      createdAt: '2026-10-20T10:00:00.000Z',
+    };
+
+    gateway.onNotificationCreated(new NotificationCreatedEvent(recipient.id, notification));
+
+    expect(server.to).toHaveBeenCalledWith([`user:${recipient.id}`]);
+    expect(broadcast).toHaveBeenCalledWith('notification:new', notification);
   });
 
   it('survives a failing lookup at connection: logs, closes the transport, registers nothing', async () => {

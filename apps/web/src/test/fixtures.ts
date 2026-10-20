@@ -4,6 +4,8 @@ import type {
   ActivityType,
   Comment,
   Message,
+  Notification,
+  NotificationType,
   Post,
   UserPrivate,
   UserSummary,
@@ -16,7 +18,7 @@ let sequence = 0;
 
 /** Deterministic, valid (v7-shaped) UUIDs so failures are readable. */
 export function testId(
-  kind: 'user' | 'post' | 'comment' | 'activity' | 'message' | 'conversation',
+  kind: 'user' | 'post' | 'comment' | 'activity' | 'message' | 'conversation' | 'notification',
   n: number,
 ): string {
   const prefix = {
@@ -26,6 +28,7 @@ export function testId(
     activity: '01a14100',
     message: '01a14200',
     conversation: '01a14300',
+    notification: '01a14400',
   }[kind];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
@@ -120,6 +123,24 @@ export function makeActivity(type: ActivityType, overrides: Partial<Activity> = 
     post: null,
     comment: null,
     targetUser: null,
+    createdAt: new Date(BASE_TIME - sequence * 60_000).toISOString(),
+    ...overrides,
+  };
+}
+
+/** Each call is one minute older than the previous one, so a list reads newest first; unread by default. */
+export function makeNotification(
+  type: NotificationType,
+  overrides: Partial<Notification> = {},
+): Notification {
+  sequence += 1;
+  return {
+    id: testId('notification', sequence),
+    type,
+    actor: summaryOf(bob),
+    post: null,
+    comment: null,
+    readAt: null,
     createdAt: new Date(BASE_TIME - sequence * 60_000).toISOString(),
     ...overrides,
   };

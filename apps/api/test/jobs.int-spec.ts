@@ -111,6 +111,30 @@ describe('daily jobs', () => {
     );
   });
 
+  it('forgets notifications older than ninety days, read or not', async () => {
+    const member = await createUser(t.prisma);
+    const fan = await createUser(t.prisma);
+    await t.prisma.notification.createMany({
+      data: [
+        { userId: member.id, type: 'USER_FOLLOWED', actorId: fan.id, createdAt: ago(91 * DAY) },
+        {
+          userId: fan.id,
+          type: 'USER_FOLLOWED',
+          actorId: member.id,
+          createdAt: ago(89 * DAY),
+          readAt: ago(88 * DAY),
+        },
+      ],
+    });
+
+    await jobs.runDaily(now);
+
+    const left = await t.prisma.notification.findMany({
+      where: { userId: { in: [member.id, fan.id] } },
+    });
+    expect(left.map((row) => row.userId)).toEqual([fan.id]);
+  });
+
   it('warns an unconfirmed account once, with a working link and the removal date', async () => {
     const waiting = await createUser(t.prisma, { emailVerifiedAt: null });
     const young = await createUser(t.prisma, { emailVerifiedAt: null });

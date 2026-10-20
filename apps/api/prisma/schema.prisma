@@ -50,6 +50,8 @@ model User {
   emailTokens      EmailToken[]
   postMentions     PostMention[]
   commentMentions  CommentMention[]
+  notifications    Notification[]       @relation("NotificationRecipient")
+  notificationsSent Notification[]      @relation("NotificationActor")
 
   @@map("users")
 }
@@ -91,13 +93,14 @@ model Post {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  comments   Comment[]
-  likes      PostLike[]
-  activities Activity[]
-  revisions  PostRevision[]
-  mentions   PostMention[]
-  hashtags   PostHashtag[]
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  likes         PostLike[]
+  activities    Activity[]
+  revisions     PostRevision[]
+  mentions      PostMention[]
+  hashtags      PostHashtag[]
+  notifications Notification[]
 
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
@@ -172,12 +175,13 @@ model Comment {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  post       Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author     User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  activities Activity[]
-  revisions  CommentRevision[]
-  reactions  CommentReaction[]
-  mentions   CommentMention[]
+  post          Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  activities    Activity[]
+  revisions     CommentRevision[]
+  reactions     CommentReaction[]
+  mentions      CommentMention[]
+  notifications Notification[]
 
   @@index([postId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([postId, reactionsCount(sort: Desc), createdAt(sort: Desc), id(sort: Desc)])
@@ -304,6 +308,42 @@ model Activity {
   @@index([actorId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
   @@map("activities")
+}
+
+enum NotificationType {
+  POST_LIKED
+  POST_COMMENTED
+  COMMENT_REACTED
+  USER_FOLLOWED
+  MENTIONED_IN_POST
+  MENTIONED_IN_COMMENT
+
+  @@map("notification_type")
+}
+
+/// What happened to a member's own things (ADR 0015). Written by NotificationsListener from
+/// domain events, never by clients; one row per (recipient, type, actor, post, comment), so a
+/// repeated event refreshes the row instead of adding one. `post_id` is set for every type
+/// but a follow, so the unique key has no nulls to worry about there.
+model Notification {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  actorId   String           @map("actor_id") @db.Uuid
+  postId    String?          @map("post_id") @db.Uuid
+  commentId String?          @map("comment_id") @db.Uuid
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user    User     @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor   User     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, actorId, postId, commentId])
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, readAt])
+  @@map("notifications")
 }
 
 model RefreshToken {

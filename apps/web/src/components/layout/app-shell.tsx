@@ -4,6 +4,7 @@ import { Outlet, ScrollRestoration, useLocation, useMatches } from 'react-router
 import { useCurrentUser } from '@/features/auth/current-user';
 import { ChatBubbles } from '@/features/chat/bubbles/chat-bubbles';
 import { useUnreadCount } from '@/features/chat/use-conversations';
+import { useUnreadNotifications } from '@/features/notifications/use-notifications';
 import { useDocumentBadge } from '@/lib/use-document-badge';
 import { Header } from './header';
 import { LeftBar } from './left-bar';
@@ -30,8 +31,8 @@ export function AppShell() {
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
-  // "(3) Home · The Mesh": the unread total travels in the tab title.
-  useDocumentBadge(useUnreadCount());
+  // "(3) Home · The Mesh": unread messages and notifications together travel in the tab title.
+  useDocumentBadge(useUnreadCount() + useUnreadNotifications());
 
   useEffect(() => {
     if (previousPath.current === pathname) return;

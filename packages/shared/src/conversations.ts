@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiErrorSchema } from './errors.js';
 import { uuidSchema } from './common.js';
+import type { Notification } from './notifications.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
 import { messageImageKeySchema } from './uploads.js';
 import { userSummarySchema } from './users.js';
@@ -167,6 +168,8 @@ export const SOCKET_EVENTS = {
   typing: 'typing',
   /** server → client (the other members): TypingUpdate. */
   typingUpdate: 'typing:update',
+  /** server → client (the recipient): a Notification that was just written (ADR 0015). */
+  notificationNew: 'notification:new',
   /** server → client: an ApiError raised by a handler outside the ack flow. */
   exception: 'exception',
 } as const;
@@ -222,6 +225,7 @@ export type ServerToClientEvents = {
   [SOCKET_EVENTS.conversationUpdate]: (payload: ConversationRef) => void;
   [SOCKET_EVENTS.conversationRemoved]: (payload: ConversationRef) => void;
   [SOCKET_EVENTS.typingUpdate]: (payload: TypingUpdate) => void;
+  [SOCKET_EVENTS.notificationNew]: (notification: Notification) => void;
   [SOCKET_EVENTS.exception]: (error: z.infer<typeof apiErrorSchema>) => void;
 };
 

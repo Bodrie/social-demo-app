@@ -3,6 +3,7 @@ import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
 import type { AccountService } from '../account/account.service.js';
 import type { EmailTokensService } from '../auth/email-tokens.service.js';
 import type { RefreshTokensService } from '../auth/refresh-tokens.service.js';
+import type { NotificationsService } from '../notifications/notifications.service.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
 import { JobsService } from './jobs.service.js';
 
@@ -13,6 +14,7 @@ describe('JobsService.runDaily', () => {
   let refreshTokens: DeepMockProxy<RefreshTokensService>;
   let account: DeepMockProxy<AccountService>;
   let uploads: DeepMockProxy<UploadsService>;
+  let notifications: DeepMockProxy<NotificationsService>;
   let service: JobsService;
 
   beforeAll(() => {
@@ -24,12 +26,14 @@ describe('JobsService.runDaily', () => {
     refreshTokens = mockDeep<RefreshTokensService>();
     account = mockDeep<AccountService>();
     uploads = mockDeep<UploadsService>();
+    notifications = mockDeep<NotificationsService>();
     emailTokens.deleteExpired.mockResolvedValue(0);
     refreshTokens.deleteExpired.mockResolvedValue(0);
     account.eraseUnverified.mockResolvedValue(0);
     account.warnUnverified.mockResolvedValue(0);
     uploads.deleteOrphans.mockResolvedValue(0);
-    service = new JobsService(emailTokens, refreshTokens, account, uploads);
+    notifications.deleteOlderThan.mockResolvedValue(0);
+    service = new JobsService(emailTokens, refreshTokens, account, uploads, notifications);
   });
 
   it('runs every job with the cut-offs of the retention policy', async () => {
@@ -40,6 +44,9 @@ describe('JobsService.runDaily', () => {
     expect(account.eraseUnverified).toHaveBeenCalledWith(new Date('2026-09-20T04:00:00.000Z'));
     expect(account.warnUnverified).toHaveBeenCalledWith(new Date('2026-09-27T04:00:00.000Z'), now);
     expect(uploads.deleteOrphans).toHaveBeenCalledWith(new Date('2026-10-19T04:00:00.000Z'));
+    expect(notifications.deleteOlderThan).toHaveBeenCalledWith(
+      new Date('2026-07-22T04:00:00.000Z'),
+    );
   });
 
   it('goes on after a failing job', async () => {

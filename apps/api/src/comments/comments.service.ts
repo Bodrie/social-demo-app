@@ -25,7 +25,7 @@ import {
   paginateWith,
 } from '../common/pagination.js';
 import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
-import { CommentCreatedEvent } from '../events/comment.events.js';
+import { CommentCreatedEvent, CommentReactedEvent } from '../events/comment.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PostsService } from '../posts/posts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -187,10 +187,17 @@ export class CommentsService {
     return paginateBy(rows, query.limit, revisionKey, toRevision);
   }
 
-  /** Sets (or switches) the viewer's reaction. Idempotent for the same type. */
+  /**
+   * Sets (or switches) the viewer's reaction. Idempotent for the same type; only the first
+   * reaction of a person on a comment is an event (notifications), a switch is not.
+   */
   async react(viewerId: string, commentId: string, type: ReactionType): Promise<ReactionSummary> {
-    await this.assertExists(commentId);
-    await this.prisma.$transaction(async (tx) => {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { postId: true, authorId: true },
+    });
+    if (!comment) throw notFound('Comment not found');
+    const created = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.commentReaction.findUnique({
         where: { commentId_userId: { commentId, userId: viewerId } },
         select: { type: true },
@@ -201,13 +208,22 @@ export class CommentsService {
           where: { id: commentId },
           data: { reactionsCount: { increment: 1 } },
         });
-      } else if (existing.type !== type) {
+        return true;
+      }
+      if (existing.type !== type) {
         await tx.commentReaction.update({
           where: { commentId_userId: { commentId, userId: viewerId } },
           data: { type },
         });
       }
+      return false;
     });
+    if (created) {
+      await this.events.emitAsync(
+        CommentReactedEvent.EVENT,
+        new CommentReactedEvent(commentId, comment.postId, viewerId, comment.authorId),
+      );
+    }
     return this.summary(viewerId, commentId);
   }
 

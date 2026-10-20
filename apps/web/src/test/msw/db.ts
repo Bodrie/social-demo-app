@@ -4,6 +4,7 @@ import type {
   ConversationKind,
   ConversationRole,
   Message,
+  Notification,
   Post,
   ReactionSummary,
   ReactionType,
@@ -42,6 +43,8 @@ export const mockDb = {
   posts: [] as Post[],
   comments: [] as Comment[],
   activities: [] as Activity[],
+  /** The signed-in user's notifications, newest first (the handlers do not filter by recipient). */
+  notifications: [] as Notification[],
   conversations: [] as MockConversation[],
   messages: [] as Message[],
   reactions: [] as { commentId: string; userId: string; type: ReactionType }[],
@@ -61,6 +64,7 @@ export const mockDb = {
     forgot: 0,
     exports: 0,
     deletions: 0,
+    notificationsRead: 0,
   },
 };
 
@@ -74,6 +78,7 @@ export function resetMockDb(): void {
   mockDb.posts = [];
   mockDb.comments = [];
   mockDb.activities = [];
+  mockDb.notifications = [];
   mockDb.conversations = [];
   conversationSequence = 0;
   mockDb.messages = [];
@@ -92,6 +97,7 @@ export function resetMockDb(): void {
     forgot: 0,
     exports: 0,
     deletions: 0,
+    notificationsRead: 0,
   };
   resetFixtureSequence();
 }

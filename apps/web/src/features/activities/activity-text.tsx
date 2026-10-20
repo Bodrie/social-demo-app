@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { UserLink } from '@/components/user-link';
 
 /** The quoted text, leading to the post (and to the comment on it) when there is one to open. */
-function Excerpt({ text, to }: { text: string; to: string | null }) {
+export function Excerpt({ text, to }: { text: string; to: string | null }) {
   return to ? (
     <Link to={to} className="text-muted-foreground hover:underline">
       “{text}”

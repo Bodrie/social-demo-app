@@ -37,6 +37,7 @@ import {
   MessageDeletedEvent,
   MessageSentEvent,
 } from '../events/conversation.events.js';
+import { NotificationCreatedEvent } from '../events/notification.events.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
 import { UsersService } from '../users/users.service.js';
 import { authenticateSocket } from './handshake.js';
@@ -313,6 +314,12 @@ export class ChatGateway
     const payload: ConversationRef = { conversationId: event.conversationId };
     this.emitTo(event.memberIds, SOCKET_EVENTS.conversationUpdate, payload);
     this.emitTo([event.userId], SOCKET_EVENTS.conversationRemoved, payload);
+  }
+
+  /** The recipient's tabs raise their bell; the item itself travels so no refetch is needed. */
+  @OnEvent(NotificationCreatedEvent.EVENT)
+  onNotificationCreated(event: NotificationCreatedEvent): void {
+    this.emitTo([event.userId], SOCKET_EVENTS.notificationNew, event.notification);
   }
 
   /** logout-all or refresh-token reuse: every open socket of the user is cut. */

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { NotificationBell } from '@/features/notifications/notification-bell';
 import { SearchBox } from '@/features/search/search-box';
 import { LeftBar } from './left-bar';
 import { ThemeToggle } from './theme-toggle';
@@ -49,6 +50,7 @@ export function Header() {
         <Logo />
         <div className="flex-1" />
         <SearchBox className="hidden w-64 md:block" />
+        <NotificationBell />
         <ThemeToggle />
         <UserMenu />
       </div>

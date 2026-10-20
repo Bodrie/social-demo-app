@@ -1,6 +1,7 @@
 import { activityHandlers } from './activities';
 import { conversationHandlers } from './conversations';
 import { authHandlers } from './auth';
+import { notificationHandlers } from './notifications';
 import { postHandlers } from './posts';
 import { tagHandlers } from './tags';
 import { userHandlers } from './users';
@@ -14,6 +15,7 @@ export const handlers = [
   ...postHandlers,
   ...userHandlers,
   ...activityHandlers,
+  ...notificationHandlers,
   ...conversationHandlers,
   ...tagHandlers,
 ];

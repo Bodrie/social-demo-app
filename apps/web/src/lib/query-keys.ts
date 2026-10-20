@@ -49,6 +49,12 @@ export const queryKeys = {
     all: ['activities'] as const,
     list: ['activities', 'list'] as const,
   },
+  notifications: {
+    all: ['notifications'] as const,
+    list: ['notifications', 'list'] as const,
+    /** `{ count }` of the unread ones: the bell, the nav badge and the tab title. */
+    unread: ['notifications', 'unread'] as const,
+  },
   conversations: {
     all: ['conversations'] as const,
     list: ['conversations', 'list'] as const,

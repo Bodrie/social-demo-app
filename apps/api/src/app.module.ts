@@ -20,6 +20,7 @@ import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SearchModule } from './search/search.module.js';
@@ -63,6 +64,7 @@ import { UsersModule } from './users/users.module.js';
     SearchModule,
     FollowsModule,
     ActivitiesModule,
+    NotificationsModule,
     ConversationsModule,
     ChatModule,
     JobsModule,

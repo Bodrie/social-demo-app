@@ -6,6 +6,8 @@ import {
   conversationRefSchema,
   type Message,
   messageSchema,
+  type Notification,
+  notificationSchema,
   type PresenceUpdate,
   presenceUpdateSchema,
   type SendMessageInput,
@@ -19,6 +21,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { receiveNotification } from '@/features/notifications/use-notifications';
 import { ApiClientError, notifySessionLost, refreshSession } from '@/lib/api/client';
 import { markReadHttp, sendMessageHttp } from '@/lib/api/conversations';
 import type { ChatSocket } from '@/lib/socket';
@@ -149,6 +152,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         else if (import.meta.env.DEV) console.warn('Dropped a socket push', parsed.error.issues);
       };
     const onPresence = guarded(presenceUpdateSchema, (users: PresenceUpdate) => setOnline(users));
+    // The one push that is not about chat rides the same socket (ADR 0015).
+    const onNotification = guarded(notificationSchema, (notification: Notification) =>
+      receiveNotification(queryClient, notification),
+    );
     const onMessage = guarded(messageSchema, (message: Message) => {
       // A system line (the server about a membership change or rename) is shown but is nobody's
       // unread and reads nothing.
@@ -242,6 +249,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.on(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
       socket.on(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
       socket.on(SOCKET_EVENTS.typingUpdate, onTyping);
+      socket.on(SOCKET_EVENTS.notificationNew, onNotification);
       socket.on(SOCKET_EVENTS.exception, onException);
       socket.connect();
 
@@ -257,6 +265,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
         socket.off(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
         socket.off(SOCKET_EVENTS.typingUpdate, onTyping);
+        socket.off(SOCKET_EVENTS.notificationNew, onNotification);
         socket.off(SOCKET_EVENTS.exception, onException);
         socket.disconnect();
         socketRef.current = null;

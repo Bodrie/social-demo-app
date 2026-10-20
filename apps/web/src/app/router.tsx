@@ -59,6 +59,13 @@ export const routes: RouteObject[] = [
                 }),
               },
               {
+                path: 'notifications',
+                lazy: async () => ({
+                  Component: (await import('@/features/notifications/notifications-page'))
+                    .NotificationsPage,
+                }),
+              },
+              {
                 path: 'messages',
                 lazy: chat('MessagesPage'),
                 handle: { wide: true },

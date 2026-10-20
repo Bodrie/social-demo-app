@@ -63,6 +63,15 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('notifications', async ({ page }) => {
+    await openHome(page);
+    await page.goto('/notifications');
+    await expect(
+      page.getByRole('list', { name: 'Notifications' }).getByRole('listitem').first(),
+    ).toBeVisible();
+    await audit(page, '/notifications');
+  });
+
   test('people, activity and a profile', async ({ page }) => {
     await openHome(page);
     await page.goto('/users');

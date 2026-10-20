@@ -14,7 +14,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { extractEntities } from '@the-mesh/shared';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { ActivityType, ReactionType } from '../src/generated/prisma/enums.js';
+import { ActivityType, NotificationType, ReactionType } from '../src/generated/prisma/enums.js';
 import { TABLES } from '../src/prisma/tables.js';
 import { placeholderAvatar, placeholderPostImage } from './placeholders.js';
 
@@ -228,6 +228,62 @@ async function seed(): Promise<void> {
       createdAt: c.createdAt,
     })),
   });
+
+  // --- notifications for the demo accounts (what happened to their things) ---
+  const demoIds = new Set(users.slice(0, FIXED_USERS.length).map((u) => u.id));
+  const authorOf = new Map(posts.map((p) => [p.id, p.authorId]));
+  const ownPost = (postId: string, actorId: string) => {
+    const authorId = authorOf.get(postId);
+    return authorId !== undefined && authorId !== actorId && demoIds.has(authorId)
+      ? authorId
+      : null;
+  };
+  await prisma.notification.createMany({
+    data: [
+      ...follows
+        .filter((f) => demoIds.has(f.followeeId))
+        .map((f) => ({
+          userId: f.followeeId,
+          type: NotificationType.USER_FOLLOWED,
+          actorId: f.followerId,
+        })),
+      ...likes.flatMap((l) => {
+        const userId = ownPost(l.postId, l.userId);
+        return userId
+          ? [{ userId, type: NotificationType.POST_LIKED, actorId: l.userId, postId: l.postId }]
+          : [];
+      }),
+      ...comments.flatMap((c) => {
+        const userId = ownPost(c.postId, c.authorId);
+        return userId
+          ? [
+              {
+                userId,
+                type: NotificationType.POST_COMMENTED,
+                actorId: c.authorId,
+                postId: c.postId,
+                commentId: c.id,
+                createdAt: c.createdAt,
+              },
+            ]
+          : [];
+      }),
+    ],
+    skipDuplicates: true,
+  });
+  // All but the newest few are read, so the bell shows a realistic number.
+  for (const userId of demoIds) {
+    const newest = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 4,
+      select: { id: true },
+    });
+    await prisma.notification.updateMany({
+      where: { userId, id: { notIn: newest.map((n) => n.id) } },
+      data: { readAt: new Date() },
+    });
+  }
 
   // --- comment reactions and a few edits ---------------------------------
   const reactionTypes = Object.values(ReactionType);

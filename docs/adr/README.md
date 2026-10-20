@@ -19,5 +19,6 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0012](0012-account-lifecycle.md) | Account lifecycle: JSON export of everything, deletion that erases (with conversation tidy-up and counter fixes); Turnstile bot check on registration; retention (unconfirmed accounts, tokens, abandoned uploads) by daily jobs | Accepted (amended 2026-10-20) |
 | [0013](0013-text-entities.md) | Text entities: one shared parser for mentions, hashtags and links; entities stored at save time | Accepted |
 | [0014](0014-search-in-postgres.md) | Post pages (`/p/:id`) and full-text search in PostgreSQL (generated tsvector, `websearch_to_tsquery`) | Accepted |
+| [0015](0015-notifications.md) | Notifications: rows written from domain events, one per (recipient, type, actor, subject), read marks, pushed over the chat socket | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.
