@@ -55,6 +55,7 @@ describe('AuthGuard', () => {
     expect(request.user).toEqual({
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       emailVerified: true,
+      role: 'member',
     });
   });
 
@@ -71,6 +72,7 @@ describe('AuthGuard', () => {
     expect(request.user).toEqual({
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       emailVerified: false,
+      role: 'member',
     });
 
     const verified = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9', ev: true });

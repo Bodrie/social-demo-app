@@ -4,7 +4,7 @@ import {
   type UpdateProfileInput,
   type UserPrivate,
   updateProfileSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { PencilIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -30,6 +30,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { applyApiErrors } from '@/features/auth/form-errors';
@@ -74,7 +75,6 @@ function defaultsFor(me: UserPrivate): UpdateProfileInput {
   return {
     name: me.name,
     username: me.username,
-    email: me.email,
     city: me.city ?? '',
     website: me.website ?? '',
     bio: me.bio ?? '',
@@ -113,14 +113,7 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
         if (user.username !== me.username) void navigate(`/u/${user.username}`, { replace: true });
       },
       onError: (error) =>
-        applyApiErrors(error, form.setError, [
-          'name',
-          'username',
-          'email',
-          'city',
-          'website',
-          'bio',
-        ]),
+        applyApiErrors(error, form.setError, ['name', 'username', 'city', 'website', 'bio']),
     });
   };
 
@@ -172,20 +165,20 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
             )}
           />
         </div>
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input type="email" autoComplete="email" {...field} value={field.value ?? ''} />
-              </FormControl>
-              <FormDescription>Only you can see your email.</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Read-only until a new address can be confirmed before it replaces this one (ADR 0011). */}
+        <div className="grid gap-2">
+          <Label htmlFor="profile-email">Email</Label>
+          <Input
+            id="profile-email"
+            type="email"
+            value={me.email}
+            readOnly
+            aria-describedby="profile-email-note"
+          />
+          <p id="profile-email-note" className="text-muted-foreground text-sm">
+            Only you can see your email. Change it in Settings → Email.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}

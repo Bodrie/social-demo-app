@@ -1,27 +1,56 @@
-import { POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
+import { type CommentSort, POST_MAX_LENGTH, type Post } from '@beso/shared';
 import { cn } from 'cn';
-import { HeartIcon, MessageCircleIcon } from 'lucide-react';
-import { useState } from 'react';
+import { BookmarkIcon, HeartIcon, MessageCircleIcon, Repeat2Icon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { InlineEditor } from '@/components/inline-editor';
+import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
+import { UserLink } from '@/components/user-link';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { CommentsSection } from '@/features/comments/comments-section';
+import { focusLater } from '@/lib/focus';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { PostMenu } from './post-menu';
-import { useToggleLike, useUpdatePost } from './use-post-mutations';
+import { QuotedPostCard } from './quoted-post-card';
+import { RepostControl } from './repost-control';
+import { useToggleBookmark, useToggleLike, useUpdatePost } from './use-post-mutations';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchPostRevisions } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
 
-export function PostCard({ post }: { post: Post }) {
+type PostCardProps = {
+  post: Post;
+  /** The post's own page: comments open and not collapsible, the picture taller. */
+  expanded?: boolean;
+  /** Controlled comment sort (the post page keeps it in the URL). */
+  commentSort?: CommentSort;
+  onCommentSortChange?: (sort: CommentSort) => void;
+  /** A comment to scroll to and ring (`?comment=` on the post page). */
+  highlightCommentId?: string | null;
+};
+
+export function PostCard({
+  post,
+  expanded = false,
+  commentSort,
+  onCommentSortChange,
+  highlightCommentId,
+}: PostCardProps) {
   const me = useCurrentUser();
   const toggleLike = useToggleLike();
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const toggleBookmark = useToggleBookmark();
+  const [commentsOpen, setCommentsOpen] = useState(expanded);
   const [editing, setEditing] = useState(false);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  // The editor replaces the text and takes focus; when it goes, focus returns to the menu.
+  const stopEditing = () => {
+    setEditing(false);
+    focusLater(menuRef);
+  };
   const update = useUpdatePost();
   const profile = `/u/${post.author.username}`;
   const headingId = `post-${post.id}-author`;
@@ -31,7 +60,15 @@ export function PostCard({ post }: { post: Post }) {
       aria-labelledby={headingId}
       className="bg-card text-card-foreground rounded-xl border shadow-sm"
     >
-      <header className="flex items-start gap-3 px-5 pt-5">
+      {post.repost ? (
+        <p className="text-muted-foreground flex items-center gap-1.5 px-5 pt-3 text-xs">
+          <Repeat2Icon className="size-3.5" aria-hidden="true" />
+          <span>
+            {post.repost.by.id === me.id ? 'You' : <UserLink user={post.repost.by} />} reposted
+          </span>
+        </p>
+      ) : null}
+      <header className={cn('flex items-start gap-3 px-5', post.repost ? 'pt-2' : 'pt-5')}>
         <Link to={profile} aria-hidden="true" tabIndex={-1}>
           <UserAvatar user={post.author} />
         </Link>
@@ -45,22 +82,30 @@ export function PostCard({ post }: { post: Post }) {
           </Link>
           <p className="text-muted-foreground truncate text-xs">
             @{post.author.username} ·{' '}
-            <time dateTime={post.createdAt} title={formatDateTime(post.createdAt)}>
-              {formatRelativeTime(post.createdAt)}
-            </time>
+            <Link to={`/p/${post.id}`} className="hover:underline">
+              <time dateTime={post.createdAt} title={formatDateTime(post.createdAt)}>
+                {formatRelativeTime(post.createdAt)}
+              </time>
+              <span className="sr-only">, {formatDateTime(post.createdAt)}, open post</span>
+            </Link>
             {post.editedAt ? (
               <>
                 {' · '}
                 <EditedMarker
                   editedAt={post.editedAt}
                   queryKey={queryKeys.revisions.post(post.id)}
-                  fetchRevisions={(signal) => fetchPostRevisions(post.id, signal)}
+                  fetchRevisions={(options) => fetchPostRevisions(post.id, options)}
                 />
               </>
             ) : null}
           </p>
         </div>
-        {post.author.id === me.id ? <PostMenu post={post} onEdit={() => setEditing(true)} /> : null}
+        <PostMenu
+          post={post}
+          isAuthor={post.author.id === me.id}
+          onEdit={() => setEditing(true)}
+          triggerRef={menuRef}
+        />
       </header>
 
       <div className="px-5 pt-3">
@@ -74,7 +119,7 @@ export function PostCard({ post }: { post: Post }) {
               update.mutate(
                 { postId: post.id, input: { content } },
                 {
-                  onSuccess: () => setEditing(false),
+                  onSuccess: stopEditing,
                   onError: (error) =>
                     toast.error(
                       isApiClientError(error) ? error.message : 'Could not save the post',
@@ -82,18 +127,27 @@ export function PostCard({ post }: { post: Post }) {
                 },
               )
             }
-            onCancel={() => setEditing(false)}
+            onCancel={stopEditing}
           />
         ) : (
-          <p className="text-[15px]/6 break-words whitespace-pre-wrap">{post.content}</p>
+          <RichText
+            text={post.content}
+            mentions={post.mentions}
+            hashtags
+            className="text-[15px]/6 break-words whitespace-pre-wrap"
+          />
         )}
+        {post.quotedPost ? <QuotedPostCard embed={post.quotedPost} className="mt-3" /> : null}
         {post.imageUrl ? (
           <img
             src={post.imageUrl}
             alt={`Posted by ${post.author.name}`}
             loading="lazy"
             decoding="async"
-            className="mt-3 max-h-[32rem] w-full rounded-lg border object-cover"
+            className={cn(
+              'mt-3 w-full rounded-lg border object-cover',
+              expanded ? 'max-h-[40rem]' : 'max-h-[32rem]',
+            )}
           />
         ) : null}
       </div>
@@ -107,23 +161,52 @@ export function PostCard({ post }: { post: Post }) {
           onClick={() => toggleLike.mutate({ postId: post.id, liked: post.likedByMe })}
         >
           <HeartIcon className={cn(post.likedByMe && 'fill-current')} />
-          <span className="sr-only">{post.likedByMe ? 'Unlike' : 'Like'}</span>{' '}
+          {/* The name stays "Like"; `aria-pressed` says whether it is (review A13). */}
+          <span className="sr-only">Like</span>{' '}
           <span className="tabular-nums">{post.likeCount}</span>
         </Button>
+        <RepostControl post={post} />
+        {expanded ? (
+          <span className="text-primary inline-flex h-8 items-center gap-1.5 px-3 text-sm font-medium">
+            <MessageCircleIcon className="size-4" aria-hidden="true" />
+            <span className="sr-only">Comments</span>{' '}
+            <span className="tabular-nums">{post.commentCount}</span>
+          </span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={commentsOpen}
+            className={cn('gap-1.5', commentsOpen && 'text-primary')}
+            onClick={() => setCommentsOpen((open) => !open)}
+          >
+            <MessageCircleIcon />
+            <span className="sr-only">Comments</span>{' '}
+            <span className="tabular-nums">{post.commentCount}</span>
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
-          aria-expanded={commentsOpen}
-          className={cn('gap-1.5', commentsOpen && 'text-primary')}
-          onClick={() => setCommentsOpen((open) => !open)}
+          aria-label="Bookmark"
+          aria-pressed={post.bookmarkedByMe}
+          className={cn('ml-auto', post.bookmarkedByMe && 'text-primary hover:text-primary')}
+          onClick={() =>
+            toggleBookmark.mutate({ postId: post.id, bookmarked: post.bookmarkedByMe })
+          }
         >
-          <MessageCircleIcon />
-          <span className="sr-only">Comments</span>{' '}
-          <span className="tabular-nums">{post.commentCount}</span>
+          <BookmarkIcon className={cn(post.bookmarkedByMe && 'fill-current')} />
         </Button>
       </footer>
 
-      {commentsOpen ? <CommentsSection post={post} /> : null}
+      {commentsOpen ? (
+        <CommentsSection
+          post={post}
+          sort={commentSort}
+          onSortChange={onCommentSortChange}
+          highlightId={highlightCommentId}
+        />
+      ) : null}
     </article>
   );
 }

@@ -7,12 +7,18 @@ import {
   postListSchema,
   postSchema,
   revisionListSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
 
 export const fetchFeed = ({ cursor, signal }: PageOptions): Promise<PostList> =>
   api.get(`/posts${queryString({ cursor })}`, postListSchema, { signal });
+
+export const fetchPost = (postId: string, signal?: AbortSignal): Promise<Post> =>
+  api.get(`/posts/${postId}`, postSchema, { signal });
+
+export const fetchSearchPosts = (q: string, { cursor, signal }: PageOptions): Promise<PostList> =>
+  api.get(`/search/posts${queryString({ q, cursor })}`, postListSchema, { signal });
 
 export const fetchUserPosts = (
   userId: string,
@@ -29,8 +35,24 @@ export const likePost = (postId: string): Promise<void> => api.put(`/posts/${pos
 
 export const unlikePost = (postId: string): Promise<void> => api.delete(`/posts/${postId}/like`);
 
+export const bookmarkPost = (postId: string): Promise<void> => api.put(`/posts/${postId}/bookmark`);
+
+export const unbookmarkPost = (postId: string): Promise<void> =>
+  api.delete(`/posts/${postId}/bookmark`);
+
+export const repostPost = (postId: string): Promise<void> => api.put(`/posts/${postId}/repost`);
+
+export const unrepostPost = (postId: string): Promise<void> =>
+  api.delete(`/posts/${postId}/repost`);
+
+export const fetchBookmarks = ({ cursor, signal }: PageOptions): Promise<PostList> =>
+  api.get(`/users/me/bookmarks${queryString({ cursor })}`, postListSchema, { signal });
+
 export const updatePost = (postId: string, input: UpdatePostInput): Promise<Post> =>
   api.patch(`/posts/${postId}`, input, { schema: postSchema });
 
-export const fetchPostRevisions = (postId: string, signal?: AbortSignal): Promise<RevisionList> =>
-  api.get(`/posts/${postId}/revisions`, revisionListSchema, { signal });
+export const fetchPostRevisions = (
+  postId: string,
+  { cursor, signal }: PageOptions,
+): Promise<RevisionList> =>
+  api.get(`/posts/${postId}/revisions${queryString({ cursor })}`, revisionListSchema, { signal });

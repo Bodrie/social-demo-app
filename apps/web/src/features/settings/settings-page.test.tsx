@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http } from 'msw/http';
 import { alice } from '@/test/fixtures';
-import { mockDb, signedInAs } from '@/test/msw/handlers';
+import { apiError, mockDb, signedInAs } from '@/test/msw/handlers';
+import { server } from '@/test/msw/server';
 import { renderApp } from '@/test/render';
 
 async function fill(user: ReturnType<typeof userEvent.setup>, values: [string, string, string]) {
@@ -57,5 +59,78 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign out everywhere' }));
     await user.click(await screen.findByRole('button', { name: 'Sign out everywhere' }));
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('stores the chat bubbles preference on the account', async () => {
+    signedInAs(alice);
+    renderApp('/settings');
+    const user = userEvent.setup();
+    const toggle = await screen.findByRole('switch', {
+      name: 'Show chat bubbles for new messages',
+    });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    expect(toggle).not.toBeChecked();
+    await waitFor(() => expect(mockDb.user?.settings.chatBubbles).toBe(false));
+  });
+
+  it('stores the sound and notification preferences, asking the browser for permission first', async () => {
+    signedInAs(alice);
+    const requestPermission = vi.fn(() => Promise.resolve('granted' as const));
+    vi.stubGlobal('Notification', { permission: 'default', requestPermission });
+    renderApp('/settings');
+    const user = userEvent.setup();
+
+    const sound = await screen.findByRole('switch', { name: 'Play a sound for new messages' });
+    expect(sound).not.toBeChecked();
+    await user.click(sound);
+    await waitFor(() => expect(mockDb.user?.settings.messageSound).toBe(true));
+
+    const notify = screen.getByRole('switch', {
+      name: 'Show browser notifications for new messages',
+    });
+    await user.click(notify);
+    await waitFor(() => expect(mockDb.user?.settings.browserNotifications).toBe(true));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(notify).toBeChecked();
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps browser notifications off when the browser refuses them', async () => {
+    signedInAs(alice);
+    vi.stubGlobal('Notification', {
+      permission: 'default',
+      requestPermission: vi.fn(() => Promise.resolve('denied' as const)),
+    });
+    renderApp('/settings');
+    const user = userEvent.setup();
+    const notify = await screen.findByRole('switch', {
+      name: 'Show browser notifications for new messages',
+    });
+    await user.click(notify);
+    expect(
+      await screen.findByText('Notifications are blocked for this site in your browser'),
+    ).toBeInTheDocument();
+    expect(notify).not.toBeChecked();
+    expect(mockDb.user?.settings.browserNotifications).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the session and says so when signing out everywhere fails', async () => {
+    signedInAs(alice);
+    server.use(
+      http.post('*/api/v1/auth/logout-all', () => apiError(500, 'INTERNAL_ERROR', 'boom')),
+    );
+    renderApp('/settings');
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { level: 1, name: 'Settings' });
+
+    await user.click(screen.getByRole('button', { name: 'Sign out everywhere' }));
+    await user.click(await screen.findByRole('button', { name: 'Sign out everywhere' }));
+
+    expect(await screen.findByText(/Could not sign out everywhere/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(mockDb.user).not.toBeNull();
   });
 });

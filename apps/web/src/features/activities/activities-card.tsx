@@ -16,7 +16,9 @@ export function ActivitiesCard({ className }: { className?: string }) {
   return (
     <Card className={cn('gap-3 py-4', className)}>
       <CardHeader className="px-4">
-        <CardTitle>Latest activity</CardTitle>
+        <CardTitle asChild>
+          <h2>Latest activity</h2>
+        </CardTitle>
         <CardAction>
           <Button asChild variant="link" size="sm" className="h-auto p-0">
             <Link to="/activity">See all</Link>

@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw/http';
-import { alice, summaryOf } from '@/test/fixtures';
+import { deferred } from '@/test/deferred';
+import { alice, summaryOf, testId } from '@/test/fixtures';
 import { apiError, mockDb, seedPosts, signedInAs } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { renderApp } from '@/test/render';
@@ -14,11 +15,11 @@ describe('PostCard', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: 'Like 3' }));
-    const unlike = screen.getByRole('button', { name: 'Unlike 4' });
-    expect(unlike).toHaveAttribute('aria-pressed', 'true');
+    const liked = screen.getByRole('button', { name: 'Like 4' });
+    expect(liked).toHaveAttribute('aria-pressed', 'true');
     await waitFor(() => expect(mockDb.posts[0]?.likedByMe).toBe(true));
 
-    await user.click(unlike);
+    await user.click(liked);
     expect(screen.getByRole('button', { name: 'Like 3' })).toHaveAttribute('aria-pressed', 'false');
     await waitFor(() => expect(mockDb.posts[0]?.likedByMe).toBe(false));
   });
@@ -35,6 +36,52 @@ describe('PostCard', () => {
     expect(screen.getByRole('button', { name: 'Like 3' })).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('rolls back only the like that failed, never one made meanwhile', async () => {
+    signedInAs(alice);
+    const [failing, other] = seedPosts(2, { likeCount: 3 });
+    const answered = deferred();
+    server.use(
+      http.put('*/api/v1/posts/:id/like', async ({ params }) => {
+        if (params.id !== failing?.id) return undefined;
+        await answered.promise;
+        return apiError(500, 'INTERNAL_ERROR', 'boom');
+      }),
+    );
+    renderApp('/');
+    const user = userEvent.setup();
+    const articles = await screen.findAllByRole('article');
+    const cardOf = (content = '') => {
+      const card = articles.find((article) => within(article).queryByText(content));
+      if (!card) throw new Error(`no card for ${content}`);
+      return card;
+    };
+    const failingCard = cardOf(failing?.content);
+    const otherCard = cardOf(other?.content);
+
+    // The first like hangs (then fails); the second one goes through meanwhile.
+    await user.click(within(failingCard).getByRole('button', { name: 'Like 3' }));
+    await user.click(within(otherCard).getByRole('button', { name: 'Like 3' }));
+    await waitFor(() => expect(mockDb.posts.find((p) => p.id === other?.id)?.likedByMe).toBe(true));
+
+    answered.resolve();
+    expect(await screen.findByText('Could not update the like')).toBeInTheDocument();
+    expect(within(failingCard).getByRole('button', { name: 'Like 3' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(within(otherCard).getByRole('button', { name: 'Like 4' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // The lists showing the failed post are refetched; the server agrees with what is shown.
+    await waitFor(() =>
+      expect(within(otherCard).getByRole('button', { name: 'Like 4' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
+    );
+  });
+
   it('lets the author delete a post after confirming', async () => {
     signedInAs(alice);
     seedPosts(1, { author: summaryOf(alice), content: 'Mine' });
@@ -42,10 +89,19 @@ describe('PostCard', () => {
     renderApp('/');
     const user = userEvent.setup();
 
-    expect(await screen.findAllByRole('article')).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Post options' })).toHaveLength(1);
+    const articles = await screen.findAllByRole('article');
+    expect(articles).toHaveLength(2);
+    const mine = articles.find((article) => within(article).queryByText('Mine'));
+    const theirs = articles.find((article) => within(article).queryByText('Theirs'));
+    if (!mine || !theirs) throw new Error('cards not found');
 
-    await user.click(screen.getByRole('button', { name: 'Post options' }));
+    // Everyone gets a menu (copy link); only the author sees the destructive items.
+    await user.click(within(theirs).getByRole('button', { name: 'Post options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Copy link' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Delete post' })).toBeNull();
+    await user.keyboard('{Escape}');
+
+    await user.click(within(mine).getByRole('button', { name: 'Post options' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete post' }));
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
 
@@ -74,5 +130,27 @@ describe('PostCard', () => {
     await user.click(within(article).getByRole('button', { name: 'edited' }));
     const history = await screen.findByRole('list', { name: 'Previous versions' });
     expect(within(history).getByText('Frist post')).toBeInTheDocument();
+  });
+
+  it('loads older versions of a long edit history on demand', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { editedAt: new Date().toISOString() });
+    mockDb.postRevisions.set(
+      post!.id,
+      Array.from({ length: 25 }, (_, index) => ({
+        id: testId('comment', 900 + index),
+        content: `Version ${25 - index}`,
+        editedAt: new Date(Date.now() - index * 60_000).toISOString(),
+      })),
+    );
+    renderApp('/');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'edited' }));
+    const history = await screen.findByRole('list', { name: 'Previous versions' });
+    expect(within(history).getAllByRole('listitem')).toHaveLength(20);
+    await user.click(screen.getByRole('button', { name: 'Show older versions' }));
+    await waitFor(() => expect(within(history).getAllByRole('listitem')).toHaveLength(25));
+    expect(screen.queryByRole('button', { name: 'Show older versions' })).toBeNull();
   });
 });

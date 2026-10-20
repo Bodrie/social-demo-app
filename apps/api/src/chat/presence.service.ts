@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { UserSummary } from '@the-mesh/shared';
+import type { UserSummary } from '@beso/shared';
 
 type Entry = { user: UserSummary; sockets: Set<string> };
 

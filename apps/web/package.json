@@ -1,5 +1,5 @@
 {
-  "name": "@the-mesh/web",
+  "name": "@beso/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
     "@fontsource-variable/inter": "catalog:",
     "@hookform/resolvers": "catalog:",
     "@tanstack/react-query": "catalog:",
-    "@the-mesh/shared": "workspace:*",
+    "@beso/shared": "workspace:*",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
     "dayjs": "catalog:",

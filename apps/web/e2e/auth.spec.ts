@@ -1,33 +1,13 @@
-import { type Page, expect, test } from '@playwright/test';
-import { ANONYMOUS, PASSWORD, USERS, latestEmail, linkIn, signIn } from './helpers.js';
-
-/** Registers a throwaway member and follows the confirmation link; ends signed in on the feed. */
-async function registerAndConfirm(page: Page) {
-  const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
-  const member = {
-    username: `pw_${stamp}`,
-    name: `Play Wright ${stamp}`,
-    email: `pw_${stamp}@example.com`,
-  };
-  await page.goto('/register');
-  await page.getByLabel('Username').fill(member.username);
-  await page.getByLabel('Name', { exact: true }).fill(member.name);
-  await page.getByLabel('Email').fill(member.email);
-  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
-
-  // Closed until the address is confirmed: the waiting room, not the feed.
-  await expect(page).toHaveURL(/\/verify-email$/);
-  await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/verify-email$/);
-
-  const mail = await latestEmail(member.email, /Confirm your email/);
-  await page.goto(linkIn(mail, '/verify-email'));
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByLabel('New post')).toBeVisible();
-  return member;
-}
+import { expect, test } from '@playwright/test';
+import {
+  ANONYMOUS,
+  PASSWORD,
+  USERS,
+  latestEmail,
+  linkIn,
+  registerAndConfirm,
+  signIn,
+} from './helpers.js';
 
 test.describe('registration', () => {
   test.use({ storageState: ANONYMOUS });
@@ -62,6 +42,8 @@ test.describe('registration', () => {
     await expect(page).toHaveURL(/\/login$/);
 
     await page.getByRole('link', { name: 'Forgot your password?' }).click();
+    // The login page has an Email field too: wait for the lazy route before filling.
+    await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
     await page.getByLabel('Email').fill(member.email);
     await page.getByRole('button', { name: 'Send reset link' }).click();
     await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();

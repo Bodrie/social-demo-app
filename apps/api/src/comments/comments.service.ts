@@ -1,30 +1,38 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  Comment,
-  CommentsQuery,
-  CreateCommentData,
-  Paginated,
-  ReactionSummary,
-  ReactionType,
-  Revision,
-  UpdateCommentData,
-} from '@the-mesh/shared';
+import {
+  type Comment,
+  type CommentsQuery,
+  type CreateCommentData,
+  type CursorQuery,
+  type Paginated,
+  type ReactionSummary,
+  type ReactionType,
+  type RepliesQuery,
+  type Revision,
+  type UpdateCommentData,
+  extractEntities,
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
-import { forbidden, notFound } from '../common/errors.js';
+import { forbidden, notFound, validationError } from '../common/errors.js';
+import { emitMentions } from '../common/mentions.js';
 import {
   decodeCursor,
   decodeRankedCursor,
   encodeCursor,
   encodeRankedCursor,
   keysetAfter,
+  keysetAfterAscending,
+  paginateBy,
   paginateWith,
 } from '../common/pagination.js';
-import { toRevision } from '../common/revisions.js';
-import { CommentCreatedEvent } from '../events/comment.events.js';
+import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
+import { CommentCreatedEvent, CommentReactedEvent } from '../events/comment.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import { PostsService } from '../posts/posts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UsersService } from '../users/users.service.js';
 import {
   type CommentRow,
   type ReactionCounts,
@@ -40,11 +48,14 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly posts: PostsService,
+    private readonly users: UsersService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
+    private readonly visibility: VisibilityService,
   ) {}
 
   /**
+   * Top-level comments only; replies come from `replies`.
    * `newest`: newest first, so a fresh comment appears right under the input.
    * `top`: most reactions first (ties newest first); the cursor carries the score too.
    */
@@ -56,6 +67,11 @@ export class CommentsService {
     await this.posts.assertExists(postId);
     const select = commentSelect(viewerId);
     const take = query.limit + 1;
+    // Either side of a block sees nothing the other wrote (ADR 0016); mutes leave comments alone.
+    const hidden: Prisma.CommentWhereInput = {
+      parentId: null,
+      authorId: { notIn: await this.visibility.blockedIds(viewerId) },
+    };
 
     if (query.sort === 'top') {
       const cursor = decodeRankedCursor(query.cursor);
@@ -69,7 +85,7 @@ export class CommentsService {
           }
         : {};
       const rows = await this.prisma.comment.findMany({
-        where: { AND: [{ postId }, after] },
+        where: { AND: [{ postId }, hidden, after] },
         select,
         orderBy: [{ reactionsCount: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
         take,
@@ -86,7 +102,9 @@ export class CommentsService {
 
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.comment.findMany({
-      where: { AND: [{ postId }, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}] },
+      where: {
+        AND: [{ postId }, hidden, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}],
+      },
       select,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
@@ -100,59 +118,165 @@ export class CommentsService {
     );
   }
 
+  /** Replies under a top-level comment, oldest first: a thread reads downwards. */
+  async replies(
+    viewerId: string,
+    parentId: string,
+    query: RepliesQuery,
+  ): Promise<Paginated<Comment>> {
+    await this.assertExists(parentId);
+    const cursor = decodeCursor(query.cursor);
+    const rows = await this.prisma.comment.findMany({
+      where: {
+        AND: [
+          { parentId },
+          { authorId: { notIn: await this.visibility.blockedIds(viewerId) } },
+          cursor ? keysetAfterAscending(cursor, (id) => ({ id: { gt: id } })) : {},
+        ],
+      },
+      select: commentSelect(viewerId),
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: query.limit + 1,
+    });
+    const counts = await this.countsFor(rows.map((row) => row.id));
+    return paginateWith(
+      rows,
+      query.limit,
+      (row) => encodeCursor({ createdAt: row.createdAt, id: row.id }),
+      (row) => this.map(row, counts),
+    );
+  }
+
+  /** A comment on the post, or with `parentId` a reply under one of its top-level comments. */
   async create(authorId: string, postId: string, input: CreateCommentData): Promise<Comment> {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
       select: { authorId: true },
     });
     if (!post) throw notFound('Post not found');
+    await this.visibility.assertNotBlocked(authorId, post.authorId);
+    const parent =
+      input.parentId === undefined ? null : await this.parentFor(postId, input.parentId);
+    if (parent) await this.visibility.assertNotBlocked(authorId, parent.authorId);
 
+    const mentioned = await this.users.findByUsernames(extractEntities(input.content).mentions);
     const row = await this.prisma.comment.create({
-      data: { postId, authorId, content: input.content },
+      data: {
+        postId,
+        authorId,
+        parentId: parent?.id ?? null,
+        content: input.content,
+        mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
+      },
       select: commentSelect(authorId),
     });
     await this.events.emitAsync(
       CommentCreatedEvent.EVENT,
-      new CommentCreatedEvent(row.id, postId, authorId, post.authorId),
+      new CommentCreatedEvent(
+        row.id,
+        postId,
+        authorId,
+        post.authorId,
+        parent?.id ?? null,
+        parent?.authorId ?? null,
+      ),
+    );
+    // The parent's author hears of the reply itself; a mention would tell them twice.
+    await emitMentions(
+      this.events,
+      authorId,
+      mentioned.map((user) => user.id).filter((id) => id !== parent?.authorId),
+      { postId, commentId: row.id },
     );
     return toComment(row, emptyCounts(), this.assets.base);
   }
 
-  /** Author only. The previous text is kept as a revision; an unchanged text is a no-op. */
+  /**
+   * The top-level comment a reply goes under: `parentId` itself, or its parent when `parentId`
+   * is already a reply (one level only). Must be on the same post.
+   */
+  private async parentFor(
+    postId: string,
+    parentId: string,
+  ): Promise<{ id: string; authorId: string }> {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: parentId },
+      select: {
+        id: true,
+        postId: true,
+        authorId: true,
+        parent: { select: { id: true, authorId: true } },
+      },
+    });
+    if (!comment || comment.postId !== postId) {
+      throw validationError({ parentId: 'No such comment on this post' });
+    }
+    return comment.parent ?? { id: comment.id, authorId: comment.authorId };
+  }
+
+  /**
+   * Author only. The previous text is kept as a revision; an unchanged text is a no-op.
+   * Mentions are re-parsed; only members mentioned for the first time are told.
+   */
   async update(viewerId: string, commentId: string, input: UpdateCommentData): Promise<Comment> {
     const comment = await this.prisma.comment.findUnique({
       where: { id: commentId },
-      select: { authorId: true, content: true },
+      select: {
+        authorId: true,
+        content: true,
+        postId: true,
+        mentions: { select: { userId: true } },
+      },
     });
     if (!comment) throw notFound('Comment not found');
     if (comment.authorId !== viewerId) throw forbidden('You can only edit your own comments');
     if (comment.content !== input.content) {
+      const mentioned = await this.users.findByUsernames(extractEntities(input.content).mentions);
       await this.prisma.$transaction([
         this.prisma.commentRevision.create({ data: { commentId, content: comment.content } }),
         this.prisma.comment.update({
           where: { id: commentId },
           data: { content: input.content, editedAt: new Date() },
         }),
+        this.prisma.commentMention.deleteMany({ where: { commentId } }),
+        this.prisma.commentMention.createMany({
+          data: mentioned.map((user) => ({ commentId, userId: user.id })),
+        }),
       ]);
+      const before = new Set(comment.mentions.map((mention) => mention.userId));
+      await emitMentions(
+        this.events,
+        viewerId,
+        mentioned.filter((user) => !before.has(user.id)).map((user) => user.id),
+        { postId: comment.postId, commentId },
+      );
     }
     return this.getById(viewerId, commentId);
   }
 
   /** Previous versions, most recently replaced first. */
-  async revisions(commentId: string): Promise<Paginated<Revision>> {
+  async revisions(commentId: string, query: CursorQuery): Promise<Paginated<Revision>> {
     await this.assertExists(commentId);
     const rows = await this.prisma.commentRevision.findMany({
-      where: { commentId },
+      where: { commentId, ...revisionsAfter(decodeCursor(query.cursor)) },
       orderBy: [{ editedAt: 'desc' }, { id: 'desc' }],
-      take: 50,
+      take: query.limit + 1,
     });
-    return { items: rows.map(toRevision), nextCursor: null };
+    return paginateBy(rows, query.limit, revisionKey, toRevision);
   }
 
-  /** Sets (or switches) the viewer's reaction. Idempotent for the same type. */
+  /**
+   * Sets (or switches) the viewer's reaction. Idempotent for the same type; only the first
+   * reaction of a person on a comment is an event (notifications), a switch is not.
+   */
   async react(viewerId: string, commentId: string, type: ReactionType): Promise<ReactionSummary> {
-    await this.assertExists(commentId);
-    await this.prisma.$transaction(async (tx) => {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { postId: true, authorId: true },
+    });
+    if (!comment) throw notFound('Comment not found');
+    await this.visibility.assertNotBlocked(viewerId, comment.authorId);
+    const created = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.commentReaction.findUnique({
         where: { commentId_userId: { commentId, userId: viewerId } },
         select: { type: true },
@@ -163,13 +287,22 @@ export class CommentsService {
           where: { id: commentId },
           data: { reactionsCount: { increment: 1 } },
         });
-      } else if (existing.type !== type) {
+        return true;
+      }
+      if (existing.type !== type) {
         await tx.commentReaction.update({
           where: { commentId_userId: { commentId, userId: viewerId } },
           data: { type },
         });
       }
+      return false;
     });
+    if (created) {
+      await this.events.emitAsync(
+        CommentReactedEvent.EVENT,
+        new CommentReactedEvent(commentId, comment.postId, viewerId, comment.authorId),
+      );
+    }
     return this.summary(viewerId, commentId);
   }
 
@@ -191,13 +324,18 @@ export class CommentsService {
   }
 
   /** The comment's author and the post's author may delete a comment. */
-  async delete(viewerId: string, commentId: string): Promise<void> {
+  /** The author's, the post author's, or an admin's from the reports queue (`asAdmin`). */
+  async delete(
+    viewerId: string,
+    commentId: string,
+    options: { asAdmin?: boolean } = {},
+  ): Promise<void> {
     const comment = await this.prisma.comment.findUnique({
       where: { id: commentId },
       select: { authorId: true, post: { select: { authorId: true } } },
     });
     if (!comment) throw notFound('Comment not found');
-    if (viewerId !== comment.authorId && viewerId !== comment.post.authorId) {
+    if (!options.asAdmin && viewerId !== comment.authorId && viewerId !== comment.post.authorId) {
       throw forbidden('Only the comment author or the post author can delete a comment');
     }
     await this.prisma.comment.delete({ where: { id: commentId } });
@@ -208,7 +346,8 @@ export class CommentsService {
     if (count === 0) throw notFound('Comment not found');
   }
 
-  private async getById(viewerId: string, commentId: string): Promise<Comment> {
+  /** One comment by id; any member may read any comment (posts are visible to every member). */
+  async getById(viewerId: string, commentId: string): Promise<Comment> {
     const row = await this.prisma.comment.findUnique({
       where: { id: commentId },
       select: commentSelect(viewerId),

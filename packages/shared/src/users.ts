@@ -63,12 +63,49 @@ export const userPublicSchema = userSummarySchema.extend({
   followedByMe: z.boolean(),
   /** This user follows the requesting user. */
   followsMe: z.boolean(),
+  /**
+   * The viewer blocked this user / this user blocked the viewer (ADR 0016). Either way the
+   * profile comes reduced: no bio, picture, counts or follow flags, just who it is.
+   */
+  blocked: z.boolean(),
+  blockedMe: z.boolean(),
+  /** The viewer muted this user: their posts stay out of the viewer's feeds, nothing else changes. */
+  muted: z.boolean(),
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
 
+/**
+ * Account-level preferences, stored as JSON on the user row. Unknown keys are dropped and
+ * missing ones get their default, so the row can start empty and gain keys over time.
+ */
+export const userSettingsSchema = z.object({
+  /** Floating chat bubbles for messages that arrive while the viewer is elsewhere (ADR 0009). */
+  chatBubbles: z.boolean().default(true),
+  messageSound: z.boolean().default(false),
+  browserNotifications: z.boolean().default(false),
+});
+export type UserSettings = z.infer<typeof userSettingsSchema>;
+
+/** `PATCH /users/me/settings`: any subset of the keys. */
+export const updateSettingsSchema = z.object({
+  chatBubbles: z.boolean().optional(),
+  messageSound: z.boolean().optional(),
+  browserNotifications: z.boolean().optional(),
+});
+export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+
 /** The user's own profile (adds private fields). */
+/** Admins read the reports queue and act on it (ADR 0016). */
+export const USER_ROLES = ['member', 'admin'] as const;
+export const userRoleSchema = z.enum(USER_ROLES);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
 export const userPrivateSchema = userPublicSchema.extend({
   email: z.string(),
+  /** A new address waiting for its confirmation link (Settings → Email). */
+  pendingEmail: z.string().nullable(),
+  role: userRoleSchema,
+  settings: userSettingsSchema,
   /** Null until the address was confirmed through the link we mailed; the app is closed until then. */
   emailVerifiedAt: z.iso.datetime().nullable(),
   updatedAt: z.iso.datetime(),
@@ -83,10 +120,13 @@ export const userListSchema = paginatedSchema(userPublicSchema);
 export type UserList = z.infer<typeof userListSchema>;
 
 // --- inputs -------------------------------------------------------------
+/**
+ * No `email`: a new address has to be confirmed before it replaces the old one, and that flow
+ * does not exist yet (ADR 0011). An `email` key is dropped like any unknown key.
+ */
 export const updateProfileSchema = z.object({
   username: usernameSchema.optional(),
   name: nameSchema.optional(),
-  email: emailSchema.optional(),
   bio: bioSchema.nullable().optional(),
   city: citySchema.nullable().optional(),
   website: websiteSchema.nullable().optional(),
@@ -97,8 +137,9 @@ export const updateProfileSchema = z.object({
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type UpdateProfileData = z.output<typeof updateProfileSchema>;
 
+export const USER_SEARCH_MAX_LENGTH = 80;
 export const listUsersQuerySchema = cursorQuerySchema.extend({
-  q: z.string().trim().max(80).optional(),
+  q: z.string().trim().max(USER_SEARCH_MAX_LENGTH).optional(),
 });
 export type ListUsersQuery = z.output<typeof listUsersQuerySchema>;
 

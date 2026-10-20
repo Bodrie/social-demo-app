@@ -1,9 +1,10 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { type Page, expect, test } from '@playwright/test';
-import { ANONYMOUS, openHome } from './helpers.js';
+import { ANONYMOUS, animationsDone, openHome } from './helpers.js';
 
 /** WCAG 2.1 A/AA checks; `best-practice` rules are left out on purpose (too opinionated for a feed). */
 async function audit(page: Page, label: string): Promise<void> {
+  await animationsDone(page);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();
@@ -31,6 +32,9 @@ test.describe('accessibility (signed out)', () => {
     await page.goto('/reset-password?token=axe');
     await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
     await audit(page, '/reset-password');
+    await page.goto('/confirm-email?token=axe');
+    await expect(page.getByRole('heading', { name: 'This link did not work' })).toBeVisible();
+    await audit(page, '/confirm-email');
     await page.goto('/privacy');
     await expect(page.getByRole('heading', { level: 1, name: 'Privacy notice' })).toBeVisible();
     await audit(page, '/privacy');
@@ -62,6 +66,80 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('a thread of replies with its composer open', async ({ page }) => {
+    await openHome(page);
+    const text = `Thread audit ${Date.now()}`;
+    await page.getByLabel('New post').fill(text);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const post = page.getByRole('article').filter({ hasText: text }).first();
+    await post.getByRole('button', { name: /^Comments/ }).click();
+    const comments = post.getByRole('region', { name: 'Comments' });
+    await comments.getByLabel('Write a comment').fill('Top comment');
+    await comments.getByLabel('Write a comment').press('Enter');
+    const top = comments.getByRole('listitem').filter({ hasText: 'Top comment' }).first();
+    await top.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    await comments.getByLabel('Write a reply').fill('A reply');
+    await comments.getByLabel('Write a reply').press('Enter');
+    await expect(top.getByRole('list', { name: 'Replies' })).toContainText('A reply');
+    await top.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    await expect(comments.getByLabel('Write a reply')).toBeVisible();
+    await audit(page, '/ (a thread of replies)');
+    await post.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete post' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('article').filter({ hasText: text })).toHaveCount(0);
+  });
+
+  test('the admin queue', async ({ page }) => {
+    await openHome(page);
+    await page.goto('/admin');
+    await expect(page.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible();
+    await audit(page, '/admin');
+  });
+
+  test('the report dialog', async ({ page }) => {
+    await openHome(page);
+    // Someone else's post: only those offer "Report post".
+    const other = page
+      .getByRole('article')
+      .filter({ has: page.getByRole('button', { name: /^Repost \d/ }) })
+      .first();
+    await other.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Report post' }).click();
+    await expect(page.getByRole('dialog', { name: 'Report this post' })).toBeVisible();
+    await audit(page, '/ (report dialog)');
+  });
+
+  test('the repost popover', async ({ page }) => {
+    await openHome(page);
+    // Someone else's post: only those carry the repost button.
+    const other = page
+      .getByRole('article')
+      .filter({ has: page.getByRole('button', { name: /^Repost \d/ }) })
+      .first();
+    await other.getByRole('button', { name: /^Repost \d/ }).click();
+    await expect(page.getByLabel('Add your thoughts (optional)')).toBeVisible();
+    await audit(page, '/ (repost popover)');
+  });
+
+  test('bookmarks', async ({ page }) => {
+    await openHome(page);
+    await page.goto('/bookmarks');
+    await expect(
+      page.getByRole('feed', { name: 'Bookmarks' }).getByRole('article').first(),
+    ).toBeVisible();
+    await audit(page, '/bookmarks');
+  });
+
+  test('notifications', async ({ page }) => {
+    await openHome(page);
+    await page.goto('/notifications');
+    await expect(
+      page.getByRole('list', { name: 'Notifications' }).getByRole('listitem').first(),
+    ).toBeVisible();
+    await audit(page, '/notifications');
+  });
+
   test('people, activity and a profile', async ({ page }) => {
     await openHome(page);
     await page.goto('/users');
@@ -77,9 +155,41 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/u/bob');
     await expect(page.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeVisible();
     await audit(page, '/u/bob');
+    await page.goto('/u/bob/followers');
+    await expect(
+      page.getByRole('list', { name: 'Followers' }).getByRole('listitem').first(),
+    ).toBeVisible();
+    await audit(page, '/u/bob/followers');
+    await page.goto('/tags/weekend');
+    await expect(page.getByRole('heading', { level: 1, name: '#weekend' })).toBeVisible();
+    await expect(
+      page.getByRole('feed', { name: 'Posts tagged #weekend' }).getByRole('article').first(),
+    ).toBeVisible();
+    await audit(page, '/tags/weekend');
+    await page.goto('/search?q=weekend');
+    await expect(
+      page
+        .getByRole('feed', { name: /Posts matching/ })
+        .getByRole('article')
+        .first(),
+    ).toBeVisible();
+    await audit(page, '/search');
+    await page
+      .getByRole('feed', { name: /Posts matching/ })
+      .getByRole('article')
+      .first()
+      .locator('a[href^="/p/"]')
+      .first()
+      .click();
+    await expect(page.getByRole('region', { name: 'Comments' })).toBeVisible();
+    await audit(page, '/p/:id');
     await page.goto('/settings');
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
     await audit(page, '/settings');
+    await page.getByRole('button', { name: 'Delete account' }).click();
+    await expect(page.getByRole('dialog', { name: 'Delete your account?' })).toBeVisible();
+    await audit(page, 'delete account dialog');
+    await page.keyboard.press('Escape');
   });
 
   test('messages and the edit profile dialog', async ({ page }) => {
@@ -87,13 +197,17 @@ test.describe('accessibility (signed in)', () => {
     await page.goto('/messages/with/bob');
     await expect(page.getByRole('log', { name: 'Conversation with Bob Brown' })).toBeVisible();
     await audit(page, '/messages (direct)');
+    await page.getByRole('button', { name: 'New message' }).click();
+    await expect(page.getByRole('dialog', { name: 'New message' })).toBeVisible();
+    await audit(page, 'new message dialog');
+    await page.keyboard.press('Escape');
     await page
       .getByRole('list', { name: 'Conversations' })
       .getByRole('link', { name: /Weekend plans/ })
       .click();
     await expect(page.getByRole('log', { name: 'Group Weekend plans' })).toBeVisible();
     await audit(page, '/messages (group)');
-    await page.getByRole('button', { name: 'Members' }).click();
+    await page.getByRole('button', { name: 'Group members' }).click();
     await expect(page.getByRole('dialog', { name: 'Weekend plans' })).toBeVisible();
     await audit(page, 'group members dialog');
     await page.keyboard.press('Escape');

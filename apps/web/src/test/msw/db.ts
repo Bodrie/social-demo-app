@@ -2,14 +2,18 @@ import type {
   Activity,
   Comment,
   ConversationKind,
+  ConversationRole,
   Message,
+  Notification,
   Post,
   ReactionSummary,
+  Report,
+  Session,
   ReactionType,
   Revision,
   UserPrivate,
   UserPublic,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { alice, bob, carol, makePost, resetFixtureSequence, testId } from '../fixtures';
 
 type Follow = { followerId: string; followingId: string };
@@ -21,7 +25,12 @@ export type MockConversation = {
   title: string | null;
   createdById: string | null;
   createdAt: string;
-  members: { userId: string; joinedAt: string; lastReadAt: string | null }[];
+  members: {
+    userId: string;
+    role: ConversationRole;
+    joinedAt: string;
+    lastReadAt: string | null;
+  }[];
 };
 let conversationSequence = 0;
 
@@ -33,18 +42,40 @@ export const mockDb = {
   refreshable: false,
   users: [] as UserPrivate[],
   follows: [] as Follow[],
+  blocks: [] as { blockerId: string; blockedId: string }[],
+  mutes: [] as { muterId: string; mutedId: string }[],
+  reports: [] as (Report & { reporterId: string })[],
+  /** Members an admin suspended (ids). */
+  suspended: [] as string[],
   posts: [] as Post[],
   comments: [] as Comment[],
   activities: [] as Activity[],
+  /** The signed-in user's notifications, newest first (the handlers do not filter by recipient). */
+  notifications: [] as Notification[],
   conversations: [] as MockConversation[],
   messages: [] as Message[],
   reactions: [] as { commentId: string; userId: string; type: ReactionType }[],
   commentRevisions: new Map<string, Revision[]>(),
   postRevisions: new Map<string, Revision[]>(),
+  messageRevisions: new Map<string, Revision[]>(),
   uploads: 0,
   /** Links the fake API "mailed"; tests read the token here instead of an inbox. */
-  emailTokens: [] as { token: string; kind: 'verify' | 'reset'; email: string }[],
-  calls: { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0, forgot: 0 },
+  emailTokens: [] as { token: string; kind: 'verify' | 'reset' | 'change'; email: string }[],
+  /** The signed-in user's devices, as GET /auth/sessions lists them. */
+  sessions: [] as Session[],
+  /** The body of the last registration, for asserting what the form sent (e.g. the bot-check token). */
+  lastRegistration: null as Record<string, unknown> | null,
+  calls: {
+    me: 0,
+    refresh: 0,
+    login: 0,
+    logout: 0,
+    passwordChanges: 0,
+    forgot: 0,
+    exports: 0,
+    deletions: 0,
+    notificationsRead: 0,
+  },
 };
 
 const clone = (user: UserPrivate): UserPrivate => ({ ...user, counts: { ...user.counts } });
@@ -54,18 +85,36 @@ export function resetMockDb(): void {
   mockDb.refreshable = false;
   mockDb.users = [alice, bob, carol].map(clone);
   mockDb.follows = [];
+  mockDb.blocks = [];
+  mockDb.mutes = [];
+  mockDb.reports = [];
+  mockDb.suspended = [];
   mockDb.posts = [];
   mockDb.comments = [];
   mockDb.activities = [];
+  mockDb.notifications = [];
   mockDb.conversations = [];
   conversationSequence = 0;
   mockDb.messages = [];
   mockDb.reactions = [];
   mockDb.commentRevisions = new Map();
   mockDb.postRevisions = new Map();
+  mockDb.messageRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.emailTokens = [];
-  mockDb.calls = { me: 0, refresh: 0, login: 0, logout: 0, passwordChanges: 0, forgot: 0 };
+  mockDb.sessions = [];
+  mockDb.lastRegistration = null;
+  mockDb.calls = {
+    me: 0,
+    refresh: 0,
+    login: 0,
+    logout: 0,
+    passwordChanges: 0,
+    forgot: 0,
+    exports: 0,
+    deletions: 0,
+    notificationsRead: 0,
+  };
   resetFixtureSequence();
 }
 
@@ -96,13 +145,20 @@ export function seedConversation(
 ): MockConversation {
   conversationSequence += 1;
   const createdAt = options.createdAt ?? '2026-10-15T08:00:00.000Z';
+  const createdById = options.createdById ?? (kind === 'group' ? memberIds[0] : null) ?? null;
   const conversation: MockConversation = {
     id: testId('conversation', conversationSequence),
     kind,
     title: options.title ?? null,
-    createdById: options.createdById ?? (kind === 'group' ? memberIds[0] : null) ?? null,
+    createdById,
     createdAt,
-    members: memberIds.map((userId) => ({ userId, joinedAt: createdAt, lastReadAt: null })),
+    // Like the API: the creator of a group is its admin.
+    members: memberIds.map((userId) => ({
+      userId,
+      role: kind === 'group' && userId === createdById ? 'admin' : 'member',
+      joinedAt: createdAt,
+      lastReadAt: null,
+    })),
   };
   mockDb.conversations.push(conversation);
   return conversation;
@@ -140,6 +196,29 @@ export function seedPosts(count: number, overrides: Partial<Post> = {}): Post[] 
 /** The public shape of a stored user as seen by `viewerId`, with live counts and flags. */
 export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic {
   const follows = mockDb.follows;
+  const blocked = mockDb.blocks.some((b) => b.blockerId === viewerId && b.blockedId === user.id);
+  const blockedMe = mockDb.blocks.some((b) => b.blockerId === user.id && b.blockedId === viewerId);
+  const muted = mockDb.mutes.some((m) => m.muterId === viewerId && m.mutedId === user.id);
+  // Like the API: either side of a block gets who it is and the flags, nothing else.
+  if (blocked || blockedMe) {
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      bio: null,
+      city: null,
+      website: null,
+      coverUrl: null,
+      createdAt: user.createdAt,
+      counts: { posts: 0, followers: 0, following: 0 },
+      followedByMe: false,
+      followsMe: false,
+      blocked,
+      blockedMe,
+      muted,
+    };
+  }
   return {
     id: user.id,
     username: user.username,
@@ -161,6 +240,9 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
     followsMe: viewerId
       ? follows.some((follow) => follow.followerId === user.id && follow.followingId === viewerId)
       : false,
+    blocked: false,
+    blockedMe: false,
+    muted,
   };
 }
 

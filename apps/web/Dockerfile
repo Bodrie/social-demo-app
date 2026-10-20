@@ -13,9 +13,10 @@ ARG VITE_API_URL=
 ARG VITE_OPERATOR_NAME=
 ARG VITE_CONTACT_EMAIL=
 ARG VITE_REPOSITORY_URL=
+ARG VITE_TURNSTILE_SITE_KEY=
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true VITE_API_URL=${VITE_API_URL} \
     VITE_OPERATOR_NAME=${VITE_OPERATOR_NAME} VITE_CONTACT_EMAIL=${VITE_CONTACT_EMAIL} \
-    VITE_REPOSITORY_URL=${VITE_REPOSITORY_URL}
+    VITE_REPOSITORY_URL=${VITE_REPOSITORY_URL} VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
 RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -23,12 +24,12 @@ COPY packages/config/package.json packages/config/
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @the-mesh/web...
+    pnpm install --frozen-lockfile --filter @beso/web...
 COPY packages/config packages/config
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-RUN pnpm --filter @the-mesh/shared build \
- && pnpm --filter @the-mesh/web build
+RUN pnpm --filter @beso/shared build \
+ && pnpm --filter @beso/web build
 
 FROM caddy:2-alpine AS runtime
 COPY apps/web/docker/Caddyfile /etc/caddy/Caddyfile

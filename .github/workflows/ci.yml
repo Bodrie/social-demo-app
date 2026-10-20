@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 concurrency:
@@ -46,15 +47,6 @@ jobs:
 
       - run: pnpm turbo run lint typecheck test build --cache-dir=.turbo
 
-      - name: Upload web build
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v7
-        with:
-          name: web-dist
-          path: apps/web/dist
-          if-no-files-found: error
-          retention-days: 7
-
   integration:
     name: Integration
     runs-on: ubuntu-latest
@@ -63,19 +55,19 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: mesh
-          POSTGRES_PASSWORD: mesh
-          POSTGRES_DB: mesh
+          POSTGRES_USER: beso
+          POSTGRES_PASSWORD: beso
+          POSTGRES_DB: beso
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U mesh -d mesh"
+          --health-cmd "pg_isready -U beso -d beso"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://mesh:mesh@localhost:5432/mesh
-      TEST_DATABASE_URL: postgresql://mesh:mesh@localhost:5432/mesh
+      DATABASE_URL: postgresql://beso:beso@localhost:5432/beso
+      TEST_DATABASE_URL: postgresql://beso:beso@localhost:5432/beso
     steps:
       - uses: actions/checkout@v7
 
@@ -112,18 +104,18 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: mesh
-          POSTGRES_PASSWORD: mesh
-          POSTGRES_DB: mesh
+          POSTGRES_USER: beso
+          POSTGRES_PASSWORD: beso
+          POSTGRES_DB: beso
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U mesh -d mesh"
+          --health-cmd "pg_isready -U beso -d beso"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://mesh:mesh@localhost:5432/mesh
+      DATABASE_URL: postgresql://beso:beso@localhost:5432/beso
       JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret-0001
       UPLOADS_DIR: ${{ github.workspace }}/apps/api/uploads
     steps:
@@ -139,16 +131,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Prepare the database
-        run: pnpm db:generate && pnpm db:deploy && pnpm db:seed
+        run: pnpm db:generate && pnpm db:deploy
 
+      # The build also produces packages/shared/dist, which the seed imports.
       - name: Build the API and the web app
-        run: pnpm turbo run build --filter=@the-mesh/api --filter=@the-mesh/web
+        run: pnpm turbo run build --filter=@beso/api --filter=@beso/web
+
+      - name: Seed
+        run: pnpm db:seed
 
       - name: Install Playwright browsers
-        run: pnpm --filter @the-mesh/web exec playwright install --with-deps chromium
+        run: pnpm --filter @beso/web exec playwright install --with-deps chromium
 
       - name: End-to-end tests
-        run: pnpm --filter @the-mesh/web e2e
+        run: pnpm --filter @beso/web e2e
 
       - name: Upload Playwright report
         if: failure()
@@ -157,3 +153,13 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  # Every push to main is deployed (the box follows `latest`), so images are published only
+  # after everything above passed. Pull requests build them without pushing.
+  images:
+    name: Docker images
+    needs: [checks, integration, e2e]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml

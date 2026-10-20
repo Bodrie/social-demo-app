@@ -1,4 +1,10 @@
-import type { UserPrivate, UserPublic, UserSummary } from '@the-mesh/shared';
+import {
+  type UserPrivate,
+  type UserPublic,
+  type UserSettings,
+  type UserSummary,
+  userSettingsSchema,
+} from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** The compact shape embedded in posts, comments, activities, messages and presence. */
@@ -29,6 +35,7 @@ export function userPublicSelect(viewerId: string) {
     website: true,
     coverKey: true,
     createdAt: true,
+    suspendedAt: true,
     _count: { select: { posts: true, followers: true, following: true } },
     // viewer → this user
     followers: { where: { followerId: viewerId }, select: { followerId: true } },
@@ -41,7 +48,10 @@ export function userPrivateSelect(viewerId: string) {
   return {
     ...userPublicSelect(viewerId),
     email: true,
+    pendingEmail: true,
     emailVerifiedAt: true,
+    role: true,
+    settings: true,
     updatedAt: true,
   } satisfies Prisma.UserSelect;
 }
@@ -51,7 +61,15 @@ export type UserPrivateRow = Prisma.UserGetPayload<{
   select: ReturnType<typeof userPrivateSelect>;
 }>;
 
-export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic {
+/** The block and mute flags of a profile relative to the viewer (ADR 0016). */
+export type Relationship = { blocked: boolean; blockedMe: boolean; muted: boolean };
+const NO_RELATIONSHIP: Relationship = { blocked: false, blockedMe: false, muted: false };
+
+export function toUserPublic(
+  row: UserPublicRow,
+  assetsBase: string,
+  relationship: Relationship = NO_RELATIONSHIP,
+): UserPublic {
   return {
     ...toUserSummary(row, assetsBase),
     bio: row.bio,
@@ -66,14 +84,44 @@ export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic
     },
     followedByMe: row.followers.length > 0,
     followsMe: row.following.length > 0,
+    ...relationship,
   };
+}
+
+/** What either side of a block gets of the other: who it is and the flags, nothing more. */
+export function toBlockedUserPublic(
+  row: UserPublicRow,
+  assetsBase: string,
+  relationship: Relationship,
+): UserPublic {
+  return {
+    ...toUserSummary(row, assetsBase),
+    bio: null,
+    city: null,
+    website: null,
+    coverUrl: null,
+    createdAt: row.createdAt.toISOString(),
+    counts: { posts: 0, followers: 0, following: 0 },
+    followedByMe: false,
+    followsMe: false,
+    ...relationship,
+  };
+}
+
+/** The stored JSON with defaults applied; anything unreadable falls back to the defaults. */
+export function toUserSettings(stored: unknown): UserSettings {
+  const parsed = userSettingsSchema.safeParse(stored ?? {});
+  return parsed.success ? parsed.data : userSettingsSchema.parse({});
 }
 
 export function toUserPrivate(row: UserPrivateRow, assetsBase: string): UserPrivate {
   return {
     ...toUserPublic(row, assetsBase),
     email: row.email,
+    pendingEmail: row.pendingEmail,
     emailVerifiedAt: row.emailVerifiedAt ? row.emailVerifiedAt.toISOString() : null,
+    role: row.role,
+    settings: toUserSettings(row.settings),
     updatedAt: row.updatedAt.toISOString(),
   };
 }

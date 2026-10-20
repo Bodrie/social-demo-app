@@ -1,4 +1,4 @@
-import type { Conversation } from '@the-mesh/shared';
+import type { Conversation } from '@beso/shared';
 import { cn } from 'cn';
 import { UsersIcon } from 'lucide-react';
 import { UserAvatar } from '@/components/user-avatar';

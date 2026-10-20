@@ -1,0 +1,11 @@
+[Unit]
+Description=Pull and restart BeSo containers when new images were published
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Adjust the path and user to where the deploy directory lives on the box.
+User=beso
+WorkingDirectory=/opt/beso
+ExecStart=/opt/beso/update.sh

@@ -1,7 +1,7 @@
-import { cn } from 'cn';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { CharacterCounter } from '@/components/character-counter';
+import { MentionTextarea } from '@/components/mention-textarea';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 
 type InlineEditorProps = {
   initial: string;
@@ -54,24 +54,17 @@ export function InlineEditor({
 
   return (
     <div className="space-y-2">
-      <Textarea
+      <MentionTextarea
         aria-label={label}
         value={content}
-        onChange={(event) => setContent(event.target.value)}
+        onValueChange={setContent}
         onKeyDown={onKeyDown}
         ref={textareaRef}
         rows={2}
         className="min-h-16 text-[15px]/6"
       />
       <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            'text-xs tabular-nums',
-            remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground',
-          )}
-        >
-          {remaining}
-        </span>
+        <CharacterCounter remaining={remaining} />
         <span className="flex-1" />
         <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
           Cancel

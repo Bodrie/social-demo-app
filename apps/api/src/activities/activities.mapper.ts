@@ -1,4 +1,4 @@
-import { ACTIVITY_EXCERPT_LENGTH, type Activity } from '@the-mesh/shared';
+import { ACTIVITY_EXCERPT_LENGTH, type Activity } from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 

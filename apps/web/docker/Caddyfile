@@ -8,10 +8,27 @@
 :80 {
 	encode zstd gzip
 
-	# Uploaded pictures straight from the shared volume: no Node in the path.
+	# Response headers for everything this server answers (review L23, L24). The API sets its
+	# own through helmet; repeating these is harmless. The CSP is report-only until the console
+	# has stayed quiet for a release: Radix and sonner need inline styles, pictures are previewed
+	# from blob: URLs, and the Turnstile widget comes from challenges.cloudflare.com.
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# Uploaded pictures straight from the shared volume: no Node in the path. Only a file
+	# that exists is immutable; a missing one is a 404 nobody may cache (review L11).
 	handle_path /api/v1/uploads/* {
 		root * /srv/uploads
-		header Cache-Control "public, max-age=31536000, immutable"
+		@found file
+		@missing not file
+		header @found Cache-Control "public, max-age=31536000, immutable"
+		header @missing Cache-Control "no-store"
 		file_server
 	}
 
@@ -28,14 +45,23 @@
 		}
 	}
 
-	# The single-page app: hashed assets forever, index.html never.
+	# Hashed build assets: cached forever. One that does not exist (a chunk of an older build
+	# after a deploy) is a plain 404 that nobody caches, never index.html.
+	handle /assets/* {
+		root * /srv/www
+		@found file
+		@missing not file
+		header @found Cache-Control "public, max-age=31536000, immutable"
+		header @missing Cache-Control "no-store"
+		file_server
+	}
+
+	# The single-page app: every other path is a file from the build or index.html, and both
+	# are revalidated on every load, so a deploy is picked up at once. Matched on the request,
+	# not on the file served: `header /index.html` would never see a navigation to `/u/alice`.
 	handle {
 		root * /srv/www
-		@assets path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
-		header /index.html Cache-Control "no-cache"
-		header X-Content-Type-Options nosniff
-		header Referrer-Policy strict-origin-when-cross-origin
+		header Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}

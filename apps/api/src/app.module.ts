@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { AccountModule } from './account/account.module.js';
 import { ActivitiesModule } from './activities/activities.module.js';
+import { AdminModule } from './admin/admin.module.js';
+import { RolesGuard } from './admin/roles.guard.js';
 import { AssetsModule } from './assets/assets.module.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -17,9 +20,14 @@ import { HttpThrottlerGuard } from './common/guards/http-throttler.guard.js';
 import { type Env, validateEnv } from './config/env.js';
 import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
+import { ModerationModule } from './moderation/moderation.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { SearchModule } from './search/search.module.js';
+import { TagsModule } from './tags/tags.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -51,21 +59,29 @@ import { UsersModule } from './users/users.module.js';
     HealthModule,
     AuthModule,
     UsersModule,
+    ModerationModule,
+    AccountModule,
     UploadsModule,
     PostsModule,
     CommentsModule,
+    TagsModule,
+    SearchModule,
     FollowsModule,
     ActivitiesModule,
+    NotificationsModule,
     ConversationsModule,
     ChatModule,
+    JobsModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
-    { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
+    // No response serializer: nothing is annotated with @ZodSerializerDto (backlog: @ZodResponse).
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
-    // Order matters: rate limiting first, then authentication.
+    // Order matters: rate limiting first, then authentication, then the role (needs the token's claim).
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

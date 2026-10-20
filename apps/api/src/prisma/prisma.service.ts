@@ -12,7 +12,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnAppli
     super({
       adapter: new PrismaPg({
         connectionString: config.get('DATABASE_URL', { infer: true }),
-        application_name: 'the-mesh-api',
+        application_name: 'beso-api',
         max: 10,
         // Fail fast instead of queueing forever when the pool is exhausted.
         connectionTimeoutMillis: 5_000,

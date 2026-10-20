@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { UploadKind, UploadResponse } from '@the-mesh/shared';
+import type { UploadKind, UploadResponse } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest } from '../common/errors.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -25,7 +25,13 @@ export class UploadsService {
     const image = await this.images.process(input, kind);
     const key = `${kind}/${randomUUID()}.webp`;
     await this.storage.put(key, image.data, image.contentType);
-    await this.prisma.upload.create({ data: { key, ownerId, kind } });
+    try {
+      await this.prisma.upload.create({ data: { key, ownerId, kind } });
+    } catch (error) {
+      // A file without a row is invisible to the orphan reaper: take it back out at once.
+      await this.deleteFiles([key]);
+      throw error;
+    }
     return {
       key,
       url: this.assets.url(key),
@@ -51,6 +57,41 @@ export class UploadsService {
     if (!upload || upload.ownerId !== check.ownerId || upload.kind !== check.kind) {
       throw badRequest('Unknown upload', { [check.field]: 'Unknown upload' });
     }
+  }
+
+  /**
+   * Removes files whose rows are already gone (an account was deleted and the `uploads` rows
+   * cascaded with it, or the orphan reaper took them). Best effort, one failure does not stop
+   * the others.
+   */
+  async deleteFiles(keys: readonly string[]): Promise<void> {
+    await Promise.all(
+      keys.map(async (key) => {
+        try {
+          await this.storage.delete(key);
+        } catch (error) {
+          this.logger.warn({ err: error, key }, 'Could not delete the file of a removed upload');
+        }
+      }),
+    );
+  }
+
+  /**
+   * Housekeeping (JobsService): uploads older than `before` that no profile, post or message
+   * ever attached. The rows go first, re-checking the references in the same statement so an
+   * attach racing the job is refused ("Unknown upload") rather than left pointing at nothing;
+   * the files follow, best effort. Returns the count.
+   */
+  async deleteOrphans(before: Date): Promise<number> {
+    const rows = await this.prisma.$queryRaw<{ key: string }[]>`
+      DELETE FROM uploads u
+      WHERE u.created_at < ${before}
+        AND NOT EXISTS (SELECT 1 FROM users x WHERE x.avatar_key = u.key OR x.cover_key = u.key)
+        AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.image_key = u.key)
+        AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.image_key = u.key)
+      RETURNING u.key`;
+    await this.deleteFiles(rows.map((row) => row.key));
+    return rows.length;
   }
 
   /** Deletes a file once nothing references it any more. Best effort, never throws. */

@@ -1,7 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { CommentCreatedEvent } from '../events/comment.events.js';
-import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
+import {
+  PostCreatedEvent,
+  PostLikedEvent,
+  PostQuotedEvent,
+  PostRepostedEvent,
+  PostUnlikedEvent,
+  PostUnrepostedEvent,
+} from '../events/post.events.js';
 import {
   ProfileUpdatedEvent,
   UserFollowedEvent,
@@ -48,6 +55,33 @@ export class ActivitiesListener {
   @OnEvent(PostUnlikedEvent.EVENT)
   onPostUnliked(event: PostUnlikedEvent): Promise<void> {
     return this.remove({ actorId: event.actorId, type: 'POST_LIKED', postId: event.postId });
+  }
+
+  /** "bob reposted alice's post": the original is the subject, its author the target. */
+  @OnEvent(PostRepostedEvent.EVENT)
+  onPostReposted(event: PostRepostedEvent): Promise<void> {
+    return this.record({
+      actorId: event.actorId,
+      type: 'POST_REPOSTED',
+      postId: event.postId,
+      targetUserId: event.authorId,
+    });
+  }
+
+  @OnEvent(PostUnrepostedEvent.EVENT)
+  onPostUnreposted(event: PostUnrepostedEvent): Promise<void> {
+    return this.remove({ actorId: event.actorId, type: 'POST_REPOSTED', postId: event.postId });
+  }
+
+  /** "bob quoted alice's post": the quote is the subject (its words are shown), alice the target. */
+  @OnEvent(PostQuotedEvent.EVENT)
+  onPostQuoted(event: PostQuotedEvent): Promise<void> {
+    return this.record({
+      actorId: event.actorId,
+      type: 'POST_QUOTED',
+      postId: event.quoteId,
+      targetUserId: event.originalAuthorId,
+    });
   }
 
   @OnEvent(CommentCreatedEvent.EVENT)

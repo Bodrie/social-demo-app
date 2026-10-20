@@ -1,16 +1,24 @@
-import type { Conversation } from '@the-mesh/shared';
+import type { Conversation } from '@beso/shared';
 import { cn } from 'cn';
-import { ImageIcon, MessageSquarePlusIcon, UsersIcon } from 'lucide-react';
+import { ImageIcon, Loader2Icon, MessageSquarePlusIcon, UsersIcon } from 'lucide-react';
 import { NavLink, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { formatRelativeTime } from '@/lib/format';
+import { flattenPages } from '@/lib/infinite';
 import { firstName } from '@/lib/names';
+import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useChat } from './chat-context';
 import { ConversationAvatar } from './conversation-avatar';
-import { conversationName, directPeer, memberById, typingText } from './conversation-display';
+import {
+  conversationName,
+  directPeer,
+  memberById,
+  messagePreview,
+  typingText,
+} from './conversation-display';
 import { NewGroupDialog } from './new-group-dialog';
 import { NewMessageDialog } from './new-message-dialog';
 import { PresenceDot } from './presence-dot';
@@ -18,6 +26,11 @@ import { useConversations } from './use-conversations';
 
 export function ConversationList() {
   const conversations = useConversations();
+  const rows = flattenPages(conversations.data);
+  const sentinelRef = useInfiniteScroll({
+    enabled: conversations.hasNextPage && !conversations.isFetchingNextPage,
+    onReachEnd: () => void conversations.fetchNextPage(),
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -50,7 +63,7 @@ export function ConversationList() {
             Try again
           </Button>
         </p>
-      ) : conversations.data.items.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="text-muted-foreground px-4 py-10 text-center text-sm">
           <p>No conversations yet.</p>
           <p className="mt-1">Pick someone from the people page or the online list and say hi.</p>
@@ -61,9 +74,19 @@ export function ConversationList() {
           tabIndex={0}
           className="min-h-0 flex-1 divide-y overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
         >
-          {conversations.data.items.map((conversation) => (
+          {rows.map((conversation) => (
             <ConversationItem key={conversation.id} conversation={conversation} />
           ))}
+          {conversations.hasNextPage ? (
+            <li ref={sentinelRef} className="text-muted-foreground flex justify-center py-3">
+              {conversations.isFetchingNextPage ? (
+                <>
+                  <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+                  <span className="sr-only">Loading more conversations</span>
+                </>
+              ) : null}
+            </li>
+          ) : null}
         </ul>
       )}
     </div>
@@ -84,8 +107,9 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
       return member ? firstName(member.user.name) : 'Someone';
     }),
   );
+  // A system line reads as a sentence of its own; a deleted message says so without a picture.
   const senderPrefix =
-    lastMessage === null
+    lastMessage === null || lastMessage.kind === 'system'
       ? ''
       : lastMessage.senderId === me.id
         ? 'You: '
@@ -139,7 +163,9 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
                 {lastMessage.imageUrl ? (
                   <ImageIcon className="size-3.5 shrink-0" aria-hidden="true" />
                 ) : null}
-                <span className="truncate">{lastMessage.content || 'Picture'}</span>
+                <span className={cn('truncate', lastMessage.deletedAt && 'italic')}>
+                  {messagePreview(lastMessage, conversation, me.id)}
+                </span>
               </span>
             ) : (
               <span className="text-muted-foreground truncate text-sm">

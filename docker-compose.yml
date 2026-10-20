@@ -1,20 +1,20 @@
-name: the-mesh
+name: beso
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-mesh}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mesh}
-      POSTGRES_DB: ${POSTGRES_DB:-mesh}
+      POSTGRES_USER: ${POSTGRES_USER:-beso}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beso}
+      POSTGRES_DB: ${POSTGRES_DB:-beso}
     ports:
       # Bound to localhost: Docker-published ports bypass host firewalls.
       - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-mesh} -d ${POSTGRES_DB:-mesh}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-beso} -d ${POSTGRES_DB:-beso}']
       interval: 5s
       timeout: 5s
       retries: 10

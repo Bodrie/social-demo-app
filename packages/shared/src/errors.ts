@@ -6,6 +6,12 @@ export const ERROR_CODES = [
   'BAD_REQUEST',
   'UNAUTHORIZED',
   'FORBIDDEN',
+  /** A 403 because the address is unconfirmed; the client refreshes once (it may have been confirmed in another browser). */
+  'EMAIL_NOT_VERIFIED',
+  /** A 403 because one of the two members blocked the other (ADR 0016). */
+  'BLOCKED',
+  /** A 403 at sign-in or refresh: an admin suspended the account (ADR 0016). */
+  'SUSPENDED',
   'NOT_FOUND',
   'CONFLICT',
   'PAYLOAD_TOO_LARGE',
@@ -13,6 +19,8 @@ export const ERROR_CODES = [
   'TOO_MANY_REQUESTS',
   'INTERNAL_ERROR',
   'SERVICE_UNAVAILABLE',
+  /** The bot check could not be reached; registration is refused rather than waved through. */
+  'CAPTCHA_UNAVAILABLE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);
@@ -32,7 +40,3 @@ export const apiErrorSchema = z.object({
 });
 
 export type ApiError = z.infer<typeof apiErrorSchema>;
-
-export function isApiError(value: unknown): value is ApiError {
-  return apiErrorSchema.safeParse(value).success;
-}

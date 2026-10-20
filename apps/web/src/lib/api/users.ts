@@ -1,12 +1,13 @@
 import {
   type MeResponse,
   type UpdateProfileInput,
+  type UpdateSettingsInput,
   type UserList,
   type UserPublic,
   meResponseSchema,
   userListSchema,
   userPublicSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
 
@@ -42,3 +43,7 @@ export const unfollowUser = (userId: string): Promise<void> =>
 
 export const updateProfile = (input: UpdateProfileInput): Promise<MeResponse> =>
   api.patch('/users/me', input, { schema: meResponseSchema });
+
+/** Account-level preferences; any subset of the keys. */
+export const updateSettings = (input: UpdateSettingsInput): Promise<MeResponse> =>
+  api.patch('/users/me/settings', input, { schema: meResponseSchema });

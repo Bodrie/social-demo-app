@@ -2,7 +2,7 @@ import { Body, Controller, Get, NotFoundException, Post } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { Throttle } from '@nestjs/throttler';
-import { apiErrorSchema, healthResponseSchema } from '@the-mesh/shared';
+import { apiErrorSchema, healthResponseSchema } from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';

@@ -28,7 +28,7 @@ export async function setup(project: TestProject): Promise<void> {
     const { PostgreSqlContainer } = await import('@testcontainers/postgresql');
 
     container = await new PostgreSqlContainer('postgres:17-alpine')
-      .withDatabase('mesh_test')
+      .withDatabase('beso_test')
       .start();
     databaseUrl = container.getConnectionUri();
   }
@@ -41,7 +41,7 @@ export async function setup(project: TestProject): Promise<void> {
 
   project.provide('databaseUrl', databaseUrl);
 
-  uploadsDir = await mkdtemp(path.join(os.tmpdir(), 'mesh-uploads-'));
+  uploadsDir = await mkdtemp(path.join(os.tmpdir(), 'beso-uploads-'));
   project.provide('uploadsDir', uploadsDir);
 }
 

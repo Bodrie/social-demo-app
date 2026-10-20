@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UPLOAD_KEY_PATTERN } from '@the-mesh/shared';
+import { UPLOAD_KEY_PATTERN } from '@beso/shared';
 import type { Env } from '../config/env.js';
 import type { StorageService } from './storage.js';
 

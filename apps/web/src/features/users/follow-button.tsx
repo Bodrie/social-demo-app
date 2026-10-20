@@ -1,4 +1,4 @@
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import { UserCheckIcon, UserPlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';

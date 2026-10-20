@@ -1,4 +1,4 @@
-import { userPrivateSchema, userPublicSchema } from '@the-mesh/shared';
+import { userPrivateSchema, userPublicSchema } from '@beso/shared';
 import { type UserPrivateRow, toUserPrivate, toUserPublic } from './users.mapper.js';
 
 const row: UserPrivateRow = {
@@ -13,7 +13,11 @@ const row: UserPrivateRow = {
   createdAt: new Date('2026-10-15T10:00:00.000Z'),
   updatedAt: new Date('2026-10-15T11:00:00.000Z'),
   email: 'alice@example.com',
+  settings: { chatBubbles: false, unknownKey: 1 },
   emailVerifiedAt: new Date('2026-10-15T10:05:00.000Z'),
+  pendingEmail: null,
+  role: 'member',
+  suspendedAt: null,
   _count: { posts: 3, followers: 2, following: 1 },
   followers: [{ followerId: 'viewer' }],
   following: [],
@@ -38,5 +42,22 @@ describe('users mapper', () => {
     expect(userPrivateSchema.parse(me)).toEqual(me);
     expect(me.email).toBe('alice@example.com');
     expect(me.updatedAt).toBe('2026-10-15T11:00:00.000Z');
+  });
+});
+
+describe('toUserSettings', () => {
+  it('applies the defaults, keeps what is stored and drops what it does not know', async () => {
+    const { toUserSettings } = await import('./users.mapper.js');
+    expect(toUserSettings({ chatBubbles: false, unknownKey: 1 })).toEqual({
+      chatBubbles: false,
+      messageSound: false,
+      browserNotifications: false,
+    });
+    expect(toUserSettings(null)).toEqual({
+      chatBubbles: true,
+      messageSound: false,
+      browserNotifications: false,
+    });
+    expect(toUserSettings('garbage').chatBubbles).toBe(true);
   });
 });

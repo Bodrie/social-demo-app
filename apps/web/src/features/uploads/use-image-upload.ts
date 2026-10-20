@@ -1,4 +1,4 @@
-import { UPLOAD_LIMITS, type UploadKind, type UploadResponse } from '@the-mesh/shared';
+import { UPLOAD_LIMITS, type UploadKind, type UploadResponse } from '@beso/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isApiClientError } from '@/lib/api/client';
 import { uploadImage } from '@/lib/api/uploads';
@@ -83,7 +83,17 @@ export function useImageUpload(kind: UploadKind) {
     setState({ status: 'idle' });
   }, [release]);
 
+  /**
+   * Back to idle without revoking the preview of a finished upload: the caller now owns that
+   * object URL (the chat shows it in the optimistic bubble) and revokes it when done with it.
+   */
+  const handOver = useCallback(() => {
+    controller.current = null;
+    previewUrl.current = null;
+    setState({ status: 'idle' });
+  }, []);
+
   useEffect(() => release, [release]);
 
-  return { state, select, retry, clear };
+  return { state, select, retry, clear, handOver };
 }

@@ -20,20 +20,20 @@ COPY apps/api/package.json apps/api/
 # ---------- build: full install, shared build, prisma generate, nest build ----------
 FROM base AS build
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @the-mesh/api...
+    pnpm install --frozen-lockfile --filter @beso/api...
 COPY packages/config packages/config
 COPY packages/shared packages/shared
 COPY apps/api apps/api
 # prisma.config.ts insists on a database URL even for `generate`.
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
-RUN pnpm --filter @the-mesh/shared build \
- && pnpm --filter @the-mesh/api db:generate \
- && pnpm --filter @the-mesh/api build
+RUN pnpm --filter @beso/shared build \
+ && pnpm --filter @beso/api db:generate \
+ && pnpm --filter @beso/api build
 
 # ---------- prod-deps: production dependencies only (incl. prisma CLI for migrations) ----------
 FROM base AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod --filter @the-mesh/api...
+    pnpm install --frozen-lockfile --prod --filter @beso/api...
 
 # ---------- runtime ----------
 FROM ${NODE_IMAGE} AS runtime

@@ -12,11 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Paginated, Post as PostItem, Revision } from '@the-mesh/shared';
+import type { Paginated, Post as PostItem, Revision } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { IdParamDto, UserIdParamDto } from '../common/params.dto.js';
-import { CreatePostDto, FeedQueryDto, UpdatePostDto } from './posts.dto.js';
+import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
+import { CreatePostDto, FeedQueryDto, UpdatePostDto, UserPostsQueryDto } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 
 @ApiTags('posts')
@@ -51,8 +51,11 @@ export class PostsController {
   }
 
   @Get(':id/revisions')
-  revisions(@Param() params: IdParamDto): Promise<Paginated<Revision>> {
-    return this.posts.revisions(params.id);
+  revisions(
+    @Param() params: IdParamDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Revision>> {
+    return this.posts.revisions(params.id, query);
   }
 
   @Delete(':id')
@@ -72,6 +75,31 @@ export class PostsController {
   unlike(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
     return this.posts.unlike(user.id, params.id);
   }
+
+  @Put(':id/bookmark')
+  @HttpCode(204)
+  bookmark(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.bookmark(user.id, params.id);
+  }
+
+  @Delete(':id/bookmark')
+  @HttpCode(204)
+  unbookmark(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unbookmark(user.id, params.id);
+  }
+
+  /** A plain repost; a quote is `POST /posts` with `quotedPostId` (ADR 0017). */
+  @Put(':id/repost')
+  @HttpCode(204)
+  repost(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.repost(user.id, params.id);
+  }
+
+  @Delete(':id/repost')
+  @HttpCode(204)
+  unrepost(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unrepost(user.id, params.id);
+  }
 }
 
 @ApiTags('posts')
@@ -83,8 +111,20 @@ export class UserPostsController {
   byAuthor(
     @CurrentUser() user: AuthUser,
     @Param() params: UserIdParamDto,
-    @Query() query: FeedQueryDto,
+    @Query() query: UserPostsQueryDto,
   ): Promise<Paginated<PostItem>> {
     return this.posts.byAuthor(user.id, params.userId, query);
+  }
+}
+
+/** The viewer's own saved posts (C3a); there is no list of anyone else's. */
+@ApiTags('posts')
+@Controller('users/me/bookmarks')
+export class BookmarksController {
+  constructor(private readonly posts: PostsService) {}
+
+  @Get()
+  list(@CurrentUser() user: AuthUser, @Query() query: FeedQueryDto): Promise<Paginated<PostItem>> {
+    return this.posts.bookmarks(user.id, query);
   }
 }

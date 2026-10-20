@@ -1,12 +1,14 @@
 import {
+  changeEmailSchema,
   changePasswordSchema,
+  confirmEmailChangeSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
   type ApiError,
   verifyEmailSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { TEST_PASSWORD, makeUser, testId } from '../fixtures';
 import { mockDb, upsertUser } from './db';
@@ -47,6 +49,12 @@ export const authHandlers = [
 
   http.post(`${API}/auth/register`, async ({ request }) => {
     const body = registerSchema.parse(await request.json());
+    mockDb.lastRegistration = body;
+    if (body.captchaToken === 'cf-token-refused') {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', {
+        captchaToken: 'Please complete the bot check',
+      });
+    }
     if (body.username === 'taken') {
       return apiError(409, 'CONFLICT', 'Already in use', { username: 'This username is taken' });
     }
@@ -78,8 +86,8 @@ export const authHandlers = [
     }
     mockDb.emailTokens = mockDb.emailTokens.filter((e) => e !== entry);
     user.emailVerifiedAt = new Date().toISOString();
-    mockDb.user = user;
-    return HttpResponse.json({ user });
+    // Like the API: only a browser that already holds this account's session stays signed in.
+    return HttpResponse.json({ user: mockDb.user?.id === user.id ? user : null });
   }),
 
   http.post(`${API}/auth/verify-email/resend`, () => {
@@ -147,6 +155,74 @@ export const authHandlers = [
   http.post(`${API}/auth/logout`, () => {
     mockDb.calls.logout += 1;
     mockDb.user = null;
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.post(`${API}/auth/email`, async ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const body = changeEmailSchema.parse(await request.json());
+    if (body.password !== TEST_PASSWORD) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { password: 'Wrong password' });
+    }
+    if (mockDb.users.some((u) => u.email === body.newEmail)) {
+      return apiError(409, 'CONFLICT', 'Already in use', {
+        newEmail: 'This email address is already in use',
+      });
+    }
+    mockDb.user.pendingEmail = body.newEmail;
+    mockDb.emailTokens.push({
+      token: `change-${mockDb.user.id}`,
+      kind: 'change',
+      email: body.newEmail,
+    });
+    return HttpResponse.json({ user: mockDb.user });
+  }),
+
+  http.post(`${API}/auth/email/resend`, () => {
+    if (!mockDb.user) return unauthorized();
+    if (!mockDb.user.pendingEmail) {
+      return apiError(400, 'BAD_REQUEST', 'No change of address is pending');
+    }
+    mockDb.emailTokens.push({
+      token: `change-${mockDb.user.id}`,
+      kind: 'change',
+      email: mockDb.user.pendingEmail,
+    });
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete(`${API}/auth/email`, () => {
+    if (!mockDb.user) return unauthorized();
+    mockDb.user.pendingEmail = null;
+    mockDb.emailTokens = mockDb.emailTokens.filter((e) => e.kind !== 'change');
+    return HttpResponse.json({ user: mockDb.user });
+  }),
+
+  http.post(`${API}/auth/email/confirm`, async ({ request }) => {
+    const body = confirmEmailChangeSchema.parse(await request.json());
+    const entry = mockDb.emailTokens.find((e) => e.kind === 'change' && e.token === body.token);
+    if (!entry) {
+      const message = 'This link is invalid, has expired or was already used';
+      return apiError(400, 'VALIDATION_ERROR', message, { token: message });
+    }
+    const owner = mockDb.users.find((u) => u.pendingEmail === entry.email);
+    if (owner) {
+      owner.email = entry.email;
+      owner.pendingEmail = null;
+      owner.emailVerifiedAt ??= new Date().toISOString();
+    }
+    mockDb.emailTokens = mockDb.emailTokens.filter((e) => e !== entry);
+    return HttpResponse.json({ email: entry.email });
+  }),
+
+  http.get(`${API}/auth/sessions`, () => {
+    if (!mockDb.user) return unauthorized();
+    return HttpResponse.json({ items: mockDb.sessions, nextCursor: null });
+  }),
+
+  http.delete(`${API}/auth/sessions/:id`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    mockDb.sessions = mockDb.sessions.filter((session) => session.id !== id);
     return new HttpResponse(null, { status: 204 });
   }),
 ];

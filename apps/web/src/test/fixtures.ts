@@ -4,10 +4,12 @@ import type {
   ActivityType,
   Comment,
   Message,
+  Notification,
+  NotificationType,
   Post,
   UserPrivate,
   UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 
 export const TEST_PASSWORD = 'Password123!';
 
@@ -16,7 +18,15 @@ let sequence = 0;
 
 /** Deterministic, valid (v7-shaped) UUIDs so failures are readable. */
 export function testId(
-  kind: 'user' | 'post' | 'comment' | 'activity' | 'message' | 'conversation',
+  kind:
+    | 'user'
+    | 'post'
+    | 'comment'
+    | 'activity'
+    | 'message'
+    | 'conversation'
+    | 'notification'
+    | 'report',
   n: number,
 ): string {
   const prefix = {
@@ -26,6 +36,8 @@ export function testId(
     activity: '01a14100',
     message: '01a14200',
     conversation: '01a14300',
+    notification: '01a14400',
+    report: '01a14500',
   }[kind];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
@@ -45,8 +57,14 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     counts: { posts: 0, followers: 0, following: 0 },
     followedByMe: false,
     followsMe: false,
+    blocked: false,
+    blockedMe: false,
+    muted: false,
     email: 'alice@example.com',
+    pendingEmail: null,
+    role: 'member',
     emailVerifiedAt: '2026-10-15T10:05:00.000Z',
+    settings: { chatBubbles: true, messageSound: false, browserNotifications: false },
     ...overrides,
   };
 }
@@ -84,7 +102,14 @@ export function makePost(overrides: Partial<Post> = {}): Post {
     likeCount: 0,
     commentCount: 0,
     likedByMe: false,
+    bookmarkedByMe: false,
+    repostCount: 0,
+    repostedByMe: false,
+    quotedPost: null,
+    repost: null,
     editedAt: null,
+    mentions: [],
+    hashtags: [],
     createdAt,
     updatedAt: createdAt,
     ...overrides,
@@ -97,10 +122,13 @@ export function makeComment(postId: string, overrides: Partial<Comment> = {}): C
   return {
     id: testId('comment', sequence),
     postId,
+    parentId: null,
     content: `Comment number ${sequence}`,
     author: summaryOf(bob),
     editedAt: null,
     reactions: emptyReactions(),
+    mentions: [],
+    replyCount: 0,
     createdAt,
     updatedAt: createdAt,
     ...overrides,
@@ -121,6 +149,24 @@ export function makeActivity(type: ActivityType, overrides: Partial<Activity> = 
   };
 }
 
+/** Each call is one minute older than the previous one, so a list reads newest first; unread by default. */
+export function makeNotification(
+  type: NotificationType,
+  overrides: Partial<Notification> = {},
+): Notification {
+  sequence += 1;
+  return {
+    id: testId('notification', sequence),
+    type,
+    actor: summaryOf(bob),
+    post: null,
+    comment: null,
+    readAt: null,
+    createdAt: new Date(BASE_TIME - sequence * 60_000).toISOString(),
+    ...overrides,
+  };
+}
+
 /** Each call is one minute newer than the previous one, so threads read top to bottom. */
 export function makeMessage(
   conversationId: string,
@@ -133,8 +179,13 @@ export function makeMessage(
     id: testId('message', sequence),
     conversationId,
     senderId,
+    kind: 'user',
     content,
     imageUrl: null,
+    editedAt: null,
+    deletedAt: null,
+    system: null,
+    reactions: [],
     createdAt: new Date(BASE_TIME - 3_600_000 + sequence * 60_000).toISOString(),
     ...overrides,
   };

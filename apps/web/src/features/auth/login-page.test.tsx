@@ -28,12 +28,10 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     const password = await screen.findByLabelText('Password');
     expect(password).toHaveAttribute('type', 'password');
-    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    const toggle = screen.getByRole('button', { name: 'Show password' });
+    await user.click(toggle);
     expect(password).toHaveAttribute('type', 'text');
-    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('links to registration', async () => {

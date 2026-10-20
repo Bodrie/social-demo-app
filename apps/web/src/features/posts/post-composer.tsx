@@ -1,12 +1,12 @@
-import { POST_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
-import { cn } from 'cn';
+import { POST_MAX_LENGTH, UPLOAD_LIMITS } from '@beso/shared';
 import { ImageIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CharacterCounter } from '@/components/character-counter';
+import { MentionTextarea } from '@/components/mention-textarea';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { AttachmentPreview } from '@/features/uploads/attachment-preview';
 import { useImageUpload } from '@/features/uploads/use-image-upload';
@@ -75,12 +75,12 @@ export function PostComposer() {
         <CardContent className="flex gap-3 px-4">
           <UserAvatar user={me} className="mt-1" />
           <div className="min-w-0 flex-1 space-y-3">
-            <Textarea
+            <MentionTextarea
               ref={textareaRef}
               aria-label="New post"
               placeholder={`What's on your mind, ${firstName(me.name)}?`}
               value={content}
-              onChange={(event) => setContent(event.target.value)}
+              onValueChange={setContent}
               className="min-h-14 resize-none border-0 bg-transparent px-0 py-2 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
 
@@ -109,17 +109,7 @@ export function PostComposer() {
               </Button>
               <EmojiPickerButton onPick={insertEmoji} />
               <span className="flex-1" />
-              {remaining <= COUNTER_THRESHOLD ? (
-                <span
-                  className={cn(
-                    'text-xs tabular-nums',
-                    remaining < 0 ? 'text-destructive font-medium' : 'text-muted-foreground',
-                  )}
-                  aria-live="polite"
-                >
-                  {remaining}
-                </span>
-              ) : null}
+              {remaining <= COUNTER_THRESHOLD ? <CharacterCounter remaining={remaining} /> : null}
               <Button type="submit" size="sm" disabled={!canSubmit}>
                 {createPost.isPending ? 'Posting…' : 'Post'}
               </Button>

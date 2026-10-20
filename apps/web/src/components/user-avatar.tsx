@@ -1,4 +1,4 @@
-import type { UserSummary } from '@the-mesh/shared';
+import type { UserSummary } from '@beso/shared';
 import { cn } from 'cn';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AVATAR_SIZE, type AvatarSize } from '@/lib/avatar-size';

@@ -10,9 +10,10 @@ import {
   messageListSchema,
   messageSchema,
   presenceUpdateSchema,
+  revisionListSchema,
   typingUpdateSchema,
   uploadResponseSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { JwtService } from '@nestjs/jwt';
 import sharp from 'sharp';
 import { type Socket, io } from 'socket.io-client';
@@ -586,5 +587,494 @@ describe('chat', () => {
       .post(`/api/v1/conversations/${bob.id}/messages`)
       .send({ content: 'x' })
       .expect(401);
+  });
+});
+
+describe('group lifecycle pushes', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  it('tells every member about a new group, a newcomer and a leaver, and the leaver about the end', async () => {
+    const [alice, bob, carol] = await Promise.all([
+      createUser(t.prisma),
+      createUser(t.prisma),
+      createUser(t.prisma),
+    ]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const carolSession = await sessionFor(t, carol);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    const carolSocket = connect(t, { cookie: `access_token=${carolSession.token}` });
+    await Promise.all([connected(bobSocket), connected(carolSocket)]);
+
+    // Creation reaches bob (a member) but not carol (not yet).
+    const bobTold = waitFor<{ conversationId: string }>(bobSocket, 'conversation:update');
+    const carolHeard = collectUntil<unknown>(carolSocket, 'conversation:update', bobTold);
+    const created = await aliceSession.agent
+      .post('/api/v1/conversations')
+      .send({ title: 'Lifecycle', memberIds: [bob.id] })
+      .expect(201);
+    const groupId = (created.body as { id: string }).id;
+    expect((await bobTold).conversationId).toBe(groupId);
+    expect(await carolHeard).toEqual([]);
+
+    // Adding carol: she and bob both hear "update".
+    const bobAgain = waitFor<{ conversationId: string }>(bobSocket, 'conversation:update');
+    const carolNow = waitFor<{ conversationId: string }>(carolSocket, 'conversation:update');
+    await aliceSession.agent
+      .post(`/api/v1/conversations/${groupId}/members`)
+      .send({ userIds: [carol.id] })
+      .expect(200);
+    expect((await bobAgain).conversationId).toBe(groupId);
+    expect((await carolNow).conversationId).toBe(groupId);
+
+    // Bob leaves: bob gets "removed", carol gets "update".
+    const bobRemoved = waitFor<{ conversationId: string }>(bobSocket, 'conversation:removed');
+    const carolUpdated = waitFor<{ conversationId: string }>(carolSocket, 'conversation:update');
+    await bobSession.agent.delete(`/api/v1/conversations/${groupId}/members/me`).expect(204);
+    expect((await bobRemoved).conversationId).toBe(groupId);
+    expect((await carolUpdated).conversationId).toBe(groupId);
+
+    bobSocket.close();
+    carolSocket.close();
+  });
+});
+
+describe('read marks reach the reader too', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  it("pushes conversation:read to the reader's other tabs as well as to the others (review L9)", async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const otherTab = connect(t, { cookie: `access_token=${aliceSession.token}` });
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await Promise.all([connected(otherTab), connected(bobSocket)]);
+
+    const direct = (
+      await aliceSession.agent.put(`/api/v1/conversations/direct/${bob.id}`).expect(200)
+    ).body as { id: string };
+    await bobSession.agent
+      .post(`/api/v1/conversations/${direct.id}/messages`)
+      .send({ content: 'hi' })
+      .expect(201);
+
+    const tabHears = waitFor<{ conversationId: string; userId: string }>(
+      otherTab,
+      'conversation:read',
+    );
+    const bobHears = waitFor<{ conversationId: string; userId: string }>(
+      bobSocket,
+      'conversation:read',
+    );
+    await aliceSession.agent.post(`/api/v1/conversations/${direct.id}/read`).expect(200);
+    expect(await tabHears).toMatchObject({ conversationId: direct.id, userId: alice.id });
+    expect(await bobHears).toMatchObject({ conversationId: direct.id, userId: alice.id });
+
+    otherTab.close();
+    bobSocket.close();
+  });
+});
+
+describe('chat follow-ups (B3b): pagination, deletion, roles and system lines', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  const createGroup = async (agent: TestAgent, title: string, memberIds: string[]) =>
+    conversationSchema.parse(
+      (await agent.post('/api/v1/conversations').send({ title, memberIds }).expect(201)).body,
+    );
+  const say = (agent: TestAgent, conversationId: string, content: string) =>
+    agent.post(`/api/v1/conversations/${conversationId}/messages`).send({ content }).expect(201);
+  const roleOf = (
+    conversation: { members: { user: { id: string }; role: string }[] },
+    id: string,
+  ) => conversation.members.find((member) => member.user.id === id)?.role;
+
+  it('pages the list by activity: the newest message or, for a quiet group, its creation', async () => {
+    const alice = await createUser(t.prisma);
+    const others = await Promise.all([
+      createUser(t.prisma),
+      createUser(t.prisma),
+      createUser(t.prisma),
+    ]);
+    const { agent } = await sessionFor(t, alice);
+    const groups: string[] = [];
+    for (const [index, other] of others.entries()) {
+      // oxlint-disable-next-line no-await-in-loop -- creation order is the point
+      groups.push((await createGroup(agent, `Group ${index}`, [other.id])).id);
+    }
+    // A message in the first group makes it the most recent.
+    await say(agent, groups[0] ?? '', 'bump');
+
+    const first = conversationListSchema.parse(
+      (await agent.get('/api/v1/conversations?limit=2').expect(200)).body,
+    );
+    expect(first.items.map((row) => row.id)).toEqual([groups[0], groups[2]]);
+    expect(first.nextCursor).not.toBeNull();
+    const second = conversationListSchema.parse(
+      (await agent.get(`/api/v1/conversations?limit=2&cursor=${first.nextCursor}`).expect(200))
+        .body,
+    );
+    expect(second.items.map((row) => row.id)).toEqual([groups[1]]);
+    expect(second.nextCursor).toBeNull();
+    await agent.get('/api/v1/conversations?cursor=not-a-cursor').expect(400);
+  });
+
+  it('lets the sender take a message back for everyone, and nobody else', async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await connected(bobSocket);
+
+    const direct = conversationSchema.parse(
+      (await aliceSession.agent.put(`/api/v1/conversations/direct/${bob.id}`).expect(200)).body,
+    );
+    const message = messageSchema.parse((await say(aliceSession.agent, direct.id, 'secret')).body);
+    expect(message).toMatchObject({ kind: 'user', deletedAt: null, system: null });
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(1);
+
+    await bobSession.agent
+      .delete(`/api/v1/conversations/${direct.id}/messages/${message.id}`)
+      .expect(403);
+    const pushed = waitFor<unknown>(bobSocket, 'message:deleted');
+    const deleted = messageSchema.parse(
+      (
+        await aliceSession.agent
+          .delete(`/api/v1/conversations/${direct.id}/messages/${message.id}`)
+          .expect(200)
+      ).body,
+    );
+    expect(deleted).toMatchObject({ id: message.id, content: '', imageUrl: null });
+    expect(deleted.deletedAt).not.toBeNull();
+    expect(messageSchema.parse(await pushed)).toEqual(deleted);
+
+    // Nothing left to read; the row stays in the history and as the list snippet.
+    const bobList = await listFor(bobSession.agent);
+    expect(bobList.items[0]?.unreadCount).toBe(0);
+    expect(bobList.items[0]?.lastMessage).toEqual(deleted);
+    const history = messageListSchema.parse(
+      (await bobSession.agent.get(`/api/v1/conversations/${direct.id}/messages`).expect(200)).body,
+    );
+    expect(history.items.map((row) => row.id)).toEqual([message.id]);
+    // Deleting twice is fine, and unknown ids are 404s.
+    await aliceSession.agent
+      .delete(`/api/v1/conversations/${direct.id}/messages/${message.id}`)
+      .expect(200);
+    await aliceSession.agent
+      .delete(`/api/v1/conversations/${direct.id}/messages/${direct.id}`)
+      .expect(404);
+    bobSocket.close();
+  });
+
+  it('makes the creator admin; admins rename, promote, demote (never the last) and remove, with system lines', async () => {
+    const [alice, bob, carol] = await Promise.all([
+      createUser(t.prisma),
+      createUser(t.prisma),
+      createUser(t.prisma),
+    ]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const carolSession = await sessionFor(t, carol);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    const carolSocket = connect(t, { cookie: `access_token=${carolSession.token}` });
+    await Promise.all([connected(bobSocket), connected(carolSocket)]);
+
+    const group = await createGroup(aliceSession.agent, 'Roles', [bob.id, carol.id]);
+    expect(roleOf(group, alice.id)).toBe('admin');
+    expect(roleOf(group, bob.id)).toBe('member');
+
+    // Rename: members may not, the admin may; everyone gets the fresh row and a system line.
+    await bobSession.agent
+      .patch(`/api/v1/conversations/${group.id}`)
+      .send({ title: 'Nope' })
+      .expect(403);
+    const bobUpdated = waitFor<unknown>(bobSocket, 'conversation:update');
+    const bobLine = waitFor<unknown>(bobSocket, 'message:new');
+    const renamed = conversationSchema.parse(
+      (
+        await aliceSession.agent
+          .patch(`/api/v1/conversations/${group.id}`)
+          .send({ title: 'Renamed' })
+          .expect(200)
+      ).body,
+    );
+    expect(renamed.title).toBe('Renamed');
+    expect(await bobUpdated).toEqual({ conversationId: group.id });
+    const line = messageSchema.parse(await bobLine);
+    expect(line).toMatchObject({
+      kind: 'system',
+      senderId: alice.id,
+      system: { type: 'renamed', title: 'Renamed', actor: { id: alice.id } },
+    });
+    expect(renamed.lastMessage?.id).toBe(line.id);
+    // A system line is nobody's unread.
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(0);
+
+    // Roles: only admins change them; the last admin cannot be demoted.
+    await bobSession.agent
+      .put(`/api/v1/conversations/${group.id}/members/${carol.id}/role`)
+      .send({ role: 'admin' })
+      .expect(403);
+    const demoteLast = await aliceSession.agent
+      .put(`/api/v1/conversations/${group.id}/members/${alice.id}/role`)
+      .send({ role: 'member' })
+      .expect(400);
+    expect(demoteLast.body).toMatchObject({ fields: { role: expect.any(String) } });
+    const promoted = conversationSchema.parse(
+      (
+        await aliceSession.agent
+          .put(`/api/v1/conversations/${group.id}/members/${bob.id}/role`)
+          .send({ role: 'admin' })
+          .expect(200)
+      ).body,
+    );
+    expect(roleOf(promoted, bob.id)).toBe('admin');
+    const demoted = conversationSchema.parse(
+      (
+        await bobSession.agent
+          .put(`/api/v1/conversations/${group.id}/members/${alice.id}/role`)
+          .send({ role: 'member' })
+          .expect(200)
+      ).body,
+    );
+    expect(roleOf(demoted, alice.id)).toBe('member');
+
+    // Removal: members may not; the removed hears "removed", the rest a system line.
+    await aliceSession.agent
+      .delete(`/api/v1/conversations/${group.id}/members/${carol.id}`)
+      .expect(403);
+    await bobSession.agent
+      .delete(`/api/v1/conversations/${group.id}/members/${bob.id}`)
+      .expect(400);
+    const carolRemoved = waitFor<unknown>(carolSocket, 'conversation:removed');
+    await bobSession.agent
+      .delete(`/api/v1/conversations/${group.id}/members/${carol.id}`)
+      .expect(204);
+    expect(await carolRemoved).toEqual({ conversationId: group.id });
+    await carolSession.agent.get(`/api/v1/conversations/${group.id}`).expect(404);
+    const history = messageListSchema.parse(
+      (await aliceSession.agent.get(`/api/v1/conversations/${group.id}/messages`).expect(200)).body,
+    );
+    expect(history.items[0]).toMatchObject({
+      kind: 'system',
+      system: { type: 'member_removed', actor: { id: bob.id }, users: [{ id: carol.id }] },
+    });
+    // System lines cannot be deleted.
+    await bobSession.agent
+      .delete(`/api/v1/conversations/${group.id}/messages/${history.items[0]?.id}`)
+      .expect(400);
+
+    // The last admin leaving hands the role to the longest-standing member.
+    await bobSession.agent.delete(`/api/v1/conversations/${group.id}/members/me`).expect(204);
+    const after = conversationSchema.parse(
+      (await aliceSession.agent.get(`/api/v1/conversations/${group.id}`).expect(200)).body,
+    );
+    expect(after.members.map((member) => [member.user.id, member.role])).toEqual([
+      [alice.id, 'admin'],
+    ]);
+    expect(after.lastMessage).toMatchObject({
+      kind: 'system',
+      system: { type: 'member_left', actor: { id: bob.id } },
+    });
+
+    // Adding people writes a line too, and the newcomer gets it with the conversation.
+    const carolBack = waitFor<unknown>(carolSocket, 'message:new');
+    await aliceSession.agent
+      .post(`/api/v1/conversations/${group.id}/members`)
+      .send({ userIds: [carol.id] })
+      .expect(200);
+    expect(messageSchema.parse(await carolBack)).toMatchObject({
+      kind: 'system',
+      system: { type: 'members_added', actor: { id: alice.id }, users: [{ id: carol.id }] },
+    });
+    bobSocket.close();
+    carolSocket.close();
+  });
+});
+
+describe('chat extras (C5): editing, reactions and the new system lines', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  const say = (agent: TestAgent, conversationId: string, content: string) =>
+    agent.post(`/api/v1/conversations/${conversationId}/messages`).send({ content }).expect(201);
+  const directBetween = async (agent: TestAgent, userId: string) =>
+    conversationSchema.parse(
+      (await agent.put(`/api/v1/conversations/direct/${userId}`).expect(200)).body,
+    );
+
+  it('lets the sender edit the text, keeps the history and pushes the new copy to everyone', async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await connected(bobSocket);
+    const direct = await directBetween(aliceSession.agent, bob.id);
+    const message = messageSchema.parse(
+      (await say(aliceSession.agent, direct.id, 'teh text')).body,
+    );
+    expect(message).toMatchObject({ editedAt: null, reactions: [] });
+    const path = `/api/v1/conversations/${direct.id}/messages/${message.id}`;
+
+    await bobSession.agent.patch(path).send({ content: 'nope' }).expect(403);
+    await aliceSession.agent.patch(path).send({ content: '  ' }).expect(400);
+    // An unchanged text changes nothing.
+    const same = messageSchema.parse(
+      (await aliceSession.agent.patch(path).send({ content: 'teh text' }).expect(200)).body,
+    );
+    expect(same.editedAt).toBeNull();
+
+    const pushed = waitFor<unknown>(bobSocket, 'message:updated');
+    const edited = messageSchema.parse(
+      (await aliceSession.agent.patch(path).send({ content: 'the text' }).expect(200)).body,
+    );
+    expect(edited).toMatchObject({ id: message.id, content: 'the text' });
+    expect(edited.editedAt).not.toBeNull();
+    expect(messageSchema.parse(await pushed)).toEqual(edited);
+    const revisions = revisionListSchema.parse(
+      (await bobSession.agent.get(`${path}/revisions`).expect(200)).body,
+    );
+    expect(revisions.items.map((revision) => revision.content)).toEqual(['teh text']);
+    // The list snippet follows; the edit itself is nothing new to read.
+    const bobList = await listFor(bobSession.agent);
+    expect(bobList.items[0]?.lastMessage).toEqual(edited);
+    expect(bobList.items[0]?.unreadCount).toBe(1);
+
+    // A deleted message cannot be edited any more.
+    await aliceSession.agent.delete(path).expect(200);
+    await aliceSession.agent.patch(path).send({ content: 'again' }).expect(400);
+    bobSocket.close();
+  });
+
+  it('takes one reaction per member, switches and removes it, with a push and nobody’s unread', async () => {
+    const [alice, bob, carol] = await Promise.all([
+      createUser(t.prisma),
+      createUser(t.prisma),
+      createUser(t.prisma),
+    ]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const carolSession = await sessionFor(t, carol);
+    const aliceSocket = connect(t, { cookie: `access_token=${aliceSession.token}` });
+    await connected(aliceSocket);
+    const direct = await directBetween(aliceSession.agent, bob.id);
+    const message = messageSchema.parse(
+      (await say(aliceSession.agent, direct.id, 'react to me')).body,
+    );
+    const path = `/api/v1/conversations/${direct.id}/messages/${message.id}/reaction`;
+
+    const pushed = waitFor<unknown>(aliceSocket, 'message:updated');
+    const loved = messageSchema.parse(
+      (await bobSession.agent.put(path).send({ type: 'LOVE' }).expect(200)).body,
+    );
+    expect(loved.reactions).toEqual([{ userId: bob.id, type: 'LOVE' }]);
+    expect(messageSchema.parse(await pushed)).toEqual(loved);
+    // Switching keeps one entry per member; a second member adds theirs.
+    const liked = messageSchema.parse(
+      (await bobSession.agent.put(path).send({ type: 'LIKE' }).expect(200)).body,
+    );
+    expect(liked.reactions).toEqual([{ userId: bob.id, type: 'LIKE' }]);
+    const both = messageSchema.parse(
+      (await aliceSession.agent.put(path).send({ type: 'WOW' }).expect(200)).body,
+    );
+    expect(both.reactions).toEqual([
+      { userId: bob.id, type: 'LIKE' },
+      { userId: alice.id, type: 'WOW' },
+    ]);
+    const removed = messageSchema.parse((await bobSession.agent.delete(path).expect(200)).body);
+    expect(removed.reactions).toEqual([{ userId: alice.id, type: 'WOW' }]);
+    await bobSession.agent.delete(path).expect(200);
+
+    // Reactions read nothing and are nobody's unread; outsiders and bad targets are refused.
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(1);
+    await bobSession.agent.put(path).send({ type: 'HUG' }).expect(400);
+    await carolSession.agent.put(path).send({ type: 'LIKE' }).expect(404);
+    await aliceSession.agent
+      .delete(`/api/v1/conversations/${direct.id}/messages/${message.id}`)
+      .expect(200);
+    await bobSession.agent.put(path).send({ type: 'LIKE' }).expect(400);
+    aliceSocket.close();
+  });
+
+  it('writes a line when a group is created and when an admin role changes', async () => {
+    const [alice, bob] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+    const aliceSession = await sessionFor(t, alice);
+    const bobSession = await sessionFor(t, bob);
+    const bobSocket = connect(t, { cookie: `access_token=${bobSession.token}` });
+    await connected(bobSocket);
+
+    const group = conversationSchema.parse(
+      (
+        await aliceSession.agent
+          .post('/api/v1/conversations')
+          .send({ title: 'Lines', memberIds: [bob.id] })
+          .expect(201)
+      ).body,
+    );
+    expect(group.lastMessage).toMatchObject({
+      kind: 'system',
+      senderId: alice.id,
+      system: { type: 'group_created', actor: { id: alice.id }, users: [], title: 'Lines' },
+    });
+    // The line cannot be reacted to.
+    await bobSession.agent
+      .put(`/api/v1/conversations/${group.id}/messages/${group.lastMessage?.id}/reaction`)
+      .send({ type: 'LIKE' })
+      .expect(400);
+
+    const promoted = waitFor<unknown>(bobSocket, 'message:new');
+    await aliceSession.agent
+      .put(`/api/v1/conversations/${group.id}/members/${bob.id}/role`)
+      .send({ role: 'admin' })
+      .expect(200);
+    expect(messageSchema.parse(await promoted)).toMatchObject({
+      kind: 'system',
+      system: { type: 'admin_added', actor: { id: alice.id }, users: [{ id: bob.id }] },
+    });
+    await bobSession.agent
+      .put(`/api/v1/conversations/${group.id}/members/${alice.id}/role`)
+      .send({ role: 'member' })
+      .expect(200);
+    const history = messageListSchema.parse(
+      (await aliceSession.agent.get(`/api/v1/conversations/${group.id}/messages`).expect(200)).body,
+    );
+    expect(history.items.map((row) => row.system?.type)).toEqual([
+      'admin_removed',
+      'admin_added',
+      'group_created',
+    ]);
+    expect((await listFor(bobSession.agent)).items[0]?.unreadCount).toBe(0);
+    bobSocket.close();
   });
 });

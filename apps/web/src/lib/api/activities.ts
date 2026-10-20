@@ -1,4 +1,4 @@
-import { type ActivityList, activityListSchema } from '@the-mesh/shared';
+import { type ActivityList, activityListSchema } from '@beso/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
 

@@ -4,7 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { endSession } from '@/features/auth/use-me';
+import { endSession, watchOtherTabs } from '@/features/auth/use-me';
 import { onSessionLost } from '@/lib/api/client';
 import { createQueryClient } from './query-client';
 
@@ -16,6 +16,7 @@ export function Providers({ children, queryClient: providedClient }: ProvidersPr
   const [queryClient] = useState(() => providedClient ?? createQueryClient());
 
   useEffect(() => onSessionLost(() => endSession(queryClient)), [queryClient]);
+  useEffect(() => watchOtherTabs(queryClient), [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -23,7 +24,7 @@ export function Providers({ children, queryClient: providedClient }: ProvidersPr
         attribute="class"
         defaultTheme="system"
         enableSystem
-        storageKey="the-mesh:theme"
+        storageKey="beso:theme"
         disableTransitionOnChange
       >
         <TooltipProvider delayDuration={300}>{children}</TooltipProvider>

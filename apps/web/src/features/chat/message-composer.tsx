@@ -1,8 +1,8 @@
-import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@the-mesh/shared';
-import { cn } from 'cn';
+import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@beso/shared';
 import { ImageIcon, SendIcon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CharacterCounter } from '@/components/character-counter';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { EmojiPickerButton } from '@/features/posts/emoji-picker-button';
@@ -15,7 +15,7 @@ import { useTypingSignal } from './use-typing-signal';
 export type OutgoingMessage = {
   content: string;
   imageKey?: string;
-  /** Local object URL of the picture, for the optimistic bubble. */
+  /** Local object URL of the picture, for the optimistic bubble; the receiver revokes it. */
   previewUrl?: string;
 };
 
@@ -49,14 +49,19 @@ export function MessageComposer({
   const send = () => {
     if (!canSend) return;
     typing.stop();
-    onSend(
-      image.state.status === 'ready'
-        ? { content: trimmed, imageKey: image.state.upload.key, previewUrl: image.state.previewUrl }
-        : { content: trimmed },
-    );
+    if (image.state.status === 'ready') {
+      onSend({
+        content: trimmed,
+        imageKey: image.state.upload.key,
+        previewUrl: image.state.previewUrl,
+      });
+      // The thread's optimistic bubble shows the preview from here on and revokes it once the
+      // message is confirmed; revoking it now would break the bubble before it renders.
+      image.handOver();
+    } else {
+      onSend({ content: trimmed });
+    }
     setContent('');
-    // The thread keeps showing the preview through its optimistic copy; release ours.
-    image.clear();
     textareaRef.current?.focus();
   };
 
@@ -144,16 +149,7 @@ export function MessageComposer({
           onKeyDown={onKeyDown}
           className="max-h-40 min-h-9 flex-1 resize-none py-1.5 text-sm"
         />
-        {remaining <= 100 ? (
-          <span
-            className={cn(
-              'pb-2 text-xs tabular-nums',
-              remaining < 0 ? 'text-destructive' : 'text-muted-foreground',
-            )}
-          >
-            {remaining}
-          </span>
-        ) : null}
+        {remaining <= 100 ? <CharacterCounter remaining={remaining} className="pb-2" /> : null}
         <Button type="submit" size="icon-sm" aria-label="Send" disabled={!canSend}>
           <SendIcon />
         </Button>

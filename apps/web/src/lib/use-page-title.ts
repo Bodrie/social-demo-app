@@ -1,9 +1,9 @@
-import { APP_NAME } from '@the-mesh/shared';
 import { useEffect } from 'react';
+import { setDocumentTitle } from './document-title';
 
-/** Sets `document.title` to "<title> · The Mesh" while the component is mounted. */
+/** Sets `document.title` to "<title> · BeSo" (behind the unread badge) while the component is mounted. */
 export function usePageTitle(title: string): void {
   useEffect(() => {
-    document.title = title ? `${title} · ${APP_NAME}` : APP_NAME;
+    setDocumentTitle(title);
   }, [title]);
 }

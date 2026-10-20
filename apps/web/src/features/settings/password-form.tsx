@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { passwordSchema } from '@the-mesh/shared';
+import { passwordSchema } from '@beso/shared';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2Icon } from 'lucide-react';
 import { useForm } from 'react-hook-form';

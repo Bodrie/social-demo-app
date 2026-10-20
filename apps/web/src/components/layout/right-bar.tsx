@@ -1,5 +1,6 @@
 import { ActivitiesCard } from '@/features/activities/activities-card';
 import { OnlineCard } from '@/features/chat/online-card';
+import { TrendingCard } from '@/features/tags/trending-card';
 import { SuggestionsCard } from '@/features/users/suggestions-card';
 import { SiteFooter } from './site-footer';
 
@@ -9,6 +10,7 @@ export function RightBar() {
     <aside aria-label="Sidebar" className="flex flex-col gap-4">
       <OnlineCard />
       <SuggestionsCard />
+      <TrendingCard />
       <ActivitiesCard />
       <SiteFooter />
     </aside>

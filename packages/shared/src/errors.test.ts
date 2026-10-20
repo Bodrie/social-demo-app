@@ -1,4 +1,4 @@
-import { apiErrorSchema, isApiError } from './errors.js';
+import { apiErrorSchema } from './errors.js';
 
 describe('apiErrorSchema', () => {
   it('accepts a validation error with field messages and a request id', () => {
@@ -11,7 +11,6 @@ describe('apiErrorSchema', () => {
     };
 
     expect(apiErrorSchema.parse(payload)).toEqual(payload);
-    expect(isApiError(payload)).toBe(true);
   });
 
   it('rejects non-error status codes and unknown codes', () => {

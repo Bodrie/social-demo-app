@@ -27,3 +27,14 @@ export class UserUnfollowedEvent {
     readonly followeeId: string,
   ) {}
 }
+
+/** `actorId` mentioned `targetUserId` in a post (`commentId` null) or a comment; emitted once per new mention. */
+export class UserMentionedEvent {
+  static readonly EVENT = 'user.mentioned';
+  constructor(
+    readonly actorId: string,
+    readonly targetUserId: string,
+    readonly postId: string,
+    readonly commentId: string | null,
+  ) {}
+}

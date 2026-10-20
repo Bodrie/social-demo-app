@@ -12,10 +12,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Comment, Paginated, ReactionSummary, Revision } from '@the-mesh/shared';
+import type { Comment, Paginated, ReactionSummary, Revision } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { IdParamDto, PostIdParamDto } from '../common/params.dto.js';
+import { CursorQueryDto, IdParamDto, PostIdParamDto } from '../common/params.dto.js';
 import {
   CommentsQueryDto,
   CreateCommentDto,
@@ -55,6 +55,22 @@ export class PostCommentsController {
 export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
 
+  /** A single comment, for permalinks (`/p/:postId?comment=:id`) that point past the first page. */
+  @Get(':id')
+  byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<Comment> {
+    return this.comments.getById(user.id, params.id);
+  }
+
+  /** The replies under a top-level comment, oldest first. */
+  @Get(':id/replies')
+  replies(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Comment>> {
+    return this.comments.replies(user.id, params.id, query);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,
@@ -65,8 +81,11 @@ export class CommentsController {
   }
 
   @Get(':id/revisions')
-  revisions(@Param() params: IdParamDto): Promise<Paginated<Revision>> {
-    return this.comments.revisions(params.id);
+  revisions(
+    @Param() params: IdParamDto,
+    @Query() query: CursorQueryDto,
+  ): Promise<Paginated<Revision>> {
+    return this.comments.revisions(params.id, query);
   }
 
   /** Sets or switches the caller's reaction; answers with the fresh summary. */

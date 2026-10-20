@@ -2,10 +2,11 @@ import {
   apiErrorSchema,
   commentListSchema,
   commentSchema,
+  notificationListSchema,
   postSchema,
   reactionSummarySchema,
   revisionListSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';
@@ -308,6 +309,87 @@ describe('comments', () => {
 
       await posterAgent.get(`/api/v1/posts/${postId}/comments?sort=top&cursor=garbage`).expect(400);
       await posterAgent.get(`/api/v1/posts/${postId}/comments?sort=sideways`).expect(400);
+    });
+  });
+  describe('replies (C2)', () => {
+    it('sit one level under a comment, oldest first, counted on the parent and the post', async () => {
+      const postId = await createPost(posterAgent, 'threaded');
+      const parentId = await comment(commenterAgent, postId, 'top level');
+      const reply = async (agent: TestAgent, content: string, target = parentId) =>
+        commentSchema.parse(
+          (
+            await agent
+              .post(`/api/v1/posts/${postId}/comments`)
+              .send({ content, parentId: target })
+              .expect(201)
+          ).body,
+        );
+      const first = await reply(posterAgent, `@${commenter.username} first reply`);
+      expect(first).toMatchObject({ parentId, replyCount: 0 });
+      // A reply to a reply lands under the same parent: one level only.
+      const second = await reply(commenterAgent, 'second reply', first.id);
+      expect(second.parentId).toBe(parentId);
+
+      const top = commentListSchema.parse(
+        (await posterAgent.get(`/api/v1/posts/${postId}/comments`).expect(200)).body,
+      );
+      expect(top.items.map((c) => [c.id, c.replyCount])).toEqual([[parentId, 2]]);
+      expect(
+        postSchema.parse((await posterAgent.get(`/api/v1/posts/${postId}`).expect(200)).body)
+          .commentCount,
+      ).toBe(3);
+
+      const page1 = commentListSchema.parse(
+        (await posterAgent.get(`/api/v1/comments/${parentId}/replies?limit=1`).expect(200)).body,
+      );
+      expect(page1.items.map((c) => c.id)).toEqual([first.id]);
+      const page2 = commentListSchema.parse(
+        (
+          await posterAgent
+            .get(`/api/v1/comments/${parentId}/replies?limit=1&cursor=${page1.nextCursor}`)
+            .expect(200)
+        ).body,
+      );
+      expect(page2.items.map((c) => c.id)).toEqual([second.id]);
+      expect(page2.nextCursor).toBeNull();
+      await posterAgent.get(`/api/v1/comments/${MISSING}/replies`).expect(404);
+
+      // Only a comment of the same post can be answered.
+      const elsewhere = await createPost(posterAgent, 'elsewhere');
+      const wrongPost = await posterAgent
+        .post(`/api/v1/posts/${elsewhere}/comments`)
+        .send({ content: 'x', parentId })
+        .expect(400);
+      expect(apiErrorSchema.parse(wrongPost.body).fields).toHaveProperty('parentId');
+      const noParent = await posterAgent
+        .post(`/api/v1/posts/${postId}/comments`)
+        .send({ content: 'x', parentId: MISSING })
+        .expect(400);
+      expect(apiErrorSchema.parse(noParent.body).fields).toHaveProperty('parentId');
+
+      // The parent's author hears of a reply once, even when it names them; the post's author
+      // hears of every comment on the post, unless the reply was to their own comment.
+      const own = await comment(posterAgent, postId, 'my own comment');
+      const toOwn = await reply(commenterAgent, 'to the author', own);
+      const notesOn = async (agent: TestAgent) =>
+        notificationListSchema
+          .parse((await agent.get('/api/v1/notifications').expect(200)).body)
+          .items.filter((n) => n.post?.id === postId)
+          .map((n) => [n.type, n.comment?.id]);
+      expect(await notesOn(commenterAgent)).toEqual([['COMMENT_REPLIED', first.id]]);
+      expect(await notesOn(posterAgent)).toEqual([
+        ['COMMENT_REPLIED', toOwn.id],
+        ['POST_COMMENTED', second.id],
+        ['POST_COMMENTED', parentId],
+      ]);
+
+      // Deleting the parent takes its replies with it; the post count follows.
+      await commenterAgent.delete(`/api/v1/comments/${parentId}`).expect(204);
+      expect(await t.prisma.comment.count({ where: { parentId } })).toBe(0);
+      expect(
+        postSchema.parse((await posterAgent.get(`/api/v1/posts/${postId}`).expect(200)).body)
+          .commentCount,
+      ).toBe(2);
     });
   });
 });

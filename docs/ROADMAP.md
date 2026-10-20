@@ -9,29 +9,29 @@ in `BACKLOG.md`.
 
 | Item | Why | Notes |
 |---|---|---|
-| First deployment on the box, uptime check, off-box backups, Docker log rotation | nothing has run on the real box yet; the compose file has no log size limit | runbook §1–3; add `logging: { driver: json-file, options: { max-size, max-file } }` to every service; Cloudflare health check or any monitor on `/api/v1/auth/me` (401 = healthy) |
-| **Legal pages** (privacy notice, terms) | required once strangers can register; EU hosting | `/privacy`, `/terms`, linked from the auth pages, the register form and the app |
-| Account deletion and data export | GDPR rights; cascades already exist in the schema | `DELETE /users/me` with password confirmation; `GET /users/me/export` as JSON |
-| Spam protection on registration | email verification alone does not stop bots | Cloudflare Turnstile (free, the zone is on Cloudflare already) |
-| Finish the review pass | four tracks never produced a report | accessibility sweep, shared-contract drift, ops/docs drift, test coverage; one or two agents at a time |
+| First deployment on the box, uptime check, off-box backups | nothing has run on the real box yet | runbook §1–3 (Docker log rotation is in the compose file since the pre-release review); rehearse the restore drill of runbook §5 once; Cloudflare health check or any monitor on `/api/v1/auth/me` (401 = healthy) |
+| ~~**Legal pages** (privacy notice, terms)~~ ✅ 2026-10-16 | required once strangers can register; EU hosting | done as R1: `/privacy`, `/terms`, linked from the auth pages, the register form and the app |
+| ~~Account deletion and data export~~ ✅ 2026-10-19 | GDPR rights; cascades already exist in the schema | done as A2 (ADR 0012): `DELETE /users/me` with the password, `GET /users/me/export`, Settings → Your account |
+| ~~Spam protection on registration~~ ✅ 2026-10-19 | email verification alone does not stop bots | done as A3 (ADR 0012): Turnstile on the register form, verified by the API, runbook §2.7 |
+| ~~Finish the review pass~~ ✅ 2026-10-19 | four tracks never produced a report | done as A4: `docs/REVIEW_2026-10-19.md` (accessibility, contract drift, ops/docs drift, test coverage) plus the cheap Low items |
 
 ## 2. Product features with the most impact
 
 | Item | Why | Notes |
 |---|---|---|
-| **Mentions and hashtags** | `@alice` / `#topic` parsed at save time, linked in the UI; feeds notifications and search | shared parser used by API and web; entities stored per post/comment |
-| **Post pages and search** | posts have no permalink, nothing can be shared or linked from a notification | `/p/:id` with comments; Postgres full-text (`tsvector`) over posts and people |
-| Notifications | nobody is told about likes, comments, follows, mentions or messages received while away | per-user notification rows, unread badge, delivered over the existing socket; web push later |
+| ~~**Mentions and hashtags**~~ ✅ 2026-10-19 | `@alice` / `#topic` parsed at save time, linked in the UI; feeds notifications and search | done as B1 (ADR 0013): shared parser, entities per post/comment, `/tags/:tag`, trending, `@` autocomplete, links in text |
+| ~~**Post pages and search**~~ ✅ 2026-10-19 | posts have no permalink, nothing can be shared or linked from a notification | done as B2 (ADR 0014): `/p/:id` with comments, copy link, `GET /search/posts` on a generated tsvector, `/search` with Posts and People tabs |
+| ~~Notifications~~ ✅ 2026-10-20 | nobody is told about likes, comments, follows, mentions or messages received while away | done as B4 (ADR 0015): per-user rows from the domain events, bell + badges, `/notifications`, pushed over the chat socket; web push later (E2) |
 | Moderation basics | necessary the moment the site is public | block and mute, report a post, an admin role with a small queue |
-| Email and sessions in Settings | change the address (confirm the new one first), re-send verification, list of sessions with "sign out this device" | refresh tokens already record user agent and IP |
+| ~~Email and sessions in Settings~~ ✅ 2026-10-20 | change the address (confirm the new one first), re-send verification, list of sessions with "sign out this device" | refresh tokens already record user agent and IP |
 | Richer posts | several pictures per post, width/height stored at upload (fixes layout shift), link previews after | upload metadata exists in the `uploads` response already |
 
 ## 3. Polish and depth
 
 | Item | Notes |
 |---|---|
-| **Chat follow-ups** | delete a message, group admin and renaming, "new messages" pill when scrolled up, unread count in the tab title, notification sound |
-| Performance | `zod/mini` browser build, image `srcset`, font preload, route prefetch on hover (bundle is at 235 of 240 kB) |
+| ~~**Chat follow-ups**~~ ✅ 2026-10-19 | done as B3b (ADR 0009 amendment 2): message deletion, group admins (rename, remove, promote), system lines, paginated list, "new messages" pill, unread count in the tab title, sound and browser notifications |
+| Performance | `zod/mini` browser build, image `srcset`, font preload, route prefetch on hover (bundle is at 241 of 245 kB) |
 | Two-factor authentication (TOTP) | the email flows now exist to recover a lost device |
 | PWA manifest, web push | rides on the notifications work |
 | Observability | error tracking (Sentry free tier or self-hosted GlitchTip), a small status page |
@@ -39,4 +39,5 @@ in `BACKLOG.md`.
 ## Agreed order (2026-10-16)
 
 The owner picked, to be done directly on `dev` with one commit per item: **legal pages →
-mentions and hashtags → post pages and search → chat follow-ups**.
+mentions and hashtags → post pages and search → chat follow-ups**. All four are done; the
+full sequence from here is in `IMPLEMENTATION_PLAN.md`.

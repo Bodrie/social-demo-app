@@ -1,13 +1,8 @@
-import {
-  apiErrorSchema,
-  meResponseSchema,
-  userListSchema,
-  userPublicSchema,
-} from '@the-mesh/shared';
+import { apiErrorSchema, meResponseSchema, userListSchema, userPublicSchema } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { resetDatabase } from './setup/database.js';
-import { createUser, login } from './setup/factories.js';
+import { TEST_PASSWORD, createUser, login } from './setup/factories.js';
 
 describe('users', () => {
   let t: TestApp;
@@ -102,18 +97,27 @@ describe('users', () => {
       expect((await agent.get('/api/v1/auth/me').expect(200)).body.user.username).toBe('renamed_1');
     });
 
-    it('lets a user change their email and log in with it, and keep their own username', async () => {
+    it('keeps the own username, and never changes the email address through the profile', async () => {
       const user = await createUser(t.prisma);
       const agent = request.agent(t.server);
       await login(agent, user.email);
 
       await agent.patch('/api/v1/users/me').send({ username: user.username }).expect(200);
-      const changed = meResponseSchema.parse(
-        (await agent.patch('/api/v1/users/me').send({ email: 'Fresh@Example.com' }).expect(200))
-          .body,
+      // An unconfirmed address must not replace a verified one (ADR 0011): the key is ignored.
+      const unchanged = meResponseSchema.parse(
+        (
+          await agent
+            .patch('/api/v1/users/me')
+            .send({ email: 'Fresh@Example.com', name: 'Still Me' })
+            .expect(200)
+        ).body,
       );
-      expect(changed.user.email).toBe('fresh@example.com');
-      await login(request.agent(t.server), 'fresh@example.com');
+      expect(unchanged.user).toMatchObject({ email: user.email, name: 'Still Me' });
+      await login(request.agent(t.server), user.email);
+      await request(t.server)
+        .post('/api/v1/auth/login')
+        .send({ email: 'fresh@example.com', password: TEST_PASSWORD })
+        .expect(401);
     });
 
     it('stores blank optional text as null and ignores no-op patches', async () => {

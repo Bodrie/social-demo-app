@@ -44,7 +44,12 @@ test.describe('editing and reactions', () => {
 
     const bobComment = comments.getByRole('listitem').filter({ hasText: 'Bob first' });
     await bobComment.getByRole('button', { name: 'Add reaction' }).click();
+    // The pill is optimistic: "Top" must not be fetched before the reaction is stored.
+    const saved = page.waitForResponse(
+      (res) => res.url().endsWith('/reaction') && res.request().method() === 'PUT',
+    );
     await page.getByRole('button', { name: 'Love' }).click();
+    expect((await saved).ok()).toBe(true);
     await expect(bobComment.getByRole('button', { name: 'Love 1' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -67,6 +72,59 @@ test.describe('editing and reactions', () => {
       page.getByRole('list', { name: 'Previous versions' }).getByText('Alice second'),
     ).toBeVisible();
     await page.keyboard.press('Escape');
+
+    // Clean up.
+    await post.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete post' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('article').filter({ hasText: text })).toHaveCount(0);
+    await bob.context().close();
+  });
+  test('reply to a comment, answer a reply by name, fold the thread', async ({ page, browser }) => {
+    await openHome(page);
+    const text = `Threaded ${Date.now()}`;
+    await page.getByLabel('New post').fill(text);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const post = page.getByRole('article').filter({ hasText: text }).first();
+    await expect(post).toBeVisible();
+
+    // Bob asks; Alice answers under his comment.
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await openHome(bob);
+    const bobPost = bob.getByRole('article').filter({ hasText: text }).first();
+    await bobPost.getByRole('button', { name: /^Comments/ }).click();
+    await bobPost.getByLabel('Write a comment').fill('Bob asks');
+    await bobPost.getByRole('button', { name: 'Send comment' }).click();
+    await expect(bobPost.getByText('Bob asks')).toBeVisible();
+
+    await post.getByRole('button', { name: /^Comments/ }).click();
+    const comments = post.getByRole('region', { name: 'Comments' });
+    const bobComment = comments.getByRole('listitem').filter({ hasText: 'Bob asks' }).first();
+    await bobComment.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    await comments.getByLabel('Write a reply').fill('Alice answers');
+    await comments.getByLabel('Write a reply').press('Enter');
+    await expect(bobComment.getByRole('list', { name: 'Replies' })).toContainText('Alice answers');
+
+    // Bob finds the thread folded (his card counts both comments), opens it and answers Alice
+    // by name.
+    await bob.reload();
+    const bobPostAgain = bob.getByRole('article').filter({ hasText: text }).first();
+    await bobPostAgain.getByRole('button', { name: 'Comments 2' }).click();
+    const bobComments = bobPostAgain.getByRole('region', { name: 'Comments' });
+    await bobComments.getByRole('button', { name: 'View 1 reply' }).click();
+    const bobReplies = bobComments.getByRole('list', { name: 'Replies' });
+    await bobReplies
+      .getByRole('listitem')
+      .filter({ hasText: 'Alice answers' })
+      .getByRole('button', { name: 'Reply', exact: true })
+      .click();
+    await expect(bobComments.getByLabel('Write a reply')).toHaveValue('@alice ');
+    await bobComments.getByLabel('Write a reply').press('End');
+    await bobComments.getByLabel('Write a reply').pressSequentially('thanks');
+    await bobComments.getByLabel('Write a reply').press('Enter');
+    await expect(bobReplies).toContainText('@alice thanks');
+    await bobComments.getByRole('button', { name: 'Hide replies' }).click();
+    await expect(bobComments.getByRole('button', { name: 'View 2 replies' })).toBeVisible();
 
     // Clean up.
     await post.getByRole('button', { name: 'Post options' }).click();

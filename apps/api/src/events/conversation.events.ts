@@ -1,4 +1,4 @@
-import type { Message } from '@the-mesh/shared';
+import type { Message } from '@beso/shared';
 
 /** A message was persisted; `memberIds` are everyone in the conversation, sender included. */
 export class MessageSentEvent {
@@ -9,7 +9,25 @@ export class MessageSentEvent {
   ) {}
 }
 
-/** `readerId` caught up in a conversation; `memberIds` are the others, who show the receipt. */
+/** The sender deleted a message: `message` is its new state (content gone, `deletedAt` set). */
+export class MessageDeletedEvent {
+  static readonly EVENT = 'message.deleted';
+  constructor(
+    readonly message: Message,
+    readonly memberIds: readonly string[],
+  ) {}
+}
+
+/** The sender edited a message or someone reacted to it: `message` is its new state (ADR 0009 amendment 3). */
+export class MessageUpdatedEvent {
+  static readonly EVENT = 'message.updated';
+  constructor(
+    readonly message: Message,
+    readonly memberIds: readonly string[],
+  ) {}
+}
+
+/** `readerId` caught up in a conversation; `memberIds` are every member, the reader's own tabs included. */
 export class ConversationReadEvent {
   static readonly EVENT = 'conversation.read';
   constructor(
@@ -20,9 +38,18 @@ export class ConversationReadEvent {
   ) {}
 }
 
-/** A group was created or gained members; every current member should refetch it. */
+/** A group was created, renamed, or its members or their roles changed; every current member should refetch it. */
 export class ConversationUpdatedEvent {
   static readonly EVENT = 'conversation.updated';
+  constructor(
+    readonly conversationId: string,
+    readonly memberIds: readonly string[],
+  ) {}
+}
+
+/** A conversation ceased to exist for `memberIds` (a direct thread whose other side deleted their account). */
+export class ConversationDeletedEvent {
+  static readonly EVENT = 'conversation.deleted';
   constructor(
     readonly conversationId: string,
     readonly memberIds: readonly string[],

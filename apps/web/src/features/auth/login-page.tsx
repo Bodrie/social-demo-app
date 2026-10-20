@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type LoginInput, loginSchema } from '@the-mesh/shared';
+import { type LoginInput, loginSchema } from '@beso/shared';
 import { Loader2Icon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';

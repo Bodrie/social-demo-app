@@ -60,11 +60,19 @@ describe('RefreshTokensService', () => {
     prisma.refreshToken.findUnique.mockResolvedValue({ ...stored, revokedAt: new Date() } as never);
 
     await expect(service.rotate('old-raw', meta)).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1', revokedAt: null },
-      data: { revokedAt: expect.any(Date) },
-    });
+    // Deleted, not marked: a replay of any of these later is merely invalid.
+    expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+    expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
     expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it('ends the other sessions by deleting their rows and keeps the caller', async () => {
+    await service.revokeOthers('user-1', 'current-raw');
+
+    expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', tokenHash: { not: service.hash('current-raw') } },
+    });
+    expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
   });
 
   it('revokes every session when two rotations race for the same token', async () => {

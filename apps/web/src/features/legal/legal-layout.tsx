@@ -1,4 +1,4 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { Link, NavLink } from 'react-router';
@@ -8,7 +8,7 @@ import { CONTACT_EMAIL, REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
 
 /** Keep in step with the text: both pages print it, and a change in the text is a change in the date. */
-export const LEGAL_UPDATED_ON = '16 October 2026';
+export const LEGAL_UPDATED_ON = '19 October 2026';
 
 type LegalLayoutProps = {
   title: string;

@@ -1,9 +1,11 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
+import type { VisibilityService } from '../moderation/visibility.service.js';
 import type { AssetsService } from '../assets/assets.service.js';
 import type { PostsService } from '../posts/posts.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { UsersService } from '../users/users.service.js';
 import { CommentsService } from './comments.service.js';
 
 const assets = { base: 'http://assets.local' } as unknown as AssetsService;
@@ -18,8 +20,10 @@ describe('CommentsService.delete', () => {
     service = new CommentsService(
       prisma,
       mockDeep<PostsService>(),
+      mockDeep<UsersService>(),
       mockDeep<EventEmitter2>(),
       assets,
+      mockDeep<VisibilityService>(),
     );
     prisma.comment.findUnique.mockResolvedValue(stored as never);
     prisma.comment.delete.mockResolvedValue({} as never);

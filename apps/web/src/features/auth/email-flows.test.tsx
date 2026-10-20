@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { alice, bob, makeUser } from '@/test/fixtures';
 import { mockDb, signedInAs } from '@/test/msw/handlers';
@@ -42,22 +42,51 @@ describe('email verification gate', () => {
     expect(await screen.findByText(/asked a few times already/)).toBeInTheDocument();
   });
 
+  it('moves on by itself once the address was confirmed somewhere else', async () => {
+    const me = signedInUnverified();
+    mockDb.refreshable = true;
+    renderApp('/verify-email');
+    expect(await screen.findByRole('heading', { name: 'Check your inbox' })).toBeInTheDocument();
+
+    // Confirmed on the phone; this tab is looked at again.
+    me.emailVerifiedAt = new Date().toISOString();
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    });
+
+    expect(await screen.findByLabelText('New post')).toBeInTheDocument();
+    // This browser's access token still said "unverified": it was renewed on the way in.
+    expect(mockDb.calls.refresh).toBe(1);
+  });
+
   it('lets the member sign out from the waiting room to start over', async () => {
     signedInUnverified();
     renderApp('/verify-email');
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: /^sign out$/i }));
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(mockDb.user).toBeNull();
   });
 
-  it('spends the mailed link, signs the browser in and opens the app', async () => {
+  it('spends the mailed link in the browser that registered and opens the app', async () => {
+    const me = signedInUnverified();
+    mockDb.emailTokens.push({ token: 'good-link', kind: 'verify', email: me.email });
+    renderApp('/verify-email?token=good-link');
+    expect(await screen.findByLabelText('New post')).toBeInTheDocument();
+    expect(mockDb.user?.emailVerifiedAt).not.toBeNull();
+    expect(mockDb.emailTokens).toHaveLength(0);
+  });
+
+  it('only confirms the address in a browser without that session, and asks to sign in', async () => {
     const pending = unverifiedAlice();
     mockDb.users.push(pending);
     mockDb.emailTokens.push({ token: 'good-link', kind: 'verify', email: pending.email });
     renderApp('/verify-email?token=good-link');
-    expect(await screen.findByLabelText('New post')).toBeInTheDocument();
-    expect(mockDb.user?.emailVerifiedAt).not.toBeNull();
+    expect(
+      await screen.findByRole('heading', { name: 'Email address confirmed' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to sign in' })).toHaveAttribute('href', '/login');
+    expect(mockDb.user).toBeNull();
     expect(mockDb.emailTokens).toHaveLength(0);
   });
 

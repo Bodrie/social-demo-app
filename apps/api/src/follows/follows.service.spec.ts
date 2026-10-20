@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
+import type { VisibilityService } from '../moderation/visibility.service.js';
 import type { AssetsService } from '../assets/assets.service.js';
 import { UserFollowedEvent } from '../events/user.events.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -19,7 +20,7 @@ describe('FollowsService.follow', () => {
     prisma = mockDeep<PrismaService>();
     users = mockDeep<UsersService>();
     events = mockDeep<EventEmitter2>();
-    service = new FollowsService(prisma, users, events, assets);
+    service = new FollowsService(prisma, users, events, assets, mockDeep<VisibilityService>());
     users.assertExists.mockResolvedValue(undefined);
   });
 

@@ -1,4 +1,4 @@
-import { type ApiError, apiErrorSchema } from '@the-mesh/shared';
+import { type ApiError, apiErrorSchema } from '@beso/shared';
 import type { z } from 'zod';
 import { API_URL } from '../env';
 
@@ -50,20 +50,32 @@ export function notifySessionLost(): void {
   for (const listener of sessionLostListeners) listener();
 }
 
-let refreshInFlight: Promise<boolean> | null = null;
+/**
+ * `rejected` is the API saying the refresh token is no good: the session is over. Anything
+ * else that goes wrong (a 5xx during a deploy, a 429, the network) is `unavailable`: the
+ * cookies may well be fine, so nobody is signed out for it (review L2).
+ */
+export type RefreshOutcome = 'refreshed' | 'rejected' | 'unavailable';
+
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
 /**
  * Refreshes the session at most once at a time per tab (single flight) and, where
  * the Web Locks API exists, at most once at a time per browser: the refresh token
  * is single-use, so two tabs refreshing together would otherwise log everyone out.
  */
-export function refreshSession(): Promise<boolean> {
-  refreshInFlight ??= runExclusive('the-mesh:refresh', async () => {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    return response.ok;
+export function refreshSession(): Promise<RefreshOutcome> {
+  refreshInFlight ??= runExclusive('beso:refresh', async (): Promise<RefreshOutcome> => {
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (response.ok) return 'refreshed';
+      return response.status === 401 ? 'rejected' : 'unavailable';
+    } catch {
+      return 'unavailable';
+    }
   }).finally(() => {
     refreshInFlight = null;
   });
@@ -114,12 +126,23 @@ async function send<T>(
     signal: options.signal,
   });
 
-  if (response.status === 401 && options.retryOnUnauthorized !== false && attempt === 0) {
-    if (await refreshSession()) return send(method, path, options, attempt + 1);
-    notifySessionLost();
+  if (!response.ok) {
+    const error = await toApiError(response);
+    if (options.retryOnUnauthorized !== false && attempt === 0) {
+      if (response.status === 401) {
+        const outcome = await refreshSession();
+        if (outcome === 'refreshed') return send(method, path, options, attempt + 1);
+        if (outcome === 'rejected') notifySessionLost();
+      } else if (response.status === 403 && error.code === 'EMAIL_NOT_VERIFIED') {
+        // The address was confirmed in another browser; this tab's token says otherwise until
+        // it is reissued, so one refresh and one retry (review L4).
+        if ((await refreshSession()) === 'refreshed') {
+          return send(method, path, options, attempt + 1);
+        }
+      }
+    }
+    throw new ApiClientError(error);
   }
-
-  if (!response.ok) throw new ApiClientError(await toApiError(response));
   // Without a schema the caller asked for nothing back (T is void).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   if (response.status === 204 || !options.schema) return undefined as T;
@@ -138,6 +161,7 @@ export const api = {
     send<T>('PUT', path, { ...options, body }),
   patch: <T = void>(path: string, body?: unknown, options: Omit<RequestOptions<T>, 'body'> = {}) =>
     send<T>('PATCH', path, { ...options, body }),
-  delete: <T = void>(path: string, options: Omit<RequestOptions<T>, 'body'> = {}) =>
+  /** A body is allowed: `DELETE /users/me` carries the confirming password. */
+  delete: <T = void>(path: string, options: RequestOptions<T> = {}) =>
     send<T>('DELETE', path, options),
 };

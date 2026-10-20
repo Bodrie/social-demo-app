@@ -12,7 +12,11 @@ if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
-      matches: false,
+      // Width queries follow jsdom's window (1024 wide, assignable), so a test can be "a phone"
+      // with `window.innerWidth = 390` before rendering; everything else never matches.
+      matches: /\(min-width: (\d+)px\)/.test(query)
+        ? window.innerWidth >= Number(/\(min-width: (\d+)px\)/.exec(query)?.[1])
+        : false,
       media: query,
       onchange: null,
       addEventListener: () => undefined,
@@ -62,7 +66,29 @@ Object.defineProperty(URL, 'revokeObjectURL', {
 const nodeFormData = await new Response('', {
   headers: { 'content-type': 'application/x-www-form-urlencoded' },
 }).formData();
-vi.stubGlobal('FormData', Object.getPrototypeOf(nodeFormData).constructor);
+const NodeFormData: typeof FormData = Object.getPrototypeOf(nodeFormData).constructor;
+/**
+ * Node's FormData refuses a constructor argument, but the browser's accepts a form element and
+ * React 19 builds one on a submit whose default was prevented while a transition started
+ * (a submit handler that navigates). Mirror the browser: read the form's named controls.
+ */
+class TestFormData extends NodeFormData {
+  constructor(form?: HTMLFormElement | null) {
+    super();
+    for (const element of form ? Array.from(form.elements) : []) {
+      if (
+        (element instanceof HTMLInputElement ||
+          element instanceof HTMLTextAreaElement ||
+          element instanceof HTMLSelectElement) &&
+        element.name &&
+        !element.disabled
+      ) {
+        this.append(element.name, element.value);
+      }
+    }
+  }
+}
+vi.stubGlobal('FormData', TestFormData);
 vi.stubGlobal('Blob', NodeBlob);
 vi.stubGlobal('File', NodeFile);
 window.requestAnimationFrame ??= (callback: FrameRequestCallback) =>

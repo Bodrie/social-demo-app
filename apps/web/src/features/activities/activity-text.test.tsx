@@ -33,6 +33,19 @@ describe('ActivityText', () => {
         <li>
           <ActivityText activity={makeActivity('USER_REGISTERED')} />
         </li>
+        <li>
+          <ActivityText
+            activity={makeActivity('POST_REPOSTED', { post, targetUser: summaryOf(carol) })}
+          />
+        </li>
+        <li>
+          <ActivityText
+            activity={makeActivity('POST_QUOTED', {
+              post: { ...post, excerpt: 'My take' },
+              targetUser: summaryOf(carol),
+            })}
+          />
+        </li>
       </ul>,
     );
     const items = screen.getAllByRole('listitem').map((item) => item.textContent);
@@ -42,9 +55,13 @@ describe('ActivityText', () => {
       'Bob Brown liked a post: “Hello world”',
       'Bob Brown started following Carol Clark',
       'Bob Brown updated their profile',
-      'Bob Brown joined The Mesh',
+      'Bob Brown joined BeSo',
+      'Bob Brown reposted Carol Clark’s post: “Hello world”',
+      'Bob Brown quoted Carol Clark’s post: “My take”',
     ]);
-    expect(screen.getAllByRole('link', { name: 'Bob Brown' })).toHaveLength(6);
-    expect(screen.getByRole('link', { name: 'Carol Clark' })).toHaveAttribute('href', '/u/carol');
+    expect(screen.getAllByRole('link', { name: 'Bob Brown' })).toHaveLength(8);
+    const carols = screen.getAllByRole('link', { name: 'Carol Clark' });
+    expect(carols).toHaveLength(3);
+    expect(carols[0]).toHaveAttribute('href', '/u/carol');
   });
 });

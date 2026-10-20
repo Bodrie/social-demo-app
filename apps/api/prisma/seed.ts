@@ -11,9 +11,10 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { extractEntities } from '@beso/shared';
 import argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { ActivityType, ReactionType } from '../src/generated/prisma/enums.js';
+import { ActivityType, NotificationType, ReactionType } from '../src/generated/prisma/enums.js';
 import { TABLES } from '../src/prisma/tables.js';
 import { placeholderAvatar, placeholderPostImage } from './placeholders.js';
 
@@ -31,6 +32,22 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is not set');
 }
+
+/**
+ * The seed truncates every table and wipes the upload folders: it must never meet a database
+ * that is not a developer's own (review L13). `SEED_FORCE=1` is the explicit override.
+ */
+function assertSeedTarget(url: string): void {
+  if (process.env.SEED_FORCE === '1') return;
+  const host = new URL(url).hostname;
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+  if (process.env.NODE_ENV === 'production' || !local) {
+    throw new Error(
+      `Refusing to seed "${host}" (NODE_ENV=${process.env.NODE_ENV ?? 'development'}): the seed destroys every table. Set SEED_FORCE=1 if you really mean it.`,
+    );
+  }
+}
+assertSeedTarget(databaseUrl);
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
@@ -76,7 +93,7 @@ async function truncateAll(): Promise<void> {
   );
   // Generated files from previous runs are orphans once their rows are gone.
   await Promise.all(
-    ['avatar', 'post', 'message'].map((kind) =>
+    ['avatar', 'cover', 'post', 'message'].map((kind) =>
       rm(path.join(uploadsDir, kind), { recursive: true, force: true }),
     ),
   );
@@ -106,9 +123,15 @@ async function seed(): Promise<void> {
   const users = await prisma.user.createManyAndReturn({
     data: [...FIXED_USERS.map((u) => ({ ...u, bio: null, website: null })), ...fakeUsers].map(
       // Demo accounts are born verified; real members confirm their address through the mailed link.
-      (u) => ({ ...u, passwordHash, emailVerifiedAt: new Date() }),
+      // alice runs the demo: she reads the reports queue (ADR 0016).
+      (u) => ({
+        ...u,
+        passwordHash,
+        emailVerifiedAt: new Date(),
+        role: u.username === 'alice' ? ('admin' as const) : ('member' as const),
+      }),
     ),
-    select: { id: true, username: true },
+    select: { id: true, username: true, name: true },
   });
   const userIds = users.map((u) => u.id);
 
@@ -190,8 +213,62 @@ async function seed(): Promise<void> {
     })),
   });
 
+  // --- bookmarks (the demo accounts' private saves) ----------------------
+  await prisma.bookmark.createMany({
+    data: users.slice(0, FIXED_USERS.length).flatMap((u) =>
+      pick(
+        posts.filter((p) => p.authorId !== u.id),
+        4,
+      ).map((p) => ({ userId: u.id, postId: p.id })),
+    ),
+    skipDuplicates: true,
+  });
+
+  // --- reposts and one quote (ADR 0017) -----------------------------------
+  const demoUsers = users.slice(0, FIXED_USERS.length);
+  const reposts = demoUsers.flatMap((u) =>
+    pick(
+      posts.filter((p) => p.authorId !== u.id),
+      2,
+    ).map((p) => ({ userId: u.id, postId: p.id })),
+  );
+  await prisma.repost.createMany({ data: reposts, skipDuplicates: true });
+  await prisma.activity.createMany({
+    data: reposts.map((r) => ({
+      actorId: r.userId,
+      type: ActivityType.POST_REPOSTED,
+      postId: r.postId,
+      targetUserId: posts.find((p) => p.id === r.postId)?.authorId,
+    })),
+  });
+  const [seedAlice, seedBob] = demoUsers;
+  const alicePost = posts.find((p) => p.authorId === seedAlice?.id);
+  if (seedAlice && seedBob && alicePost) {
+    const quote = await prisma.post.create({
+      data: {
+        authorId: seedBob.id,
+        content: 'This one deserves a second look.',
+        quotedPostId: alicePost.id,
+        wasQuote: true,
+      },
+      select: { id: true },
+    });
+    await prisma.activity.create({
+      data: {
+        actorId: seedBob.id,
+        type: ActivityType.POST_QUOTED,
+        postId: quote.id,
+        targetUserId: seedAlice.id,
+      },
+    });
+  }
+  await prisma.$executeRaw`
+    UPDATE posts p SET repost_count =
+      (SELECT count(*) FROM reposts r WHERE r.post_id = p.id)
+      + (SELECT count(*) FROM posts q WHERE q.quoted_post_id = p.id)`;
+
   // --- comments ----------------------------------------------------------
-  const comments = await prisma.comment.createManyAndReturn({
+  const topLevel = await prisma.comment.createManyAndReturn({
     data: posts.flatMap((post) =>
       Array.from({ length: faker.number.int({ min: 0, max: 4 }) }, () => ({
         postId: post.id,
@@ -200,8 +277,23 @@ async function seed(): Promise<void> {
         createdAt: faker.date.between({ from: post.createdAt, to: new Date() }),
       })),
     ),
-    select: { id: true, authorId: true, postId: true, createdAt: true },
+    select: { id: true, authorId: true, postId: true, parentId: true, createdAt: true },
   });
+  // A few replies (one level, C2), so some threads have something to unfold.
+  const replies = await prisma.comment.createManyAndReturn({
+    data: topLevel.flatMap((parent) =>
+      Array.from({ length: faker.number.int({ min: 0, max: 2 }) }, () => ({
+        postId: parent.postId,
+        parentId: parent.id,
+        authorId: faker.helpers.arrayElement(userIds),
+        content: faker.lorem.sentence(),
+        createdAt: faker.date.between({ from: parent.createdAt, to: new Date() }),
+      })),
+    ),
+    select: { id: true, authorId: true, postId: true, parentId: true, createdAt: true },
+  });
+  const comments = [...topLevel, ...replies];
+  const parentAuthorOf = new Map(topLevel.map((c) => [c.id, c.authorId]));
   await prisma.activity.createMany({
     data: comments.map((c) => ({
       actorId: c.authorId,
@@ -211,6 +303,80 @@ async function seed(): Promise<void> {
       createdAt: c.createdAt,
     })),
   });
+
+  // --- notifications for the demo accounts (what happened to their things) ---
+  const demoIds = new Set(users.slice(0, FIXED_USERS.length).map((u) => u.id));
+  const authorOf = new Map(posts.map((p) => [p.id, p.authorId]));
+  const ownPost = (postId: string, actorId: string) => {
+    const authorId = authorOf.get(postId);
+    return authorId !== undefined && authorId !== actorId && demoIds.has(authorId)
+      ? authorId
+      : null;
+  };
+  await prisma.notification.createMany({
+    data: [
+      ...follows
+        .filter((f) => demoIds.has(f.followeeId))
+        .map((f) => ({
+          userId: f.followeeId,
+          type: NotificationType.USER_FOLLOWED,
+          actorId: f.followerId,
+        })),
+      ...likes.flatMap((l) => {
+        const userId = ownPost(l.postId, l.userId);
+        return userId
+          ? [{ userId, type: NotificationType.POST_LIKED, actorId: l.userId, postId: l.postId }]
+          : [];
+      }),
+      // Like the listener: a reply tells the parent's author, and the post's author unless
+      // that is the same person.
+      ...comments.flatMap((c) => {
+        const userId = ownPost(c.postId, c.authorId);
+        const parentAuthorId = c.parentId === null ? null : parentAuthorOf.get(c.parentId);
+        return userId && userId !== parentAuthorId
+          ? [
+              {
+                userId,
+                type: NotificationType.POST_COMMENTED,
+                actorId: c.authorId,
+                postId: c.postId,
+                commentId: c.id,
+                createdAt: c.createdAt,
+              },
+            ]
+          : [];
+      }),
+      ...replies.flatMap((r) => {
+        const userId = r.parentId === null ? undefined : parentAuthorOf.get(r.parentId);
+        return userId && userId !== r.authorId && demoIds.has(userId)
+          ? [
+              {
+                userId,
+                type: NotificationType.COMMENT_REPLIED,
+                actorId: r.authorId,
+                postId: r.postId,
+                commentId: r.id,
+                createdAt: r.createdAt,
+              },
+            ]
+          : [];
+      }),
+    ],
+    skipDuplicates: true,
+  });
+  // All but the newest few are read, so the bell shows a realistic number.
+  for (const userId of demoIds) {
+    const newest = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 4,
+      select: { id: true },
+    });
+    await prisma.notification.updateMany({
+      where: { userId, id: { notIn: newest.map((n) => n.id) } },
+      data: { readAt: new Date() },
+    });
+  }
 
   // --- comment reactions and a few edits ---------------------------------
   const reactionTypes = Object.values(ReactionType);
@@ -259,8 +425,56 @@ async function seed(): Promise<void> {
     ]);
   }
 
+  // --- tagged posts and mentions between the fixed accounts ------------------
+  // Dated a few days back so they sit inside the trending window without topping the feeds.
+  const [alice, bob, carol] = users;
+  if (alice && bob && carol) {
+    const tagged = [
+      {
+        author: alice,
+        content: 'Who is up for a hike this #weekend? @bob @carol bring the good snacks.',
+      },
+      {
+        author: bob,
+        content: 'New #photography set from the coast is up. Thanks @alice for the tip!',
+      },
+      { author: carol, content: 'First post on #BeSo. Hello everyone, hello @alice!' },
+      {
+        author: alice,
+        content: 'Reading list for the #weekend: https://example.com/reading #beso',
+      },
+    ];
+    const byUsername = new Map(users.map((user) => [user.username, user.id]));
+    for (const [index, item] of tagged.entries()) {
+      const createdAt = new Date(Date.now() - (2 + index) * 24 * 60 * 60 * 1000);
+      const entities = extractEntities(item.content);
+      const post = await prisma.post.create({
+        data: {
+          authorId: item.author.id,
+          content: item.content,
+          createdAt,
+          mentions: {
+            create: entities.mentions
+              .map((username) => byUsername.get(username))
+              .filter((id): id is string => id !== undefined)
+              .map((userId) => ({ userId })),
+          },
+          hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
+        },
+        select: { id: true },
+      });
+      await prisma.activity.create({
+        data: {
+          actorId: item.author.id,
+          type: ActivityType.POST_CREATED,
+          postId: post.id,
+          createdAt,
+        },
+      });
+    }
+  }
+
   // --- conversations between the fixed accounts ------------------------------
-  const [alice, bob] = users;
   if (alice && bob) {
     const direct = await prisma.conversation.create({
       data: {
@@ -320,7 +534,13 @@ async function seed(): Promise<void> {
         kind: 'group',
         title: 'Weekend plans',
         createdById: alice.id,
-        members: { create: groupMembers.map((userId) => ({ userId })) },
+        // The creator is the admin; the others are plain members.
+        members: {
+          create: groupMembers.map((userId) => ({
+            userId,
+            role: userId === alice.id ? 'admin' : 'member',
+          })),
+        },
       },
       select: { id: true },
     });
@@ -328,16 +548,47 @@ async function seed(): Promise<void> {
       conversationId: group.id,
       senderId: groupMembers[i % groupMembers.length] ?? alice.id,
       content: faker.lorem.sentence(),
-      createdAt: new Date(Date.now() - (6 - i) * 5 * 60_000),
+      createdAt: new Date(Date.now() - (8 - i) * 5 * 60_000),
     }));
     await prisma.message.createMany({ data: chatter });
-    const lastChatter = chatter.at(-1)?.createdAt;
+    // One message Bob took back, and the line the server wrote when Alice brought the others in.
+    const [third, fourth] = users.slice(3, 5);
+    await prisma.message.create({
+      data: {
+        conversationId: group.id,
+        senderId: bob.id,
+        content: '',
+        deletedAt: new Date(Date.now() - 9 * 60_000),
+        createdAt: new Date(Date.now() - 10 * 60_000),
+      },
+    });
+    const systemLine = await prisma.message.create({
+      data: {
+        conversationId: group.id,
+        senderId: alice.id,
+        kind: 'system',
+        content: '',
+        systemMeta: {
+          type: 'members_added',
+          actor: { id: alice.id, name: alice.name },
+          users: [third, fourth].flatMap((user) =>
+            user ? [{ id: user.id, name: user.name }] : [],
+          ),
+          title: null,
+        },
+        createdAt: new Date(Date.now() - 5 * 60_000),
+      },
+      select: { createdAt: true },
+    });
     await prisma.conversation.update({
       where: { id: group.id },
       data: {
-        lastMessageAt: lastChatter,
+        lastMessageAt: systemLine.createdAt,
         members: {
-          updateMany: { where: { userId: { not: alice.id } }, data: { lastReadAt: lastChatter } },
+          updateMany: {
+            where: { userId: { not: alice.id } },
+            data: { lastReadAt: systemLine.createdAt },
+          },
           update: {
             where: { conversationId_userId: { conversationId: group.id, userId: alice.id } },
             data: { lastReadAt: chatter[2]?.createdAt },

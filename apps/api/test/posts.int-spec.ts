@@ -4,7 +4,7 @@ import {
   postSchema,
   revisionListSchema,
   uploadResponseSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import sharp from 'sharp';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';

@@ -1,4 +1,4 @@
-import type { UserPublic } from '@the-mesh/shared';
+import type { UserPublic } from '@beso/shared';
 import { useOutletContext } from 'react-router';
 
 export type ProfileContext = { user: UserPublic };

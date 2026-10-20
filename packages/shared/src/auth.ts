@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { emailSchema, meResponseSchema, nameSchema, usernameSchema } from './users.js';
+import {
+  emailSchema,
+  meResponseSchema,
+  nameSchema,
+  userPrivateSchema,
+  usernameSchema,
+} from './users.js';
 
 export const passwordSchema = z
   .string()
@@ -11,6 +17,8 @@ export const registerSchema = z.object({
   username: usernameSchema,
   name: nameSchema,
   password: passwordSchema,
+  /** The bot-check token (Cloudflare Turnstile); required only where the API has a secret. */
+  captchaToken: z.string().max(2048).optional(),
 });
 export type RegisterInput = z.input<typeof registerSchema>;
 export type RegisterData = z.output<typeof registerSchema>;
@@ -41,6 +49,14 @@ const emailTokenSchema = z.string().trim().min(1, 'The link is incomplete').max(
 export const verifyEmailSchema = z.object({ token: emailTokenSchema });
 export type VerifyEmailInput = z.input<typeof verifyEmailSchema>;
 
+/**
+ * The address is confirmed either way. `user` is set only when this browser already held a
+ * session of that account, which then continues verified; null means "now sign in". The link
+ * alone never signs a browser in: whoever registered the address could have planted it.
+ */
+export const verifyEmailResponseSchema = z.object({ user: userPrivateSchema.nullable() });
+export type VerifyEmailResponse = z.infer<typeof verifyEmailResponseSchema>;
+
 /** Always answered the same way, whether or not the address belongs to an account. */
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 export type ForgotPasswordInput = z.input<typeof forgotPasswordSchema>;
@@ -64,3 +80,39 @@ export type ResetPasswordFormInput = z.input<typeof resetPasswordFormSchema>;
 /** Returned by register, login, refresh and GET /auth/me. Tokens travel in httpOnly cookies. */
 export const authResponseSchema = meResponseSchema;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+
+// --- email change and sessions (ADR 0010 amendment, D1) ------------------------
+
+/** Settings → Email: the new address waits for the link mailed to it; the password proves the owner asked. */
+export const changeEmailSchema = z.object({
+  newEmail: emailSchema,
+  password: z.string().min(1, 'Enter your password'),
+});
+export type ChangeEmailInput = z.input<typeof changeEmailSchema>;
+export type ChangeEmailData = z.output<typeof changeEmailSchema>;
+
+export const confirmEmailChangeSchema = z.object({ token: emailTokenSchema });
+export type ConfirmEmailChangeInput = z.input<typeof confirmEmailChangeSchema>;
+
+/** The address the account answers to from now on. */
+export const confirmEmailChangeResponseSchema = z.object({ email: z.string() });
+export type ConfirmEmailChangeResponse = z.infer<typeof confirmEmailChangeResponseSchema>;
+
+/** One signed-in device, as the sessions list shows it; `current` is the caller's own. */
+export const sessionSchema = z.object({
+  id: z.uuid(),
+  browser: z.string().nullable(),
+  os: z.string().nullable(),
+  /** Masked: the last part is hidden. */
+  ip: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  lastUsedAt: z.iso.datetime(),
+  current: z.boolean(),
+});
+export type Session = z.infer<typeof sessionSchema>;
+
+export const sessionListSchema = z.object({
+  items: z.array(sessionSchema),
+  nextCursor: z.string().nullable(),
+});
+export type SessionList = z.infer<typeof sessionListSchema>;

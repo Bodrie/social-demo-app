@@ -11,7 +11,7 @@ import {
   commentSchema,
   reactionSummarySchema,
   revisionListSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { api } from './client';
 import { type PageOptions, queryString } from './query';
 
@@ -20,6 +20,18 @@ export const fetchComments = (
   { cursor, sort, signal }: PageOptions & { sort: CommentSort },
 ): Promise<CommentList> =>
   api.get(`/posts/${postId}/comments${queryString({ cursor, sort })}`, commentListSchema, {
+    signal,
+  });
+
+export const fetchComment = (commentId: string, signal?: AbortSignal): Promise<Comment> =>
+  api.get(`/comments/${commentId}`, commentSchema, { signal });
+
+/** The replies under a top-level comment, oldest first. */
+export const fetchReplies = (
+  commentId: string,
+  { cursor, signal }: PageOptions,
+): Promise<CommentList> =>
+  api.get(`/comments/${commentId}/replies${queryString({ cursor })}`, commentListSchema, {
     signal,
   });
 
@@ -34,9 +46,11 @@ export const deleteComment = (commentId: string): Promise<void> =>
 
 export const fetchCommentRevisions = (
   commentId: string,
-  signal?: AbortSignal,
+  { cursor, signal }: PageOptions,
 ): Promise<RevisionList> =>
-  api.get(`/comments/${commentId}/revisions`, revisionListSchema, { signal });
+  api.get(`/comments/${commentId}/revisions${queryString({ cursor })}`, revisionListSchema, {
+    signal,
+  });
 
 export const setReaction = (commentId: string, type: ReactionType): Promise<ReactionSummary> =>
   api.put(`/comments/${commentId}/reaction`, { type }, { schema: reactionSummarySchema });

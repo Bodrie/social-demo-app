@@ -33,6 +33,26 @@ export async function waitForEmail(
   }
 }
 
+/** Waits until `count` mails to `to` match and returns all of them, oldest first. */
+export async function waitForEmails(
+  to: string,
+  subject: RegExp,
+  count: number,
+  timeoutMs = 5000,
+): Promise<OutboxEntry[]> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    // oxlint-disable-next-line no-await-in-loop -- polling on purpose
+    const matches = (await readOutbox()).filter((e) => e.to === to && subject.test(e.subject));
+    if (matches.length >= count) return matches;
+    if (Date.now() > deadline) {
+      throw new Error(`Only ${matches.length} of ${count} emails to ${to} matching ${subject}`);
+    }
+    // oxlint-disable-next-line no-await-in-loop -- polling on purpose
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 /** The `token=` query value of the first link in the mail. */
 export function tokenIn(email: OutboxEntry): string {
   const match = /[?&]token=([A-Za-z0-9_%-]+)/.exec(email.text);

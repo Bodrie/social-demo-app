@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import { type ApiError, type ErrorCode, errorCodeSchema } from '@the-mesh/shared';
+import { type ApiError, type ErrorCode, errorCodeSchema } from '@beso/shared';
 import { Prisma } from '../generated/prisma/client.js';
 import { isRecord } from './type-guards.js';
 
@@ -16,6 +16,24 @@ import { isRecord } from './type-guards.js';
 
 export const notFound = (message: string): NotFoundException => new NotFoundException(message);
 export const forbidden = (message: string): ForbiddenException => new ForbiddenException(message);
+/** One of the two members blocked the other (ADR 0016): the same answer whichever way round. */
+export const blocked = (): ForbiddenException =>
+  new ForbiddenException({
+    code: 'BLOCKED' satisfies ErrorCode,
+    message: 'You cannot do that with this member',
+  });
+/** An admin suspended the account (ADR 0016): no sign-in, no refresh, no `me`. */
+export const suspended = (): ForbiddenException =>
+  new ForbiddenException({
+    code: 'SUSPENDED' satisfies ErrorCode,
+    message: 'This account is suspended',
+  });
+/** The one 403 a client may answer with a token refresh: the address may have been confirmed elsewhere. */
+export const emailNotVerified = (): ForbiddenException =>
+  new ForbiddenException({
+    code: 'EMAIL_NOT_VERIFIED' satisfies ErrorCode,
+    message: 'Confirm your email address to continue',
+  });
 export const unauthorized = (message: string): UnauthorizedException =>
   new UnauthorizedException(message);
 export const badRequest = (message: string, fields?: Record<string, string>): BadRequestException =>
@@ -26,6 +44,12 @@ export const unsupportedMedia = (
   message: string,
   fields?: Record<string, string>,
 ): UnsupportedMediaTypeException => new UnsupportedMediaTypeException({ message, fields });
+/** A limit enforced by a service (per account), as opposed to the request throttlers. */
+export const tooManyRequests = (message: string): HttpException =>
+  new HttpException({ message }, HttpStatus.TOO_MANY_REQUESTS);
+/** A dependency we need is not answering; `code` names it so clients can say what to retry. */
+export const serviceUnavailable = (message: string, code: ErrorCode = 'SERVICE_UNAVAILABLE') =>
+  new HttpException({ message, code }, HttpStatus.SERVICE_UNAVAILABLE);
 /** A 400 that forms map onto inputs, like the automatic zod validation errors. */
 export const validationError = (
   fields: Record<string, string>,

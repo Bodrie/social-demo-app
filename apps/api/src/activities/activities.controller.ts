@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Activity, Paginated } from '@the-mesh/shared';
+import type { Activity, Paginated } from '@beso/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ActivitiesQueryDto } from './activities.dto.js';

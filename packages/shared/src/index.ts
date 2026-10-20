@@ -1,3 +1,4 @@
+export * from './account.js';
 export * from './activities.js';
 export * from './auth.js';
 export * from './comments.js';
@@ -6,7 +7,10 @@ export * from './constants.js';
 export * from './errors.js';
 export * from './health.js';
 export * from './conversations.js';
+export * from './moderation.js';
+export * from './notifications.js';
 export * from './pagination.js';
 export * from './posts.js';
+export * from './text.js';
 export * from './uploads.js';
 export * from './users.js';

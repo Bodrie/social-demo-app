@@ -1,4 +1,4 @@
-import { postSchema } from '@the-mesh/shared';
+import { postSchema } from '@beso/shared';
 import { type PostRow, toPost } from './posts.mapper.js';
 
 const row: PostRow = {
@@ -16,6 +16,22 @@ const row: PostRow = {
   },
   _count: { likes: 3, comments: 2 },
   likes: [{ userId: 'viewer' }],
+  bookmarks: [],
+  repostCount: 0,
+  reposts: [],
+  wasQuote: false,
+  quotedPost: null,
+  mentions: [
+    {
+      user: {
+        id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b7',
+        username: 'bob',
+        name: 'Bob',
+        avatarKey: 'avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b2.webp',
+      },
+    },
+  ],
+  hashtags: [{ tag: 'hello' }],
 };
 
 describe('toPost', () => {
@@ -30,6 +46,13 @@ describe('toPost', () => {
       editedAt: null,
       imageUrl: 'http://assets.local/post/01a13ed6-d3ec-71cb-b39f-fbc256a293b1.webp',
       author: { username: 'alice', avatarUrl: null },
+      mentions: [
+        {
+          username: 'bob',
+          avatarUrl: 'http://assets.local/avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b2.webp',
+        },
+      ],
+      hashtags: ['hello'],
       createdAt: '2026-10-15T10:00:00.000Z',
     });
   });

@@ -1,4 +1,4 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -18,12 +18,17 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { endSession } from '@/features/auth/use-me';
+import { announceSessionChange, endSession } from '@/features/auth/use-me';
+import { PrivacyCard } from '@/features/moderation/privacy-card';
 import { logoutEverywhere } from '@/lib/api/auth';
 import { REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
 import { cn } from 'cn';
+import { AccountCard } from './account-card';
+import { ChatSettings } from './chat-settings';
+import { EmailCard } from './email-card';
 import { PasswordForm } from './password-form';
+import { SessionsList } from './sessions-list';
 
 const THEMES = [
   { value: 'system', label: 'System', icon: MonitorIcon },
@@ -42,7 +47,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Appearance</CardTitle>
+          <CardTitle asChild>
+            <h2>Appearance</h2>
+          </CardTitle>
           <CardDescription>Follow the system or pick a side.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -52,7 +59,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Password</CardTitle>
+          <CardTitle asChild>
+            <h2>Password</h2>
+          </CardTitle>
           <CardDescription>
             Changing it signs out every other device; this one stays signed in.
           </CardDescription>
@@ -62,21 +71,43 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <EmailCard />
+
       <Card>
         <CardHeader>
-          <CardTitle>Sessions</CardTitle>
+          <CardTitle asChild>
+            <h2>Chat</h2>
+          </CardTitle>
           <CardDescription>
-            Signed in somewhere you do not recognise? End every session, this one included.
+            How messages reach you while you are elsewhere in the app.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <ChatSettings />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle asChild>
+            <h2>Sessions</h2>
+          </CardTitle>
+          <CardDescription>
+            Where you are signed in. End one you do not recognise, or every session at once, this
+            one included.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <SessionsList />
           <SignOutEverywhere />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>About</CardTitle>
+          <CardTitle asChild>
+            <h2>About</h2>
+          </CardTitle>
           <CardDescription>
             {APP_NAME} is a demo social network. The small print lives here.
           </CardDescription>
@@ -106,6 +137,9 @@ export function SettingsPage() {
           </ul>
         </CardContent>
       </Card>
+
+      <PrivacyCard />
+      <AccountCard />
     </div>
   );
 }
@@ -136,10 +170,12 @@ function SignOutEverywhere() {
   const [open, setOpen] = useState(false);
   const signOut = useMutation({
     mutationFn: logoutEverywhere,
-    onSettled: () => {
+    onSuccess: () => {
       toast.success('Signed out everywhere');
-      endSession(queryClient);
+      endSession(queryClient, { deliberate: true });
+      announceSessionChange();
     },
+    onError: () => toast.error('Could not sign out everywhere. Please try again.'),
   });
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>

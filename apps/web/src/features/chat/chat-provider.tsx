@@ -1,25 +1,37 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   type ConversationReadPayload,
+  conversationReadPayloadSchema,
   type ConversationRef,
+  conversationRefSchema,
   type Message,
+  messageSchema,
+  type Notification,
+  notificationSchema,
   type PresenceUpdate,
-  SOCKET_EVENTS,
+  presenceUpdateSchema,
   type SendMessageInput,
+  SOCKET_EVENTS,
   type TypingUpdate,
+  typingUpdateSchema,
   type UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
+import type { z } from 'zod';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { receiveNotification } from '@/features/notifications/use-notifications';
 import { ApiClientError, notifySessionLost, refreshSession } from '@/lib/api/client';
 import { markReadHttp, sendMessageHttp } from '@/lib/api/conversations';
 import type { ChatSocket } from '@/lib/socket';
-import { ChatContext, type ChatContextValue } from './chat-context';
+import { ChatContext, type ChatContextValue, type MessageContext } from './chat-context';
 import {
   appendToThread,
+  heldMessageIds,
   refreshConversation,
+  replaceMessage,
+  resyncConversations,
   setMemberReadAt,
   upsertConversation,
 } from './message-cache';
@@ -36,20 +48,9 @@ type TypingMap = ReadonlyMap<string, readonly string[]>;
 
 const onException = (error: { message: string }) => toast.error(error.message);
 
-/** socket.io keeps retrying by itself; a refreshed cookie makes the next attempt succeed. */
-const onConnectError = (error: Error) => {
-  if (error.message === 'Unauthorized') {
-    void (async () => {
-      if (!(await refreshSession())) notifySessionLost();
-    })();
-  }
-};
-
-/** After the server closed the socket (token expiry, revoked sessions), only a fresh token helps. */
-async function reconnectWithFreshToken(socket: ChatSocket): Promise<void> {
-  if (await refreshSession()) socket.connect();
-  else notifySessionLost();
-}
+/** Back-off for a session refresh that failed outright (offline, API restarting): 1 s, 2 s … 30 s. */
+export const REFRESH_RETRY_BASE_MS = 1000;
+const REFRESH_RETRY_MAX_MS = 30_000;
 
 function withTyping(map: TypingMap, conversationId: string, userId: string, typing: boolean) {
   const current = map.get(conversationId) ?? NOBODY;
@@ -72,7 +73,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState<UserSummary[]>([]);
   const [typing, setTypingMap] = useState<TypingMap>(() => new Map());
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const activeConversation = useRef<string | null>(null);
+  /** Threads on screen, counted: the messages page and up to two chat windows at once. */
+  const activeConversations = useRef(new Map<string, number>());
+  const messageListeners = useRef(new Set<(message: Message, context: MessageContext) => void>());
   const socketRef = useRef<ChatSocket | null>(null);
 
   const setPeerTyping = useCallback((conversationId: string, userId: string, isTyping: boolean) => {
@@ -120,29 +123,81 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let disposed = false;
     let cleanup: (() => void) | undefined;
-    let refusedRetry: ReturnType<typeof setTimeout> | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    /** The messages held when pushes stopped arriving; null while nothing can have been missed. */
+    let heldBeforeGap: ReadonlySet<string> | null = null;
+    const gapStarted = () => {
+      heldBeforeGap ??= heldMessageIds(queryClient);
+    };
+    const retryLater = (task: () => void, delayMs: number) => {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(task, delayMs);
+    };
 
-    const onConnect = () => setConnected(true);
-    const onPresence = (users: PresenceUpdate) => setOnline(users);
-    const onMessage = (message: Message) => {
-      const fromOther = message.senderId !== me.id;
-      const onScreen =
-        fromOther &&
-        activeConversation.current === message.conversationId &&
+    const onConnect = () => {
+      setConnected(true);
+      if (heldBeforeGap) void resyncConversations(queryClient, heldBeforeGap);
+      heldBeforeGap = null;
+    };
+    /**
+     * A push whose shape drifted from the shared contract is dropped instead of corrupting the
+     * cache (HTTP responses are parsed the same way in the API client).
+     */
+    const guarded =
+      <T,>(schema: z.ZodType<T>, handler: (payload: T) => void) =>
+      (payload: unknown) => {
+        const parsed = schema.safeParse(payload);
+        if (parsed.success) handler(parsed.data);
+        // oxlint-disable-next-line no-console -- a dropped push should be visible while developing
+        else if (import.meta.env.DEV) console.warn('Dropped a socket push', parsed.error.issues);
+      };
+    const onPresence = guarded(presenceUpdateSchema, (users: PresenceUpdate) => setOnline(users));
+    // The one push that is not about chat rides the same socket (ADR 0015).
+    const onNotification = guarded(notificationSchema, (notification: Notification) =>
+      receiveNotification(queryClient, notification),
+    );
+    const onMessage = guarded(messageSchema, (message: Message) => {
+      // A system line (the server about a membership change or rename) is shown but is nobody's
+      // unread and reads nothing.
+      const fromOther = message.kind === 'user' && message.senderId !== me.id;
+      const shownHere =
+        activeConversations.current.has(message.conversationId) &&
         document.visibilityState === 'visible';
+      const onScreen = fromOther && shownHere;
       if (fromOther) setPeerTyping(message.conversationId, message.senderId, false);
       appendToThread(queryClient, message.conversationId, message);
       upsertConversation(queryClient, message, { countUnread: fromOther && !onScreen });
       if (onScreen) void markRead(message.conversationId);
-    };
-    const onRead = ({ conversationId, userId, readAt }: ConversationReadPayload) =>
-      setMemberReadAt(queryClient, conversationId, userId, readAt, { clearUnread: false });
-    const onTyping = ({ conversationId, userId, typing: isTyping }: TypingUpdate) =>
-      setPeerTyping(conversationId, userId, isTyping);
-    const onConversationUpdate = ({ conversationId }: ConversationRef) =>
-      void refreshConversation(queryClient, conversationId);
-    const onConversationRemoved = ({ conversationId }: ConversationRef) =>
-      forgetConversation(queryClient, conversationId);
+      for (const listener of messageListeners.current) listener(message, { onScreen: shownHere });
+    });
+    // Deleted, edited or reacted to: the new copy takes the old one's place, nothing else moves.
+    const onMessageDeleted = guarded(messageSchema, (message: Message) =>
+      replaceMessage(queryClient, message),
+    );
+    const onMessageUpdated = guarded(messageSchema, (message: Message) =>
+      replaceMessage(queryClient, message),
+    );
+    const onRead = guarded(
+      conversationReadPayloadSchema,
+      // My own read, made in another tab, lowers this tab's badge too (review L9).
+      ({ conversationId, userId, readAt }: ConversationReadPayload) =>
+        setMemberReadAt(queryClient, conversationId, userId, readAt, {
+          clearUnread: userId === me.id,
+        }),
+    );
+    const onTyping = guarded(
+      typingUpdateSchema,
+      ({ conversationId, userId, typing: isTyping }: TypingUpdate) =>
+        setPeerTyping(conversationId, userId, isTyping),
+    );
+    const onConversationUpdate = guarded(
+      conversationRefSchema,
+      ({ conversationId }: ConversationRef) =>
+        void refreshConversation(queryClient, conversationId),
+    );
+    const onConversationRemoved = guarded(conversationRefSchema, ({ conversationId }) =>
+      forgetConversation(queryClient, conversationId),
+    );
 
     // socket.io-client is its own chunk; it loads once the shell is already on screen.
     void (async () => {
@@ -150,30 +205,53 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (disposed) return;
       const socket = getChatSocket();
       socketRef.current = socket;
+
+      /**
+       * socket.io gives up on a socket the server closed or whose handshake it refused; only a
+       * fresh access cookie helps then. A refresh that fails outright is tried again later.
+       */
+      const reconnectWithFreshToken = async (attempt = 0): Promise<void> => {
+        const outcome = await refreshSession();
+        if (disposed) return;
+        if (outcome === 'unavailable') {
+          const delay = Math.min(REFRESH_RETRY_BASE_MS * 2 ** attempt, REFRESH_RETRY_MAX_MS);
+          retryLater(() => void reconnectWithFreshToken(attempt + 1), delay);
+          return;
+        }
+        if (outcome === 'rejected') notifySessionLost();
+        else if (!socket.active) socket.connect();
+      };
+
       const onDisconnect = (reason: Socket.DisconnectReason) => {
         setConnected(false);
         setOnline([]);
-        if (reason === 'io server disconnect') void reconnectWithFreshToken(socket);
+        gapStarted();
+        // Token expiry or revoked sessions. Any other reason: socket.io reconnects by itself.
+        if (reason === 'io server disconnect') void reconnectWithFreshToken();
+      };
+      const onConnectError = (error: Error) => {
+        gapStarted();
+        // The cookie expired while the connection was down (sleep, a deploy).
+        if (error.message === 'Unauthorized') void reconnectWithFreshToken();
+        // Past MAX_SOCKETS_PER_USER (or after too many attempts): knock again once closed
+        // tabs have had time to drop off.
+        else if (error.message === 'Too many connections') {
+          retryLater(() => socket.connect(), REFUSED_RETRY_MS);
+        }
       };
 
       socket.on('connect', onConnect);
       socket.on('disconnect', onDisconnect);
-      // Past MAX_SOCKETS_PER_USER the handshake is refused, and socket.io never retries a
-      // refusal by itself; knock again once closed tabs have had time to drop off.
-      const onRefused = (error: Error) => {
-        if (error.message !== 'Too many connections') return;
-        clearTimeout(refusedRetry);
-        refusedRetry = setTimeout(() => socket.connect(), REFUSED_RETRY_MS);
-      };
-
       socket.on('connect_error', onConnectError);
-      socket.on('connect_error', onRefused);
       socket.on(SOCKET_EVENTS.presenceUpdate, onPresence);
       socket.on(SOCKET_EVENTS.messageNew, onMessage);
+      socket.on(SOCKET_EVENTS.messageDeleted, onMessageDeleted);
+      socket.on(SOCKET_EVENTS.messageUpdated, onMessageUpdated);
       socket.on(SOCKET_EVENTS.conversationRead, onRead);
       socket.on(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
       socket.on(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
       socket.on(SOCKET_EVENTS.typingUpdate, onTyping);
+      socket.on(SOCKET_EVENTS.notificationNew, onNotification);
       socket.on(SOCKET_EVENTS.exception, onException);
       socket.connect();
 
@@ -181,14 +259,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off('connect', onConnect);
         socket.off('disconnect', onDisconnect);
         socket.off('connect_error', onConnectError);
-        socket.off('connect_error', onRefused);
-        clearTimeout(refusedRetry);
+        clearTimeout(retryTimer);
         socket.off(SOCKET_EVENTS.presenceUpdate, onPresence);
         socket.off(SOCKET_EVENTS.messageNew, onMessage);
+        socket.off(SOCKET_EVENTS.messageDeleted, onMessageDeleted);
+        socket.off(SOCKET_EVENTS.messageUpdated, onMessageUpdated);
         socket.off(SOCKET_EVENTS.conversationRead, onRead);
         socket.off(SOCKET_EVENTS.conversationUpdate, onConversationUpdate);
         socket.off(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
         socket.off(SOCKET_EVENTS.typingUpdate, onTyping);
+        socket.off(SOCKET_EVENTS.notificationNew, onNotification);
         socket.off(SOCKET_EVENTS.exception, onException);
         socket.disconnect();
         socketRef.current = null;
@@ -222,9 +302,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (socket?.connected) socket.emit(SOCKET_EVENTS.typing, { conversationId, typing: isTyping });
   }, []);
 
-  const setActiveConversation = useCallback((conversationId: string | null) => {
-    activeConversation.current = conversationId;
+  const activateConversation = useCallback((conversationId: string) => {
+    const active = activeConversations.current;
+    active.set(conversationId, (active.get(conversationId) ?? 0) + 1);
+    return () => {
+      const left = (active.get(conversationId) ?? 1) - 1;
+      if (left <= 0) active.delete(conversationId);
+      else active.set(conversationId, left);
+    };
   }, []);
+
+  const subscribeToMessages = useCallback(
+    (listener: (message: Message, context: MessageContext) => void) => {
+      messageListeners.current.add(listener);
+      return () => {
+        messageListeners.current.delete(listener);
+      };
+    },
+    [],
+  );
 
   const value = useMemo<ChatContextValue>(
     () => ({
@@ -235,9 +331,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       setTyping,
       markRead,
-      setActiveConversation,
+      activateConversation,
+      subscribeToMessages,
     }),
-    [connected, online, typing, sendMessage, setTyping, markRead, setActiveConversation],
+    [
+      connected,
+      online,
+      typing,
+      sendMessage,
+      setTyping,
+      markRead,
+      activateConversation,
+      subscribeToMessages,
+    ],
   );
 
   return <ChatContext value={value}>{children}</ChatContext>;

@@ -1,4 +1,15 @@
-import { SOCKET_EVENTS, markReadPayloadSchema, sendMessagePayloadSchema } from '@the-mesh/shared';
+import {
+  conversationReadPayloadSchema,
+  conversationRefSchema,
+  markReadPayloadSchema,
+  messageSchema,
+  notificationSchema,
+  presenceUpdateSchema,
+  sendMessagePayloadSchema,
+  SOCKET_EVENTS,
+  typingUpdateSchema,
+} from '@beso/shared';
+import type { z } from 'zod';
 import { markConversationRead, storeMessage } from './msw/conversations';
 import { mockDb } from './msw/db';
 
@@ -9,8 +20,23 @@ type AckHandler = (payload: unknown) => unknown;
  * Stands in for socket.io-client in jsdom. Tests drive the "server" side with
  * `serverEmit()` and inspect what the app sent through `emitted`.
  */
+
+/** What each server push carries; a test that emits something else is wrong, not the app. */
+const PUSH_SCHEMAS: Record<string, z.ZodType> = {
+  [SOCKET_EVENTS.presenceUpdate]: presenceUpdateSchema,
+  [SOCKET_EVENTS.messageNew]: messageSchema,
+  [SOCKET_EVENTS.messageDeleted]: messageSchema,
+  [SOCKET_EVENTS.messageUpdated]: messageSchema,
+  [SOCKET_EVENTS.conversationRead]: conversationReadPayloadSchema,
+  [SOCKET_EVENTS.conversationUpdate]: conversationRefSchema,
+  [SOCKET_EVENTS.conversationRemoved]: conversationRefSchema,
+  [SOCKET_EVENTS.typingUpdate]: typingUpdateSchema,
+  [SOCKET_EVENTS.notificationNew]: notificationSchema,
+};
 export class FakeSocket {
   connected = false;
+  /** Like socket.io's: whether it would reconnect by itself (false once refused or server-closed). */
+  active = false;
   emitted: { event: string; payload: unknown }[] = [];
   ackHandlers: Record<string, AckHandler> = {};
   readonly #handlers = new Map<string, Set<Handler>>();
@@ -29,6 +55,7 @@ export class FakeSocket {
   }
 
   connect(): this {
+    this.active = true;
     if (!this.connected) {
       this.connected = true;
       queueMicrotask(() => this.fire('connect'));
@@ -37,6 +64,7 @@ export class FakeSocket {
   }
 
   disconnect(): this {
+    this.active = false;
     if (this.connected) {
       this.connected = false;
       this.fire('disconnect', 'io client disconnect');
@@ -63,21 +91,37 @@ export class FakeSocket {
     return handler(payload);
   }
 
-  /** A push from the server. */
+  /** A push from the server; the payload must be what the shared contract says the API sends. */
   serverEmit(event: string, ...args: unknown[]): void {
+    const schema = PUSH_SCHEMAS[event];
+    if (schema) schema.parse(args[0]);
     this.fire(event, ...args);
   }
 
   /** The server closed the connection (token expiry, revoked sessions). */
   serverDisconnect(): void {
     this.connected = false;
+    this.active = false;
     this.fire('disconnect', 'io server disconnect');
   }
 
   /** The handshake middleware said no (socket.io does not retry this by itself). */
   serverRefuse(message: string): void {
     this.connected = false;
+    this.active = false;
     this.fire('connect_error', new Error(message));
+  }
+
+  /** The connection dropped (network, a server restart); socket.io stays active and retries. */
+  transportClose(): void {
+    this.connected = false;
+    this.fire('disconnect', 'transport close');
+  }
+
+  /** socket.io's own reconnection after `transportClose()` succeeded. */
+  reconnect(): void {
+    this.connected = true;
+    this.fire('connect');
   }
 
   listenerCount(event: string): number {
@@ -86,6 +130,7 @@ export class FakeSocket {
 
   reset(): void {
     this.connected = false;
+    this.active = false;
     this.emitted = [];
     this.#handlers.clear();
     this.ackHandlers = defaultAckHandlers(this);

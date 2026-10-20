@@ -4,10 +4,11 @@ import type {
   ListUsersQuery,
   Paginated,
   UpdateProfileData,
+  UpdateSettingsInput,
   UserPrivate,
   UserPublic,
   UserSummary,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { conflict, notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
@@ -15,9 +16,13 @@ import { ProfileUpdatedEvent } from '../events/user.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import {
+  type UserPublicRow,
+  toBlockedUserPublic,
   toUserPrivate,
   toUserPublic,
+  toUserSettings,
   toUserSummary,
   userPrivateSelect,
   userPublicSelect,
@@ -26,8 +31,7 @@ import {
 
 export type UniqueFields = { email?: string; username?: string };
 
-type ProfileField =
-  'username' | 'name' | 'email' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
+type ProfileField = 'username' | 'name' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
 
 /** Escapes LIKE wildcards so `q=%` does not match everyone. */
 export function escapeLike(value: string): string {
@@ -41,11 +45,34 @@ export class UsersService {
     private readonly events: EventEmitter2,
     private readonly uploads: UploadsService,
     private readonly assets: AssetsService,
+    private readonly visibility: VisibilityService,
   ) {}
+
+  /**
+   * A profile as the viewer may see it: whole, reduced to who it is across a block, or not
+   * there at all while the member is suspended (ADR 0016).
+   */
+  private async present(viewerId: string, row: UserPublicRow): Promise<UserPublic> {
+    if (row.id === viewerId) return toUserPublic(row, this.assets.base);
+    if (row.suspendedAt) throw notFound('User not found');
+    const relationship = await this.visibility.relationship(viewerId, row.id);
+    return relationship.blocked || relationship.blockedMe
+      ? toBlockedUserPublic(row, this.assets.base, relationship)
+      : toUserPublic(row, this.assets.base, relationship);
+  }
 
   async assertExists(id: string): Promise<void> {
     const count = await this.prisma.user.count({ where: { id } });
     if (count === 0) throw notFound('User not found');
+  }
+
+  /** The members among `usernames` (lower-case), for resolving @mentions; unknown names are simply absent. */
+  async findByUsernames(usernames: readonly string[]): Promise<{ id: string; username: string }[]> {
+    if (usernames.length === 0) return [];
+    return this.prisma.user.findMany({
+      where: { username: { in: [...usernames] } },
+      select: { id: true, username: true },
+    });
   }
 
   async summary(id: string): Promise<UserSummary | null> {
@@ -59,7 +86,7 @@ export class UsersService {
       select: userPublicSelect(viewerId),
     });
     if (!row) throw notFound('User not found');
-    return toUserPublic(row, this.assets.base);
+    return this.present(viewerId, row);
   }
 
   async getPublicByUsername(viewerId: string, username: string): Promise<UserPublic> {
@@ -68,7 +95,7 @@ export class UsersService {
       select: userPublicSelect(viewerId),
     });
     if (!row) throw notFound('User not found');
-    return toUserPublic(row, this.assets.base);
+    return this.present(viewerId, row);
   }
 
   async findPrivateById(id: string): Promise<UserPrivate | null> {
@@ -82,13 +109,33 @@ export class UsersService {
     return user;
   }
 
+  /** Merges the given keys into the stored preferences; the answer carries every key with defaults. */
+  async updateSettings(id: string, patch: UpdateSettingsInput): Promise<UserPrivate> {
+    const current = await this.prisma.user.findUnique({
+      where: { id },
+      select: { settings: true },
+    });
+    if (!current) throw notFound('User not found');
+    const next = { ...toUserSettings(current.settings) };
+    if (patch.chatBubbles !== undefined) next.chatBubbles = patch.chatBubbles;
+    if (patch.messageSound !== undefined) next.messageSound = patch.messageSound;
+    if (patch.browserNotifications !== undefined) {
+      next.browserNotifications = patch.browserNotifications;
+    }
+    const row = await this.prisma.user.update({
+      where: { id },
+      data: { settings: next },
+      select: userPrivateSelect(id),
+    });
+    return toUserPrivate(row, this.assets.base);
+  }
+
   async updateProfile(id: string, patch: UpdateProfileData): Promise<UserPrivate> {
     const previous = await this.prisma.user.findUnique({
       where: { id },
       select: {
         username: true,
         name: true,
-        email: true,
         bio: true,
         city: true,
         website: true,
@@ -104,7 +151,6 @@ export class UsersService {
     const changes: Array<[ProfileField, () => void]> = [
       ['username', () => (data.username = patch.username)],
       ['name', () => (data.name = patch.name)],
-      ['email', () => (data.email = patch.email)],
       ['bio', () => (data.bio = patch.bio)],
       ['city', () => (data.city = patch.city)],
       ['website', () => (data.website = patch.website)],
@@ -119,8 +165,8 @@ export class UsersService {
     }
     if (changed.length === 0) return this.getPrivateById(id);
 
-    if (data.username !== undefined || data.email !== undefined) {
-      await this.assertAvailable({ email: patch.email, username: patch.username }, id);
+    if (data.username !== undefined) {
+      await this.assertAvailable({ username: patch.username }, id);
     }
     if (typeof data.avatarKey === 'string') {
       await this.uploads.assertOwned(data.avatarKey, {
@@ -160,9 +206,14 @@ export class UsersService {
         }
       : {};
 
+    // Neither side of a block finds the other (ADR 0016).
     const rows = await this.prisma.user.findMany({
       where: {
-        AND: [search, cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {}],
+        AND: [
+          search,
+          { id: { notIn: await this.visibility.blockedIds(viewerId) } },
+          cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {},
+        ],
       },
       select: userPublicSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -171,11 +222,11 @@ export class UsersService {
     return paginate(rows, query.limit, (row) => toUserPublic(row, this.assets.base));
   }
 
-  /** Users the viewer neither follows nor is followed by. */
+  /** Users the viewer neither follows nor is followed by, nor blocked or muted. */
   async suggestions(viewerId: string, limit: number): Promise<Paginated<UserPublic>> {
     const rows = await this.prisma.user.findMany({
       where: {
-        id: { not: viewerId },
+        id: { not: viewerId, notIn: await this.visibility.hiddenAuthorIds(viewerId) },
         followers: { none: { followerId: viewerId } },
         following: { none: { followeeId: viewerId } },
       },

@@ -45,7 +45,7 @@ test.describe('when things go wrong', () => {
       }),
     );
     const post = page.getByRole('feed').getByRole('article').first();
-    const like = post.getByRole('button', { name: /^(Like|Unlike)/ });
+    const like = post.getByRole('button', { name: /^Like/ });
     const before = await like.textContent();
     await like.click();
     await expect(page.getByText('Could not update the like')).toBeVisible();

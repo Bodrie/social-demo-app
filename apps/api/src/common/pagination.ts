@@ -1,4 +1,4 @@
-import type { Paginated } from '@the-mesh/shared';
+import type { Paginated } from '@beso/shared';
 import { z } from 'zod';
 import { validationError } from './errors.js';
 
@@ -35,6 +35,19 @@ export function keysetAfter<IdWhere extends object>(
   return {
     OR: [
       { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, ...idWhere(cursor.id) },
+    ],
+  };
+}
+
+/** `keysetAfter` for the few lists read the other way (`createdAt asc, id asc`), e.g. replies. */
+export function keysetAfterAscending<IdWhere extends object>(
+  cursor: Keyset,
+  idWhere: (id: string) => IdWhere,
+) {
+  return {
+    OR: [
+      { createdAt: { gt: cursor.createdAt } },
       { createdAt: cursor.createdAt, ...idWhere(cursor.id) },
     ],
   };

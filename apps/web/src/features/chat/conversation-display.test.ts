@@ -1,6 +1,16 @@
-import type { Conversation } from '@the-mesh/shared';
-import { alice, bob, carol, summaryOf } from '@/test/fixtures';
-import { conversationName, directPeer, readBy, seenText, typingText } from './conversation-display';
+import type { Conversation, SystemLine } from '@beso/shared';
+import { alice, bob, carol, makeMessage, summaryOf } from '@/test/fixtures';
+import {
+  conversationName,
+  directPeer,
+  isAdmin,
+  messagePreview,
+  reactionSummaryOf,
+  readBy,
+  seenText,
+  systemLineText,
+  typingText,
+} from './conversation-display';
 
 const T0 = '2026-10-16T10:00:00.000Z';
 const T1 = '2026-10-16T10:05:00.000Z';
@@ -13,7 +23,12 @@ function conversation(
 ): Conversation {
   const members = [alice, bob, carol]
     .filter((user) => user.id in marks)
-    .map((user) => ({ user: summaryOf(user), joinedAt: T0, lastReadAt: marks[user.id] ?? null }));
+    .map((user) => ({
+      user: summaryOf(user),
+      role: 'member' as const,
+      joinedAt: T0,
+      lastReadAt: marks[user.id] ?? null,
+    }));
   return {
     id: '01a14300-0000-7000-8000-000000000001',
     kind,
@@ -68,5 +83,91 @@ describe('readBy / seenText', () => {
       'Trip',
     );
     expect(seenText(everyone, alice.id, T1)).toBe('Seen by everyone');
+  });
+});
+
+/** A system line by Alice, recorded under a name she no longer carries. */
+const line = (
+  type: SystemLine['type'],
+  users: { id: string; name: string }[] = [],
+  title: string | null = null,
+) => ({ type, actor: { id: alice.id, name: 'Old Name' }, users, title });
+
+describe('systemLineText / messagePreview', () => {
+  const group = conversation('group', { [alice.id]: T1, [bob.id]: T1 }, 'Trip');
+
+  it('names people who are still in by their current name and the others as recorded', () => {
+    const added = line('members_added', [
+      { id: bob.id, name: 'Bob Brown' },
+      { id: carol.id, name: 'Carol (then)' },
+    ]);
+    // Alice is a member (current name), Carol is not (stored name); Bob reads as "you" to Bob.
+    expect(systemLineText(added, group, carol.id)).toBe('Alice Anderson added Bob Brown and you');
+    expect(systemLineText(added, group, alice.id)).toBe('You added Bob Brown and Carol (then)');
+    expect(systemLineText(line('member_left'), group, bob.id)).toBe(
+      'Alice Anderson left the group',
+    );
+    expect(systemLineText(line('member_removed', [{ id: bob.id, name: 'B' }]), group, bob.id)).toBe(
+      'Alice Anderson removed you',
+    );
+    expect(systemLineText(line('renamed', [], 'Weekend'), group, bob.id)).toBe(
+      'Alice Anderson renamed the group to “Weekend”',
+    );
+    expect(systemLineText(line('group_created', [], 'Trip'), group, bob.id)).toBe(
+      'Alice Anderson created the group',
+    );
+    expect(systemLineText(line('admin_added', [{ id: bob.id, name: 'B' }]), group, bob.id)).toBe(
+      'Alice Anderson made you an admin',
+    );
+    expect(
+      systemLineText(line('admin_removed', [{ id: bob.id, name: 'B' }]), group, alice.id),
+    ).toBe('You removed Bob Brown as admin');
+  });
+
+  it("sums a message's reactions from the viewer's side", () => {
+    expect(
+      reactionSummaryOf(
+        [
+          { userId: alice.id, type: 'LIKE' },
+          { userId: bob.id, type: 'LIKE' },
+          { userId: carol.id, type: 'WOW' },
+        ],
+        bob.id,
+      ),
+    ).toEqual({ counts: { LIKE: 2, LOVE: 0, LAUGH: 0, WOW: 1, SAD: 0 }, total: 3, mine: 'LIKE' });
+    expect(reactionSummaryOf([], alice.id)).toEqual({
+      counts: { LIKE: 0, LOVE: 0, LAUGH: 0, WOW: 0, SAD: 0 },
+      total: 0,
+      mine: null,
+    });
+  });
+
+  it('previews a deleted message, a system line and a picture', () => {
+    expect(messagePreview(makeMessage(group.id, bob.id, 'hi'), group, alice.id)).toBe('hi');
+    expect(
+      messagePreview(makeMessage(group.id, bob.id, '', { deletedAt: T2 }), group, alice.id),
+    ).toBe('Message deleted');
+    expect(
+      messagePreview(
+        makeMessage(group.id, bob.id, '', { imageUrl: 'http://localhost/pic.webp' }),
+        group,
+        alice.id,
+      ),
+    ).toBe('Picture');
+    expect(
+      messagePreview(
+        makeMessage(group.id, alice.id, '', { kind: 'system', system: line('renamed', [], 'X') }),
+        group,
+        bob.id,
+      ),
+    ).toBe('Alice Anderson renamed the group to “X”');
+  });
+
+  it('knows who is an admin', () => {
+    const withAdmin = conversation('group', { [alice.id]: T1, [bob.id]: T1 }, 'Trip');
+    const first = withAdmin.members[0];
+    if (first) first.role = 'admin';
+    expect(isAdmin(withAdmin, alice.id)).toBe(true);
+    expect(isAdmin(withAdmin, bob.id)).toBe(false);
   });
 });

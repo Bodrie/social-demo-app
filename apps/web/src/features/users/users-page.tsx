@@ -1,3 +1,4 @@
+import { USER_SEARCH_MAX_LENGTH } from '@beso/shared';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -13,7 +14,7 @@ export function UsersPage() {
   usePageTitle('People');
   const [params, setParams] = useSearchParams();
   // The box owns the text; the URL mirrors the settled query so searches can be shared.
-  const [input, setInput] = useState(params.get('q') ?? '');
+  const [input, setInput] = useState((params.get('q') ?? '').slice(0, USER_SEARCH_MAX_LENGTH));
   const q = useDebouncedValue(input.trim(), 300);
   const query = useUsers(q);
 
@@ -36,6 +37,7 @@ export function UsersPage() {
             aria-label="Search people"
             placeholder="Search by name or username"
             autoComplete="off"
+            maxLength={USER_SEARCH_MAX_LENGTH}
             value={input}
             onChange={(event) => setInput(event.target.value)}
             className="pr-9 pl-9"

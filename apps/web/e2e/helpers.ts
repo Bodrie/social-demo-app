@@ -63,10 +63,54 @@ export function linkIn(mail: OutboxEntry, pathname: string): string {
 /** For specs that must start signed out (the auth flows themselves). */
 export const ANONYMOUS = { cookies: [], origins: [] };
 
+/** Registers a throwaway member and follows the confirmation link; ends signed in on the feed. */
+export async function registerAndConfirm(page: Page) {
+  const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  const member = {
+    username: `pw_${stamp}`,
+    name: `Play Wright ${stamp}`,
+    email: `pw_${stamp}@example.com`,
+  };
+  await page.goto('/register');
+  await page.getByLabel('Username').fill(member.username);
+  await page.getByLabel('Name', { exact: true }).fill(member.name);
+  await page.getByLabel('Email').fill(member.email);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).click();
+
+  // Closed until the address is confirmed: the waiting room, not the feed.
+  await expect(page).toHaveURL(/\/verify-email$/);
+  await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/verify-email$/);
+
+  const mail = await latestEmail(member.email, /Confirm your email/);
+  await page.goto(linkIn(mail, '/verify-email'));
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel('New post')).toBeVisible();
+  return member;
+}
+
 /** Opens the home feed with the stored session and waits for it. */
 export async function openHome(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.getByLabel('New post')).toBeVisible();
+}
+
+/**
+ * Waits for running enter/exit animations (dialogs, menus) to end. Run it before axe: mid-fade
+ * text is blended with a translucent surface (false contrast failures), and Radix keeps the
+ * page `aria-hidden` until a closing dialog has finished animating.
+ */
+export async function animationsDone(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
 }
 
 /** A second browser context signed in as another seeded member (no extra login needed). */

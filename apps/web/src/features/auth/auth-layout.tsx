@@ -1,9 +1,8 @@
-import { APP_NAME } from '@the-mesh/shared';
+import { APP_NAME } from '@beso/shared';
 import { ImageIcon, MessageCircleIcon, UsersIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import logoDark from '@/assets/logo-dark.svg';
-import { Logo } from '@/components/logo';
+import { BesoMark, Logo } from '@/components/logo';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { usePageTitle } from '@/lib/use-page-title';
 
@@ -42,7 +41,10 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
         className="auth-panel relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex xl:p-14"
       >
         <div className="auth-panel-grid pointer-events-none absolute inset-0" />
-        <img src={logoDark} alt="" className="relative h-8 w-auto self-start" />
+        <span className="relative flex items-center gap-2 self-start text-xl font-semibold tracking-tight">
+          <BesoMark variant="outline" className="size-8" />
+          BeSo
+        </span>
         <div className="relative max-w-md space-y-8">
           <div className="space-y-4">
             <h2 className="text-4xl leading-[1.05] font-semibold tracking-tight text-balance xl:text-5xl">
@@ -78,7 +80,9 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
         <main className="flex flex-1 items-center justify-center px-4 pb-12 sm:px-6">
           <div className="w-full max-w-sm space-y-8">
             <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+              <h1 id="auth-title" tabIndex={-1} className="text-3xl font-semibold tracking-tight">
+                {title}
+              </h1>
               <p className="text-muted-foreground text-sm/6">{subtitle}</p>
             </div>
             {children}

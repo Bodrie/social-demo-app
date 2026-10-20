@@ -1,5 +1,6 @@
 import {
   ActivityIcon,
+  BellIcon,
   HomeIcon,
   type LucideIcon,
   MessageCircleIcon,
@@ -12,5 +13,6 @@ export const NAV_LINKS: NavLinkItem[] = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/users', label: 'People', icon: UsersIcon },
   { to: '/activity', label: 'Activity', icon: ActivityIcon },
+  { to: '/notifications', label: 'Notifications', icon: BellIcon },
   { to: '/messages', label: 'Messages', icon: MessageCircleIcon },
 ];

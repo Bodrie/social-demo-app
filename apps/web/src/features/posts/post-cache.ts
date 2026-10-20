@@ -1,5 +1,5 @@
-import type { QueryClient } from '@tanstack/react-query';
-import type { Post } from '@the-mesh/shared';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
+import type { Post } from '@beso/shared';
 import { type Pages, filterItems, mapItems, prependItem } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -34,12 +34,21 @@ export function prependPostTo(
   queryClient.setQueryData<PostPages>(queryKey, (data) => data && prependItem(data, post));
 }
 
-export type PostListsSnapshot = ReturnType<typeof snapshotPostLists>;
-
-export function snapshotPostLists(queryClient: QueryClient) {
-  return queryClient.getQueriesData<PostPages>(everyList);
+/** The post as some cached list shows it, if any does. */
+export function findCachedPost(queryClient: QueryClient, postId: string): Post | undefined {
+  for (const [, data] of queryClient.getQueriesData<PostPages>(everyList)) {
+    const post = data?.pages.flatMap((page) => page.items).find((item) => item.id === postId);
+    if (post) return post;
+  }
+  return undefined;
 }
 
-export function restorePostLists(queryClient: QueryClient, snapshot: PostListsSnapshot): void {
-  for (const [queryKey, data] of snapshot) queryClient.setQueryData(queryKey, data);
+/** The post lists that show the post, or have nothing yet (their first page may bring it). */
+export function postListKeysShowing(queryClient: QueryClient, postId: string): QueryKey[] {
+  return queryClient
+    .getQueriesData<PostPages>(everyList)
+    .filter(
+      ([, data]) => !data || data.pages.some((page) => page.items.some((p) => p.id === postId)),
+    )
+    .map(([queryKey]) => queryKey);
 }

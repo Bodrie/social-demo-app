@@ -3,16 +3,12 @@
 Real but deferred work, grouped by area. Each line says where it came from and what would trigger it. The owner's v2.1 requests live in the plan (§4.8), not here.
 
 ## Security / robustness
-- **Orphaned uploads reaper** – uploads that are never attached stay on disk. A daily job deleting `uploads` rows (and files) with no reference older than 24 h; needs a scheduler (`@nestjs/schedule`). Trigger: disk usage, or before opening the app publicly.
-- **Password change and reset, email change confirmation** – out of scope by D6 (no mail provider). `POST /auth/password` (verify current, re-hash, revoke all sessions) is cheap and should come with the first mail integration.
-- **Socket connection churn** – presence broadcasts are per transition; a per-user connect rate limit and a debounce would harden against reconnect storms.
+- **Unauthenticated socket handshakes** – handshakes are limited per user and presence broadcasts are coalesced (ADR 0011), but a handshake without a valid token is only refused after a JWT check, with no per-address limit (engine.io answers before the HTTP throttler). A Cloudflare rate-limiting rule on `/socket.io/*` if such floods show up.
 - **Decode concurrency for uploads** – `UPLOAD_MAX_PIXELS` is 25 MP; add a small semaphore (or `sharp.concurrency(1)`) if memory spikes are observed.
 
 ## Contract / docs
 - **`@ZodResponse` on every handler** – gives runtime output validation and real response schemas in `/api/docs/openapi.json` (today: inputs, auth and operation ids only). Do it when a typed client from the document is wanted; the web uses the shared zod schemas directly.
-- **Email follow-ups** – change the email address (new address must be confirmed before it replaces the old one), re-send from Settings, an admin view of unverified accounts, a reaper for accounts never verified after N days.
-- **Conversations pagination** – `GET /conversations` is capped at 100 and already uses the list envelope; a keyset on `last_message_at` adds a cursor without a schema change.
-- **Activity post excerpts without author** – "alice liked bob's post" needs `post.author`; add `author: UserSummary` to the post excerpt when the web needs it.
+- **Email follow-ups** – an admin view of unverified accounts; a revert link in the "address changed" notice (today the old address is only told). (Changing the address and the sessions list shipped as D1 on 2026-10-20, ADR 0010 amendment; accounts never verified are removed after 30 days since C6.)
 - **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
 
 ## Code structure
@@ -27,11 +23,11 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 
 ## Web
 
-- Posts: linkify URLs/@mentions in post text, an image lightbox, a post permalink route (`/p/:id`) for notifications and sharing, and the legacy double-tap-to-like gesture on touch devices.
-- Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
-- Profile: cover/avatar cropping, and blocking/reporting (not in the legacy app either).
-- Activity: realtime updates for the sidebar card (push from the socket once 4f lands, or light polling), and linking excerpts to a post permalink.
-- Chat: message deletion needs API support; group admin roles, renaming a group and removing others (ADR 0009 kept membership changes to add and leave); browser notifications and a sound for new messages; a "new messages" pill when the reader has scrolled up; per-tab unread title badge.
+- Newcomer experience (was C1 of `IMPLEMENTATION_PLAN.md`, removed by the owner on 2026-10-20): an `/explore` feed of everyone's posts (`GET /posts?scope=all`, same `postSelect`; a "Popular" tab later), an empty-feed state pointing to People, and a one-time "Follow a few people" step after verification (flagged in `localStorage`). Trigger: real visitors arriving to an empty feed.
+- Posts: an image lightbox and the legacy double-tap-to-like gesture on touch devices.
+- Search (ADR 0014): results are newest first; relevance ranking (`ts_rank` with a ranked cursor), highlighting of matched words and a stemmed per-language column are the upgrades when the volume asks for them. People search stays `ILIKE`.
+- Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. Hashtags in comments were left out on purpose. (`#` autocomplete is B6 in the plan since 2026-10-20.)
+- Chat: voice notes; a long-press reaction gesture on phones (the picker button is always visible there since C5). (Editing, reactions, the missing system lines and the sound rule shipped as C5 on 2026-10-20; notifications with the tab closed are E2.)
 - Performance (Lighthouse mobile: feed 64, profile 74): `zod/mini` build of the shared schemas for the browser (≈ 25 kB gz of the first paint), width/height and `srcset` for post images from the upload metadata (CLS, LCP), `fetchpriority="high"` on the first feed image, `<link rel=preload>` for the Latin Inter subset, prefetching route chunks on link hover.
 - API logging: aborted client connections surface as raw `Error: read ECONNRESET` / `write EPIPE` lines on stderr (seen while Playwright closes contexts); route them through pino at debug level or ignore them.
 - E2E: a Firefox/WebKit project once the suite is stable in CI; visual snapshots for the main pages.

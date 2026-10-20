@@ -3,7 +3,7 @@ import {
   createCommentSchema,
   setReactionSchema,
   updateCommentSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import { createZodDto } from 'nestjs-zod';
 
 export class CreateCommentDto extends createZodDto(createCommentSchema) {}

@@ -24,12 +24,13 @@ test.describe('feed', () => {
     await expect(page.getByLabel('New post')).toHaveValue('');
 
     // Like, then unlike: the count and the pressed state follow.
-    await post.getByRole('button', { name: /^Like/ }).click();
-    const unlike = post.getByRole('button', { name: /^Unlike/ });
-    await expect(unlike).toHaveAttribute('aria-pressed', 'true');
-    await expect(unlike).toContainText('1');
-    await unlike.click();
-    await expect(post.getByRole('button', { name: /^Like/ })).toContainText('0');
+    const like = post.getByRole('button', { name: /^Like/ });
+    await like.click();
+    await expect(like).toHaveAttribute('aria-pressed', 'true');
+    await expect(like).toContainText('1');
+    await like.click();
+    await expect(like).toHaveAttribute('aria-pressed', 'false');
+    await expect(like).toContainText('0');
 
     // Comment and remove the comment again.
     await post.getByRole('button', { name: /^Comments/ }).click();

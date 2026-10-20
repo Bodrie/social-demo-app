@@ -1,9 +1,24 @@
-import { APP_NAME, type Activity } from '@the-mesh/shared';
+import { APP_NAME, type Activity } from '@beso/shared';
+import { Link } from 'react-router';
 import { UserLink } from '@/components/user-link';
 
-function Excerpt({ text }: { text: string }) {
-  return <span className="text-muted-foreground">“{text}”</span>;
+/** The quoted text, leading to the post (and to the comment on it) when there is one to open. */
+export function Excerpt({ text, to }: { text: string; to: string | null }) {
+  return to ? (
+    <Link to={to} className="text-muted-foreground hover:underline">
+      “{text}”
+    </Link>
+  ) : (
+    <span className="text-muted-foreground">“{text}”</span>
+  );
 }
+
+const postLink = (activity: Activity): string | null =>
+  activity.post ? `/p/${activity.post.id}` : null;
+const commentLink = (activity: Activity): string | null =>
+  activity.post && activity.comment
+    ? `/p/${activity.post.id}?comment=${activity.comment.id}`
+    : postLink(activity);
 
 /** One sentence describing an activity, with the people in it linked. */
 export function ActivityText({ activity }: { activity: Activity }) {
@@ -15,7 +30,7 @@ export function ActivityText({ activity }: { activity: Activity }) {
           {actor} published a post
           {activity.post ? (
             <>
-              : <Excerpt text={activity.post.excerpt} />
+              : <Excerpt text={activity.post.excerpt} to={postLink(activity)} />
             </>
           ) : null}
         </>
@@ -26,7 +41,7 @@ export function ActivityText({ activity }: { activity: Activity }) {
           {actor} commented
           {activity.comment ? (
             <>
-              : <Excerpt text={activity.comment.excerpt} />
+              : <Excerpt text={activity.comment.excerpt} to={commentLink(activity)} />
             </>
           ) : null}
         </>
@@ -37,7 +52,7 @@ export function ActivityText({ activity }: { activity: Activity }) {
           {actor} liked a post
           {activity.post ? (
             <>
-              : <Excerpt text={activity.post.excerpt} />
+              : <Excerpt text={activity.post.excerpt} to={postLink(activity)} />
             </>
           ) : null}
         </>
@@ -47,6 +62,44 @@ export function ActivityText({ activity }: { activity: Activity }) {
         <>
           {actor} started following{' '}
           {activity.targetUser ? <UserLink user={activity.targetUser} /> : 'someone'}
+        </>
+      );
+    case 'POST_REPOSTED':
+      return (
+        <>
+          {actor} reposted{' '}
+          {activity.targetUser ? (
+            <>
+              <UserLink user={activity.targetUser} />
+              ’s post
+            </>
+          ) : (
+            'a post'
+          )}
+          {activity.post ? (
+            <>
+              : <Excerpt text={activity.post.excerpt} to={postLink(activity)} />
+            </>
+          ) : null}
+        </>
+      );
+    case 'POST_QUOTED':
+      return (
+        <>
+          {actor} quoted{' '}
+          {activity.targetUser ? (
+            <>
+              <UserLink user={activity.targetUser} />
+              ’s post
+            </>
+          ) : (
+            'a post'
+          )}
+          {activity.post ? (
+            <>
+              : <Excerpt text={activity.post.excerpt} to={postLink(activity)} />
+            </>
+          ) : null}
         </>
       );
     case 'PROFILE_UPDATED':

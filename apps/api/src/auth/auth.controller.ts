@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
+  Param,
   Post,
   Req,
   Res,
@@ -10,11 +12,19 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { AuthResponse } from '@the-mesh/shared';
+import type {
+  AuthResponse,
+  ConfirmEmailChangeResponse,
+  SessionList,
+  VerifyEmailResponse,
+} from '@beso/shared';
+import { IdParamDto } from '../common/params.dto.js';
 import type { Request, Response } from 'express';
 import { AllowUnverified } from './allow-unverified.decorator.js';
 import {
+  ChangeEmailDto,
   ChangePasswordDto,
+  ConfirmEmailChangeDto,
   ForgotPasswordDto,
   LoginDto,
   RegisterDto,
@@ -23,7 +33,13 @@ import {
 } from './auth.dto.js';
 import { AuthService } from './auth.service.js';
 import { type AuthUser, requestMeta } from './auth.types.js';
-import { REFRESH_COOKIE, clearAuthCookies, readCookie, setAuthCookies } from './cookies.js';
+import {
+  REFRESH_COOKIE,
+  clearAuthCookies,
+  readCookie,
+  setAccessCookie,
+  setAuthCookies,
+} from './cookies.js';
 import { CredentialRoute } from './credential-throttle.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
@@ -114,7 +130,10 @@ export class AuthController {
     await this.auth.changePassword(user.id, body, readCookie(req.cookies, REFRESH_COOKIE));
   }
 
-  /** The link from the verification mail; works signed in or not and signs this browser in. */
+  /**
+   * The link from the verification mail; works signed in or not. Only a browser that already
+   * holds a session of that account stays signed in (now verified); any other gets `user: null`.
+   */
   @Public()
   @Post('verify-email')
   @HttpCode(200)
@@ -123,10 +142,14 @@ export class AuthController {
     @Body() body: VerifyEmailDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse> {
-    const { user, tokens } = await this.auth.verifyEmail(body.token, requestMeta(req));
-    setAuthCookies(res, tokens, this.auth.cookieSettings);
-    return { user };
+  ): Promise<VerifyEmailResponse> {
+    const session = await this.auth.verifyEmail(
+      body.token,
+      readCookie(req.cookies, REFRESH_COOKIE),
+    );
+    if (!session) return { user: null };
+    setAccessCookie(res, session.accessToken, this.auth.cookieSettings);
+    return { user: session.user };
   }
 
   @AllowUnverified()
@@ -162,6 +185,55 @@ export class AuthController {
     );
     setAuthCookies(res, tokens, this.auth.cookieSettings);
     return { user };
+  }
+
+  /** Settings → Email: the new address waits for the link mailed to it (ADR 0010 amendment). */
+  @AllowUnverified()
+  @Post('email')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async requestEmailChange(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ChangeEmailDto,
+  ): Promise<AuthResponse> {
+    return { user: await this.auth.requestEmailChange(user.id, body) };
+  }
+
+  @AllowUnverified()
+  @Post('email/resend')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 3, ttl: 60 * 60_000 } })
+  resendEmailChange(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.auth.resendEmailChange(user.id);
+  }
+
+  @AllowUnverified()
+  @Delete('email')
+  @HttpCode(200)
+  async cancelEmailChange(@CurrentUser() user: AuthUser): Promise<AuthResponse> {
+    return { user: await this.auth.cancelEmailChange(user.id) };
+  }
+
+  /** The link from the mail to the new address; works signed in or not and signs nobody in. */
+  @Public()
+  @Post('email/confirm')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  confirmEmailChange(@Body() body: ConfirmEmailChangeDto): Promise<ConfirmEmailChangeResponse> {
+    return this.auth.confirmEmailChange(body.token);
+  }
+
+  /** The member's signed-in devices; the caller's own is marked. */
+  @Get('sessions')
+  async sessions(@CurrentUser() user: AuthUser, @Req() req: Request): Promise<SessionList> {
+    const items = await this.auth.sessions(user.id, readCookie(req.cookies, REFRESH_COOKIE));
+    return { items, nextCursor: null };
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(204)
+  endSession(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.auth.endSession(user.id, params.id);
   }
 
   @AllowUnverified()

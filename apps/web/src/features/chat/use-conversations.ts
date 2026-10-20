@@ -6,35 +6,49 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { AddMembersInput, Conversation, ConversationList } from '@the-mesh/shared';
+import type {
+  AddMembersInput,
+  Conversation,
+  ConversationRole,
+  RenameGroupInput,
+} from '@beso/shared';
 import {
   addMembers,
   createGroup,
+  deleteMessage,
   ensureDirectConversation,
   fetchConversation,
   fetchConversations,
   fetchMessages,
   leaveGroup,
+  removeMember,
+  renameGroup,
+  setMemberRole,
 } from '@/lib/api/conversations';
-import { NO_CURSOR } from '@/lib/infinite';
+import { NO_CURSOR, type Pages, filterItems, flattenPages, mapItems } from '@/lib/infinite';
 import { queryKeys } from '@/lib/query-keys';
 
-export const conversationsQueryOptions = queryOptions({
+/** The list cache: pages of conversations, most recent activity first. */
+export type ConversationPages = Pages<Conversation>;
+
+export const conversationsQueryOptions = infiniteQueryOptions({
   queryKey: queryKeys.conversations.list,
-  queryFn: ({ signal }) => fetchConversations(signal),
+  queryFn: ({ pageParam, signal }) => fetchConversations({ cursor: pageParam, signal }),
+  initialPageParam: NO_CURSOR,
+  getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   // Kept current by socket pushes; the refetch is a safety net.
   staleTime: 60 * 1000,
 });
 
 export function useConversations() {
-  return useQuery(conversationsQueryOptions);
+  return useInfiniteQuery(conversationsQueryOptions);
 }
 
-/** Unread messages across all conversations, for the navigation badge. */
+/** Unread messages across the loaded conversations, for the navigation badge and the tab title. */
 export function useUnreadCount(): number {
-  const { data } = useQuery({
+  const { data } = useInfiniteQuery({
     ...conversationsQueryOptions,
-    select: (list) => list.items.reduce((sum, row) => sum + row.unreadCount, 0),
+    select: (pages) => flattenPages(pages).reduce((sum, row) => sum + row.unreadCount, 0),
   });
   return data ?? 0;
 }
@@ -52,9 +66,9 @@ export function useConversation(id: string) {
   return useQuery({
     ...conversationQueryOptions(id),
     initialData: () =>
-      queryClient
-        .getQueryData<ConversationList>(queryKeys.conversations.list)
-        ?.items.find((row) => row.id === id),
+      flattenPages(queryClient.getQueryData<ConversationPages>(queryKeys.conversations.list)).find(
+        (row) => row.id === id,
+      ),
     initialDataUpdatedAt: () =>
       queryClient.getQueryState(queryKeys.conversations.list)?.dataUpdatedAt,
   });
@@ -74,21 +88,26 @@ export function useMessages(conversationId: string) {
   return useInfiniteQuery(messagesQueryOptions(conversationId));
 }
 
-/** Replaces the conversation in the list, or puts it on top when it was not there. */
-export function putInList(
-  queryClient: ReturnType<typeof useQueryClient>,
-  conversation: Conversation,
-): void {
-  queryClient.setQueryData<ConversationList>(queryKeys.conversations.list, (list) => {
-    if (!list) return list;
-    const exists = list.items.some((row) => row.id === conversation.id);
-    return {
-      ...list,
-      items: exists
-        ? list.items.map((row) => (row.id === conversation.id ? conversation : row))
-        : [conversation, ...list.items],
-    };
+type Client = ReturnType<typeof useQueryClient>;
+
+/** Replaces the conversation in the loaded list, or puts it on top when it was not there. */
+export function putInList(queryClient: Client, conversation: Conversation): void {
+  queryClient.setQueryData<ConversationPages>(queryKeys.conversations.list, (pages) => {
+    if (!pages) return pages;
+    const exists = flattenPages(pages).some((row) => row.id === conversation.id);
+    if (exists) return mapItems(pages, (row) => (row.id === conversation.id ? conversation : row));
+    return moveToTop(pages, conversation);
   });
+}
+
+/** The row that just saw activity goes first, wherever it was (or was not) before. */
+export function moveToTop(pages: ConversationPages, conversation: Conversation): ConversationPages {
+  const without = filterItems(pages, (row) => row.id !== conversation.id);
+  const [first, ...rest] = without.pages;
+  if (!first) {
+    return { pages: [{ items: [conversation], nextCursor: null }], pageParams: [NO_CURSOR] };
+  }
+  return { ...without, pages: [{ ...first, items: [conversation, ...first.items] }, ...rest] };
 }
 
 export function useEnsureDirect() {
@@ -112,14 +131,60 @@ export function useCreateGroup() {
   });
 }
 
-export function useAddMembers(conversationId: string) {
+/** Mutations that answer with the conversation: the detail and the list row take the fresh copy. */
+function useConversationMutation<Input>(mutationFn: (input: Input) => Promise<Conversation>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: AddMembersInput) => addMembers(conversationId, input),
+    mutationFn,
     onSuccess: (conversation) => {
       queryClient.setQueryData(queryKeys.conversations.detail(conversation.id), conversation);
       putInList(queryClient, conversation);
     },
+  });
+}
+
+export function useAddMembers(conversationId: string) {
+  return useConversationMutation((input: AddMembersInput) => addMembers(conversationId, input));
+}
+
+/** Admins only. */
+export function useRenameGroup(conversationId: string) {
+  return useConversationMutation((input: RenameGroupInput) => renameGroup(conversationId, input));
+}
+
+/** Admins only. */
+export function useSetMemberRole(conversationId: string) {
+  return useConversationMutation(({ userId, role }: { userId: string; role: ConversationRole }) =>
+    setMemberRole(conversationId, userId, role),
+  );
+}
+
+/** Admins only; the conversation itself arrives through the `conversation:update` push. */
+export function useRemoveMember(conversationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => removeMember(conversationId, userId),
+    onSuccess: (_, userId) => {
+      const drop = (conversation: Conversation): Conversation => ({
+        ...conversation,
+        members: conversation.members.filter((member) => member.user.id !== userId),
+      });
+      queryClient.setQueryData<Conversation>(
+        queryKeys.conversations.detail(conversationId),
+        (conversation) => conversation && drop(conversation),
+      );
+      queryClient.setQueryData<ConversationPages>(
+        queryKeys.conversations.list,
+        (pages) => pages && mapItems(pages, (row) => (row.id === conversationId ? drop(row) : row)),
+      );
+    },
+  });
+}
+
+/** The sender takes a message back; the thread shows the server's copy ("Message deleted"). */
+export function useDeleteMessage(conversationId: string) {
+  return useMutation({
+    mutationFn: (messageId: string) => deleteMessage(conversationId, messageId),
   });
 }
 
@@ -132,13 +197,10 @@ export function useLeaveGroup() {
 }
 
 /** Drops every trace of a conversation the viewer is no longer part of. */
-export function forgetConversation(
-  queryClient: ReturnType<typeof useQueryClient>,
-  conversationId: string,
-): void {
-  queryClient.setQueryData<ConversationList>(
+export function forgetConversation(queryClient: Client, conversationId: string): void {
+  queryClient.setQueryData<ConversationPages>(
     queryKeys.conversations.list,
-    (list) => list && { ...list, items: list.items.filter((row) => row.id !== conversationId) },
+    (pages) => pages && filterItems(pages, (row) => row.id !== conversationId),
   );
   queryClient.removeQueries({ queryKey: queryKeys.conversations.detail(conversationId) });
   queryClient.removeQueries({ queryKey: queryKeys.conversations.messages(conversationId) });

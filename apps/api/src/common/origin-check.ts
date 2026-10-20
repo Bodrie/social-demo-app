@@ -1,4 +1,4 @@
-import type { ApiError } from '@the-mesh/shared';
+import type { ApiError } from '@beso/shared';
 import type { NextFunction, Request, Response } from 'express';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);

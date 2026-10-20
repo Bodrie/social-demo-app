@@ -5,7 +5,7 @@ import {
   markReadResultSchema,
   messageListSchema,
   messageSchema,
-} from '@the-mesh/shared';
+} from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';
@@ -128,7 +128,8 @@ describe('conversations', () => {
         kind: 'group',
         title: 'Trip',
         createdById: alice.id,
-        lastMessage: null,
+        // The thread opens on the line about its creation (ADR 0009 amendment 3).
+        lastMessage: { kind: 'system', system: { type: 'group_created', title: 'Trip' } },
         unreadCount: 0,
       });
       expect(memberIds(group)).toEqual([alice.id, bob.id, carol.id].toSorted());
@@ -251,7 +252,11 @@ describe('conversations', () => {
             .expect(200)
         ).body,
       );
-      expect(page3.items.map((m) => m.content)).toEqual(['a1']);
+      // The oldest page ends with the line about the group's creation.
+      expect(page3.items.map((m) => [m.content, m.kind])).toEqual([
+        ['a1', 'user'],
+        ['', 'system'],
+      ]);
       expect(page3.nextCursor).toBeNull();
 
       const read = markReadResultSchema.parse(

@@ -1,6 +1,6 @@
 import { parseOrigins, parseTrustProxy, validateEnv } from './env.js';
 
-const DATABASE_URL = 'postgresql://mesh:mesh@localhost:5433/mesh';
+const DATABASE_URL = 'postgresql://beso:beso@localhost:5433/beso';
 const JWT_SECRET = 'unit-test-secret-unit-test-secret-unit-test';
 
 describe('validateEnv', () => {
@@ -24,13 +24,13 @@ describe('validateEnv', () => {
       JWT_SECRET,
       PORT: '8080',
       TRUST_PROXY: 'true',
-      WEB_ORIGINS: 'https://the-mesh.example, https://www.the-mesh.example',
+      WEB_ORIGINS: 'https://beso.example, https://www.beso.example',
       THROTTLE_LIMIT: '5',
     });
 
     expect(env.PORT).toBe(8080);
     expect(env.TRUST_PROXY).toBe(1);
-    expect(env.WEB_ORIGINS).toEqual(['https://the-mesh.example', 'https://www.the-mesh.example']);
+    expect(env.WEB_ORIGINS).toEqual(['https://beso.example', 'https://www.beso.example']);
     expect(env.THROTTLE_LIMIT).toBe(5);
   });
 
@@ -75,17 +75,42 @@ describe('production safety', () => {
     NODE_ENV: 'production',
     DATABASE_URL,
     JWT_SECRET,
-    PUBLIC_ASSETS_URL: 'https://mesh.example/api/v1/uploads',
-    WEB_ORIGINS: 'https://mesh.example',
+    PUBLIC_ASSETS_URL: 'https://beso.example/api/v1/uploads',
+    WEB_ORIGINS: 'https://beso.example',
     TRUST_PROXY: '1',
     WEB_URL: 'https://social.bodrie.dev',
     EMAIL_TRANSPORT: 'smtp',
     SMTP_URL: 'smtps://resend:key@smtp.resend.com:465',
-    EMAIL_FROM: 'The Mesh <noreply@social.bodrie.dev>',
+    EMAIL_FROM: 'BeSo <noreply@social.bodrie.dev>',
+    TURNSTILE_SECRET: '0x4AAAAAAA-secret',
   };
 
   it('accepts an explicit configuration', () => {
     expect(validateEnv(production).NODE_ENV).toBe('production');
+  });
+
+  it('wants a bot check, or the explicit choice to run without one', () => {
+    expect(() => validateEnv({ ...production, TURNSTILE_SECRET: undefined })).toThrow(
+      /TURNSTILE_SECRET must be set/,
+    );
+    expect(() => validateEnv({ ...production, TURNSTILE_SECRET: '  ' })).toThrow(
+      /TURNSTILE_SECRET/,
+    );
+    expect(
+      validateEnv({ ...production, TURNSTILE_SECRET: undefined, CAPTCHA: 'off' }).CAPTCHA,
+    ).toBe('off');
+    expect(() =>
+      validateEnv({ ...production, TURNSTILE_SECRET: '0x4AAAAAAA_xxxxxxxxxxxxxxxxxxxxxxxxx' }),
+    ).toThrow(/placeholder/);
+  });
+
+  it('treats the empty strings compose passes for unset optionals as "not set"', () => {
+    // `TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}` reaches the container as "" when .env lacks it.
+    const parsed = validateEnv({ ...production, CAPTCHA: '' });
+    expect(parsed.CAPTCHA).toBeUndefined();
+    expect(parsed.TURNSTILE_SECRET).toBe(production.TURNSTILE_SECRET);
+    const off = validateEnv({ ...production, TURNSTILE_SECRET: '', CAPTCHA: 'off' });
+    expect(off.TURNSTILE_SECRET).toBeUndefined();
   });
 
   it('refuses development defaults and the placeholder secret', () => {
@@ -100,6 +125,12 @@ describe('production safety', () => {
       }),
     ).toThrow(/placeholder/);
     expect(() => validateEnv({ ...production, COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
+    for (const spelling of ['0', 'no', 'off', 'FALSE']) {
+      expect(() => validateEnv({ ...production, COOKIE_SECURE: spelling })).toThrow(
+        /COOKIE_SECURE/,
+      );
+    }
+    expect(validateEnv({ ...production, COOKIE_SECURE: 'true' }).COOKIE_SECURE).toBe(true);
   });
 
   it('insists on real mail settings', () => {

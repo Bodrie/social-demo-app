@@ -1,4 +1,4 @@
-import type { Activity } from '@the-mesh/shared';
+import type { Activity } from '@beso/shared';
 import { cn } from 'cn';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
@@ -23,6 +23,7 @@ export function ActivityItem({ activity, className }: ActivityItemProps) {
           className="text-muted-foreground text-xs"
         >
           {formatRelativeTime(activity.createdAt)}
+          <span className="sr-only"> ({formatDateTime(activity.createdAt)})</span>
         </time>
       </div>
     </li>

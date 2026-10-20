@@ -1,4 +1,4 @@
-import type { UserSummary } from '@the-mesh/shared';
+import type { UserSummary } from '@beso/shared';
 import { cn } from 'cn';
 import { Link } from 'react-router';
 
