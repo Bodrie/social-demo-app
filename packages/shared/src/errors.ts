@@ -8,6 +8,8 @@ export const ERROR_CODES = [
   'FORBIDDEN',
   /** A 403 because the address is unconfirmed; the client refreshes once (it may have been confirmed in another browser). */
   'EMAIL_NOT_VERIFIED',
+  /** A 403 because one of the two members blocked the other (ADR 0016). */
+  'BLOCKED',
   'NOT_FOUND',
   'CONFLICT',
   'PAYLOAD_TOO_LARGE',

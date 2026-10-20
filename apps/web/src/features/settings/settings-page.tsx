@@ -19,6 +19,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { announceSessionChange, endSession } from '@/features/auth/use-me';
+import { PrivacyCard } from '@/features/moderation/privacy-card';
 import { logoutEverywhere } from '@/lib/api/auth';
 import { REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
@@ -131,6 +132,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <PrivacyCard />
       <AccountCard />
     </div>
   );

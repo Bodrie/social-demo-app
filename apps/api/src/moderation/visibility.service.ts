@@ -1,0 +1,69 @@
+import { Injectable } from '@nestjs/common';
+import { blocked } from '../common/errors.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+
+export type Relationship = { blocked: boolean; blockedMe: boolean; muted: boolean };
+
+/**
+ * Who may not see whom (ADR 0016). A block works both ways and is enforced here and in the
+ * services, never by the client; a mute works for the muter alone. Services ask for the id
+ * lists and put them into their `where`s, so every list answers the same question the same way.
+ */
+@Injectable()
+export class VisibilityService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /** Members on either side of a block with the viewer: nothing of theirs reaches the viewer. */
+  async blockedIds(viewerId: string): Promise<string[]> {
+    const rows = await this.prisma.block.findMany({
+      where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    return rows.map((row) => (row.blockerId === viewerId ? row.blockedId : row.blockerId));
+  }
+
+  /** Authors the viewer's feeds leave out: the blocked set plus whom the viewer muted. */
+  async hiddenAuthorIds(viewerId: string): Promise<string[]> {
+    const [blocks, mutes] = await Promise.all([
+      this.blockedIds(viewerId),
+      this.prisma.mute.findMany({ where: { muterId: viewerId }, select: { mutedId: true } }),
+    ]);
+    return [...new Set([...blocks, ...mutes.map((row) => row.mutedId)])];
+  }
+
+  async isBlockedBetween(a: string, b: string): Promise<boolean> {
+    const count = await this.prisma.block.count({
+      where: {
+        OR: [
+          { blockerId: a, blockedId: b },
+          { blockerId: b, blockedId: a },
+        ],
+      },
+    });
+    return count > 0;
+  }
+
+  /** 403 `BLOCKED` when either of the two blocked the other. */
+  async assertNotBlocked(viewerId: string, otherId: string): Promise<void> {
+    if (await this.isBlockedBetween(viewerId, otherId)) throw blocked();
+  }
+
+  /** Notifications: nothing from someone the recipient blocked, who blocked them, or whom they muted. */
+  async isSilencedFor(recipientId: string, actorId: string): Promise<boolean> {
+    if (await this.isBlockedBetween(recipientId, actorId)) return true;
+    const muted = await this.prisma.mute.count({
+      where: { muterId: recipientId, mutedId: actorId },
+    });
+    return muted > 0;
+  }
+
+  /** The flags a profile carries about the viewer and its owner. */
+  async relationship(viewerId: string, otherId: string): Promise<Relationship> {
+    const [byViewer, byOther, mutes] = await Promise.all([
+      this.prisma.block.count({ where: { blockerId: viewerId, blockedId: otherId } }),
+      this.prisma.block.count({ where: { blockerId: otherId, blockedId: viewerId } }),
+      this.prisma.mute.count({ where: { muterId: viewerId, mutedId: otherId } }),
+    ]);
+    return { blocked: byViewer > 0, blockedMe: byOther > 0, muted: mutes > 0 };
+  }
+}

@@ -27,6 +27,7 @@ import {
 import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
 import { CommentCreatedEvent, CommentReactedEvent } from '../events/comment.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import { PostsService } from '../posts/posts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -48,6 +49,7 @@ export class CommentsService {
     private readonly users: UsersService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
+    private readonly visibility: VisibilityService,
   ) {}
 
   /**
@@ -62,6 +64,10 @@ export class CommentsService {
     await this.posts.assertExists(postId);
     const select = commentSelect(viewerId);
     const take = query.limit + 1;
+    // Either side of a block sees nothing the other wrote (ADR 0016); mutes leave comments alone.
+    const hidden: Prisma.CommentWhereInput = {
+      authorId: { notIn: await this.visibility.blockedIds(viewerId) },
+    };
 
     if (query.sort === 'top') {
       const cursor = decodeRankedCursor(query.cursor);
@@ -75,7 +81,7 @@ export class CommentsService {
           }
         : {};
       const rows = await this.prisma.comment.findMany({
-        where: { AND: [{ postId }, after] },
+        where: { AND: [{ postId }, hidden, after] },
         select,
         orderBy: [{ reactionsCount: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
         take,
@@ -92,7 +98,9 @@ export class CommentsService {
 
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.comment.findMany({
-      where: { AND: [{ postId }, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}] },
+      where: {
+        AND: [{ postId }, hidden, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}],
+      },
       select,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
@@ -112,6 +120,7 @@ export class CommentsService {
       select: { authorId: true },
     });
     if (!post) throw notFound('Post not found');
+    await this.visibility.assertNotBlocked(authorId, post.authorId);
 
     const mentioned = await this.users.findByUsernames(extractEntities(input.content).mentions);
     const row = await this.prisma.comment.create({
@@ -197,6 +206,7 @@ export class CommentsService {
       select: { postId: true, authorId: true },
     });
     if (!comment) throw notFound('Comment not found');
+    await this.visibility.assertNotBlocked(viewerId, comment.authorId);
     const created = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.commentReaction.findUnique({
         where: { commentId_userId: { commentId, userId: viewerId } },

@@ -54,8 +54,95 @@ model User {
   notificationsSent Notification[]      @relation("NotificationActor")
   bookmarks        Bookmark[]
   reposts          Repost[]
+  blocking         Block[]              @relation("BlockBlocker")
+  blockedBy        Block[]              @relation("BlockBlocked")
+  muting           Mute[]               @relation("MuteMuter")
+  mutedBy          Mute[]               @relation("MuteMuted")
+  reports          Report[]             @relation("ReportReporter")
+  resolvedReports  Report[]             @relation("ReportResolver")
 
   @@map("users")
+}
+
+/// One member shutting another out, both ways (ADR 0016): nothing of either reaches the other,
+/// the follows between them are gone, and neither can start anything with the other.
+model Block {
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  blocker User @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@index([blockerId, createdAt(sort: Desc), blockedId(sort: Desc)])
+  @@map("blocks")
+}
+
+/// One member quieting another for themselves only: the muted one's posts leave the muter's
+/// feeds and their notifications stop; the muted one notices nothing.
+model Mute {
+  muterId   String   @map("muter_id") @db.Uuid
+  mutedId   String   @map("muted_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  muter User @relation("MuteMuter", fields: [muterId], references: [id], onDelete: Cascade)
+  muted User @relation("MuteMuted", fields: [mutedId], references: [id], onDelete: Cascade)
+
+  @@id([muterId, mutedId])
+  @@index([mutedId])
+  @@index([muterId, createdAt(sort: Desc), mutedId(sort: Desc)])
+  @@map("mutes")
+}
+
+enum ReportTargetType {
+  post
+  comment
+  user
+
+  @@map("report_target_type")
+}
+
+enum ReportReason {
+  spam
+  harassment
+  hate
+  sexual
+  violence
+  other
+
+  @@map("report_reason")
+}
+
+enum ReportStatus {
+  open
+  resolved
+  dismissed
+
+  @@map("report_status")
+}
+
+/// A member's complaint about a post, a comment or a member, for the admin queue (B5b). The
+/// target is kept by id only: it may well be gone by the time anyone looks at the report.
+model Report {
+  id           String           @id @default(uuid(7)) @db.Uuid
+  reporterId   String           @map("reporter_id") @db.Uuid
+  targetType   ReportTargetType @map("target_type")
+  targetId     String           @map("target_id") @db.Uuid
+  reason       ReportReason
+  details      String?
+  status       ReportStatus     @default(open)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  resolvedById String?          @map("resolved_by_id") @db.Uuid
+  resolvedAt   DateTime?        @map("resolved_at") @db.Timestamptz(3)
+
+  reporter   User  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([reporterId, targetType, targetId])
+  @@map("reports")
 }
 
 enum EmailTokenKind {

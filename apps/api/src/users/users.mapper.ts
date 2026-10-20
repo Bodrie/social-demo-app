@@ -58,7 +58,15 @@ export type UserPrivateRow = Prisma.UserGetPayload<{
   select: ReturnType<typeof userPrivateSelect>;
 }>;
 
-export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic {
+/** The block and mute flags of a profile relative to the viewer (ADR 0016). */
+export type Relationship = { blocked: boolean; blockedMe: boolean; muted: boolean };
+const NO_RELATIONSHIP: Relationship = { blocked: false, blockedMe: false, muted: false };
+
+export function toUserPublic(
+  row: UserPublicRow,
+  assetsBase: string,
+  relationship: Relationship = NO_RELATIONSHIP,
+): UserPublic {
   return {
     ...toUserSummary(row, assetsBase),
     bio: row.bio,
@@ -73,6 +81,27 @@ export function toUserPublic(row: UserPublicRow, assetsBase: string): UserPublic
     },
     followedByMe: row.followers.length > 0,
     followsMe: row.following.length > 0,
+    ...relationship,
+  };
+}
+
+/** What either side of a block gets of the other: who it is and the flags, nothing more. */
+export function toBlockedUserPublic(
+  row: UserPublicRow,
+  assetsBase: string,
+  relationship: Relationship,
+): UserPublic {
+  return {
+    ...toUserSummary(row, assetsBase),
+    bio: null,
+    city: null,
+    website: null,
+    coverUrl: null,
+    createdAt: row.createdAt.toISOString(),
+    counts: { posts: 0, followers: 0, following: 0 },
+    followedByMe: false,
+    followsMe: false,
+    ...relationship,
   };
 }
 

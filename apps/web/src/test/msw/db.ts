@@ -7,6 +7,7 @@ import type {
   Notification,
   Post,
   ReactionSummary,
+  Report,
   ReactionType,
   Revision,
   UserPrivate,
@@ -40,6 +41,9 @@ export const mockDb = {
   refreshable: false,
   users: [] as UserPrivate[],
   follows: [] as Follow[],
+  blocks: [] as { blockerId: string; blockedId: string }[],
+  mutes: [] as { muterId: string; mutedId: string }[],
+  reports: [] as Report[],
   posts: [] as Post[],
   comments: [] as Comment[],
   activities: [] as Activity[],
@@ -75,6 +79,9 @@ export function resetMockDb(): void {
   mockDb.refreshable = false;
   mockDb.users = [alice, bob, carol].map(clone);
   mockDb.follows = [];
+  mockDb.blocks = [];
+  mockDb.mutes = [];
+  mockDb.reports = [];
   mockDb.posts = [];
   mockDb.comments = [];
   mockDb.activities = [];
@@ -180,6 +187,29 @@ export function seedPosts(count: number, overrides: Partial<Post> = {}): Post[] 
 /** The public shape of a stored user as seen by `viewerId`, with live counts and flags. */
 export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic {
   const follows = mockDb.follows;
+  const blocked = mockDb.blocks.some((b) => b.blockerId === viewerId && b.blockedId === user.id);
+  const blockedMe = mockDb.blocks.some((b) => b.blockerId === user.id && b.blockedId === viewerId);
+  const muted = mockDb.mutes.some((m) => m.muterId === viewerId && m.mutedId === user.id);
+  // Like the API: either side of a block gets who it is and the flags, nothing else.
+  if (blocked || blockedMe) {
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      bio: null,
+      city: null,
+      website: null,
+      coverUrl: null,
+      createdAt: user.createdAt,
+      counts: { posts: 0, followers: 0, following: 0 },
+      followedByMe: false,
+      followsMe: false,
+      blocked,
+      blockedMe,
+      muted,
+    };
+  }
   return {
     id: user.id,
     username: user.username,
@@ -201,6 +231,9 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
     followsMe: viewerId
       ? follows.some((follow) => follow.followerId === user.id && follow.followingId === viewerId)
       : false,
+    blocked: false,
+    blockedMe: false,
+    muted,
   };
 }
 

@@ -20,6 +20,7 @@ import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
+import { ModerationModule } from './moderation/moderation.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -56,6 +57,7 @@ import { UsersModule } from './users/users.module.js';
     HealthModule,
     AuthModule,
     UsersModule,
+    ModerationModule,
     AccountModule,
     UploadsModule,
     PostsModule,

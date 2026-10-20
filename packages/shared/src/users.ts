@@ -63,6 +63,14 @@ export const userPublicSchema = userSummarySchema.extend({
   followedByMe: z.boolean(),
   /** This user follows the requesting user. */
   followsMe: z.boolean(),
+  /**
+   * The viewer blocked this user / this user blocked the viewer (ADR 0016). Either way the
+   * profile comes reduced: no bio, picture, counts or follow flags, just who it is.
+   */
+  blocked: z.boolean(),
+  blockedMe: z.boolean(),
+  /** The viewer muted this user: their posts stay out of the viewer's feeds, nothing else changes. */
+  muted: z.boolean(),
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
 

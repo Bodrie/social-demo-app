@@ -1,6 +1,6 @@
 import type { Post } from '@the-mesh/shared';
-import { LinkIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
-import { type RefObject, useState } from 'react';
+import { FlagIcon, LinkIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { type RefObject, Suspense, lazy, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -22,6 +22,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDeletePost } from './use-post-mutations';
 
+// Reporting is rare: the dialog loads when it is first opened, not with the feed's first paint.
+const ReportDialog = lazy(() =>
+  import('@/features/moderation/report-dialog').then((module) => ({
+    default: module.ReportDialog,
+  })),
+);
+
 const postUrl = (postId: string): string => `${window.location.origin}/p/${postId}`;
 
 type PostMenuProps = {
@@ -32,9 +39,10 @@ type PostMenuProps = {
   triggerRef?: RefObject<HTMLButtonElement | null>;
 };
 
-/** Copy link for everyone; edit and delete for the author. */
+/** Copy link for everyone; edit and delete for the author, report for everyone else. */
 export function PostMenu({ post, isAuthor, onEdit, triggerRef }: PostMenuProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const remove = useDeletePost();
 
   const copyLink = async () => {
@@ -68,9 +76,27 @@ export function PostMenu({ post, isAuthor, onEdit, triggerRef }: PostMenuProps) 
                 <Trash2Icon /> Delete post
               </DropdownMenuItem>
             </>
-          ) : null}
+          ) : (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setReporting(true)}>
+                <FlagIcon /> Report post
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {reporting ? (
+        <Suspense fallback={null}>
+          <ReportDialog
+            target={{ type: 'post', id: post.id }}
+            open={reporting}
+            onOpenChange={setReporting}
+            returnFocusTo={() => triggerRef?.current?.focus()}
+          />
+        </Suspense>
+      ) : null}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         {/* Opened from a menu item, so Radix has no trigger to return focus to. */}

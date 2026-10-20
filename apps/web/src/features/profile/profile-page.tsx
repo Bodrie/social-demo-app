@@ -37,11 +37,17 @@ export function ProfilePage() {
   }
 
   const context: ProfileContext = { user: profile.data };
+  // Across a block there is nothing below the header: no posts, no follower lists (ADR 0016).
+  const acrossBlock = profile.data.blocked || profile.data.blockedMe;
   return (
     <div className="space-y-4">
       <ProfileHeader user={profile.data} />
-      <ProfileTabs />
-      <Outlet context={context} />
+      {acrossBlock ? null : (
+        <>
+          <ProfileTabs />
+          <Outlet context={context} />
+        </>
+      )}
     </div>
   );
 }

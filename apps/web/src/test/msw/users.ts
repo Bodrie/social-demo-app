@@ -1,11 +1,13 @@
 import {
   type AccountExport,
+  type Report,
+  createReportSchema,
   deleteAccountSchema,
   updateProfileSchema,
   updateSettingsSchema,
 } from '@the-mesh/shared';
 import { HttpResponse, http } from 'msw/http';
-import { TEST_PASSWORD } from '../fixtures';
+import { TEST_PASSWORD, summaryOf, testId } from '../fixtures';
 import { API, apiError, unauthorized } from './auth';
 import { mockDb, paginate, toPublic } from './db';
 
@@ -169,5 +171,95 @@ export const userHandlers = [
       (f) => !(f.followerId === viewer.id && f.followingId === userId),
     );
     return noContent();
+  }),
+
+  http.get(`${API}/users/me/blocked`, ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewer = mockDb.user;
+    const members = mockDb.blocks
+      .filter((b) => b.blockerId === viewer.id)
+      .flatMap((b) => mockDb.users.filter((u) => u.id === b.blockedId).map(summaryOf));
+    return HttpResponse.json(paginate(members, new URL(request.url)));
+  }),
+
+  http.get(`${API}/users/me/muted`, ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewer = mockDb.user;
+    const members = mockDb.mutes
+      .filter((m) => m.muterId === viewer.id)
+      .flatMap((m) => mockDb.users.filter((u) => u.id === m.mutedId).map(summaryOf));
+    return HttpResponse.json(paginate(members, new URL(request.url)));
+  }),
+
+  /** Like the API: the follows between the two go with the block. */
+  http.put(`${API}/users/:userId/block`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewer = mockDb.user;
+    const userId = param(params.userId);
+    if (userId === viewer.id) return apiError(400, 'BAD_REQUEST', 'You cannot block yourself');
+    if (!mockDb.users.some((u) => u.id === userId)) return notFound();
+    if (!mockDb.blocks.some((b) => b.blockerId === viewer.id && b.blockedId === userId)) {
+      mockDb.blocks.push({ blockerId: viewer.id, blockedId: userId });
+    }
+    mockDb.follows = mockDb.follows.filter(
+      (f) =>
+        !(f.followerId === viewer.id && f.followingId === userId) &&
+        !(f.followerId === userId && f.followingId === viewer.id),
+    );
+    return noContent();
+  }),
+
+  http.delete(`${API}/users/:userId/block`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewer = mockDb.user;
+    const userId = param(params.userId);
+    mockDb.blocks = mockDb.blocks.filter(
+      (b) => !(b.blockerId === viewer.id && b.blockedId === userId),
+    );
+    return noContent();
+  }),
+
+  http.put(`${API}/users/:userId/mute`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewer = mockDb.user;
+    const userId = param(params.userId);
+    if (userId === viewer.id) return apiError(400, 'BAD_REQUEST', 'You cannot mute yourself');
+    if (!mockDb.users.some((u) => u.id === userId)) return notFound();
+    if (!mockDb.mutes.some((m) => m.muterId === viewer.id && m.mutedId === userId)) {
+      mockDb.mutes.push({ muterId: viewer.id, mutedId: userId });
+    }
+    return noContent();
+  }),
+
+  http.delete(`${API}/users/:userId/mute`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const viewer = mockDb.user;
+    const userId = param(params.userId);
+    mockDb.mutes = mockDb.mutes.filter((m) => !(m.muterId === viewer.id && m.mutedId === userId));
+    return noContent();
+  }),
+
+  http.post(`${API}/reports`, async ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const body = createReportSchema.parse(await request.json());
+    if (
+      mockDb.reports.some(
+        (r) =>
+          r.targetType === body.targetType && r.targetId === body.targetId && r.status === 'open',
+      )
+    ) {
+      return apiError(409, 'CONFLICT', 'You already reported this');
+    }
+    const report: Report = {
+      id: testId('report', mockDb.reports.length + 1),
+      targetType: body.targetType,
+      targetId: body.targetId,
+      reason: body.reason,
+      details: body.details ?? null,
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    };
+    mockDb.reports.push(report);
+    return HttpResponse.json(report, { status: 201 });
   }),
 ];

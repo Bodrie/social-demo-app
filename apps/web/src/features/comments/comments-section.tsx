@@ -6,8 +6,23 @@ import {
   type ReactionType,
 } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { Loader2Icon, MoreHorizontalIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import {
+  FlagIcon,
+  Loader2Icon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  SendIcon,
+  Trash2Icon,
+} from 'lucide-react';
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  Suspense,
+  lazy,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { focusLater } from '@/lib/focus';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -31,6 +46,13 @@ import { queryKeys } from '@/lib/query-keys';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { flattenPages } from '@/lib/infinite';
 import { ReactionBar } from './reaction-bar';
+
+// Reporting is rare: the dialog loads when it is first opened, not with the feed's first paint.
+const ReportDialog = lazy(() =>
+  import('@/features/moderation/report-dialog').then((module) => ({
+    default: module.ReportDialog,
+  })),
+);
 import {
   useComment,
   useComments,
@@ -242,6 +264,7 @@ function CommentItem({
   const profile = `/u/${comment.author.username}`;
   const itemRef = useRef<HTMLLIElement>(null);
   const optionsRef = useRef<HTMLButtonElement>(null);
+  const [reporting, setReporting] = useState(false);
   useEffect(() => {
     if (highlighted && typeof itemRef.current?.scrollIntoView === 'function') {
       itemRef.current.scrollIntoView({ block: 'center' });
@@ -290,32 +313,44 @@ function CommentItem({
                 </>
               ) : null}
             </span>
-            {isAuthor || canDelete ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    ref={optionsRef}
-                    variant="ghost"
-                    size="icon-xs"
-                    className="text-muted-foreground -mr-1 ml-auto"
-                    aria-label="Comment options"
-                  >
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {isAuthor ? (
-                    <DropdownMenuItem onSelect={onEdit}>
-                      <PencilIcon /> Edit comment
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canDelete ? (
-                    <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-                      <Trash2Icon /> Delete comment
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  ref={optionsRef}
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground -mr-1 ml-auto"
+                  aria-label="Comment options"
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isAuthor ? (
+                  <DropdownMenuItem onSelect={onEdit}>
+                    <PencilIcon /> Edit comment
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onSelect={() => setReporting(true)}>
+                    <FlagIcon /> Report comment
+                  </DropdownMenuItem>
+                )}
+                {canDelete ? (
+                  <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                    <Trash2Icon /> Delete comment
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {reporting ? (
+              <Suspense fallback={null}>
+                <ReportDialog
+                  target={{ type: 'comment', id: comment.id }}
+                  open={reporting}
+                  onOpenChange={setReporting}
+                  returnFocusTo={() => optionsRef.current?.focus()}
+                />
+              </Suspense>
             ) : null}
           </div>
           {editing ? (

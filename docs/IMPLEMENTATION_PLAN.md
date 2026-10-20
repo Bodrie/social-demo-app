@@ -55,7 +55,7 @@ B3b chat follow-ups                 ✅ 2026-10-19           ─┘
 C6  scheduler + reapers             ✅ 2026-10-20          ─┐
 B4  notifications                   ✅ 2026-10-20           │  v2.5
 C3  bookmarks (a) + reposts (b)     ✅ 2026-10-20          ─┘
-B5  moderation (a: block/mute/report, b: admin queue)      ─┐
+B5  moderation (a ✅ 2026-10-20, b: admin queue)           ─┐
 D1  email change, sessions list                             │  v2.6
 C2  comment replies                                        ─┘
 C5  chat extras (edit, reactions, role lines, sound)       ─┐
@@ -277,7 +277,11 @@ nothing else needs yet. `POST_REPOSTED` arrives with C3b.*
 
 **Decision (owner): admins are bootstrapped from an `ADMIN_EMAILS` env variable.** Two commits.
 
-**B5a – member side: block, mute, report**
+**B5a – member side: block, mute, report · ✅ 2026-10-20 (ADR 0016, member half)**
+
+*Built as planned. `VisibilityService` is a global module rather than a per-request cache;
+the "blocked profile state page" is the reduced header with no tabs; comment counts still
+include hidden comments (noted in the ADR).*
 
 - Migration `moderation`: `blocks(blocker_id, blocked_id, created_at)`, `mutes(muter_id, muted_id, created_at)`, `reports(id, reporter_id, target_type enum (post | comment | user), target_id uuid, reason enum (spam | harassment | hate | sexual | violence | other), details text?, status enum (open | resolved | dismissed), created_at, resolved_by_id?, resolved_at?)`.
 - Block effects (both directions, enforced in services, never the client): posts, reposts and comments hidden from each other's feed, profile posts, tag pages, search and activity; profile answers a reduced shape with `blocked: true` / `blockedMe: true` and no counts; follow rows removed on block and new follows refused (403 `BLOCKED`); comments on each other's posts refused; `ensureDirect` refused and existing direct threads hidden from the list while the block stands; mentions do not notify; suggestions exclude both. Implemented once as `VisibilityService.hiddenAuthorIds(viewerId)` (blocked ∪ blockers ∪ muted for feeds) injected into the `where` of the list queries, cached per request.

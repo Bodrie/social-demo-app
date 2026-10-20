@@ -42,8 +42,11 @@ describe('CommentsSection', () => {
     await user.click(onTheirs!);
     const theirSection = await screen.findByRole('region', { name: 'Comments' });
     expect(await within(theirSection).findByText('On their post')).toBeInTheDocument();
-    // Neither the author nor the post owner: no options at all.
-    expect(within(theirSection).queryByRole('button', { name: 'Comment options' })).toBeNull();
+    // Someone else's comment on someone else's post: the menu only offers to report it.
+    await user.click(within(theirSection).getByRole('button', { name: 'Comment options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Report comment' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Delete comment' })).toBeNull();
+    await user.keyboard('{Escape}');
 
     await user.click(onMine!);
     const mySection = (await screen.findAllByRole('region', { name: 'Comments' }))[0]!;

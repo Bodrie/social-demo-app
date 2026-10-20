@@ -63,6 +63,19 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('the report dialog', async ({ page }) => {
+    await openHome(page);
+    // Someone else's post: only those offer "Report post".
+    const other = page
+      .getByRole('article')
+      .filter({ has: page.getByRole('button', { name: /^Repost \d/ }) })
+      .first();
+    await other.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Report post' }).click();
+    await expect(page.getByRole('dialog', { name: 'Report this post' })).toBeVisible();
+    await audit(page, '/ (report dialog)');
+  });
+
   test('the repost popover', async ({ page }) => {
     await openHome(page);
     // Someone else's post: only those carry the repost button.

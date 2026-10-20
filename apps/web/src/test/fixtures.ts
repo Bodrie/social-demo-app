@@ -18,7 +18,15 @@ let sequence = 0;
 
 /** Deterministic, valid (v7-shaped) UUIDs so failures are readable. */
 export function testId(
-  kind: 'user' | 'post' | 'comment' | 'activity' | 'message' | 'conversation' | 'notification',
+  kind:
+    | 'user'
+    | 'post'
+    | 'comment'
+    | 'activity'
+    | 'message'
+    | 'conversation'
+    | 'notification'
+    | 'report',
   n: number,
 ): string {
   const prefix = {
@@ -29,6 +37,7 @@ export function testId(
     message: '01a14200',
     conversation: '01a14300',
     notification: '01a14400',
+    report: '01a14500',
   }[kind];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
@@ -48,6 +57,9 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     counts: { posts: 0, followers: 0, following: 0 },
     followedByMe: false,
     followsMe: false,
+    blocked: false,
+    blockedMe: false,
+    muted: false,
     email: 'alice@example.com',
     emailVerifiedAt: '2026-10-15T10:05:00.000Z',
     settings: { chatBubbles: true, messageSound: false, browserNotifications: false },

@@ -16,7 +16,10 @@ import { ProfileUpdatedEvent } from '../events/user.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import {
+  type UserPublicRow,
+  toBlockedUserPublic,
   toUserPrivate,
   toUserPublic,
   toUserSettings,
@@ -42,7 +45,17 @@ export class UsersService {
     private readonly events: EventEmitter2,
     private readonly uploads: UploadsService,
     private readonly assets: AssetsService,
+    private readonly visibility: VisibilityService,
   ) {}
+
+  /** A profile as the viewer may see it: whole, or reduced to who it is across a block. */
+  private async present(viewerId: string, row: UserPublicRow): Promise<UserPublic> {
+    if (row.id === viewerId) return toUserPublic(row, this.assets.base);
+    const relationship = await this.visibility.relationship(viewerId, row.id);
+    return relationship.blocked || relationship.blockedMe
+      ? toBlockedUserPublic(row, this.assets.base, relationship)
+      : toUserPublic(row, this.assets.base, relationship);
+  }
 
   async assertExists(id: string): Promise<void> {
     const count = await this.prisma.user.count({ where: { id } });
@@ -69,7 +82,7 @@ export class UsersService {
       select: userPublicSelect(viewerId),
     });
     if (!row) throw notFound('User not found');
-    return toUserPublic(row, this.assets.base);
+    return this.present(viewerId, row);
   }
 
   async getPublicByUsername(viewerId: string, username: string): Promise<UserPublic> {
@@ -78,7 +91,7 @@ export class UsersService {
       select: userPublicSelect(viewerId),
     });
     if (!row) throw notFound('User not found');
-    return toUserPublic(row, this.assets.base);
+    return this.present(viewerId, row);
   }
 
   async findPrivateById(id: string): Promise<UserPrivate | null> {
@@ -189,9 +202,14 @@ export class UsersService {
         }
       : {};
 
+    // Neither side of a block finds the other (ADR 0016).
     const rows = await this.prisma.user.findMany({
       where: {
-        AND: [search, cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {}],
+        AND: [
+          search,
+          { id: { notIn: await this.visibility.blockedIds(viewerId) } },
+          cursor ? keysetAfter(cursor, (userId) => ({ id: { lt: userId } })) : {},
+        ],
       },
       select: userPublicSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -200,11 +218,11 @@ export class UsersService {
     return paginate(rows, query.limit, (row) => toUserPublic(row, this.assets.base));
   }
 
-  /** Users the viewer neither follows nor is followed by. */
+  /** Users the viewer neither follows nor is followed by, nor blocked or muted. */
   async suggestions(viewerId: string, limit: number): Promise<Paginated<UserPublic>> {
     const rows = await this.prisma.user.findMany({
       where: {
-        id: { not: viewerId },
+        id: { not: viewerId, notIn: await this.visibility.hiddenAuthorIds(viewerId) },
         followers: { none: { followerId: viewerId } },
         following: { none: { followeeId: viewerId } },
       },

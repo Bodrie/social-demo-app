@@ -16,6 +16,12 @@ import { isRecord } from './type-guards.js';
 
 export const notFound = (message: string): NotFoundException => new NotFoundException(message);
 export const forbidden = (message: string): ForbiddenException => new ForbiddenException(message);
+/** One of the two members blocked the other (ADR 0016): the same answer whichever way round. */
+export const blocked = (): ForbiddenException =>
+  new ForbiddenException({
+    code: 'BLOCKED' satisfies ErrorCode,
+    message: 'You cannot do that with this member',
+  });
 /** The one 403 a client may answer with a token refresh: the address may have been confirmed elsewhere. */
 export const emailNotVerified = (): ForbiddenException =>
   new ForbiddenException({

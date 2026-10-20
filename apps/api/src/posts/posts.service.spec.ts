@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
+import type { VisibilityService } from '../moderation/visibility.service.js';
 import type { AssetsService } from '../assets/assets.service.js';
 import { PostLikedEvent } from '../events/post.events.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -20,7 +21,14 @@ describe('PostsService', () => {
     prisma = mockDeep<PrismaService>();
     uploads = mockDeep<UploadsService>();
     events = mockDeep<EventEmitter2>();
-    service = new PostsService(prisma, uploads, mockDeep<UsersService>(), events, assets);
+    service = new PostsService(
+      prisma,
+      uploads,
+      mockDeep<UsersService>(),
+      events,
+      assets,
+      mockDeep<VisibilityService>(),
+    );
   });
 
   describe('delete', () => {

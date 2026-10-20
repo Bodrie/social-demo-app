@@ -31,6 +31,7 @@ import {
   MessageSentEvent,
 } from '../events/conversation.events.js';
 import { Prisma } from '../generated/prisma/client.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -67,12 +68,14 @@ export class ConversationsService {
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
     private readonly uploads: UploadsService,
+    private readonly visibility: VisibilityService,
   ) {}
 
   /** The one direct conversation between the caller and `userId`, created on first use. */
   async ensureDirect(meId: string, userId: string): Promise<Conversation> {
     if (meId === userId) throw badRequest('You cannot message yourself');
     await this.users.assertExists(userId);
+    await this.visibility.assertNotBlocked(meId, userId);
     const directKey = directKeyOf(meId, userId);
     const existing = await this.prisma.conversation.findUnique({
       where: { directKey },
@@ -128,11 +131,15 @@ export class ConversationsService {
    */
   async list(meId: string, query: CursorQuery): Promise<Paginated<Conversation>> {
     const cursor = decodeCursor(query.cursor);
+    const blocked = await this.visibility.blockedIds(meId);
     const page = await this.prisma.$queryRaw<ActivityRow[]>(Prisma.sql`
       SELECT c.id, COALESCE(c.last_message_at, c.created_at) AS activity_at
       FROM conversations c
       JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = ${meId}::uuid
       WHERE (c.kind = 'group' OR c.last_message_at IS NOT NULL)
+        AND NOT (c.kind = 'direct' AND EXISTS (
+          SELECT 1 FROM conversation_members o
+          WHERE o.conversation_id = c.id AND o.user_id = ANY(${blocked}::uuid[])))
         ${
           cursor
             ? Prisma.sql`AND (COALESCE(c.last_message_at, c.created_at), c.id) < (${cursor.createdAt}, ${cursor.id}::uuid)`
@@ -440,12 +447,22 @@ export class ConversationsService {
     return ids.includes(meId) ? ids.filter((userId) => userId !== meId) : [];
   }
 
+  /**
+   * Non-members get a 404, and so does either side of a block for the direct thread between
+   * them: it is hidden from the list and closed to both while the block stands (ADR 0016).
+   */
   private async rowForMember(meId: string, id: string): Promise<ConversationRow> {
     const row = await this.prisma.conversation.findFirst({
       where: { id, members: { some: { userId: meId } } },
       select: conversationSelect,
     });
     if (!row) throw notFound('Conversation not found');
+    if (row.kind === 'direct') {
+      const other = row.members.find((member) => member.user.id !== meId);
+      if (other && (await this.visibility.isBlockedBetween(meId, other.user.id))) {
+        throw notFound('Conversation not found');
+      }
+    }
     return row;
   }
 

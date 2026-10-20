@@ -6,6 +6,7 @@ import { notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
 import type { NotificationType } from '../generated/prisma/client.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { notificationSelect, toNotification } from './notifications.mapper.js';
 
@@ -32,12 +33,24 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
+    private readonly visibility: VisibilityService,
   ) {}
+
+  /** Nothing from someone the member blocked, who blocked them, or whom they muted (ADR 0016). */
+  private async silenced(userId: string): Promise<{ actorId: { notIn: string[] } }> {
+    return { actorId: { notIn: await this.visibility.hiddenAuthorIds(userId) } };
+  }
 
   async list(userId: string, query: CursorQuery): Promise<Paginated<Notification>> {
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.notification.findMany({
-      where: { AND: [{ userId }, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}] },
+      where: {
+        AND: [
+          { userId },
+          await this.silenced(userId),
+          cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {},
+        ],
+      },
       select: notificationSelect,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
@@ -46,7 +59,9 @@ export class NotificationsService {
   }
 
   async unreadCount(userId: string): Promise<UnreadCount> {
-    const count = await this.prisma.notification.count({ where: { userId, readAt: null } });
+    const count = await this.prisma.notification.count({
+      where: { userId, readAt: null, ...(await this.silenced(userId)) },
+    });
     return { count };
   }
 
@@ -77,6 +92,8 @@ export class NotificationsService {
    */
   async notify(input: NotificationInput): Promise<Notification | null> {
     if (input.userId === input.actorId) return null;
+    // Nothing from someone the recipient blocked, who blocked them, or whom they muted (ADR 0016).
+    if (await this.visibility.isSilencedFor(input.userId, input.actorId)) return null;
     const key = {
       userId: input.userId,
       type: input.type,

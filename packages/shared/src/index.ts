@@ -7,6 +7,7 @@ export * from './constants.js';
 export * from './errors.js';
 export * from './health.js';
 export * from './conversations.js';
+export * from './moderation.js';
 export * from './notifications.js';
 export * from './pagination.js';
 export * from './posts.js';

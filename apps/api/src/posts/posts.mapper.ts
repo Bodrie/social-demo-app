@@ -41,8 +41,9 @@ export function postSelect(viewerId: string) {
 
 export type PostRow = Prisma.PostGetPayload<{ select: ReturnType<typeof postSelect> }>;
 
-function toEmbed(row: PostRow, assetsBase: string): PostEmbed | null {
-  if (row.quotedPost) {
+/** `hidden` are authors the viewer must not see (ADR 0016): their original shows the frame instead. */
+function toEmbed(row: PostRow, assetsBase: string, hidden?: ReadonlySet<string>): PostEmbed | null {
+  if (row.quotedPost && !hidden?.has(row.quotedPost.author.id)) {
     return {
       id: row.quotedPost.id,
       author: toUserSummary(row.quotedPost.author, assetsBase),
@@ -55,8 +56,16 @@ function toEmbed(row: PostRow, assetsBase: string): PostEmbed | null {
   return row.wasQuote ? { unavailable: true } : null;
 }
 
-/** `repost` is set by the feed and profile unions only: who put the post there, and when. */
-export function toPost(row: PostRow, assetsBase: string, repost: Post['repost'] = null): Post {
+/**
+ * `repost` is set by the feed and profile unions only: who put the post there, and when.
+ * `hidden` masks the embed of a quote whose original author the viewer must not see.
+ */
+export function toPost(
+  row: PostRow,
+  assetsBase: string,
+  repost: Post['repost'] = null,
+  hidden?: ReadonlySet<string>,
+): Post {
   return {
     id: row.id,
     content: row.content,
@@ -68,7 +77,7 @@ export function toPost(row: PostRow, assetsBase: string, repost: Post['repost'] 
     bookmarkedByMe: row.bookmarks.length > 0,
     repostCount: row.repostCount,
     repostedByMe: row.reposts.length > 0,
-    quotedPost: toEmbed(row, assetsBase),
+    quotedPost: toEmbed(row, assetsBase, hidden),
     repost,
     editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     mentions: row.mentions.map((mention) => toUserSummary(mention.user, assetsBase)),

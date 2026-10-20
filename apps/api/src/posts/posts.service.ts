@@ -25,6 +25,7 @@ import {
   PostUnrepostedEvent,
 } from '../events/post.events.js';
 import { Prisma } from '../generated/prisma/client.js';
+import { VisibilityService } from '../moderation/visibility.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
@@ -41,6 +42,7 @@ export class PostsService {
     private readonly users: UsersService,
     private readonly events: EventEmitter2,
     private readonly assets: AssetsService,
+    private readonly visibility: VisibilityService,
   ) {}
 
   async assertExists(postId: string): Promise<void> {
@@ -65,6 +67,7 @@ export class PostsService {
         select: { id: true, authorId: true },
       });
       if (!quoted) throw badRequest('Unknown post', { quotedPostId: 'Unknown post' });
+      await this.visibility.assertNotBlocked(authorId, quoted.authorId);
     }
     const createdAt = new Date();
     const entities = extractEntities(input.content);
@@ -110,13 +113,25 @@ export class PostsService {
     return toPost(row, this.assets.base);
   }
 
+  /** A post of someone on either side of a block with the viewer does not exist for them (ADR 0016). */
   async getById(viewerId: string, postId: string): Promise<Post> {
     const row = await this.prisma.post.findUnique({
       where: { id: postId },
       select: postSelect(viewerId),
     });
     if (!row) throw notFound('Post not found');
-    return toPost(row, this.assets.base);
+    if (
+      row.author.id !== viewerId &&
+      (await this.visibility.isBlockedBetween(viewerId, row.author.id))
+    ) {
+      throw notFound('Post not found');
+    }
+    return toPost(row, this.assets.base, null, await this.hiddenFor(viewerId));
+  }
+
+  /** Authors the viewer must not see, as a set for the mapper's embed masking. */
+  private async hiddenFor(viewerId: string): Promise<ReadonlySet<string>> {
+    return new Set(await this.visibility.hiddenAuthorIds(viewerId));
   }
 
   /**
@@ -180,23 +195,32 @@ export class PostsService {
    * The viewer's own posts and plain reposts plus those of everyone they follow, as one list
    * ordered by the time each post last turned up (ADR 0017).
    */
-  feed(viewerId: string, query: CursorQuery): Promise<Paginated<Post>> {
+  async feed(viewerId: string, query: CursorQuery): Promise<Paginated<Post>> {
     return this.union(
       viewerId,
       Prisma.sql`SELECT ${viewerId}::uuid AS id UNION SELECT followee_id FROM follows WHERE follower_id = ${viewerId}::uuid`,
       query,
+      await this.visibility.hiddenAuthorIds(viewerId),
     );
   }
 
-  /** A member's posts, with their plain reposts in between (the profile) or alone. */
+  /**
+   * A member's posts, with their plain reposts in between (the profile) or alone. Across a
+   * block the list is empty; a muted member's own page still shows their posts (the viewer
+   * went there), only what they reposted of people the viewer blocked is left out.
+   */
   async byAuthor(
     viewerId: string,
     authorId: string,
     query: UserPostsQuery,
   ): Promise<Paginated<Post>> {
     await this.users.assertExists(authorId);
-    if (query.include === 'own') return this.list(viewerId, query, { authorId });
-    return this.union(viewerId, Prisma.sql`SELECT ${authorId}::uuid AS id`, query);
+    if (authorId !== viewerId && (await this.visibility.isBlockedBetween(viewerId, authorId))) {
+      return { items: [], nextCursor: null };
+    }
+    const hidden = await this.visibility.blockedIds(viewerId);
+    if (query.include === 'own') return this.list(viewerId, query, { authorId }, hidden);
+    return this.union(viewerId, Prisma.sql`SELECT ${authorId}::uuid AS id`, query, hidden);
   }
 
   /**
@@ -209,19 +233,27 @@ export class PostsService {
     viewerId: string,
     members: Prisma.Sql,
     query: CursorQuery,
+    hidden: string[],
   ): Promise<Paginated<Post>> {
     const cursor = decodeCursor(query.cursor);
     const after = cursor
       ? Prisma.sql`WHERE (sort_at, post_id) < (${cursor.createdAt}, ${cursor.id}::uuid)`
       : Prisma.empty;
+    // Nothing by a hidden author, nor reposted by one, nor a repost of one's post (ADR 0016).
     const picked = await this.prisma.$queryRaw<Occurrence[]>`
       WITH members AS (${members}),
       occurrences AS (
         SELECT p.id AS post_id, p.created_at AS sort_at, NULL::uuid AS repost_id
-        FROM posts p WHERE p.author_id IN (SELECT id FROM members)
+        FROM posts p
+        WHERE p.author_id IN (SELECT id FROM members)
+          AND NOT (p.author_id = ANY(${hidden}::uuid[]))
         UNION ALL
         SELECT r.post_id, r.created_at, r.id
-        FROM reposts r WHERE r.user_id IN (SELECT id FROM members)
+        FROM reposts r
+        WHERE r.user_id IN (SELECT id FROM members)
+          AND NOT (r.user_id = ANY(${hidden}::uuid[]))
+          AND NOT EXISTS (
+            SELECT 1 FROM posts hp WHERE hp.id = r.post_id AND hp.author_id = ANY(${hidden}::uuid[]))
       ),
       newest AS (
         SELECT DISTINCT ON (post_id) post_id, sort_at, repost_id
@@ -260,17 +292,23 @@ export class PostsService {
         },
       ];
     });
+    const hiddenSet = new Set(hidden);
     return paginateBy(
       items,
       query.limit,
       (item) => ({ createdAt: item.sortAt, id: item.row.id }),
-      (item) => toPost(item.row, this.assets.base, item.repost),
+      (item) => toPost(item.row, this.assets.base, item.repost, hiddenSet),
     );
   }
 
   /** Every post carrying `tag` (already lower-cased by the DTO), newest first. */
-  byTag(viewerId: string, tag: string, query: CursorQuery): Promise<Paginated<Post>> {
-    return this.list(viewerId, query, { hashtags: { some: { tag } } });
+  async byTag(viewerId: string, tag: string, query: CursorQuery): Promise<Paginated<Post>> {
+    return this.list(
+      viewerId,
+      query,
+      { hashtags: { some: { tag } } },
+      await this.visibility.hiddenAuthorIds(viewerId),
+    );
   }
 
   /**
@@ -284,9 +322,11 @@ export class PostsService {
     const after = cursor
       ? Prisma.sql`AND (created_at < ${cursor.createdAt} OR (created_at = ${cursor.createdAt} AND id < ${cursor.id}::uuid))`
       : Prisma.empty;
+    const hidden = await this.visibility.hiddenAuthorIds(viewerId);
     const matches = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM posts
       WHERE search_vector @@ websearch_to_tsquery('simple', ${query.q})
+        AND NOT (author_id = ANY(${hidden}::uuid[]))
       ${after}
       ORDER BY created_at DESC, id DESC
       LIMIT ${query.limit + 1}`;
@@ -296,7 +336,8 @@ export class PostsService {
       select: postSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
-    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base));
+    const hiddenSet = new Set(hidden);
+    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
   }
 
   async delete(viewerId: string, postId: string): Promise<void> {
@@ -332,6 +373,7 @@ export class PostsService {
     });
     if (!post) throw notFound('Post not found');
     if (post.authorId === viewerId) throw badRequest('You cannot repost your own post');
+    await this.visibility.assertNotBlocked(viewerId, post.authorId);
     const created = await this.prisma.$transaction(async (tx) => {
       const result = await tx.repost.createMany({
         data: { userId: viewerId, postId },
@@ -374,6 +416,7 @@ export class PostsService {
       select: { authorId: true },
     });
     if (!post) throw notFound('Post not found');
+    await this.visibility.assertNotBlocked(viewerId, post.authorId);
     const result = await this.prisma.postLike.createMany({
       data: { userId: viewerId, postId },
       skipDuplicates: true,
@@ -411,10 +454,11 @@ export class PostsService {
   /** The viewer's saved posts, newest save first: the keyset is the bookmark's time, not the post's. */
   async bookmarks(viewerId: string, query: CursorQuery): Promise<Paginated<Post>> {
     const cursor = decodeCursor(query.cursor);
+    const hidden = await this.visibility.hiddenAuthorIds(viewerId);
     const rows = await this.prisma.bookmark.findMany({
       where: {
         AND: [
-          { userId: viewerId },
+          { userId: viewerId, post: { authorId: { notIn: hidden } } },
           cursor ? keysetAfter(cursor, (id) => ({ postId: { lt: id } })) : {},
         ],
       },
@@ -422,11 +466,12 @@ export class PostsService {
       orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
       take: query.limit + 1,
     });
+    const hiddenSet = new Set(hidden);
     return paginateBy(
       rows,
       query.limit,
       (row) => ({ createdAt: row.createdAt, id: row.postId }),
-      (row) => toPost(row.post, this.assets.base),
+      (row) => toPost(row.post, this.assets.base, null, hiddenSet),
     );
   }
 
@@ -434,14 +479,22 @@ export class PostsService {
     viewerId: string,
     query: CursorQuery,
     where: Prisma.PostWhereInput,
+    hidden: string[],
   ): Promise<Paginated<Post>> {
     const cursor = decodeCursor(query.cursor);
     const rows = await this.prisma.post.findMany({
-      where: { AND: [where, cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {}] },
+      where: {
+        AND: [
+          where,
+          { authorId: { notIn: hidden } },
+          cursor ? keysetAfter(cursor, (id) => ({ id: { lt: id } })) : {},
+        ],
+      },
       select: postSelect(viewerId),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
     });
-    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base));
+    const hiddenSet = new Set(hidden);
+    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
   }
 }

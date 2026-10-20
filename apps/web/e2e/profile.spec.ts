@@ -9,10 +9,12 @@ const count = async (text: string | null) => Number(text?.match(/\d+/)?.[0] ?? N
 test.describe('profile', () => {
   test('follow and unfollow another member from their profile', async ({ page }) => {
     await openHome(page);
-    // Feed posts come from alice herself or from people she follows; take the first by someone else.
+    // Feed posts come from alice herself or from people she follows, except what those people
+    // reposted (ADR 0017): take the first original post by someone else.
     const post = page
       .getByRole('article')
       .filter({ hasNot: page.getByRole('link', { name: 'Alice Anderson' }) })
+      .filter({ hasNotText: 'reposted' })
       .first();
     const author = post.getByRole('link').first();
     const name = (await author.textContent()) ?? '';
