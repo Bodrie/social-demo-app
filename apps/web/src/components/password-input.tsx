@@ -13,7 +13,8 @@ export function PasswordInput({ className, ...props }: Omit<ComponentProps<typeo
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={visible ? 'Hide password' : 'Show password'}
+        // The name stays the same; `aria-pressed` carries the state (review A13).
+        aria-label="Show password"
         aria-pressed={visible}
         className="text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2"
         onClick={() => setVisible((value) => !value)}

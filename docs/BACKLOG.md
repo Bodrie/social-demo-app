@@ -27,11 +27,8 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 - Newcomer experience (was C1 of `IMPLEMENTATION_PLAN.md`, removed by the owner on 2026-10-20): an `/explore` feed of everyone's posts (`GET /posts?scope=all`, same `postSelect`; a "Popular" tab later), an empty-feed state pointing to People, and a one-time "Follow a few people" step after verification (flagged in `localStorage`). Trigger: real visitors arriving to an empty feed.
 - Posts: an image lightbox and the legacy double-tap-to-like gesture on touch devices.
 - Search (ADR 0014): results are newest first; relevance ranking (`ts_rank` with a ranked cursor), highlighting of matched words and a stemmed per-language column are the upgrades when the volume asks for them. People search stays `ILIKE`.
-- Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. `#` autocomplete in the composer and hashtags in comments were left out on purpose.
-- Emoji picker: move to `emoji-picker-react` 5.x once it has a few weeks of releases behind it (5.0.0 landed 2026-10-10).
-- Profile: cover/avatar cropping, and blocking/reporting (not in the legacy app either).
-- Activity: realtime updates for the sidebar card (a push over the chat socket, or light polling). Excerpts link to the post since B2.
-- Chat (after B3b): a system line for role changes and for a new group; editing a sent message; a sound or notification while the tab is visible but on another page (today: hidden tab only); notifications from a service worker so they work with the tab closed (E2 web push).
+- Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. Hashtags in comments were left out on purpose. (`#` autocomplete is B6 in the plan since 2026-10-20.)
+- Chat: voice notes. (Editing, reactions, the missing system lines and the sound rule are C5 in the plan since 2026-10-20; notifications with the tab closed are E2.)
 - Performance (Lighthouse mobile: feed 64, profile 74): `zod/mini` build of the shared schemas for the browser (≈ 25 kB gz of the first paint), width/height and `srcset` for post images from the upload metadata (CLS, LCP), `fetchpriority="high"` on the first feed image, `<link rel=preload>` for the Latin Inter subset, prefetching route chunks on link hover.
 - API logging: aborted client connections surface as raw `Error: read ECONNRESET` / `write EPIPE` lines on stderr (seen while Playwright closes contexts); route them through pino at debug level or ignore them.
 - E2E: a Firefox/WebKit project once the suite is stable in CI; visual snapshots for the main pages.

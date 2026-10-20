@@ -1,7 +1,7 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { forbidden, unauthorized } from '../common/errors.js';
+import { emailNotVerified, unauthorized } from '../common/errors.js';
 import { ALLOW_UNVERIFIED_KEY } from './allow-unverified.decorator.js';
 import { type AuthenticatedRequest, accessTokenPayloadSchema } from './auth.types.js';
 import { ACCESS_COOKIE, readCookie } from './cookies.js';
@@ -42,7 +42,7 @@ export class AuthGuard implements CanActivate {
         context.getHandler(),
         context.getClass(),
       ]);
-      if (!allowed) throw forbidden('Confirm your email address to continue');
+      if (!allowed) throw emailNotVerified();
     }
     return true;
   }

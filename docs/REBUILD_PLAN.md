@@ -599,7 +599,7 @@ See `docs/ROADMAP.md` (written 2026-10-16): go-live items, product features and 
 
 ## 4.13 Pre-release review fixes (2026-10-16, on `dev`, ADR 0011)
 
-Fixes for every High and Medium item of `docs/PRE_RELEASE_REVIEW_2026-10-16.md`; the Low items stay open.
+Fixes for every High and Medium item of `docs/PRE_RELEASE_REVIEW_2026-10-16.md`; the Low items followed in A4 and on 2026-10-20 (`docs/REVIEW_2026-10-19.md` §1 has the resolution of each).
 
 | ID | Fix | Status |
 |---|---|---|

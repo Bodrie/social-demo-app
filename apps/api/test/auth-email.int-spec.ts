@@ -61,7 +61,7 @@ describe('email verification and password reset', () => {
       ).toBe(user.id);
       const closed = await agent.get('/api/v1/posts').expect(403);
       expect(apiErrorSchema.parse(closed.body)).toMatchObject({
-        code: 'FORBIDDEN',
+        code: 'EMAIL_NOT_VERIFIED',
         message: 'Confirm your email address to continue',
       });
       await agent.post('/api/v1/posts').send({ content: 'hi' }).expect(403);

@@ -386,6 +386,28 @@ describe('messages', () => {
     expect(await screen.findByText('No conversations yet.')).toBeInTheDocument();
   });
 
+  it('leaves a thread I am removed from while reading it', async () => {
+    signedInAs(alice);
+    const group = seedConversation('group', [bob.id, alice.id], {
+      title: 'Surprise',
+      createdById: bob.id,
+    });
+    renderApp(`/messages/${group.id}`);
+    await screen.findByRole('heading', { name: 'Surprise' });
+
+    act(() =>
+      fakeSocket.serverEmit(SOCKET_EVENTS.conversationRemoved, { conversationId: group.id }),
+    );
+
+    expect(
+      await screen.findByText('You are no longer part of this conversation'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Surprise' })).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByText('No conversations yet.')).toBeInTheDocument();
+  });
+
   it('shows who is online and reconnects with a fresh token after a server disconnect', async () => {
     signedInAs(alice);
     mockDb.refreshable = true;

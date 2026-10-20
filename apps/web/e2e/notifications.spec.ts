@@ -19,8 +19,9 @@ test('a like by another member rings the bell and leads to the post', async ({ p
   await bob.goto(`/u/${USERS.alice.username}`);
   const bobsView = bob.getByRole('article').filter({ hasText: text }).first();
   await expect(bobsView).toBeVisible();
-  await bobsView.getByRole('button', { name: /^Like/ }).click();
-  await expect(bobsView.getByRole('button', { name: /^Unlike/ })).toContainText('1');
+  const like = bobsView.getByRole('button', { name: /^Like/ });
+  await like.click();
+  await expect(like).toHaveAttribute('aria-pressed', 'true');
 
   // Alice's open tab hears about it over the socket.
   const bell = banner.getByRole('link', { name: 'Notifications, 1 unread' });

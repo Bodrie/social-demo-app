@@ -207,17 +207,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
        * fresh access cookie helps then. A refresh that fails outright is tried again later.
        */
       const reconnectWithFreshToken = async (attempt = 0): Promise<void> => {
-        let refreshed: boolean;
-        try {
-          refreshed = await refreshSession();
-        } catch {
-          if (disposed) return;
+        const outcome = await refreshSession();
+        if (disposed) return;
+        if (outcome === 'unavailable') {
           const delay = Math.min(REFRESH_RETRY_BASE_MS * 2 ** attempt, REFRESH_RETRY_MAX_MS);
           retryLater(() => void reconnectWithFreshToken(attempt + 1), delay);
           return;
         }
-        if (disposed) return;
-        if (!refreshed) notifySessionLost();
+        if (outcome === 'rejected') notifySessionLost();
         else if (!socket.active) socket.connect();
       };
 

@@ -355,7 +355,12 @@ volumes) before it is needed.
 
 Migrations are applied before the new API starts; if a migration fails the container
 exits and `docker compose ps` shows it restarting: fix forward (new migration) rather than
-rolling the image back, because the schema may already be ahead of the old code.
+rolling the image back, because the schema may already be ahead of the old code. Prisma
+records the failed migration as started and refuses every later `migrate deploy` with
+`P3009` until it is told what became of it, so first mark it:
+`docker compose exec api sh -c 'cd apps/api && ./node_modules/.bin/prisma migrate resolve --rolled-back <migration_name>'`
+(after undoing by hand whatever part of it did apply; `--applied` instead if all of it did),
+then ship the fixing migration and run `./update.sh`.
 
 ## 7. What is not in place yet
 

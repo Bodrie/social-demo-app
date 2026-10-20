@@ -16,6 +16,12 @@ import { isRecord } from './type-guards.js';
 
 export const notFound = (message: string): NotFoundException => new NotFoundException(message);
 export const forbidden = (message: string): ForbiddenException => new ForbiddenException(message);
+/** The one 403 a client may answer with a token refresh: the address may have been confirmed elsewhere. */
+export const emailNotVerified = (): ForbiddenException =>
+  new ForbiddenException({
+    code: 'EMAIL_NOT_VERIFIED' satisfies ErrorCode,
+    message: 'Confirm your email address to continue',
+  });
 export const unauthorized = (message: string): UnauthorizedException =>
   new UnauthorizedException(message);
 export const badRequest = (message: string, fields?: Record<string, string>): BadRequestException =>

@@ -1,7 +1,9 @@
 # Implementation plan (after R1, 2026-10-19)
 
-**Status:** v0.4 — C1 (newcomer experience) removed by the owner on 2026-10-20 and parked in
-`BACKLOG.md`; otherwise v0.3, reviewed by the owner on 2026-10-19 in two rounds (all decisions in §9; no open points).
+**Status:** v0.5 — on 2026-10-20 the owner removed C1 (newcomer experience, parked in
+`BACKLOG.md`) and pulled five backlog items into the plan as v2.7 (C5 chat extras, B6 `#`
+autocomplete, C7 realtime activity, D4 picture cropping) and an E4 line (emoji picker upgrade);
+otherwise v0.3, reviewed by the owner on 2026-10-19 in two rounds (all decisions in §9; no open points).
 Written against `dev` at `cedd8f2` (legal pages, pre-release hardening and the runbook revision are
 in; `main` is at PR #25). **The site opens to visitors around 2026-10-29.**
 **Relation to the other documents:** `ROADMAP.md` says *what* and *why*; this document says *how*, in
@@ -56,6 +58,10 @@ C3  bookmarks (a) + reposts (b)                            ─┘
 B5  moderation (a: block/mute/report, b: admin queue)      ─┐
 D1  email change, sessions list                             │  v2.6
 C2  comment replies                                        ─┘
+C5  chat extras (edit, reactions, role lines, sound)       ─┐
+B6  # autocomplete                                          │  v2.7
+C7  realtime activity                                       │
+D4  picture cropping                                       ─┘
 D2  richer posts · D3 TOTP · E1–E4                             later minors
 ```
 
@@ -71,7 +77,7 @@ to pull forward, nothing else depends on its position.
 
 - Runbook §1–3 on the box; rehearse the restore drill (§5) once against a scratch database.
 - Monitor: Cloudflare health check (or any external monitor) on `https://social.bodrie.dev/api/v1/auth/me` expecting 401; `/health` stays internal.
-- Off-box copies of `backup.sh` output with `rclone` to any remote; the systemd timer gains a second step. Document the remote in the runbook, not in the repo's env.
+- Off-box copies of `backup.sh` output with `rclone` to any remote; the systemd timer gains a second step. Document the remote in the runbook, not in the repo's env. A failed dump must be noticed (review L27, moved here 2026-10-20): an `OnFailure=` unit that mails or pings, or a healthchecks-style ping at the end of `backup.sh`; and the script must not leave a 0-byte file behind.
 - Fold in the few-line Low items that touch the deploy set: L19 (`update.sh` continues to `up -d` when only one pull fails), L20 (tunnel token via `env_file`, not the command line), L21 (URL-encode `POSTGRES_PASSWORD` in `DATABASE_URL`), L26 (client IP in request logs behind Caddy, with the integration test the backlog asks for).
 - Code side is tiny; no ADR, runbook edits only.
 
@@ -287,6 +293,14 @@ nothing else needs yet. `POST_REPOSTED` arrives with C3b.*
 - Web: `/admin` lazy route guarded by `role` (hidden from nav for members; direct visit → 404 page), a reports table with filters, target preview and the actions; `userPrivateSchema` gains `role`.
 - Tests: int for every visibility rule (feed, profile, tags, search, comments, direct chat, suggestions), report limits, guard 403s, suspension end to end; web (menus, dialogs, Privacy card, admin page); e2e (bob blocks alice → alice sees the blocked profile and bob's posts vanish from her feed; a carol report shows up for an admin).
 
+### B6. `#` autocomplete · S
+
+Pulled from the backlog on 2026-10-20 (owner); B1 left it out on purpose.
+
+- API: `GET /tags/suggest?q=` → `{ items: [{ tag, count }] }`: distinct tags starting with `q` (folded like `TagParamDto`, 1–50 chars) among the posts of the last 90 days, ordered by count then tag, at most 8; served by the existing primary key `(tag, post_id)`. Same module as trending (`tags/`); the 60 s cache the backlog mentions for trending applies to both if the query log ever asks.
+- Web: `MentionTextarea` gains a second trigger: `#` followed by at least one character opens the same listbox with tags (`queryKeys.tags.suggest(q)`), Enter or Tab inserts `#tag `, and a `q` with no match offers nothing (the writer still types a new tag). The composer, the comment box and `InlineEditor` get it without changes.
+- Tests: int (prefix, folding, window, limit), web (both triggers in one textarea, keyboard), e2e in `tags.spec.ts`.
+
 ---
 
 ## 4. Track C – gaps not written down before
@@ -331,9 +345,27 @@ Needs the same visibility layer as B5 plus a request state on follows and rules 
 followers when a profile turns private. Parked in `BACKLOG.md` with that note; nothing in B5 should
 make it harder.
 
-### C5. Chat extras · deferred
+### C5. Chat extras · M–L · ADR 0009 amendment 3
 
-Message editing (would reuse revisions), reactions on messages, voice notes. Backlog.
+Pulled from the backlog on 2026-10-20 (owner). Four pieces, one commit; voice notes stay out.
+
+- **Message editing** (sender only; user messages that are not deleted): `messages.edited_at` and `message_revisions(id, message_id, content, edited_at)` on the pattern of post and comment revisions (`common/revisions.ts`), `PATCH /conversations/:id/messages/:messageId { content }` (unchanged text is a no-op; the picture cannot be swapped, only the text), `GET …/messages/:messageId/revisions`. `MessageUpdatedEvent` → `message:updated` push with the full message to every member → `replaceMessage` in the cache (the path `message:deleted` already uses); the list snippet follows. Web: "Edit message" in the own-message options menu → `InlineEditor` in the bubble, `EditedMarker` with the history; chat windows and bubbles get it for free (same `Thread`). Editing moves no read mark and raises no bubble.
+- **Reactions on messages**: `message_reactions(message_id, user_id, type ReactionType, created_at)`, primary key (message, user): one reaction per member, switching updates it. `PUT/DELETE /conversations/:id/messages/:messageId/reaction`; the message shape gains `reactions: ReactionSummary` (counts per type and `mine`), computed per page with one `groupBy` like comments; no denormalised counter, threads are not sorted by it. The change goes out as the same `message:updated` push. Web: `ReactionBar` reused under the bubble (pills + picker; long-press on phones), optimistic with `withMyReaction`; a reaction is nobody's unread, raises no bubble, plays no sound. System lines and deleted messages take no reaction and cannot be edited.
+- **System lines for role changes and group creation**: `writeSystemLine` in `setRole` ("alice made bob an admin", "alice removed bob as admin") and in `createGroup` ("alice created the group"); `systemLineSchema` gains the types, `systemLineText` the sentences.
+- **Sound while on another page**: today `MessageAlerts` plays the sound and shows the browser notification only while the tab is hidden. New rule for the sound (`messageSound`): it also plays, in a visible tab, for a message whose conversation is not on screen there (no open chat window, not the open thread) — exactly when a bubble appears or the Messages badge goes up. The browser `Notification` stays hidden-tab only (a visible tab shows the bubble instead). No new preference key.
+- Tests: int (edit rules incl. 403 for others and 400 for deleted or system lines, revisions, reactions and their push, the new lines), gateway spec for `message:updated`, web (editor in the bubble and in a chat window, reaction pills, the snippet following an edit, the sound rule), e2e extension of `chat.spec.ts` (an edit and a reaction seen live by the other member).
+
+### C7. Realtime activity · S
+
+Pulled from the backlog on 2026-10-20 (owner). *What it is:* the "Latest activity" card in the
+right bar and the `/activity` page are fetched when a page mounts and refetched when the tab
+regains focus; between those moments a post, like, comment or follow by someone the viewer
+follows does not show up until a reload. With this slice it appears the moment it happens,
+the way a message or a notification does.
+
+- API: `ActivitiesListener` emits `ActivityRecordedEvent(activity, actorId)` once the row is written (the item already shaped by `toActivity`); the gateway answers with `activity:new` to the rooms of the actor's followers (`FollowsService.followerIds(actorId)`, one query; capped at 1 000 ids, which no demo account reaches) and never to the actor. Removals (unlike, unfollow) push nothing: the row disappears at the next fetch, as today.
+- Web: `ChatProvider` hands the push to `receiveActivity` (`use-activities.ts`: `prependItem` into `queryKeys.activities.list` when it is loaded); the card keeps showing its six newest, the page its full list. No badge, no sound, nothing stored.
+- Tests: int (push to followers only, never to the actor or a stranger), gateway spec, web (push → card and page), fake socket schema map.
 
 ### C6. Scheduler and reapers · S · ✅ 2026-10-20 (ADR 0012 amendment)
 
@@ -358,6 +390,15 @@ Message editing (would reuse revisions), reactions on messages, voice notes. Bac
 
 - `user_totp(user_id, secret_encrypted, enabled_at, recovery_codes_hashed[])`, `otplib`; enrol from Settings (QR + confirm code), login becomes two steps when enabled: `POST /auth/login` answers `{ mfaRequired: true, ticket }` (short-lived signed ticket, no cookies yet) → `POST /auth/login/totp { ticket, code | recoveryCode }` → session. Password reset by mail still clears the way (the roadmap's reason to do this after email). Rate limits per ticket. Web: a second step on the sign-in page, Settings → **Security** card.
 
+### D4. Picture cropping · S–M
+
+Pulled from the backlog on 2026-10-20 (owner). Profile pictures only: the avatar is shown round
+and the cover wide, so a member should choose which part of a photo is kept instead of getting
+the centre cut the API presets take today.
+
+- Web: after a file is chosen in the edit-profile dialog, a cropper replaces the preview (fixed aspect: 1:1 for the avatar, 3:1 for the cover; drag to move, wheel/pinch and +/- buttons to zoom, arrow keys to move, every control labelled), "Use this" draws the chosen area to a canvas and hands the blob to `useImageUpload(kind)` as today; the API presets keep resizing and converting (a cropped file is just a smaller file; no API change). `react-easy-crop` pinned in the catalog and loaded lazily inside the dialog, so the first paint carries nothing. Post and chat pictures stay uncropped.
+- Tests: web (the upload receives the cropped blob, keyboard operation, cancel keeps the old picture), e2e extension of `profile.spec.ts` (change the avatar through the cropper), axe on the dialog with the cropper open.
+
 ---
 
 ## 6. Track E – polish and operations
@@ -365,7 +406,7 @@ Message editing (would reuse revisions), reactions on messages, voice notes. Bac
 - **E1 Performance**: `zod/mini` build of `packages/shared` for the browser (tsdown second entry), font preload for the Latin Inter subset, `fetchpriority="high"` on the first feed image, route chunk prefetch on link hover, measured with Lighthouse before and after (baseline in the backlog: feed 64, profile 74 on mobile).
 - **E2 PWA + web push**: manifest, icons, a minimal service worker (no offline cache of API data), `push_subscriptions(user_id, endpoint, keys)` with `web-push` (VAPID keys in env), a `NotificationsListener` fan-out to subscriptions; the switch joins the B3a preferences.
 - **E3 Observability**: error tracking (GlitchTip self-hosted on the box or Sentry's free tier; `@sentry/node` + `@sentry/react`, DSNs by env, request id attached), `enableShutdownHooks({ useProcessExit: true })` so pino flushes, route `ECONNRESET`/`EPIPE` through pino at debug (backlog), a status page later.
-- **E4 Code structure** (backlog): `TokensModule`, `HttpExceptionFilter` → `ApiExceptionFilter`, event-name casing, `@ZodResponse` everywhere (started in A4), `migrate` as a one-shot image so the API image loses the Prisma CLI.
+- **E4 Code structure** (backlog): `TokensModule`, `HttpExceptionFilter` → `ApiExceptionFilter`, event-name casing, `@ZodResponse` everywhere (started in A4), `migrate` as a one-shot image so the API image loses the Prisma CLI. Maintenance (added 2026-10-20): upgrade `emoji-picker-react` 4.22 → 5.x — the emoji picker behind the composer and the chat composer; 5.0.0 shipped on 2026-10-10 as a major version with a changed API, so wait for a few weeks of fixes (not before November 2026), then re-check the lazy chunk's size and the keyboard behaviour of the picker.
 
 ---
 
@@ -381,7 +422,9 @@ B1 mentions, B2 permalink ──► C3b quotes (parsed text, embed links)
 C3b reposts ──► B4 (POST_REPOSTED, POST_QUOTED), B5a (hidden reposts and embeds)
 C6 scheduler ──► B4 (pruning), D1 (token expiry), uploads reaper
 D2 dimensions ──► E1 srcset
-B4 notifications ──► E2 web push
+B4 notifications ──► E2 web push, C7 realtime activity (the push path through ChatProvider)
+B3b chat ──► C5 chat extras (message cache, system lines, the options menu)
+B1 mentions ──► B6 # autocomplete (MentionTextarea)
 A2, A3 ──► the opening; A4 ──► nothing
 ```
 

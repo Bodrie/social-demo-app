@@ -36,7 +36,7 @@ describe('PostPage', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: 'Like 2' }));
-    expect(screen.getByRole('button', { name: 'Unlike 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Like 3' })).toHaveAttribute('aria-pressed', 'true');
     await waitFor(() => expect(mockDb.posts[0]?.likedByMe).toBe(true));
 
     // user-event's clipboard stub reads back through jsdom's FileReader, which refuses the Node

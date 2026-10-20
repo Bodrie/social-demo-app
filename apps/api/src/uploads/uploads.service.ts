@@ -25,7 +25,13 @@ export class UploadsService {
     const image = await this.images.process(input, kind);
     const key = `${kind}/${randomUUID()}.webp`;
     await this.storage.put(key, image.data, image.contentType);
-    await this.prisma.upload.create({ data: { key, ownerId, kind } });
+    try {
+      await this.prisma.upload.create({ data: { key, ownerId, kind } });
+    } catch (error) {
+      // A file without a row is invisible to the orphan reaper: take it back out at once.
+      await this.deleteFiles([key]);
+      throw error;
+    }
     return {
       key,
       url: this.assets.url(key),

@@ -15,11 +15,11 @@ describe('PostCard', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: 'Like 3' }));
-    const unlike = screen.getByRole('button', { name: 'Unlike 4' });
-    expect(unlike).toHaveAttribute('aria-pressed', 'true');
+    const liked = screen.getByRole('button', { name: 'Like 4' });
+    expect(liked).toHaveAttribute('aria-pressed', 'true');
     await waitFor(() => expect(mockDb.posts[0]?.likedByMe).toBe(true));
 
-    await user.click(unlike);
+    await user.click(liked);
     expect(screen.getByRole('button', { name: 'Like 3' })).toHaveAttribute('aria-pressed', 'false');
     await waitFor(() => expect(mockDb.posts[0]?.likedByMe).toBe(false));
   });
@@ -65,11 +65,20 @@ describe('PostCard', () => {
 
     answered.resolve();
     expect(await screen.findByText('Could not update the like')).toBeInTheDocument();
-    expect(within(failingCard).getByRole('button', { name: 'Like 3' })).toBeInTheDocument();
-    expect(within(otherCard).getByRole('button', { name: 'Unlike 4' })).toBeInTheDocument();
+    expect(within(failingCard).getByRole('button', { name: 'Like 3' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(within(otherCard).getByRole('button', { name: 'Like 4' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     // The lists showing the failed post are refetched; the server agrees with what is shown.
     await waitFor(() =>
-      expect(within(otherCard).getByRole('button', { name: 'Unlike 4' })).toBeInTheDocument(),
+      expect(within(otherCard).getByRole('button', { name: 'Like 4' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
     );
   });
 

@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw/http';
 import { z } from 'zod';
-import { mockDb, unauthorized } from '@/test/msw/handlers';
+import { apiError, mockDb, unauthorized } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { ApiClientError, api, isApiClientError, onSessionLost } from './client';
 
@@ -66,6 +66,39 @@ describe('api client', () => {
     expect(mockDb.calls.refresh).toBe(1);
     expect(lost).toHaveBeenCalledTimes(1);
     unsubscribe();
+  });
+
+  it('keeps the session when the refresh cannot be made, and fails the request alone', async () => {
+    mockDb.refreshable = true;
+    server.use(
+      http.post('*/api/v1/auth/refresh', () =>
+        apiError(503, 'SERVICE_UNAVAILABLE', 'Deploying, back in a moment'),
+      ),
+    );
+    const lost = vi.fn();
+    const stop = onSessionLost(lost);
+
+    const error = await rejection(api.get('/ping', pingSchema));
+
+    stop();
+    expect(error.status).toBe(401);
+    expect(lost).not.toHaveBeenCalled();
+  });
+
+  it('refreshes once for a session that was confirmed in another browser', async () => {
+    mockDb.refreshable = true;
+    let pings = 0;
+    server.use(
+      http.get('*/api/v1/ping', () => {
+        pings += 1;
+        return pings === 1
+          ? apiError(403, 'EMAIL_NOT_VERIFIED', 'Confirm your email address to continue')
+          : HttpResponse.json({ ok: true });
+      }),
+    );
+
+    await expect(api.get('/ping', pingSchema)).resolves.toEqual({ ok: true });
+    expect(mockDb.calls.refresh).toBe(1);
   });
 
   it('exposes field errors from the envelope', async () => {

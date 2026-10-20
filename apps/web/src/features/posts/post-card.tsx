@@ -148,7 +148,8 @@ export function PostCard({
           onClick={() => toggleLike.mutate({ postId: post.id, liked: post.likedByMe })}
         >
           <HeartIcon className={cn(post.likedByMe && 'fill-current')} />
-          <span className="sr-only">{post.likedByMe ? 'Unlike' : 'Like'}</span>{' '}
+          {/* The name stays "Like"; `aria-pressed` says whether it is (review A13). */}
+          <span className="sr-only">Like</span>{' '}
           <span className="tabular-nums">{post.likeCount}</span>
         </Button>
         {expanded ? (

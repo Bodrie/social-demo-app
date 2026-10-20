@@ -62,7 +62,18 @@ export class AuthService {
     await this.events.emitAsync(UserRegisteredEvent.EVENT, new UserRegisteredEvent(created.id));
     // A brand-new account has had no mail yet, so the per-account limit never refuses this one.
     const token = await this.emailTokens.issue(created.id, 'verify_email');
-    if (token) await this.email.sendVerification(created, token);
+    if (token) {
+      // The account exists either way: a mail that cannot be sent is a warning in the log and
+      // "Send the email again" in the waiting room, not a 500 that a retry turns into 409.
+      try {
+        await this.email.sendVerification(created, token);
+      } catch (error) {
+        this.logger.warn(
+          { err: error, userId: created.id },
+          'Could not send the verification mail',
+        );
+      }
+    }
     return this.session(created.id, meta);
   }
 
@@ -120,7 +131,10 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash: await hashPassword(input.newPassword) },
     });
+    // Nothing mailed earlier may still act on the account: a reset link would change the
+    // password again, a confirmation link would sign a browser in (review L1).
     await this.emailTokens.voidAll(userId, 'password_reset');
+    await this.emailTokens.voidAll(userId, 'verify_email');
     await this.refreshTokens.revokeOthers(userId, rawRefreshToken);
     this.notifyPasswordChanged(userId);
   }
@@ -137,10 +151,13 @@ export class AuthService {
     rawRefreshToken: string | undefined,
   ): Promise<VerifiedSession | null> {
     const userId = await this.emailTokens.consume(rawToken, 'verify_email');
-    await this.prisma.user.updateMany({
+    const confirmed = await this.prisma.user.updateMany({
       where: { id: userId, emailVerifiedAt: null },
       data: { emailVerifiedAt: new Date() },
     });
+    // An address confirmed some other way (a password reset) leaves its old link spent but
+    // with nothing to do; such a link must not become a way in (review L1).
+    if (confirmed.count === 0) return null;
     if (!rawRefreshToken || !(await this.refreshTokens.isLiveFor(rawRefreshToken, userId))) {
       return null;
     }
@@ -203,6 +220,7 @@ export class AuthService {
       }),
     ]);
     await this.emailTokens.voidAll(userId, 'password_reset');
+    await this.emailTokens.voidAll(userId, 'verify_email');
     await this.refreshTokens.revokeAll(userId);
     this.notifyPasswordChanged(userId);
     return this.session(userId, meta);

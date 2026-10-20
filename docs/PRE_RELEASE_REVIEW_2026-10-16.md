@@ -532,6 +532,9 @@ or create a second object URL for the bubble.
 
 ### Low
 
+*Status 2026-10-20: every Low item is closed — fixed in A4 or on 2026-10-20, moved to the box
+setup (A1), or accepted with a reason; `REVIEW_2026-10-19.md` §1 has the resolution of each.*
+
 Grouped by area. Each line: evidence, scenario, fix.
 
 **Auth**
