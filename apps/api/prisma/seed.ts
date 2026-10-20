@@ -218,6 +218,49 @@ async function seed(): Promise<void> {
     skipDuplicates: true,
   });
 
+  // --- reposts and one quote (ADR 0017) -----------------------------------
+  const demoUsers = users.slice(0, FIXED_USERS.length);
+  const reposts = demoUsers.flatMap((u) =>
+    pick(
+      posts.filter((p) => p.authorId !== u.id),
+      2,
+    ).map((p) => ({ userId: u.id, postId: p.id })),
+  );
+  await prisma.repost.createMany({ data: reposts, skipDuplicates: true });
+  await prisma.activity.createMany({
+    data: reposts.map((r) => ({
+      actorId: r.userId,
+      type: ActivityType.POST_REPOSTED,
+      postId: r.postId,
+      targetUserId: posts.find((p) => p.id === r.postId)?.authorId,
+    })),
+  });
+  const [seedAlice, seedBob] = demoUsers;
+  const alicePost = posts.find((p) => p.authorId === seedAlice?.id);
+  if (seedAlice && seedBob && alicePost) {
+    const quote = await prisma.post.create({
+      data: {
+        authorId: seedBob.id,
+        content: 'This one deserves a second look.',
+        quotedPostId: alicePost.id,
+        wasQuote: true,
+      },
+      select: { id: true },
+    });
+    await prisma.activity.create({
+      data: {
+        actorId: seedBob.id,
+        type: ActivityType.POST_QUOTED,
+        postId: quote.id,
+        targetUserId: seedAlice.id,
+      },
+    });
+  }
+  await prisma.$executeRaw`
+    UPDATE posts p SET repost_count =
+      (SELECT count(*) FROM reposts r WHERE r.post_id = p.id)
+      + (SELECT count(*) FROM posts q WHERE q.quoted_post_id = p.id)`;
+
   // --- comments ----------------------------------------------------------
   const comments = await prisma.comment.createManyAndReturn({
     data: posts.flatMap((post) =>

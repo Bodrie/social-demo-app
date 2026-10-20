@@ -266,6 +266,7 @@ describe('GET /users/me/export', () => {
     await agent.post(`/api/v1/posts/${theirPost.id}/comments`).send({ content: 'hello' });
     await agent.put(`/api/v1/posts/${theirPost.id}/like`).expect(204);
     await agent.put(`/api/v1/posts/${theirPost.id}/bookmark`).expect(204);
+    await agent.put(`/api/v1/posts/${theirPost.id}/repost`).expect(204);
     await agent.put(`/api/v1/users/${friend.id}/follow`).expect(204);
     await friendAgent.put(`/api/v1/users/${me.id}/follow`).expect(204);
     const direct = conversationSchema.parse(
@@ -294,6 +295,7 @@ describe('GET /users/me/export', () => {
     expect(data.comments.map((comment) => comment.content)).toEqual(['hello']);
     expect(data.likes.map((like) => like.postId)).toEqual([theirPost.id]);
     expect(data.bookmarks.map((bookmark) => bookmark.postId)).toEqual([theirPost.id]);
+    expect(data.reposts.map((repost) => repost.postId)).toEqual([theirPost.id]);
     expect(data.following.map((follow) => follow.username)).toEqual([friend.username]);
     expect(data.followers.map((follow) => follow.username)).toEqual([friend.username]);
     // Only my own messages, with the conversation they belong to.

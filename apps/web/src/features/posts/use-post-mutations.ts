@@ -2,25 +2,37 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
-import type { Post, UpdatePostInput } from '@the-mesh/shared';
+import { type Post, type UpdatePostInput, isAvailableEmbed } from '@the-mesh/shared';
 import {
   bookmarkPost,
   createPost,
   deletePost,
   likePost,
+  repostPost,
   unbookmarkPost,
   unlikePost,
+  unrepostPost,
   updatePost,
 } from '@/lib/api/posts';
 import { type Pages, filterItems } from '@/lib/infinite';
 import { holdQueries, resumeQueries, runningToggles } from '@/lib/optimistic';
 import { queryKeys } from '@/lib/query-keys';
 import {
+  findCachedPost,
   postListKeysShowing,
   prependPostTo,
   removePostEverywhere,
   updatePostEverywhere,
 } from './post-cache';
+
+/** The original of a quote, as cached lists show it, counts the quote with its reposts. */
+function adjustQuotedCount(queryClient: QueryClient, post: Post | undefined, delta: number): void {
+  if (!post?.quotedPost || !isAvailableEmbed(post.quotedPost)) return;
+  updatePostEverywhere(queryClient, post.quotedPost.id, (original) => ({
+    ...original,
+    repostCount: Math.max(0, original.repostCount + delta),
+  }));
+}
 
 function adjustMyPostCount(queryClient: QueryClient, delta: number): void {
   updateMe(queryClient, (user) => ({
@@ -39,6 +51,7 @@ export function useCreatePost() {
       prependPostTo(queryClient, queryKeys.posts.feed, post);
       prependPostTo(queryClient, queryKeys.posts.byUser(me.id), post);
       adjustMyPostCount(queryClient, 1);
+      adjustQuotedCount(queryClient, post, 1);
     },
   });
 }
@@ -48,7 +61,9 @@ export function useDeletePost() {
   return useMutation({
     mutationFn: (postId: string) => deletePost(postId),
     onSuccess: (_result, postId) => {
+      const gone = findCachedPost(queryClient, postId);
       removePostEverywhere(queryClient, postId);
+      adjustQuotedCount(queryClient, gone, -1);
       queryClient.removeQueries({ queryKey: queryKeys.comments.ofPost(postId) });
       adjustMyPostCount(queryClient, -1);
       toast.success('Post deleted');
@@ -143,6 +158,50 @@ export function useToggleBookmark() {
       for (const queryKey of showing) void queryClient.invalidateQueries({ queryKey, exact: true });
       void queryClient.invalidateQueries({ queryKey: queryKeys.posts.bookmarks, exact: true });
       toast.error('Could not update the bookmark');
+    },
+    onSettled: (_result, _error, _input, context) =>
+      resumeQueries(queryClient, context?.interrupted ?? []),
+  });
+}
+
+type ToggleRepostInput = { postId: string; reposted: boolean };
+const REPOST_KEY = ['posts', 'repost'] as const;
+
+/** The post with my plain repost set to `reposted`; unchanged if it already is. */
+function withRepost(post: Post, reposted: boolean): Post {
+  if (post.repostedByMe === reposted) return post;
+  return {
+    ...post,
+    repostedByMe: reposted,
+    repostCount: Math.max(0, post.repostCount + (reposted ? 1 : -1)),
+  };
+}
+
+/**
+ * A plain repost, with the like's optimistic discipline. The post keeps its place in the lists
+ * it is in; where the repost itself turns up (the viewer's profile, their followers' feeds)
+ * comes from the server on the next load.
+ */
+export function useToggleRepost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: REPOST_KEY,
+    mutationFn: ({ postId, reposted }: ToggleRepostInput) =>
+      reposted ? unrepostPost(postId) : repostPost(postId),
+    onMutate: async ({ postId, reposted }) => {
+      const interrupted = await holdQueries(queryClient, postListKeysShowing(queryClient, postId));
+      updatePostEverywhere(queryClient, postId, (post) => withRepost(post, !reposted));
+      return { interrupted };
+    },
+    onSuccess: (_result, { postId, reposted }) => {
+      if (runningToggles(queryClient, REPOST_KEY, { postId }) > 1) return;
+      updatePostEverywhere(queryClient, postId, (post) => withRepost(post, !reposted));
+    },
+    onError: (_error, { postId, reposted }) => {
+      const showing = postListKeysShowing(queryClient, postId);
+      updatePostEverywhere(queryClient, postId, (post) => withRepost(post, reposted));
+      for (const queryKey of showing) void queryClient.invalidateQueries({ queryKey, exact: true });
+      toast.error('Could not update the repost');
     },
     onSettled: (_result, _error, _input, context) =>
       resumeQueries(queryClient, context?.interrupted ?? []),

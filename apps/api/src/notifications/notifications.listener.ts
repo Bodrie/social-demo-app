@@ -1,7 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { CommentCreatedEvent, CommentReactedEvent } from '../events/comment.events.js';
-import { PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
+import {
+  PostLikedEvent,
+  PostQuotedEvent,
+  PostRepostedEvent,
+  PostUnlikedEvent,
+  PostUnrepostedEvent,
+} from '../events/post.events.js';
 import {
   UserFollowedEvent,
   UserMentionedEvent,
@@ -34,6 +40,32 @@ export class NotificationsListener {
   @OnEvent(PostUnlikedEvent.EVENT)
   onPostUnliked(event: PostUnlikedEvent): Promise<void> {
     return this.retract({ type: 'POST_LIKED', actorId: event.actorId, postId: event.postId });
+  }
+
+  @OnEvent(PostRepostedEvent.EVENT)
+  onPostReposted(event: PostRepostedEvent): Promise<void> {
+    return this.notify({
+      userId: event.authorId,
+      type: 'POST_REPOSTED',
+      actorId: event.actorId,
+      postId: event.postId,
+    });
+  }
+
+  @OnEvent(PostUnrepostedEvent.EVENT)
+  onPostUnreposted(event: PostUnrepostedEvent): Promise<void> {
+    return this.retract({ type: 'POST_REPOSTED', actorId: event.actorId, postId: event.postId });
+  }
+
+  /** The quote is the subject: its page shows the quoter's words above the embedded original. */
+  @OnEvent(PostQuotedEvent.EVENT)
+  onPostQuoted(event: PostQuotedEvent): Promise<void> {
+    return this.notify({
+      userId: event.originalAuthorId,
+      type: 'POST_QUOTED',
+      actorId: event.actorId,
+      postId: event.quoteId,
+    });
   }
 
   @OnEvent(CommentCreatedEvent.EVENT)

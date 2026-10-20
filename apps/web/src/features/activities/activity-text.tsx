@@ -64,6 +64,44 @@ export function ActivityText({ activity }: { activity: Activity }) {
           {activity.targetUser ? <UserLink user={activity.targetUser} /> : 'someone'}
         </>
       );
+    case 'POST_REPOSTED':
+      return (
+        <>
+          {actor} reposted{' '}
+          {activity.targetUser ? (
+            <>
+              <UserLink user={activity.targetUser} />
+              ’s post
+            </>
+          ) : (
+            'a post'
+          )}
+          {activity.post ? (
+            <>
+              : <Excerpt text={activity.post.excerpt} to={postLink(activity)} />
+            </>
+          ) : null}
+        </>
+      );
+    case 'POST_QUOTED':
+      return (
+        <>
+          {actor} quoted{' '}
+          {activity.targetUser ? (
+            <>
+              <UserLink user={activity.targetUser} />
+              ’s post
+            </>
+          ) : (
+            'a post'
+          )}
+          {activity.post ? (
+            <>
+              : <Excerpt text={activity.post.excerpt} to={postLink(activity)} />
+            </>
+          ) : null}
+        </>
+      );
     case 'PROFILE_UPDATED':
       return <>{actor} updated their profile</>;
     case 'USER_REGISTERED':

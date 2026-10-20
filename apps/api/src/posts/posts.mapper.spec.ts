@@ -17,6 +17,10 @@ const row: PostRow = {
   _count: { likes: 3, comments: 2 },
   likes: [{ userId: 'viewer' }],
   bookmarks: [],
+  repostCount: 0,
+  reposts: [],
+  wasQuote: false,
+  quotedPost: null,
   mentions: [
     {
       user: {

@@ -11,6 +11,10 @@ export const NOTIFICATION_TYPES = [
   'USER_FOLLOWED',
   'MENTIONED_IN_POST',
   'MENTIONED_IN_COMMENT',
+  /** `post` is your post that was reposted. */
+  'POST_REPOSTED',
+  /** `post` is the quote (its excerpt is the quoter's words); it leads to the quote's page. */
+  'POST_QUOTED',
 ] as const;
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;

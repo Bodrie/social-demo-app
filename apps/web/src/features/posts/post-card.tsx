@@ -1,6 +1,6 @@
 import { type CommentSort, POST_MAX_LENGTH, type Post } from '@the-mesh/shared';
 import { cn } from 'cn';
-import { BookmarkIcon, HeartIcon, MessageCircleIcon } from 'lucide-react';
+import { BookmarkIcon, HeartIcon, MessageCircleIcon, Repeat2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -8,12 +8,15 @@ import { EditedMarker } from '@/components/edited-marker';
 import { InlineEditor } from '@/components/inline-editor';
 import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
+import { UserLink } from '@/components/user-link';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { CommentsSection } from '@/features/comments/comments-section';
 import { focusLater } from '@/lib/focus';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { PostMenu } from './post-menu';
+import { QuotedPostCard } from './quoted-post-card';
+import { RepostControl } from './repost-control';
 import { useToggleBookmark, useToggleLike, useUpdatePost } from './use-post-mutations';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchPostRevisions } from '@/lib/api/posts';
@@ -57,7 +60,15 @@ export function PostCard({
       aria-labelledby={headingId}
       className="bg-card text-card-foreground rounded-xl border shadow-sm"
     >
-      <header className="flex items-start gap-3 px-5 pt-5">
+      {post.repost ? (
+        <p className="text-muted-foreground flex items-center gap-1.5 px-5 pt-3 text-xs">
+          <Repeat2Icon className="size-3.5" aria-hidden="true" />
+          <span>
+            {post.repost.by.id === me.id ? 'You' : <UserLink user={post.repost.by} />} reposted
+          </span>
+        </p>
+      ) : null}
+      <header className={cn('flex items-start gap-3 px-5', post.repost ? 'pt-2' : 'pt-5')}>
         <Link to={profile} aria-hidden="true" tabIndex={-1}>
           <UserAvatar user={post.author} />
         </Link>
@@ -126,6 +137,7 @@ export function PostCard({
             className="text-[15px]/6 break-words whitespace-pre-wrap"
           />
         )}
+        {post.quotedPost ? <QuotedPostCard embed={post.quotedPost} className="mt-3" /> : null}
         {post.imageUrl ? (
           <img
             src={post.imageUrl}
@@ -153,6 +165,7 @@ export function PostCard({
           <span className="sr-only">Like</span>{' '}
           <span className="tabular-nums">{post.likeCount}</span>
         </Button>
+        <RepostControl post={post} />
         {expanded ? (
           <span className="text-primary inline-flex h-8 items-center gap-1.5 px-3 text-sm font-medium">
             <MessageCircleIcon className="size-4" aria-hidden="true" />

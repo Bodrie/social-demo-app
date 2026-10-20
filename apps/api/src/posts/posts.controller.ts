@@ -16,7 +16,7 @@ import type { Paginated, Post as PostItem, Revision } from '@the-mesh/shared';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
-import { CreatePostDto, FeedQueryDto, UpdatePostDto } from './posts.dto.js';
+import { CreatePostDto, FeedQueryDto, UpdatePostDto, UserPostsQueryDto } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 
 @ApiTags('posts')
@@ -87,6 +87,19 @@ export class PostsController {
   unbookmark(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
     return this.posts.unbookmark(user.id, params.id);
   }
+
+  /** A plain repost; a quote is `POST /posts` with `quotedPostId` (ADR 0017). */
+  @Put(':id/repost')
+  @HttpCode(204)
+  repost(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.repost(user.id, params.id);
+  }
+
+  @Delete(':id/repost')
+  @HttpCode(204)
+  unrepost(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unrepost(user.id, params.id);
+  }
 }
 
 @ApiTags('posts')
@@ -98,7 +111,7 @@ export class UserPostsController {
   byAuthor(
     @CurrentUser() user: AuthUser,
     @Param() params: UserIdParamDto,
-    @Query() query: FeedQueryDto,
+    @Query() query: UserPostsQueryDto,
   ): Promise<Paginated<PostItem>> {
     return this.posts.byAuthor(user.id, params.userId, query);
   }

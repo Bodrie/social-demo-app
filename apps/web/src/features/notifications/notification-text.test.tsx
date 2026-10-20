@@ -14,6 +14,8 @@ describe('NotificationText', () => {
       makeNotification('USER_FOLLOWED'),
       makeNotification('MENTIONED_IN_POST', { post }),
       makeNotification('MENTIONED_IN_COMMENT', { post, comment }),
+      makeNotification('POST_REPOSTED', { post }),
+      makeNotification('POST_QUOTED', { post: { ...post, excerpt: 'My take' } }),
     ];
     renderWithProviders(
       <ul>
@@ -32,8 +34,10 @@ describe('NotificationText', () => {
       'Bob Brown started following you',
       'Bob Brown mentioned you in a post: “Hello world”',
       'Bob Brown mentioned you in a comment: “Nice!”',
+      'Bob Brown reposted your post: “Hello world”',
+      'Bob Brown quoted your post: “My take”',
     ]);
-    expect(screen.getAllByRole('link', { name: 'Bob Brown' })).toHaveLength(6);
+    expect(screen.getAllByRole('link', { name: 'Bob Brown' })).toHaveLength(8);
     expect(screen.getAllByRole('link', { name: '“Nice!”' })[0]).toHaveAttribute(
       'href',
       `/p/${post.id}?comment=${comment.id}`,

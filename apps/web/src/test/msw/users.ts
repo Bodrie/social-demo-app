@@ -47,6 +47,7 @@ export const userHandlers = [
       comments: [],
       likes: [],
       bookmarks: [],
+      reposts: [],
       reactions: [],
       following: [],
       followers: [],

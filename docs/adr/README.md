@@ -20,5 +20,6 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0013](0013-text-entities.md) | Text entities: one shared parser for mentions, hashtags and links; entities stored at save time | Accepted |
 | [0014](0014-search-in-postgres.md) | Post pages (`/p/:id`) and full-text search in PostgreSQL (generated tsvector, `websearch_to_tsquery`) | Accepted |
 | [0015](0015-notifications.md) | Notifications: rows written from domain events, one per (recipient, type, actor, subject), read marks, pushed over the chat socket | Accepted |
+| [0017](0017-feed-items.md) | Feed items: plain reposts as pointers, quotes as posts, the feed a union with one row per post at its newest occurrence | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.

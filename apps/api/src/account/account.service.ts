@@ -73,6 +73,7 @@ export class AccountService {
         },
         postLikes: { select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
         bookmarks: { select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
+        reposts: { select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
         commentReactions: {
           select: { commentId: true, type: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
@@ -133,6 +134,10 @@ export class AccountService {
       bookmarks: user.bookmarks.map((bookmark) => ({
         postId: bookmark.postId,
         createdAt: iso(bookmark.createdAt),
+      })),
+      reposts: user.reposts.map((repost) => ({
+        postId: repost.postId,
+        createdAt: iso(repost.createdAt),
       })),
       reactions: user.commentReactions.map((reaction) => ({
         commentId: reaction.commentId,
@@ -277,6 +282,15 @@ export class AccountService {
         UPDATE comments c SET reactions_count = c.reactions_count - 1
         FROM comment_reactions r
         WHERE r.comment_id = c.id AND r.user_id = ${userId}::uuid`,
+      // Nor other people's posts the reposts and quotes that go with it (ADR 0017).
+      this.prisma.$executeRaw`
+        UPDATE posts p SET repost_count = p.repost_count - 1
+        FROM reposts r
+        WHERE r.post_id = p.id AND r.user_id = ${userId}::uuid`,
+      this.prisma.$executeRaw`
+        UPDATE posts p SET repost_count = p.repost_count - 1
+        FROM posts q
+        WHERE q.quoted_post_id = p.id AND q.author_id = ${userId}::uuid AND p.author_id <> ${userId}::uuid`,
       this.prisma.conversation.deleteMany({
         where: { id: { in: removed.map((conversation) => conversation.id) } },
       }),

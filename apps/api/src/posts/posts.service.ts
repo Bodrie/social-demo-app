@@ -8,19 +8,30 @@ import {
   type Revision,
   type SearchQuery,
   type UpdatePostData,
+  type UserPostsQuery,
   extractEntities,
 } from '@the-mesh/shared';
 import { AssetsService } from '../assets/assets.service.js';
-import { forbidden, notFound } from '../common/errors.js';
+import { badRequest, forbidden, notFound } from '../common/errors.js';
 import { emitMentions } from '../common/mentions.js';
 import { decodeCursor, keysetAfter, paginate, paginateBy } from '../common/pagination.js';
 import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
-import { PostCreatedEvent, PostLikedEvent, PostUnlikedEvent } from '../events/post.events.js';
+import {
+  PostCreatedEvent,
+  PostLikedEvent,
+  PostQuotedEvent,
+  PostRepostedEvent,
+  PostUnlikedEvent,
+  PostUnrepostedEvent,
+} from '../events/post.events.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
+import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 import { UsersService } from '../users/users.service.js';
 import { postSelect, toPost } from './posts.mapper.js';
+
+type Occurrence = { post_id: string; sort_at: Date; repost_id: string | null };
 
 @Injectable()
 export class PostsService {
@@ -45,22 +56,51 @@ export class PostsService {
         field: 'imageKey',
       });
     }
+    // A quote is a post of its own that embeds another (ADR 0017); the original must exist now,
+    // later it may go and leave the frame behind.
+    let quoted: { id: string; authorId: string } | null = null;
+    if (input.quotedPostId) {
+      quoted = await this.prisma.post.findUnique({
+        where: { id: input.quotedPostId },
+        select: { id: true, authorId: true },
+      });
+      if (!quoted) throw badRequest('Unknown post', { quotedPostId: 'Unknown post' });
+    }
     const createdAt = new Date();
     const entities = extractEntities(input.content);
     const mentioned = await this.users.findByUsernames(entities.mentions);
-    const row = await this.prisma.post.create({
-      data: {
-        authorId,
-        content: input.content,
-        imageKey: input.imageKey ?? null,
-        createdAt,
-        mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
-        // The tag rows copy the post's timestamp so a tag page pages without a join.
-        hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
-      },
-      select: postSelect(authorId),
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.post.create({
+        data: {
+          authorId,
+          content: input.content,
+          imageKey: input.imageKey ?? null,
+          quotedPostId: quoted?.id ?? null,
+          wasQuote: quoted !== null,
+          createdAt,
+          mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
+          // The tag rows copy the post's timestamp so a tag page pages without a join.
+          hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
+        },
+        select: postSelect(authorId),
+      });
+      if (quoted) {
+        await tx.post.update({
+          where: { id: quoted.id },
+          data: { repostCount: { increment: 1 } },
+        });
+      }
+      return created;
     });
-    await this.events.emitAsync(PostCreatedEvent.EVENT, new PostCreatedEvent(row.id, authorId));
+    // A quote is told about as a quote, not as "published a post" as well.
+    if (quoted) {
+      await this.events.emitAsync(
+        PostQuotedEvent.EVENT,
+        new PostQuotedEvent(row.id, quoted.id, authorId, quoted.authorId),
+      );
+    } else {
+      await this.events.emitAsync(PostCreatedEvent.EVENT, new PostCreatedEvent(row.id, authorId));
+    }
     await emitMentions(
       this.events,
       authorId,
@@ -136,16 +176,96 @@ export class PostsService {
     return paginateBy(rows, query.limit, revisionKey, toRevision);
   }
 
-  /** The viewer's own posts plus those of everyone they follow, newest first. */
+  /**
+   * The viewer's own posts and plain reposts plus those of everyone they follow, as one list
+   * ordered by the time each post last turned up (ADR 0017).
+   */
   feed(viewerId: string, query: CursorQuery): Promise<Paginated<Post>> {
-    return this.list(viewerId, query, {
-      OR: [{ authorId: viewerId }, { author: { followers: { some: { followerId: viewerId } } } }],
-    });
+    return this.union(
+      viewerId,
+      Prisma.sql`SELECT ${viewerId}::uuid AS id UNION SELECT followee_id FROM follows WHERE follower_id = ${viewerId}::uuid`,
+      query,
+    );
   }
 
-  async byAuthor(viewerId: string, authorId: string, query: CursorQuery): Promise<Paginated<Post>> {
+  /** A member's posts, with their plain reposts in between (the profile) or alone. */
+  async byAuthor(
+    viewerId: string,
+    authorId: string,
+    query: UserPostsQuery,
+  ): Promise<Paginated<Post>> {
     await this.users.assertExists(authorId);
-    return this.list(viewerId, query, { authorId });
+    if (query.include === 'own') return this.list(viewerId, query, { authorId });
+    return this.union(viewerId, Prisma.sql`SELECT ${authorId}::uuid AS id`, query);
+  }
+
+  /**
+   * Posts and plain reposts of a set of members as one list: a post appears once, at the time
+   * of its newest occurrence (the post itself or the latest repost by one of them), with that
+   * reposter on it; the cursor is `(sort_at, post_id)`. The ids come from SQL (Prisma has no
+   * union), the rows from the normal select so the shape is the feed's.
+   */
+  private async union(
+    viewerId: string,
+    members: Prisma.Sql,
+    query: CursorQuery,
+  ): Promise<Paginated<Post>> {
+    const cursor = decodeCursor(query.cursor);
+    const after = cursor
+      ? Prisma.sql`WHERE (sort_at, post_id) < (${cursor.createdAt}, ${cursor.id}::uuid)`
+      : Prisma.empty;
+    const picked = await this.prisma.$queryRaw<Occurrence[]>`
+      WITH members AS (${members}),
+      occurrences AS (
+        SELECT p.id AS post_id, p.created_at AS sort_at, NULL::uuid AS repost_id
+        FROM posts p WHERE p.author_id IN (SELECT id FROM members)
+        UNION ALL
+        SELECT r.post_id, r.created_at, r.id
+        FROM reposts r WHERE r.user_id IN (SELECT id FROM members)
+      ),
+      newest AS (
+        SELECT DISTINCT ON (post_id) post_id, sort_at, repost_id
+        FROM occurrences ORDER BY post_id, sort_at DESC, repost_id DESC NULLS LAST
+      )
+      SELECT post_id, sort_at, repost_id FROM newest ${after}
+      ORDER BY sort_at DESC, post_id DESC
+      LIMIT ${query.limit + 1}`;
+    if (picked.length === 0) return { items: [], nextCursor: null };
+    const [rows, reposts] = await Promise.all([
+      this.prisma.post.findMany({
+        where: { id: { in: picked.map((item) => item.post_id) } },
+        select: postSelect(viewerId),
+      }),
+      this.prisma.repost.findMany({
+        where: { id: { in: picked.flatMap((item) => (item.repost_id ? [item.repost_id] : [])) } },
+        select: { id: true, createdAt: true, user: { select: userSummarySelect } },
+      }),
+    ]);
+    const rowById = new Map(rows.map((row) => [row.id, row]));
+    const repostById = new Map(reposts.map((repost) => [repost.id, repost]));
+    const items = picked.flatMap((item) => {
+      const row = rowById.get(item.post_id);
+      if (!row) return [];
+      const repost = item.repost_id ? repostById.get(item.repost_id) : undefined;
+      return [
+        {
+          sortAt: item.sort_at,
+          row,
+          repost: repost
+            ? {
+                by: toUserSummary(repost.user, this.assets.base),
+                at: repost.createdAt.toISOString(),
+              }
+            : null,
+        },
+      ];
+    });
+    return paginateBy(
+      items,
+      query.limit,
+      (item) => ({ createdAt: item.sortAt, id: item.row.id }),
+      (item) => toPost(item.row, this.assets.base, item.repost),
+    );
   }
 
   /** Every post carrying `tag` (already lower-cased by the DTO), newest first. */
@@ -182,12 +302,69 @@ export class PostsService {
   async delete(viewerId: string, postId: string): Promise<void> {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      select: { authorId: true, imageKey: true },
+      select: { authorId: true, imageKey: true, quotedPostId: true },
     });
     if (!post) throw notFound('Post not found');
     if (post.authorId !== viewerId) throw forbidden('You can only delete your own posts');
-    await this.prisma.post.delete({ where: { id: postId } });
+    await this.prisma.$transaction([
+      this.prisma.post.delete({ where: { id: postId } }),
+      // A quote counted on its original; the original may be gone already (updateMany: no throw).
+      ...(post.quotedPostId
+        ? [
+            this.prisma.post.updateMany({
+              where: { id: post.quotedPostId },
+              data: { repostCount: { decrement: 1 } },
+            }),
+          ]
+        : []),
+    ]);
     await this.uploads.discard(post.imageKey);
+  }
+
+  /**
+   * A plain repost (ADR 0017): one per member and post, never of one's own post, counted on
+   * the post, told to its author. A repost of a quote reposts the quote (it is a post).
+   */
+  async repost(viewerId: string, postId: string): Promise<void> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post) throw notFound('Post not found');
+    if (post.authorId === viewerId) throw badRequest('You cannot repost your own post');
+    const created = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.repost.createMany({
+        data: { userId: viewerId, postId },
+        skipDuplicates: true,
+      });
+      if (result.count === 1) {
+        await tx.post.update({ where: { id: postId }, data: { repostCount: { increment: 1 } } });
+      }
+      return result.count === 1;
+    });
+    if (created) {
+      await this.events.emitAsync(
+        PostRepostedEvent.EVENT,
+        new PostRepostedEvent(postId, viewerId, post.authorId),
+      );
+    }
+  }
+
+  async unrepost(viewerId: string, postId: string): Promise<void> {
+    await this.assertExists(postId);
+    const removed = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.repost.deleteMany({ where: { userId: viewerId, postId } });
+      if (result.count === 1) {
+        await tx.post.update({ where: { id: postId }, data: { repostCount: { decrement: 1 } } });
+      }
+      return result.count === 1;
+    });
+    if (removed) {
+      await this.events.emitAsync(
+        PostUnrepostedEvent.EVENT,
+        new PostUnrepostedEvent(postId, viewerId),
+      );
+    }
   }
 
   /** Idempotent: liking twice is a no-op and only the first like emits an event. */

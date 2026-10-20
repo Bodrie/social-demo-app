@@ -63,6 +63,18 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('the repost popover', async ({ page }) => {
+    await openHome(page);
+    // Someone else's post: only those carry the repost button.
+    const other = page
+      .getByRole('article')
+      .filter({ has: page.getByRole('button', { name: /^Repost \d/ }) })
+      .first();
+    await other.getByRole('button', { name: /^Repost \d/ }).click();
+    await expect(page.getByLabel('Add your thoughts (optional)')).toBeVisible();
+    await audit(page, '/ (repost popover)');
+  });
+
   test('bookmarks', async ({ page }) => {
     await openHome(page);
     await page.goto('/bookmarks');

@@ -9,7 +9,6 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 ## Contract / docs
 - **`@ZodResponse` on every handler** – gives runtime output validation and real response schemas in `/api/docs/openapi.json` (today: inputs, auth and operation ids only). Do it when a typed client from the document is wanted; the web uses the shared zod schemas directly.
 - **Email follow-ups** – change the email address (new address must be confirmed before it replaces the old one; until then the address is read-only, ADR 0011), re-send from Settings, an admin view of unverified accounts. (Accounts never verified are removed after 30 days since C6.)
-- **Activity post excerpts without author** – "alice liked bob's post" needs `post.author`; add `author: UserSummary` to the post excerpt when the web needs it.
 - **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
 
 ## Code structure

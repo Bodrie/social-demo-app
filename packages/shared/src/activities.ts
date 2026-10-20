@@ -10,6 +10,10 @@ export const ACTIVITY_TYPES = [
   'USER_FOLLOWED',
   'PROFILE_UPDATED',
   'USER_REGISTERED',
+  /** `post` is the original, `targetUser` its author (ADR 0017). */
+  'POST_REPOSTED',
+  /** `post` is the quote, `targetUser` the author of what it quotes. */
+  'POST_QUOTED',
 ] as const;
 export const activityTypeSchema = z.enum(ACTIVITY_TYPES);
 export type ActivityType = z.infer<typeof activityTypeSchema>;

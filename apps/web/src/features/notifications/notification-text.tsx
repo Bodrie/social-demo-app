@@ -39,6 +39,18 @@ export function NotificationText({ notification }: { notification: Notification 
       );
     case 'USER_FOLLOWED':
       return <>{actor} started following you</>;
+    case 'POST_REPOSTED':
+      return (
+        <>
+          {actor} reposted your post{quotedPost}
+        </>
+      );
+    case 'POST_QUOTED':
+      return (
+        <>
+          {actor} quoted your post{quotedPost}
+        </>
+      );
     case 'MENTIONED_IN_POST':
       return (
         <>

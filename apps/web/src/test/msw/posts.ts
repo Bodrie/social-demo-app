@@ -76,6 +76,31 @@ export const postHandlers = [
       : notFound('Comment');
   }),
 
+  http.put(`${API}/posts/:id/repost`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    if (post.author.id === mockDb.user.id) {
+      return apiError(400, 'BAD_REQUEST', 'You cannot repost your own post');
+    }
+    if (!post.repostedByMe) {
+      post.repostedByMe = true;
+      post.repostCount += 1;
+    }
+    return noContent();
+  }),
+
+  http.delete(`${API}/posts/:id/repost`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    if (post.repostedByMe) {
+      post.repostedByMe = false;
+      post.repostCount -= 1;
+    }
+    return noContent();
+  }),
+
   http.get(`${API}/users/me/bookmarks`, ({ request }) => {
     if (!mockDb.user) return unauthorized();
     const saved = mockDb.posts.filter((post) => post.bookmarkedByMe);
@@ -107,11 +132,28 @@ export const postHandlers = [
   http.post(`${API}/posts`, async ({ request }) => {
     if (!mockDb.user) return unauthorized();
     const body = createPostSchema.parse(await request.json());
+    // A quote embeds the original (one level deep) and counts on it, like the API.
+    const original = body.quotedPostId
+      ? mockDb.posts.find((item) => item.id === body.quotedPostId)
+      : undefined;
+    if (body.quotedPostId && !original) {
+      return apiError(400, 'BAD_REQUEST', 'Unknown post', { quotedPostId: 'Unknown post' });
+    }
+    if (original) original.repostCount += 1;
     const post = makePost({
       content: body.content,
       imageUrl: body.imageKey ? `http://localhost/api/v1/uploads/${body.imageKey}` : null,
       author: summaryOf(mockDb.user),
       createdAt: new Date().toISOString(),
+      quotedPost: original
+        ? {
+            id: original.id,
+            author: original.author,
+            content: original.content,
+            imageUrl: original.imageUrl,
+            createdAt: original.createdAt,
+          }
+        : null,
       ...entitiesOf(body.content),
     });
     mockDb.posts.unshift(post);

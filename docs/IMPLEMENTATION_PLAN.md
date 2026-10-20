@@ -54,7 +54,7 @@ B3a chat bubbles                    ✅ 2026-10-19           │  v2.4
 B3b chat follow-ups                 ✅ 2026-10-19           ─┘
 C6  scheduler + reapers             ✅ 2026-10-20          ─┐
 B4  notifications                   ✅ 2026-10-20           │  v2.5
-C3  bookmarks (a) ✅ 2026-10-20 + reposts (b)              ─┘
+C3  bookmarks (a) + reposts (b)     ✅ 2026-10-20          ─┘
 B5  moderation (a: block/mute/report, b: admin queue)      ─┐
 D1  email change, sessions list                             │  v2.6
 C2  comment replies                                        ─┘
@@ -323,7 +323,12 @@ their names.
 
 - `bookmarks(user_id, post_id, created_at)`, `PUT/DELETE /posts/:id/bookmark` (idempotent, optimistic like likes with `withBookmark`), `GET /users/me/bookmarks?cursor=`, `bookmarkedByMe` on `postSchema`, a bookmark icon on the card, `/bookmarks` page via `PostList`, link in the account menu. Private to the member (no counts shown). *Built as planned; the list's keyset is the bookmark's own time, the export carries `bookmarks`, no ADR (ADR 0017 comes with C3b).*
 
-**C3b – Reposts, with an optional quote · L**
+**C3b – Reposts, with an optional quote · L · ✅ 2026-10-20 (ADR 0017)**
+
+*Built as planned, with one deviation recorded in the ADR: the feed item is `postSchema` with
+`repost: {…} | null` rather than a separate `feedItemSchema`, so every list shares the post
+caches. The activity "bob reposted alice's post" uses `targetUser` for the author, which closes
+the backlog's "post excerpts without author". v2.5 is complete.*
 
 **Decision (owner, 2026-10-19): reposts carry an optional text.** One control, two outcomes: the
 repost button opens a small popover with "Add your thoughts (optional)" and a **Repost** button. Empty
