@@ -7,6 +7,7 @@ export const TABLES = [
   'refresh_tokens',
   'email_tokens',
   'activities',
+  'admin_actions',
   'reports',
   'blocks',
   'mutes',

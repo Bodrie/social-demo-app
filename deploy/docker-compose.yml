@@ -58,6 +58,8 @@ services:
       MIGRATE_ON_START: 'true'
       # Daily housekeeping (RUNBOOK §6); false on every API container but one if there are several.
       JOBS_ENABLED: ${JOBS_ENABLED:-true}
+      # Who reads the reports queue (RUNBOOK §6).
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - uploads:/data/uploads
     stop_grace_period: 20s

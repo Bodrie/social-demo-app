@@ -23,6 +23,10 @@ model User {
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
   /// When the "confirm or the account is removed" mail went out (JobsService); unverified accounts only.
   expiryWarnedAt  DateTime? @map("expiry_warned_at") @db.Timestamptz(3)
+  /// Admins read the reports queue and act on it (ADR 0016); bootstrapped from `ADMIN_EMAILS`.
+  role            UserRole  @default(member)
+  /// A suspended member cannot sign in and their content is hidden; the rows stay for the way back.
+  suspendedAt     DateTime? @map("suspended_at") @db.Timestamptz(3)
   name            String
   bio             String?
   city            String?
@@ -60,8 +64,42 @@ model User {
   mutedBy          Mute[]               @relation("MuteMuted")
   reports          Report[]             @relation("ReportReporter")
   resolvedReports  Report[]             @relation("ReportResolver")
+  adminActions     AdminAction[]
 
   @@map("users")
+}
+
+enum UserRole {
+  member
+  admin
+
+  @@map("user_role")
+}
+
+enum AdminActionType {
+  report_resolved
+  report_dismissed
+  post_deleted
+  comment_deleted
+  user_suspended
+  user_unsuspended
+
+  @@map("admin_action_type")
+}
+
+/// Who did what in the admin queue (ADR 0016): one row per action, kept after the admin or the
+/// target is gone (the target by id only).
+model AdminAction {
+  id        String          @id @default(uuid(7)) @db.Uuid
+  adminId   String?         @map("admin_id") @db.Uuid
+  action    AdminActionType
+  targetId  String?         @map("target_id") @db.Uuid
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  admin User? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("admin_actions")
 }
 
 /// One member shutting another out, both ways (ADR 0016): nothing of either reaches the other,

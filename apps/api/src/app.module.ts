@@ -6,6 +6,8 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { AccountModule } from './account/account.module.js';
 import { ActivitiesModule } from './activities/activities.module.js';
+import { AdminModule } from './admin/admin.module.js';
+import { RolesGuard } from './admin/roles.guard.js';
 import { AssetsModule } from './assets/assets.module.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -70,14 +72,16 @@ import { UsersModule } from './users/users.module.js';
     ConversationsModule,
     ChatModule,
     JobsModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     // No response serializer: nothing is annotated with @ZodSerializerDto (backlog: @ZodResponse).
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
-    // Order matters: rate limiting first, then authentication.
+    // Order matters: rate limiting first, then authentication, then the role (needs the token's claim).
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

@@ -96,7 +96,25 @@ export const envSchema = z.object({
    * API container; set to false on every container but one when there are several.
    */
   JOBS_ENABLED: z.stringbool().default(true),
+  /**
+   * Comma-separated addresses of the admins (ADR 0016). When set, matching accounts are
+   * promoted at startup and at sign-in and every other admin is demoted at startup; when empty
+   * the roles are left as they are (the seed's, or whatever was set before).
+   */
+  ADMIN_EMAILS: z.string().default('').transform(parseEmails),
 });
+
+/** "A@x.y, b@x.y" → ["a@x.y", "b@x.y"]. */
+export function parseEmails(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    ),
+  ];
+}
 
 export type Env = z.infer<typeof envSchema>;
 

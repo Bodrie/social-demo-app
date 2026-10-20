@@ -1,6 +1,6 @@
 # 0016 – Moderation: blocks that cut both ways, mutes for oneself, reports for the admins
 
-Date: 2026-10-20 · Status: Accepted (member side, B5a; the admin role and queue follow as B5b) · Source: `docs/IMPLEMENTATION_PLAN.md` B5
+Date: 2026-10-20 · Status: Accepted (member side B5a, admin side B5b the same day) · Source: `docs/IMPLEMENTATION_PLAN.md` B5
 
 ## Context
 
@@ -47,6 +47,33 @@ can do) is the second half of this decision and lands with B5b.
   the blocker an Unblock button; the post and comment menus carry "Report" for everyone but
   the author; Settings → **Privacy** lists blocked and muted members with the way back. A
   block invalidates every list the client holds rather than patching them one by one.
+
+## The admin side (B5b)
+
+- **Admins are bootstrapped from the environment, not from a form.** `users.role` is
+  `member` or `admin`; `ADMIN_EMAILS` lists the admins. When it is set, the listed accounts
+  are promoted at startup and at sign-in (so an address can be listed before it registers)
+  and every other admin is demoted at startup; when it is empty the roles are left alone (the
+  seed makes alice an admin for the demo). There is no admin UI for roles: the list is the
+  owner's, in `.env`.
+- **The role travels in the access token** next to `ev`, so `RolesGuard` (after the
+  `AuthGuard`) needs no lookup; a change of role takes effect within the token's fifteen
+  minutes. Admin routes carry `@Roles('admin')` and answer `403 FORBIDDEN` to everyone else;
+  the web renders `/admin` only for admins and the not-found page for anyone else, and offers
+  the queue in the account menu to admins only.
+- **The queue is the reports, one status at a time**, newest first, each with its reporter
+  and what it points at as it is now: the post's or comment's excerpt, the member it belongs
+  to with their suspension state, or `gone` once the target was deleted. Settling a report
+  (resolve or dismiss) is separate from acting on it: an admin may delete the post or the
+  comment (through the same services, so counters, files and events behave as for the author)
+  or suspend the member.
+- **A suspension ends the account's sessions and hides it.** `users.suspended_at` is set,
+  the refresh tokens are deleted (the sockets with them), sign-in, refresh and `me` answer
+  `403 SUSPENDED`, and `VisibilityService` counts every suspended member among the blocked for
+  everyone, so their profile, posts and comments leave every list while the rows stay for the
+  way back. Admins cannot be suspended (demote first), nor can one suspend oneself.
+- **Every admin action writes an `admin_actions` row** (who, what, which target), kept after
+  the admin or the target is gone.
 
 ## Consequences
 

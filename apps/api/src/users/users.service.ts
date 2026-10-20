@@ -48,9 +48,13 @@ export class UsersService {
     private readonly visibility: VisibilityService,
   ) {}
 
-  /** A profile as the viewer may see it: whole, or reduced to who it is across a block. */
+  /**
+   * A profile as the viewer may see it: whole, reduced to who it is across a block, or not
+   * there at all while the member is suspended (ADR 0016).
+   */
   private async present(viewerId: string, row: UserPublicRow): Promise<UserPublic> {
     if (row.id === viewerId) return toUserPublic(row, this.assets.base);
+    if (row.suspendedAt) throw notFound('User not found');
     const relationship = await this.visibility.relationship(viewerId, row.id);
     return relationship.blocked || relationship.blockedMe
       ? toBlockedUserPublic(row, this.assets.base, relationship)

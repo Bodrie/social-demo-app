@@ -351,6 +351,7 @@ volumes) before it is needed.
 | Rotate `JWT_SECRET` | change it in `.env`, `docker compose up -d api` (every member must sign in again) |
 | Cache headers (after a web change) | `curl -sI http://127.0.0.1:8080/ \| grep -i cache-control` → `no-cache`; `curl -sI http://127.0.0.1:8080/assets/does-not-exist.js \| grep -iE 'HTTP\|content-type\|cache'` → `404`, `no-store`, never `text/html` |
 | Log size | each container keeps at most 5 × 20 MB (`logging` in `docker-compose.yml`); `docker compose logs --since 1h api` |
+| Admins | `ADMIN_EMAILS=you@example.com,other@example.com` in `.env`, then `docker compose up -d api`: the listed accounts become admins at the next start (or at their next sign-in), every other admin becomes a member. Admins get **Admin** in their account menu: the reports queue at `/admin`, where they settle reports, delete reported posts or comments and suspend members (`docker compose logs api \| grep -E 'Member (un)?suspended\|Report filed'` for the trail; `admin_actions` in the database keeps every action) |
 | Daily housekeeping | runs inside the API at 04:00 UTC (`JobsService`: expired email and refresh tokens, accounts unconfirmed for 30 days after one warning mail at day 23, uploads nobody attached within 24 h). `docker compose logs --since 24h api \| grep -E 'Job (finished\|failed)'` shows one line per job with its count. Several API containers: `JOBS_ENABLED=false` in `.env` for all but one, or every job runs once per container |
 
 Migrations are applied before the new API starts; if a migration fails the container

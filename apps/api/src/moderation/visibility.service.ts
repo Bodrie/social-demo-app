@@ -13,13 +13,27 @@ export type Relationship = { blocked: boolean; blockedMe: boolean; muted: boolea
 export class VisibilityService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Members on either side of a block with the viewer: nothing of theirs reaches the viewer. */
+  /**
+   * Members on either side of a block with the viewer, plus every suspended member: nothing
+   * of theirs reaches the viewer (ADR 0016).
+   */
   async blockedIds(viewerId: string): Promise<string[]> {
-    const rows = await this.prisma.block.findMany({
-      where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
-      select: { blockerId: true, blockedId: true },
-    });
-    return rows.map((row) => (row.blockerId === viewerId ? row.blockedId : row.blockerId));
+    const [blocks, suspended] = await Promise.all([
+      this.prisma.block.findMany({
+        where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
+        select: { blockerId: true, blockedId: true },
+      }),
+      this.prisma.user.findMany({
+        where: { suspendedAt: { not: null }, id: { not: viewerId } },
+        select: { id: true },
+      }),
+    ]);
+    return [
+      ...new Set([
+        ...blocks.map((row) => (row.blockerId === viewerId ? row.blockedId : row.blockerId)),
+        ...suspended.map((row) => row.id),
+      ]),
+    ];
   }
 
   /** Authors the viewer's feeds leave out: the blocked set plus whom the viewer muted. */

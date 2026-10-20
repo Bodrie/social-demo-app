@@ -63,6 +63,13 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('the admin queue', async ({ page }) => {
+    await openHome(page);
+    await page.goto('/admin');
+    await expect(page.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible();
+    await audit(page, '/admin');
+  });
+
   test('the report dialog', async ({ page }) => {
     await openHome(page);
     // Someone else's post: only those offer "Report post".

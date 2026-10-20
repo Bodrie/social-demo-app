@@ -95,8 +95,14 @@ export const updateSettingsSchema = z.object({
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 
 /** The user's own profile (adds private fields). */
+/** Admins read the reports queue and act on it (ADR 0016). */
+export const USER_ROLES = ['member', 'admin'] as const;
+export const userRoleSchema = z.enum(USER_ROLES);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
 export const userPrivateSchema = userPublicSchema.extend({
   email: z.string(),
+  role: userRoleSchema,
   settings: userSettingsSchema,
   /** Null until the address was confirmed through the link we mailed; the app is closed until then. */
   emailVerifiedAt: z.iso.datetime().nullable(),

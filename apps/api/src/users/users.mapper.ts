@@ -35,6 +35,7 @@ export function userPublicSelect(viewerId: string) {
     website: true,
     coverKey: true,
     createdAt: true,
+    suspendedAt: true,
     _count: { select: { posts: true, followers: true, following: true } },
     // viewer → this user
     followers: { where: { followerId: viewerId }, select: { followerId: true } },
@@ -48,6 +49,7 @@ export function userPrivateSelect(viewerId: string) {
     ...userPublicSelect(viewerId),
     email: true,
     emailVerifiedAt: true,
+    role: true,
     settings: true,
     updatedAt: true,
   } satisfies Prisma.UserSelect;
@@ -116,6 +118,7 @@ export function toUserPrivate(row: UserPrivateRow, assetsBase: string): UserPriv
     ...toUserPublic(row, assetsBase),
     email: row.email,
     emailVerifiedAt: row.emailVerifiedAt ? row.emailVerifiedAt.toISOString() : null,
+    role: row.role,
     settings: toUserSettings(row.settings),
     updatedAt: row.updatedAt.toISOString(),
   };

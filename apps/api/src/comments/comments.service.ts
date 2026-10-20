@@ -255,13 +255,18 @@ export class CommentsService {
   }
 
   /** The comment's author and the post's author may delete a comment. */
-  async delete(viewerId: string, commentId: string): Promise<void> {
+  /** The author's, the post author's, or an admin's from the reports queue (`asAdmin`). */
+  async delete(
+    viewerId: string,
+    commentId: string,
+    options: { asAdmin?: boolean } = {},
+  ): Promise<void> {
     const comment = await this.prisma.comment.findUnique({
       where: { id: commentId },
       select: { authorId: true, post: { select: { authorId: true } } },
     });
     if (!comment) throw notFound('Comment not found');
-    if (viewerId !== comment.authorId && viewerId !== comment.post.authorId) {
+    if (!options.asAdmin && viewerId !== comment.authorId && viewerId !== comment.post.authorId) {
       throw forbidden('Only the comment author or the post author can delete a comment');
     }
     await this.prisma.comment.delete({ where: { id: commentId } });

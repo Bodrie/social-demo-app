@@ -51,6 +51,10 @@ export const queryKeys = {
     all: ['activities'] as const,
     list: ['activities', 'list'] as const,
   },
+  admin: {
+    all: ['admin'] as const,
+    reports: (status: string) => ['admin', 'reports', status] as const,
+  },
   moderation: {
     all: ['moderation'] as const,
     blocked: ['moderation', 'blocked'] as const,

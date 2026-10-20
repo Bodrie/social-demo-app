@@ -250,8 +250,9 @@ export const userHandlers = [
     ) {
       return apiError(409, 'CONFLICT', 'You already reported this');
     }
-    const report: Report = {
+    const report: Report & { reporterId: string } = {
       id: testId('report', mockDb.reports.length + 1),
+      reporterId: mockDb.user.id,
       targetType: body.targetType,
       targetId: body.targetId,
       reason: body.reason,

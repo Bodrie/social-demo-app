@@ -1,4 +1,11 @@
-import { BookmarkIcon, LogOutIcon, ScaleIcon, SettingsIcon, UserIcon } from 'lucide-react';
+import {
+  BookmarkIcon,
+  LogOutIcon,
+  ScaleIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+  UserIcon,
+} from 'lucide-react';
 import { useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -70,6 +77,11 @@ export function UserMenu() {
         <DropdownMenuItem onSelect={() => go('/privacy')}>
           <ScaleIcon /> Privacy and terms
         </DropdownMenuItem>
+        {user.role === 'admin' ? (
+          <DropdownMenuItem onSelect={() => go('/admin')}>
+            <ShieldCheckIcon /> Admin
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} disabled={logout.isPending}>
           <LogOutIcon /> Sign out

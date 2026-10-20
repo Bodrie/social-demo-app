@@ -43,7 +43,9 @@ export const mockDb = {
   follows: [] as Follow[],
   blocks: [] as { blockerId: string; blockedId: string }[],
   mutes: [] as { muterId: string; mutedId: string }[],
-  reports: [] as Report[],
+  reports: [] as (Report & { reporterId: string })[],
+  /** Members an admin suspended (ids). */
+  suspended: [] as string[],
   posts: [] as Post[],
   comments: [] as Comment[],
   activities: [] as Activity[],
@@ -82,6 +84,7 @@ export function resetMockDb(): void {
   mockDb.blocks = [];
   mockDb.mutes = [];
   mockDb.reports = [];
+  mockDb.suspended = [];
   mockDb.posts = [];
   mockDb.comments = [];
   mockDb.activities = [];

@@ -55,7 +55,7 @@ B3b chat follow-ups                 ✅ 2026-10-19           ─┘
 C6  scheduler + reapers             ✅ 2026-10-20          ─┐
 B4  notifications                   ✅ 2026-10-20           │  v2.5
 C3  bookmarks (a) + reposts (b)     ✅ 2026-10-20          ─┘
-B5  moderation (a ✅ 2026-10-20, b: admin queue)           ─┐
+B5  moderation (a + b)              ✅ 2026-10-20          ─┐
 D1  email change, sessions list                             │  v2.6
 C2  comment replies                                        ─┘
 C5  chat extras (edit, reactions, role lines, sound)       ─┐
@@ -289,7 +289,11 @@ include hidden comments (noted in the ADR).*
 - Routes: `PUT/DELETE /users/:id/block`, `PUT/DELETE /users/:id/mute`, `GET /users/me/blocked`, `GET /users/me/muted`, `POST /reports` (one open report per reporter and target; 10/h).
 - Web: profile header menu (Block, Mute, Report), `PostMenu` and comment menu gain Report (dialog with reason + details) for non-authors; Settings → **Privacy** card lists blocked and muted people with Unblock/Unmute; blocked profile state page.
 
-**B5b – admin role and queue**
+**B5b – admin role and queue · ✅ 2026-10-20 (ADR 0016, admin half)**
+
+*Built as planned; `ADMIN_EMAILS` is authoritative only when set (an empty list leaves the
+seed's roles alone), and the queue hydrates each report's target per page rather than storing
+a snapshot.*
 
 - Migration `user_roles`: `users.role enum (member | admin)` default member, `users.suspended_at?`. Bootstrap: `ADMIN_EMAILS` (comma-separated) promotes matching accounts at startup and on login; removing an address from the list demotes on the next start.
 - `@Roles('admin')` metadata + `RolesGuard` after the `AuthGuard`; the access token carries `role` next to `ev` (`AuthUser` gains `role`).

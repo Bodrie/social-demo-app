@@ -120,10 +120,8 @@ export class PostsService {
       select: postSelect(viewerId),
     });
     if (!row) throw notFound('Post not found');
-    if (
-      row.author.id !== viewerId &&
-      (await this.visibility.isBlockedBetween(viewerId, row.author.id))
-    ) {
+    const blocked = await this.visibility.blockedIds(viewerId);
+    if (row.author.id !== viewerId && blocked.includes(row.author.id)) {
       throw notFound('Post not found');
     }
     return toPost(row, this.assets.base, null, await this.hiddenFor(viewerId));
@@ -215,10 +213,8 @@ export class PostsService {
     query: UserPostsQuery,
   ): Promise<Paginated<Post>> {
     await this.users.assertExists(authorId);
-    if (authorId !== viewerId && (await this.visibility.isBlockedBetween(viewerId, authorId))) {
-      return { items: [], nextCursor: null };
-    }
     const hidden = await this.visibility.blockedIds(viewerId);
+    if (authorId !== viewerId && hidden.includes(authorId)) return { items: [], nextCursor: null };
     if (query.include === 'own') return this.list(viewerId, query, { authorId }, hidden);
     return this.union(viewerId, Prisma.sql`SELECT ${authorId}::uuid AS id`, query, hidden);
   }
@@ -340,13 +336,20 @@ export class PostsService {
     return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
   }
 
-  async delete(viewerId: string, postId: string): Promise<void> {
+  /** The author's own, or an admin's from the reports queue (`asAdmin`, ADR 0016). */
+  async delete(
+    viewerId: string,
+    postId: string,
+    options: { asAdmin?: boolean } = {},
+  ): Promise<void> {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
       select: { authorId: true, imageKey: true, quotedPostId: true },
     });
     if (!post) throw notFound('Post not found');
-    if (post.authorId !== viewerId) throw forbidden('You can only delete your own posts');
+    if (!options.asAdmin && post.authorId !== viewerId) {
+      throw forbidden('You can only delete your own posts');
+    }
     await this.prisma.$transaction([
       this.prisma.post.delete({ where: { id: postId } }),
       // A quote counted on its original; the original may be gone already (updateMany: no throw).

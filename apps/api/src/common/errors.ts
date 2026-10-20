@@ -22,6 +22,12 @@ export const blocked = (): ForbiddenException =>
     code: 'BLOCKED' satisfies ErrorCode,
     message: 'You cannot do that with this member',
   });
+/** An admin suspended the account (ADR 0016): no sign-in, no refresh, no `me`. */
+export const suspended = (): ForbiddenException =>
+  new ForbiddenException({
+    code: 'SUSPENDED' satisfies ErrorCode,
+    message: 'This account is suspended',
+  });
 /** The one 403 a client may answer with a token refresh: the address may have been confirmed elsewhere. */
 export const emailNotVerified = (): ForbiddenException =>
   new ForbiddenException({

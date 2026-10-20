@@ -6,6 +6,7 @@ import type { ChangePasswordData, LoginData, RegisterData, UserPrivate } from '@
 import { CAPTCHA, CaptchaUnavailableError, type CaptchaVerifier } from '../captcha/captcha.js';
 import {
   serviceUnavailable,
+  suspended,
   tooManyRequests,
   unauthorized,
   validationError,
@@ -29,6 +30,7 @@ export type VerifiedSession = { user: UserPrivate; accessToken: string };
 export class AuthService {
   readonly cookieSettings: CookieSettings;
   private readonly logger = new Logger(AuthService.name);
+  private readonly adminEmails: string[];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -48,6 +50,7 @@ export class AuthService {
       accessMaxAgeMs: config.get('JWT_ACCESS_TTL_SECONDS', { infer: true }) * 1000,
       refreshMaxAgeMs: config.get('REFRESH_TTL_SECONDS', { infer: true }) * 1000,
     };
+    this.adminEmails = config.get('ADMIN_EMAILS', { infer: true });
   }
 
   /** The account starts unverified: the session works, but only for the verification routes. */
@@ -80,7 +83,7 @@ export class AuthService {
   async login(input: LoginData, meta: RequestMeta): Promise<AuthResult> {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
-      select: { id: true, passwordHash: true },
+      select: { id: true, email: true, passwordHash: true, role: true, suspendedAt: true },
     });
     // Always run a verification so response time does not reveal whether the email exists.
     const valid = await verifyPassword(
@@ -88,12 +91,19 @@ export class AuthService {
       input.password,
     );
     if (!user || !valid) throw unauthorized('Invalid email or password');
+    if (user.suspendedAt) throw suspended();
+    // An address on ADMIN_EMAILS that registered after the last start becomes an admin here.
+    if (user.role === 'member' && this.adminEmails.includes(user.email.toLowerCase())) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } });
+      this.logger.log({ userId: user.id }, 'Promoted to admin at sign-in (ADMIN_EMAILS)');
+    }
     return this.session(user.id, meta);
   }
 
   async refresh(rawRefreshToken: string | undefined, meta: RequestMeta): Promise<AuthResult> {
     if (!rawRefreshToken) throw unauthorized('No refresh token');
     const rotated = await this.refreshTokens.rotate(rawRefreshToken, meta);
+    await this.assertNotSuspended(rotated.userId);
     const user = await this.users.findPrivateById(rotated.userId);
     if (!user) throw unauthorized('This account no longer exists');
     return {
@@ -230,7 +240,17 @@ export class AuthService {
   async me(userId: string): Promise<UserPrivate> {
     const user = await this.users.findPrivateById(userId);
     if (!user) throw unauthorized('This account no longer exists');
+    await this.assertNotSuspended(userId);
     return user;
+  }
+
+  /** A suspension ends the session wherever it is checked: sign-in, refresh and `me` (ADR 0016). */
+  private async assertNotSuspended(userId: string): Promise<void> {
+    const row = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { suspendedAt: true },
+    });
+    if (row?.suspendedAt) throw suspended();
   }
 
   /**
@@ -274,9 +294,15 @@ export class AuthService {
       );
   }
 
-  /** `ev` travels in the token so the guard can close the app to unverified accounts without a lookup. */
-  private signAccessToken(user: Pick<UserPrivate, 'id' | 'emailVerifiedAt'>): Promise<string> {
-    const claims: AccessTokenClaims = { sub: user.id, ev: user.emailVerifiedAt !== null };
+  /** `ev` and `role` travel in the token so the guards need no lookup. */
+  private signAccessToken(
+    user: Pick<UserPrivate, 'id' | 'emailVerifiedAt' | 'role'>,
+  ): Promise<string> {
+    const claims: AccessTokenClaims = {
+      sub: user.id,
+      ev: user.emailVerifiedAt !== null,
+      role: user.role,
+    };
     return this.jwt.signAsync(claims);
   }
 }

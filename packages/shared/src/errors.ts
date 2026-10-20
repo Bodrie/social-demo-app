@@ -10,6 +10,8 @@ export const ERROR_CODES = [
   'EMAIL_NOT_VERIFIED',
   /** A 403 because one of the two members blocked the other (ADR 0016). */
   'BLOCKED',
+  /** A 403 at sign-in or refresh: an admin suspended the account (ADR 0016). */
+  'SUSPENDED',
   'NOT_FOUND',
   'CONFLICT',
   'PAYLOAD_TOO_LARGE',
