@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
+  Param,
   Post,
   Req,
   Res,
@@ -10,11 +12,19 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { AuthResponse, VerifyEmailResponse } from '@the-mesh/shared';
+import type {
+  AuthResponse,
+  ConfirmEmailChangeResponse,
+  SessionList,
+  VerifyEmailResponse,
+} from '@the-mesh/shared';
+import { IdParamDto } from '../common/params.dto.js';
 import type { Request, Response } from 'express';
 import { AllowUnverified } from './allow-unverified.decorator.js';
 import {
+  ChangeEmailDto,
   ChangePasswordDto,
+  ConfirmEmailChangeDto,
   ForgotPasswordDto,
   LoginDto,
   RegisterDto,
@@ -175,6 +185,55 @@ export class AuthController {
     );
     setAuthCookies(res, tokens, this.auth.cookieSettings);
     return { user };
+  }
+
+  /** Settings → Email: the new address waits for the link mailed to it (ADR 0010 amendment). */
+  @AllowUnverified()
+  @Post('email')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async requestEmailChange(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ChangeEmailDto,
+  ): Promise<AuthResponse> {
+    return { user: await this.auth.requestEmailChange(user.id, body) };
+  }
+
+  @AllowUnverified()
+  @Post('email/resend')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 3, ttl: 60 * 60_000 } })
+  resendEmailChange(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.auth.resendEmailChange(user.id);
+  }
+
+  @AllowUnverified()
+  @Delete('email')
+  @HttpCode(200)
+  async cancelEmailChange(@CurrentUser() user: AuthUser): Promise<AuthResponse> {
+    return { user: await this.auth.cancelEmailChange(user.id) };
+  }
+
+  /** The link from the mail to the new address; works signed in or not and signs nobody in. */
+  @Public()
+  @Post('email/confirm')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  confirmEmailChange(@Body() body: ConfirmEmailChangeDto): Promise<ConfirmEmailChangeResponse> {
+    return this.auth.confirmEmailChange(body.token);
+  }
+
+  /** The member's signed-in devices; the caller's own is marked. */
+  @Get('sessions')
+  async sessions(@CurrentUser() user: AuthUser, @Req() req: Request): Promise<SessionList> {
+    const items = await this.auth.sessions(user.id, readCookie(req.cookies, REFRESH_COOKIE));
+    return { items, nextCursor: null };
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(204)
+  endSession(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.auth.endSession(user.id, params.id);
   }
 
   @AllowUnverified()

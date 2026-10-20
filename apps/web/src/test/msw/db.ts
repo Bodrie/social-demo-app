@@ -8,6 +8,7 @@ import type {
   Post,
   ReactionSummary,
   Report,
+  Session,
   ReactionType,
   Revision,
   UserPrivate,
@@ -58,7 +59,9 @@ export const mockDb = {
   postRevisions: new Map<string, Revision[]>(),
   uploads: 0,
   /** Links the fake API "mailed"; tests read the token here instead of an inbox. */
-  emailTokens: [] as { token: string; kind: 'verify' | 'reset'; email: string }[],
+  emailTokens: [] as { token: string; kind: 'verify' | 'reset' | 'change'; email: string }[],
+  /** The signed-in user's devices, as GET /auth/sessions lists them. */
+  sessions: [] as Session[],
   /** The body of the last registration, for asserting what the form sent (e.g. the bot-check token). */
   lastRegistration: null as Record<string, unknown> | null,
   calls: {
@@ -97,6 +100,7 @@ export function resetMockDb(): void {
   mockDb.postRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.emailTokens = [];
+  mockDb.sessions = [];
   mockDb.lastRegistration = null;
   mockDb.calls = {
     me: 0,

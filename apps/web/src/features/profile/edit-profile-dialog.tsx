@@ -176,7 +176,7 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
             aria-describedby="profile-email-note"
           />
           <p id="profile-email-note" className="text-muted-foreground text-sm">
-            Only you can see your email. Changing it is not possible yet.
+            Only you can see your email. Change it in Settings → Email.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

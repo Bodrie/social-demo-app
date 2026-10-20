@@ -104,6 +104,95 @@ export function passwordChangedEmail(input: { name: string; link: string }): Ema
   };
 }
 
+/** To the new address: the link that makes it the account's (ADR 0010 amendment). */
+export function emailChangeConfirmEmail(input: {
+  name: string;
+  link: string;
+  hours: number;
+}): EmailContent {
+  const name = escapeHtml(input.name);
+  return {
+    subject: `Confirm your new email address for ${BRAND}`,
+    text: [
+      `Hi ${input.name},`,
+      '',
+      `You asked to use this address for your ${BRAND} account. Confirm it and it replaces the old one:`,
+      input.link,
+      '',
+      `The link works for ${input.hours} hours and only once. If you did not ask for this, ignore this email; the account keeps its current address.`,
+    ].join('\n'),
+    html: layout(
+      'Confirm your new email address',
+      [
+        `Hi ${name},`,
+        `You asked to use this address for your ${BRAND} account. One click and it replaces the old one.`,
+        `The link works for ${input.hours} hours and only once. If you did not ask for this, ignore this email; the account keeps its current address.`,
+      ],
+      { label: 'Confirm new address', href: input.link },
+    ),
+  };
+}
+
+/** To the old address, when the change is asked for: the owner must hear about it there. */
+export function emailChangeNoticeEmail(input: {
+  name: string;
+  newEmail: string;
+  link: string;
+}): EmailContent {
+  const name = escapeHtml(input.name);
+  const newEmail = escapeHtml(input.newEmail);
+  return {
+    subject: `Someone asked to change the email address of your ${BRAND} account`,
+    text: [
+      `Hi ${input.name},`,
+      '',
+      `A request was made to move your ${BRAND} account to ${input.newEmail}. Nothing changes until a link sent to that address is opened.`,
+      '',
+      `If that was you, there is nothing to do here. If it was not, change your password right away; that also cancels the request and signs out every other device:`,
+      input.link,
+    ].join('\n'),
+    html: layout(
+      'A change of email address was requested',
+      [
+        `Hi ${name},`,
+        `A request was made to move your ${BRAND} account to <strong>${newEmail}</strong>. Nothing changes until a link sent to that address is opened.`,
+        `If that was you, there is nothing to do here. If it was not, change your password right away; that also cancels the request and signs out every other device.`,
+      ],
+      { label: 'Change my password', href: input.link },
+    ),
+  };
+}
+
+/** To the old address, once the new one is confirmed. */
+export function emailChangedEmail(input: {
+  name: string;
+  newEmail: string;
+  link: string;
+}): EmailContent {
+  const name = escapeHtml(input.name);
+  const newEmail = escapeHtml(input.newEmail);
+  return {
+    subject: `The email address of your ${BRAND} account was changed`,
+    text: [
+      `Hi ${input.name},`,
+      '',
+      `Your ${BRAND} account now uses ${input.newEmail}. This address no longer signs you in.`,
+      '',
+      `If that was not you, reset the password from the new address right away or reply to this email:`,
+      input.link,
+    ].join('\n'),
+    html: layout(
+      'Your email address was changed',
+      [
+        `Hi ${name},`,
+        `Your ${BRAND} account now uses <strong>${newEmail}</strong>. This address no longer signs you in.`,
+        `If that was not you, reply to this email right away.`,
+      ],
+      { label: 'Reset the password', href: input.link },
+    ),
+  };
+}
+
 /** The one warning before an account that never confirmed its address is removed (JobsService). */
 export function unverifiedExpiryEmail(input: {
   name: string;

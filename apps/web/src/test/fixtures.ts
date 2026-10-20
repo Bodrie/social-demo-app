@@ -61,6 +61,7 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     blockedMe: false,
     muted: false,
     email: 'alice@example.com',
+    pendingEmail: null,
     role: 'member',
     emailVerifiedAt: '2026-10-15T10:05:00.000Z',
     settings: { chatBubbles: true, messageSound: false, browserNotifications: false },

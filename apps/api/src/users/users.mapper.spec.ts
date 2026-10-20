@@ -15,6 +15,7 @@ const row: UserPrivateRow = {
   email: 'alice@example.com',
   settings: { chatBubbles: false, unknownKey: 1 },
   emailVerifiedAt: new Date('2026-10-15T10:05:00.000Z'),
+  pendingEmail: null,
   role: 'member',
   suspendedAt: null,
   _count: { posts: 3, followers: 2, following: 1 },

@@ -3,7 +3,6 @@ import { FullPageSpinner } from '@/components/full-page-spinner';
 import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
-import { VerifyEmailPage } from '@/features/auth/verify-email-page';
 import { HomePage } from '@/features/feed/home-page';
 import { RedirectIfAuthenticated, RequireAuth } from './routes/require-auth';
 import { RouteError } from './routes/route-error';
@@ -137,8 +136,20 @@ export const routes: RouteObject[] = [
           },
         ],
       },
-      // Open to everyone: the mailed links are followed signed in or not.
-      { path: 'verify-email', element: <VerifyEmailPage /> },
+      // Open to everyone: the mailed links are followed signed in or not. Seen once per
+      // account, so neither page rides in the first paint.
+      {
+        path: 'verify-email',
+        lazy: async () => ({
+          Component: (await import('@/features/auth/verify-email-page')).VerifyEmailPage,
+        }),
+      },
+      {
+        path: 'confirm-email',
+        lazy: async () => ({
+          Component: (await import('@/features/auth/confirm-email-page')).ConfirmEmailPage,
+        }),
+      },
       { path: 'privacy', lazy: legal('PrivacyPage') },
       { path: 'terms', lazy: legal('TermsPage') },
       {

@@ -48,6 +48,7 @@ export function userPrivateSelect(viewerId: string) {
   return {
     ...userPublicSelect(viewerId),
     email: true,
+    pendingEmail: true,
     emailVerifiedAt: true,
     role: true,
     settings: true,
@@ -117,6 +118,7 @@ export function toUserPrivate(row: UserPrivateRow, assetsBase: string): UserPriv
   return {
     ...toUserPublic(row, assetsBase),
     email: row.email,
+    pendingEmail: row.pendingEmail,
     emailVerifiedAt: row.emailVerifiedAt ? row.emailVerifiedAt.toISOString() : null,
     role: row.role,
     settings: toUserSettings(row.settings),

@@ -63,7 +63,7 @@ describe('email verification gate', () => {
     signedInUnverified();
     renderApp('/verify-email');
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: /^sign out$/i }));
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(mockDb.user).toBeNull();
   });

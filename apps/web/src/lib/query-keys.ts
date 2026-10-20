@@ -7,6 +7,10 @@ import type { CommentSort } from '@the-mesh/shared';
  */
 export const queryKeys = {
   me: ['me'] as const,
+  auth: {
+    /** The member's signed-in devices (Settings → Sessions). */
+    sessions: ['auth', 'sessions'] as const,
+  },
   users: {
     all: ['users'] as const,
     profiles: ['users', 'profile'] as const,

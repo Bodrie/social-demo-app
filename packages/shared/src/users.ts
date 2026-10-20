@@ -102,6 +102,8 @@ export type UserRole = z.infer<typeof userRoleSchema>;
 
 export const userPrivateSchema = userPublicSchema.extend({
   email: z.string(),
+  /** A new address waiting for its confirmation link (Settings → Email). */
+  pendingEmail: z.string().nullable(),
   role: userRoleSchema,
   settings: userSettingsSchema,
   /** Null until the address was confirmed through the link we mailed; the app is closed until then. */

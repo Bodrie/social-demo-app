@@ -23,6 +23,8 @@ model User {
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
   /// When the "confirm or the account is removed" mail went out (JobsService); unverified accounts only.
   expiryWarnedAt  DateTime? @map("expiry_warned_at") @db.Timestamptz(3)
+  /// A new address waiting for its confirmation link (ADR 0010 amendment); swapped in on confirm.
+  pendingEmail    String?   @map("pending_email")
   /// Admins read the reports queue and act on it (ADR 0016); bootstrapped from `ADMIN_EMAILS`.
   role            UserRole  @default(member)
   /// A suspended member cannot sign in and their content is hidden; the rows stay for the way back.
@@ -186,6 +188,7 @@ model Report {
 enum EmailTokenKind {
   verify_email
   password_reset
+  change_email
 
   @@map("email_token_kind")
 }
@@ -527,7 +530,10 @@ model RefreshToken {
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
   userAgent String?   @map("user_agent")
   ip        String?
+  /// When the session started: carried along the rotation chain (a rotated token is a new row).
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// The last rotation (or the issue); the sessions list shows it as "last active".
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

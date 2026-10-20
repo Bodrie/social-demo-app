@@ -4,6 +4,9 @@ import type { Env } from '../config/env.js';
 import { MAILER, type Mailer } from './mailer.js';
 import {
   accountDeletedEmail,
+  emailChangeConfirmEmail,
+  emailChangeNoticeEmail,
+  emailChangedEmail,
   passwordChangedEmail,
   passwordResetEmail,
   unverifiedExpiryEmail,
@@ -12,6 +15,7 @@ import {
 
 export const VERIFY_EMAIL_TTL_MS = 24 * 60 * 60 * 1000;
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+export const CHANGE_EMAIL_TTL_MS = 24 * 60 * 60 * 1000;
 
 type Recipient = { email: string; name: string };
 
@@ -54,6 +58,38 @@ export class EmailService {
     return this.mailer.send({
       to: to.email,
       ...passwordChangedEmail({ name: to.name, link: `${this.webUrl}/forgot-password` }),
+    });
+  }
+
+  /** To the new address: the link that makes it the account's (ADR 0010 amendment). */
+  sendEmailChangeConfirm(to: Recipient, token: string): Promise<void> {
+    return this.mailer.send({
+      to: to.email,
+      ...emailChangeConfirmEmail({
+        name: to.name,
+        link: this.link('/confirm-email', token),
+        hours: CHANGE_EMAIL_TTL_MS / 3_600_000,
+      }),
+    });
+  }
+
+  /** To the old address, when the change is asked for: a heads-up in case it was not the owner. */
+  sendEmailChangeNotice(to: Recipient, newEmail: string): Promise<void> {
+    return this.mailer.send({
+      to: to.email,
+      ...emailChangeNoticeEmail({
+        name: to.name,
+        newEmail,
+        link: `${this.webUrl}/forgot-password`,
+      }),
+    });
+  }
+
+  /** To the old address, once the new one is confirmed: the account now answers to another. */
+  sendEmailChanged(to: Recipient, newEmail: string): Promise<void> {
+    return this.mailer.send({
+      to: to.email,
+      ...emailChangedEmail({ name: to.name, newEmail, link: `${this.webUrl}/forgot-password` }),
     });
   }
 

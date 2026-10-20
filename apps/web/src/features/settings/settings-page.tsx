@@ -26,7 +26,9 @@ import { usePageTitle } from '@/lib/use-page-title';
 import { cn } from 'cn';
 import { AccountCard } from './account-card';
 import { ChatSettings } from './chat-settings';
+import { EmailCard } from './email-card';
 import { PasswordForm } from './password-form';
+import { SessionsList } from './sessions-list';
 
 const THEMES = [
   { value: 'system', label: 'System', icon: MonitorIcon },
@@ -69,6 +71,8 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <EmailCard />
+
       <Card>
         <CardHeader>
           <CardTitle asChild>
@@ -89,10 +93,12 @@ export function SettingsPage() {
             <h2>Sessions</h2>
           </CardTitle>
           <CardDescription>
-            Signed in somewhere you do not recognise? End every session, this one included.
+            Where you are signed in. End one you do not recognise, or every session at once, this
+            one included.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <SessionsList />
           <SignOutEverywhere />
         </CardContent>
       </Card>

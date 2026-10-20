@@ -14,7 +14,7 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0007](0007-typescript-6-then-7.md) | TypeScript 6 now, 7 when tooling allows | Accepted |
 | [0008](0008-linting-oxlint-prettier.md) | oxlint (type-aware) + Prettier | Accepted |
 | [0009](0009-conversations-and-read-marks.md) | Conversations as records, read state per member | Accepted |
-| [0010](0010-email-verification-and-password-reset.md) | Transactional email, verified addresses, password reset | Accepted (amended by 0011) |
+| [0010](0010-email-verification-and-password-reset.md) | Transactional email, verified addresses, password reset | Accepted (amended by 0011; amended 2026-10-20: email change and sessions) |
 | [0011](0011-pre-release-hardening.md) | Pre-release hardening: ending sessions, verification links, mail limits, release gate | Accepted |
 | [0012](0012-account-lifecycle.md) | Account lifecycle: JSON export of everything, deletion that erases (with conversation tidy-up and counter fixes); Turnstile bot check on registration; retention (unconfirmed accounts, tokens, abandoned uploads) by daily jobs | Accepted (amended 2026-10-20) |
 | [0013](0013-text-entities.md) | Text entities: one shared parser for mentions, hashtags and links; entities stored at save time | Accepted |

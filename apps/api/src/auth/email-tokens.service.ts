@@ -1,7 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { badRequest } from '../common/errors.js';
-import { PASSWORD_RESET_TTL_MS, VERIFY_EMAIL_TTL_MS } from '../email/email.service.js';
+import {
+  CHANGE_EMAIL_TTL_MS,
+  PASSWORD_RESET_TTL_MS,
+  VERIFY_EMAIL_TTL_MS,
+} from '../email/email.service.js';
 import type { EmailTokenKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -32,6 +36,10 @@ export const EMAIL_TOKEN_POLICY: Record<EmailTokenKind, Policy> = {
     perHour: 5,
     replacesOlder: false,
   },
+  // Only the newest link to the new address works; asking again replaces it (ADR 0010 amendment).
+  // No pause: the member just proved the password, and a mistyped address is corrected at once;
+  // the hourly cap and the route throttles bound the mail.
+  change_email: { ttlMs: CHANGE_EMAIL_TTL_MS, cooldownMs: 0, perHour: 5, replacesOlder: true },
 };
 
 export const INVALID_LINK = 'This link is invalid, has expired or was already used';

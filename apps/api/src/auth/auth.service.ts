@@ -2,9 +2,20 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
-import type { ChangePasswordData, LoginData, RegisterData, UserPrivate } from '@the-mesh/shared';
+import type {
+  ChangeEmailData,
+  ChangePasswordData,
+  ConfirmEmailChangeResponse,
+  LoginData,
+  RegisterData,
+  Session,
+  UserPrivate,
+} from '@the-mesh/shared';
 import { CAPTCHA, CaptchaUnavailableError, type CaptchaVerifier } from '../captcha/captcha.js';
 import {
+  badRequest,
+  conflict,
+  notFound,
   serviceUnavailable,
   suspended,
   tooManyRequests,
@@ -18,9 +29,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { AccessTokenClaims, IssuedTokens, RequestMeta } from './auth.types.js';
 import type { CookieSettings } from './cookies.js';
-import { EmailTokensService } from './email-tokens.service.js';
+import { EmailTokensService, INVALID_LINK } from './email-tokens.service.js';
 import { dummyPasswordHash, hashPassword, verifyPassword } from './password.js';
 import { RefreshTokensService } from './refresh-tokens.service.js';
+import { describeUserAgent, maskIp } from './user-agent.js';
 
 export type AuthResult = { user: UserPrivate; tokens: IssuedTokens };
 /** A verified session continued in the browser that already held it (see verifyEmail). */
@@ -270,6 +282,133 @@ export class AuthService {
       );
     }
     if (!human) throw validationError({ captchaToken: 'Please complete the bot check' });
+  }
+
+  /**
+   * Settings → Email (ADR 0010 amendment): the password proves the owner asked, the new
+   * address must be free, the link goes to the new address and a notice to the old one.
+   * Nothing changes until the link is opened. Open to unverified sessions: a mistyped
+   * address is exactly their case.
+   */
+  async requestEmailChange(userId: string, input: ChangeEmailData): Promise<UserPrivate> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true, name: true, passwordHash: true },
+    });
+    if (!(await verifyPassword(user.passwordHash, input.password))) {
+      throw validationError({ password: 'Wrong password' });
+    }
+    if (input.newEmail === user.email) {
+      throw validationError({ newEmail: 'That is already your address' });
+    }
+    await this.assertNewEmailFree(input.newEmail, userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { pendingEmail: input.newEmail },
+    });
+    await this.mailEmailChange(userId, user, input.newEmail, { notice: true });
+    this.logger.log({ userId }, 'Email change requested');
+    return this.users.getPrivateById(userId);
+  }
+
+  async resendEmailChange(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true, name: true, pendingEmail: true },
+    });
+    if (!user.pendingEmail) throw badRequest('No change of address is pending');
+    await this.mailEmailChange(userId, user, user.pendingEmail, { notice: false });
+  }
+
+  async cancelEmailChange(userId: string): Promise<UserPrivate> {
+    await this.prisma.user.update({ where: { id: userId }, data: { pendingEmail: null } });
+    await this.emailTokens.voidAll(userId, 'change_email');
+    return this.users.getPrivateById(userId);
+  }
+
+  /**
+   * The link from the new address: the swap, after checking the address is still free (it
+   * may have been taken since the request; the request is then dropped). The new address is
+   * confirmed by the link itself, so the account opens if it was still waiting.
+   */
+  async confirmEmailChange(rawToken: string): Promise<ConfirmEmailChangeResponse> {
+    const userId = await this.emailTokens.consume(rawToken, 'change_email');
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true, name: true, pendingEmail: true },
+    });
+    if (!user.pendingEmail) throw badRequest(INVALID_LINK, { token: INVALID_LINK });
+    const newEmail = user.pendingEmail;
+    try {
+      await this.assertNewEmailFree(newEmail, userId);
+    } catch (error) {
+      await this.prisma.user.update({ where: { id: userId }, data: { pendingEmail: null } });
+      throw error;
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail, pendingEmail: null, emailVerifiedAt: new Date() },
+    });
+    await this.emailTokens.voidAll(userId, 'change_email');
+    void this.email
+      .sendEmailChanged({ email: user.email, name: user.name }, newEmail)
+      .catch((error: unknown) =>
+        this.logger.warn({ err: error, userId }, 'Could not send the email-changed notice'),
+      );
+    this.logger.log({ userId }, 'Email address changed');
+    return { email: newEmail };
+  }
+
+  /** `UsersService.assertAvailable`, keyed to the form's field. */
+  private async assertNewEmailFree(newEmail: string, userId: string): Promise<void> {
+    const clash = await this.prisma.user.findFirst({
+      where: { email: newEmail, NOT: { id: userId } },
+      select: { id: true },
+    });
+    if (!clash) return;
+    const message = 'An account with this email already exists';
+    throw conflict(message, { newEmail: message });
+  }
+
+  private async mailEmailChange(
+    userId: string,
+    user: { email: string; name: string },
+    newEmail: string,
+    options: { notice: boolean },
+  ): Promise<void> {
+    const token = await this.emailTokens.issue(userId, 'change_email');
+    if (!token) throw tooManyRequests('Enough emails were sent for now. Try again later.');
+    await this.email.sendEmailChangeConfirm({ email: newEmail, name: user.name }, token);
+    if (!options.notice) return;
+    void this.email
+      .sendEmailChangeNotice({ email: user.email, name: user.name }, newEmail)
+      .catch((error: unknown) =>
+        this.logger.warn({ err: error, userId }, 'Could not send the email-change notice'),
+      );
+  }
+
+  /** The member's live sessions, the caller's own marked (ADR 0010 amendment). */
+  async sessions(userId: string, currentRaw: string | undefined): Promise<Session[]> {
+    const rows = await this.refreshTokens.listFor(userId, currentRaw);
+    return rows.map((row) => {
+      const agent = describeUserAgent(row.userAgent);
+      return {
+        id: row.id,
+        browser: agent.browser,
+        os: agent.os,
+        ip: maskIp(row.ip),
+        createdAt: row.createdAt.toISOString(),
+        lastUsedAt: row.lastUsedAt.toISOString(),
+        current: row.current,
+      };
+    });
+  }
+
+  /** Ends one session; the device's access token runs out within fifteen minutes. */
+  async endSession(userId: string, sessionId: string): Promise<void> {
+    if (!(await this.refreshTokens.revokeOne(userId, sessionId))) {
+      throw notFound('Session not found');
+    }
   }
 
   private async session(userId: string, meta: RequestMeta): Promise<AuthResult> {

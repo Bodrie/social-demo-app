@@ -32,6 +32,9 @@ test.describe('accessibility (signed out)', () => {
     await page.goto('/reset-password?token=axe');
     await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
     await audit(page, '/reset-password');
+    await page.goto('/confirm-email?token=axe');
+    await expect(page.getByRole('heading', { name: 'This link did not work' })).toBeVisible();
+    await audit(page, '/confirm-email');
     await page.goto('/privacy');
     await expect(page.getByRole('heading', { level: 1, name: 'Privacy notice' })).toBeVisible();
     await audit(page, '/privacy');

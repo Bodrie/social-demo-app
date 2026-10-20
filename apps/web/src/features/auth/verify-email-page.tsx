@@ -1,5 +1,5 @@
 import { Loader2Icon, MailCheckIcon, MailWarningIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,11 @@ import { isApiClientError } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/use-page-title';
 import { AuthLayout } from './auth-layout';
 import { useLogout, useResendVerification, useVerifyEmail } from './use-auth-mutations';
+
+// Shared with Settings → Email; loaded only when asked for, to keep the first paint small.
+const EmailChangeForm = lazy(() =>
+  import('@/features/settings/email-change-form').then((m) => ({ default: m.EmailChangeForm })),
+);
 import { useMe } from './use-me';
 
 /**
@@ -123,6 +128,8 @@ function WaitingRoom() {
   const me = useMe();
   const resend = useResendVerification();
   const logout = useLogout();
+  // A mistyped address: the change form, right here, sends the link to the right one.
+  const [changing, setChanging] = useState(false);
 
   if (me.status === 'loading') return <FullPageSpinner label="Checking your session" />;
   if (me.status === 'error') return <SessionError retry={me.retry} />;
@@ -150,23 +157,45 @@ function WaitingRoom() {
           <button
             type="button"
             className="text-foreground font-medium underline underline-offset-4"
+            onClick={() => setChanging(true)}
+          >
+            Change it
+          </button>
+          {', or '}
+          <button
+            type="button"
+            className="text-foreground font-medium underline underline-offset-4"
             onClick={() => logout.mutate()}
           >
-            Sign out
-          </button>{' '}
-          and register again.
+            sign out
+          </button>
+          .
         </>
       }
     >
       <div className="space-y-5">
         <div className="bg-muted flex items-start gap-3 rounded-lg p-4 text-sm">
           <MailCheckIcon className="text-primary mt-0.5 size-5 shrink-0" aria-hidden="true" />
-          <p>
-            We sent a confirmation link to{' '}
-            <strong className="font-semibold">{me.user.email}</strong>. Open it to finish setting up
-            your account. The link works for 24 hours.
-          </p>
+          {me.user.pendingEmail ? (
+            <p>
+              We sent a link to <strong className="font-semibold">{me.user.pendingEmail}</strong>.
+              Open it and that becomes your address, confirmed. The link works for 24 hours.
+            </p>
+          ) : (
+            <p>
+              We sent a confirmation link to{' '}
+              <strong className="font-semibold">{me.user.email}</strong>. Open it to finish setting
+              up your account. The link works for 24 hours.
+            </p>
+          )}
         </div>
+        {changing ? (
+          <div className="bg-card rounded-lg border p-4">
+            <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
+              <EmailChangeForm onRequested={() => setChanging(false)} />
+            </Suspense>
+          </div>
+        ) : null}
         <Button
           type="button"
           size="lg"

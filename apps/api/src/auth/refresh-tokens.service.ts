@@ -11,6 +11,15 @@ import type { RequestMeta } from './auth.types.js';
 
 export type IssuedRefreshToken = { raw: string; expiresAt: Date };
 
+export type SessionRow = {
+  id: string;
+  userAgent: string | null;
+  ip: string | null;
+  createdAt: Date;
+  lastUsedAt: Date;
+  current: boolean;
+};
+
 type Writer = Pick<PrismaService, 'refreshToken'> | Prisma.TransactionClient;
 
 /**
@@ -46,7 +55,7 @@ export class RefreshTokensService {
   async rotate(raw: string, meta: RequestMeta): Promise<IssuedRefreshToken & { userId: string }> {
     const existing = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: this.hash(raw) },
-      select: { id: true, userId: true, expiresAt: true, revokedAt: true },
+      select: { id: true, userId: true, expiresAt: true, revokedAt: true, createdAt: true },
     });
     if (!existing) throw unauthorized('Invalid refresh token');
 
@@ -62,7 +71,8 @@ export class RefreshTokensService {
         data: { revokedAt: new Date() },
       });
       if (claimed.count !== 1) return null;
-      return this.issueWith(tx, existing.userId, meta);
+      // The new row is the same session: it keeps when it started and notes this use.
+      return this.issueWith(tx, existing.userId, meta, existing.createdAt);
     });
     if (!issued) {
       await this.revokeAll(existing.userId);
@@ -118,13 +128,49 @@ export class RefreshTokensService {
     return count;
   }
 
+  /**
+   * The live sessions (ADR 0010 amendment): one row per device, since a rotated token is
+   * revoked and its successor carries the session's start. `current` is the caller's own.
+   */
+  async listFor(userId: string, currentRaw: string | undefined): Promise<SessionRow[]> {
+    const rows = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      select: {
+        id: true,
+        tokenHash: true,
+        userAgent: true,
+        ip: true,
+        createdAt: true,
+        lastUsedAt: true,
+      },
+      orderBy: [{ lastUsedAt: 'desc' }, { id: 'desc' }],
+    });
+    const currentHash = currentRaw === undefined ? null : this.hash(currentRaw);
+    return rows.map((row) => ({
+      id: row.id,
+      userAgent: row.userAgent,
+      ip: row.ip,
+      createdAt: row.createdAt,
+      lastUsedAt: row.lastUsedAt,
+      current: row.tokenHash === currentHash,
+    }));
+  }
+
+  /** Ends one session of the member; its access token runs out within its lifetime. */
+  async revokeOne(userId: string, id: string): Promise<boolean> {
+    const result = await this.prisma.refreshToken.deleteMany({ where: { id, userId } });
+    return result.count === 1;
+  }
+
   private async issueWith(
     writer: Writer,
     userId: string,
     meta: RequestMeta,
+    startedAt = new Date(),
   ): Promise<IssuedRefreshToken> {
     const raw = randomBytes(32).toString('base64url');
-    const expiresAt = new Date(Date.now() + this.ttlMs);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + this.ttlMs);
     await writer.refreshToken.create({
       data: {
         userId,
@@ -132,6 +178,8 @@ export class RefreshTokensService {
         expiresAt,
         userAgent: meta.userAgent,
         ip: meta.ip,
+        createdAt: startedAt,
+        lastUsedAt: now,
       },
     });
     await writer.refreshToken.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });

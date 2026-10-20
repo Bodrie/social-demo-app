@@ -56,7 +56,7 @@ C6  scheduler + reapers             ✅ 2026-10-20          ─┐
 B4  notifications                   ✅ 2026-10-20           │  v2.5
 C3  bookmarks (a) + reposts (b)     ✅ 2026-10-20          ─┘
 B5  moderation (a + b)              ✅ 2026-10-20          ─┐
-D1  email change, sessions list                             │  v2.6
+D1  email change, sessions list     ✅ 2026-10-20           │  v2.6
 C2  comment replies                                        ─┘
 C5  chat extras (edit, reactions, role lines, sound)       ─┐
 B6  # autocomplete                                          │  v2.7
@@ -389,11 +389,12 @@ the way a message or a notification does.
 
 ## 5. Track D – account depth
 
-### D1. Email change and sessions · M · ADR 0010 amendment
+### D1. Email change and sessions · M · ADR 0010 amendment · ✅ 2026-10-20
 
 - Email change: `users.pending_email?`, token kind `change_email` (24 h) sent to the **new** address, notice to the old one; `POST /auth/email` `{ newEmail, password }` (uniqueness checked at request and again at confirm), `POST /auth/email/confirm` `{ token }` swaps the address and voids the pending state; the address stays read-only in the profile dialog, the change lives in Settings → **Email** with "Pending: new@…, resend / cancel". Re-send verification from the same card for unverified sessions (the waiting room already has it).
 - Sessions: `GET /auth/sessions` from `refresh_tokens` where `revokedAt is null` (`id, userAgent (parsed to "Chrome on Windows"), ip (masked last octet), createdAt, lastUsedAt, current`), `DELETE /auth/sessions/:id` (deletes the row; that device's access token runs out within 15 min, as documented). Needs `last_used_at` stamped on rotation (migration). Settings → **Sessions** card becomes a list with "Sign out" per row and keeps "Sign out everywhere".
 - Tests: int (change flow incl. taken address and expired token, notice mails in the outbox, sessions list and single sign-out), web (cards), e2e (sessions list shows the Playwright browser).
+- As built (2026-10-20): the change form is shared with the waiting room (`EmailChangeForm`: a mistyped address is fixed before the account opens, and the confirmation marks the new address verified); the `change_email` kind has no cooldown (hourly cap and route throttles instead); `POST /auth/email/confirm` is public and answers `{ email }` only; the link lands on `/confirm-email`; re-sending the *verification* stays in the waiting room (Settings is not reachable unverified). Sessions are ordered by last activity; the row's id changes with each rotation (the chain keeps `createdAt`).
 
 ### D2. Richer posts · M–L
 
