@@ -9,7 +9,9 @@ mkdir -p "$dest"
 # --clean --if-exists: the dump drops what it recreates, so it can never merge into existing rows.
 docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" --clean --if-exists "$POSTGRES_DB"' \
   | gzip > "$dest/db-$stamp.sql.gz"
-docker run --rm -v beso_uploads:/data:ro -v "$dest":/backup alpine \
-  tar czf "/backup/uploads-$stamp.tar.gz" -C /data .
+# Streamed out of the running api container, which mounts the uploads volume: nothing is pulled
+# at backup time (a `docker run alpine` here once failed mid-pull when it coincided with
+# update.sh's `docker image prune`), and the file belongs to this user rather than to root.
+docker compose exec -T api tar czf - -C /data/uploads . > "$dest/uploads-$stamp.tar.gz"
 find "$dest" -name '*.gz' -mtime +14 -delete
 ls -lh "$dest" | tail -n +2
