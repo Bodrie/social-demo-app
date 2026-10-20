@@ -1,6 +1,7 @@
 # Implementation plan (after R1, 2026-10-19)
 
-**Status:** v0.3, reviewed by the owner on 2026-10-19 in two rounds (all decisions in §9; no open points).
+**Status:** v0.4 — C1 (newcomer experience) removed by the owner on 2026-10-20 and parked in
+`BACKLOG.md`; otherwise v0.3, reviewed by the owner on 2026-10-19 in two rounds (all decisions in §9; no open points).
 Written against `dev` at `cedd8f2` (legal pages, pre-release hardening and the runbook revision are
 in; `main` is at PR #25). **The site opens to visitors around 2026-10-29.**
 **Relation to the other documents:** `ROADMAP.md` says *what* and *why*; this document says *how*, in
@@ -48,8 +49,7 @@ A3  Turnstile on register           ✅ 2026-10-19           │
 A1  box + monitor + backups (owner, in parallel)           ─┘
 A4  review-pass completion + cheap Low items ✅ 2026-10-19  ─┐
 B3a chat bubbles                    ✅ 2026-10-19           │  v2.4
-B3b chat follow-ups                 ✅ 2026-10-19           │
-C1  newcomer experience (explore + onboarding)             ─┘
+B3b chat follow-ups                 ✅ 2026-10-19           ─┘
 C6  scheduler + reapers                                    ─┐
 B4  notifications                                           │  v2.5
 C3  bookmarks (a) + reposts (b)                            ─┘
@@ -268,8 +268,8 @@ carol's phone viewport; axe on the open state (bubbles + one window) in both the
 **B5a – member side: block, mute, report**
 
 - Migration `moderation`: `blocks(blocker_id, blocked_id, created_at)`, `mutes(muter_id, muted_id, created_at)`, `reports(id, reporter_id, target_type enum (post | comment | user), target_id uuid, reason enum (spam | harassment | hate | sexual | violence | other), details text?, status enum (open | resolved | dismissed), created_at, resolved_by_id?, resolved_at?)`.
-- Block effects (both directions, enforced in services, never the client): posts, reposts and comments hidden from each other's feed, explore, profile posts, tag pages, search and activity; profile answers a reduced shape with `blocked: true` / `blockedMe: true` and no counts; follow rows removed on block and new follows refused (403 `BLOCKED`); comments on each other's posts refused; `ensureDirect` refused and existing direct threads hidden from the list while the block stands; mentions do not notify; suggestions exclude both. Implemented once as `VisibilityService.hiddenAuthorIds(viewerId)` (blocked ∪ blockers ∪ muted for feeds) injected into the `where` of the list queries, cached per request.
-- Mute: one direction, hides the muted person's posts from my feed, explore, tag pages and search and suppresses their notifications to me; they can still see and interact with me.
+- Block effects (both directions, enforced in services, never the client): posts, reposts and comments hidden from each other's feed, profile posts, tag pages, search and activity; profile answers a reduced shape with `blocked: true` / `blockedMe: true` and no counts; follow rows removed on block and new follows refused (403 `BLOCKED`); comments on each other's posts refused; `ensureDirect` refused and existing direct threads hidden from the list while the block stands; mentions do not notify; suggestions exclude both. Implemented once as `VisibilityService.hiddenAuthorIds(viewerId)` (blocked ∪ blockers ∪ muted for feeds) injected into the `where` of the list queries, cached per request.
+- Mute: one direction, hides the muted person's posts from my feed, tag pages and search and suppresses their notifications to me; they can still see and interact with me.
 - Routes: `PUT/DELETE /users/:id/block`, `PUT/DELETE /users/:id/mute`, `GET /users/me/blocked`, `GET /users/me/muted`, `POST /reports` (one open report per reporter and target; 10/h).
 - Web: profile header menu (Block, Mute, Report), `PostMenu` and comment menu gain Report (dialog with reason + details) for non-authors; Settings → **Privacy** card lists blocked and muted people with Unblock/Unmute; blocked profile state page.
 
@@ -279,18 +279,17 @@ carol's phone viewport; axe on the open state (bubbles + one window) in both the
 - `@Roles('admin')` metadata + `RolesGuard` after the `AuthGuard`; the access token carries `role` next to `ev` (`AuthUser` gains `role`).
 - Routes under `/admin`: `GET /admin/reports?status=&cursor=` (with target excerpt and reporter), `POST /admin/reports/:id/resolve|dismiss`, `DELETE /admin/posts/:id`, `DELETE /admin/comments/:id` (reuse the services with an `asAdmin` flag so events and image discard run), `POST /admin/users/:id/suspend` / `unsuspend` (suspension deletes refresh tokens and disconnects sockets; login answers 403 `SUSPENDED`; the content stays but is hidden by `VisibilityService`). Every admin action writes an `admin_actions` audit row.
 - Web: `/admin` lazy route guarded by `role` (hidden from nav for members; direct visit → 404 page), a reports table with filters, target preview and the actions; `userPrivateSchema` gains `role`.
-- Tests: int for every visibility rule (feed, explore, profile, tags, search, comments, direct chat, suggestions), report limits, guard 403s, suspension end to end; web (menus, dialogs, Privacy card, admin page); e2e (bob blocks alice → alice sees the blocked profile and bob's posts vanish from her feed; a carol report shows up for an admin).
+- Tests: int for every visibility rule (feed, profile, tags, search, comments, direct chat, suggestions), report limits, guard 403s, suspension end to end; web (menus, dialogs, Privacy card, admin page); e2e (bob blocks alice → alice sees the blocked profile and bob's posts vanish from her feed; a carol report shows up for an admin).
 
 ---
 
 ## 4. Track C – gaps not written down before
 
-### C1. Newcomer experience · S–M
+### C1. Newcomer experience · removed 2026-10-20
 
-**Decision (owner): Explore shows all posts newest first, and the onboarding step is in.**
-
-- **Explore**: `GET /posts?scope=all` (everyone's posts and reposts, newest first; same `postSelect`), an `/explore` page and nav entry. Visibility filters from B5 apply automatically once they exist. A "Popular" tab (7-day likes) can be added later without a schema change.
-- **Empty feed state** pointing to Explore and People instead of the generic message; **after verification** a one-time "Follow a few people" step (suggestions list with Follow buttons, "Skip"), flagged per user in `localStorage` so it shows once per browser. No API change beyond `scope`.
+Dropped by the owner (reverses Q8 in §9). The explore feed, the empty-feed state and the one-time
+"follow people" step are parked in `BACKLOG.md` (Web). The slice id stays so the others keep
+their names.
 
 ### C2. Comment replies · M
 
@@ -315,7 +314,7 @@ a pointer. That is the Twitter model and keeps every existing list, cache and ma
 
 - Plain repost: a repost of a repost acts on the original; own posts cannot be reposted (400); one plain repost per member and post, toggling off removes it. Quotes are not toggles: a member can quote the same post more than once, and deletes a quote like any post.
 - Migration `reposts`: `reposts(id uuid7, user_id, post_id, created_at, unique (user_id, post_id), index (user_id, created_at desc, id desc))`; `posts.quoted_post_id uuid? (FK, onDelete SetNull)` and `posts.was_quote boolean default false` (so a quote whose original was deleted still renders "This post is unavailable"); `posts.repost_count` denormalised (plain reposts + quotes, as Twitter counts them; same approach as `reactions_count`). `postSchema` gains `repostCount`, `repostedByMe` (plain repost state) and `quotedPost: PostEmbed | null` where `PostEmbed = { id, author: UserSummary, content, imageUrl, createdAt } | { unavailable: true }`; `createPostSchema.quotedPostId?` (a quote always has text; without text the action is a plain repost, so the schema keeps `content` required). Embeds render one level deep: quoting a quote shows its text, not its own embed.
-- **Feed item shape**: the list item stays a `Post`, extended with `repost: { by: UserSummary, at: datetime } | null` (`feedItemSchema = postSchema.extend(...)`). The home feed and `/explore` become a union of originals (quotes included, they are posts) and plain reposts ordered by `sortAt = coalesce(repost.created_at, post.created_at)`; one row per post, the newest occurrence wins (grouped subquery on `post_id` taking `max(sortAt)` and the matching reposter), so the same post never appears twice on a page. Done with a raw id-selection query (`Prisma.sql`, `UNION ALL` + `DISTINCT ON`) that returns `(post_id, sort_at, repost_id?)` for the page, then hydrated with the normal `postSelect(viewerId)`, which now also selects the embed. Cursor = `(sortAt, postId)` through `encodeRankedCursor`-style packing. `GET /users/:id/posts` gains `?include=reposts` (default on) so a profile shows what the person reposted, with the "Reposted" header.
+- **Feed item shape**: the list item stays a `Post`, extended with `repost: { by: UserSummary, at: datetime } | null` (`feedItemSchema = postSchema.extend(...)`). The home feed becomes a union of originals (quotes included, they are posts) and plain reposts ordered by `sortAt = coalesce(repost.created_at, post.created_at)`; one row per post, the newest occurrence wins (grouped subquery on `post_id` taking `max(sortAt)` and the matching reposter), so the same post never appears twice on a page. Done with a raw id-selection query (`Prisma.sql`, `UNION ALL` + `DISTINCT ON`) that returns `(post_id, sort_at, repost_id?)` for the page, then hydrated with the normal `postSelect(viewerId)`, which now also selects the embed. Cursor = `(sortAt, postId)` through `encodeRankedCursor`-style packing. `GET /users/:id/posts` gains `?include=reposts` (default on) so a profile shows what the person reposted, with the "Reposted" header.
 - Events: `PostRepostedEvent` / `PostUnrepostedEvent` and `PostQuotedEvent` → activities `POST_REPOSTED` / `POST_QUOTED` ("bob reposted alice's post", needs the excerpt with author from the backlog) and notifications `POST_REPOSTED` / `POST_QUOTED` to the author (B4); unrepost and deleting a quote remove them.
 - Web: repost button on the card between like and comment (count, filled when `repostedByMe`); the popover with the optional text and the embedded card preview; plain repost optimistic via `withRepost`, a quote goes through the normal create-post path and is prepended to the feed; "🔁 Bob reposted" header line on feed items with `repost`, the reposter's name links to the profile; `QuotedPostCard` embed (author, text, picture, timestamp, links to `/p/:id`, "This post is unavailable" state). `post-cache.ts` helpers match items by `post.id`, so a like on a reposted item updates its original wherever shown; a like on a quote updates the quote only. Hashtags, search and bookmarks index originals and quotes; nothing indexes plain reposts. B5a hides embeds of blocked authors behind the unavailable state.
 - Seed: a few reposts and one quote between the fixed accounts. Tests: int (toggle, own-post refusal, quote creation with and without a valid original, feed union and dedupe, cursor stability when a repost is removed mid-page, profile include, counts, deleted-original embed, events), web (popover both outcomes, header line, embed states, optimistic rollback), e2e (bob reposts alice's post → it appears in carol's feed, who follows only bob; bob quotes it → the quote shows the embed).
@@ -370,9 +369,9 @@ B1 mentions ──► B4 notifications (UserMentionedEvent)
 B2 post page ──► B4 notifications (link targets), B5 reports (target preview), C2 replies (?comment=)
 B3a bubbles ──► B3b (preferences infra, Settings Chat card), B4 (socket subscription pattern), E2 (switch)
 B3b chat ──► B4 (useDocumentBadge)
-B5a block/mute ──► C1 explore filters (applied when B5a lands), C4 private accounts
+B5a block/mute ──► C4 private accounts
 B1 mentions, B2 permalink ──► C3b quotes (parsed text, embed links)
-C3b reposts ──► B4 (POST_REPOSTED, POST_QUOTED), C1 explore (union feed), B5a (hidden reposts and embeds)
+C3b reposts ──► B4 (POST_REPOSTED, POST_QUOTED), B5a (hidden reposts and embeds)
 C6 scheduler ──► B4 (pruning), D1 (token expiry), uploads reaper
 D2 dimensions ──► E1 srcset
 B4 notifications ──► E2 web push
@@ -402,7 +401,7 @@ A2, A3 ──► the opening; A4 ──► nothing
 | Q5 | Account deletion and other people's threads | Erase (cascade). |
 | Q6 | Chat system lines | Yes. |
 | Q7 | Admin bootstrap | `ADMIN_EMAILS` env variable. |
-| Q8 | Explore and onboarding | All posts newest first, and the one-time "follow people" step. |
+| Q8 | Explore and onboarding | All posts newest first, and the one-time "follow people" step. **Withdrawn 2026-10-20:** C1 removed from the plan, parked in `BACKLOG.md`. |
 | Q9 | Reposts | In scope (C3b), with an optional quote text. |
 | Q10 | Notifications before chat? | No, chat (B3a, B3b) first. |
 | Q11 | Versions | Minors v2.3 … v2.6. |

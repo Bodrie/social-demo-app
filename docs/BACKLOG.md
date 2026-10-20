@@ -25,6 +25,7 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 
 ## Web
 
+- Newcomer experience (was C1 of `IMPLEMENTATION_PLAN.md`, removed by the owner on 2026-10-20): an `/explore` feed of everyone's posts (`GET /posts?scope=all`, same `postSelect`; a "Popular" tab later), an empty-feed state pointing to People, and a one-time "Follow a few people" step after verification (flagged in `localStorage`). Trigger: real visitors arriving to an empty feed.
 - Posts: an image lightbox and the legacy double-tap-to-like gesture on touch devices.
 - Search (ADR 0014): results are newest first; relevance ranking (`ts_rank` with a ranked cursor), highlighting of matched words and a stemmed per-language column are the upgrades when the volume asks for them. People search stays `ILIKE`.
 - Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. `#` autocomplete in the composer and hashtags in comments were left out on purpose.
