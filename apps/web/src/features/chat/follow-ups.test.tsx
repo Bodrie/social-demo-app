@@ -320,6 +320,8 @@ describe('chat follow-ups', () => {
       clientY: 5,
     });
     const love = await screen.findByRole('button', { name: 'Love' });
+    // Someone else's message: reactions only, nothing to edit.
+    expect(screen.queryByRole('button', { name: 'Edit message' })).toBeNull();
     fireEvent.pointerUp(text);
     await user.click(love);
     expect(await within(log).findByRole('button', { name: 'Love 1' })).toHaveAttribute(
@@ -332,5 +334,32 @@ describe('chat follow-ups', () => {
         { userId: alice.id, type: 'LOVE' },
       ]),
     );
+  });
+
+  it('a held own message offers edit and delete under the reactions', async () => {
+    signedInAs(alice);
+    const withBob = seedDirect(alice.id, bob.id);
+    const mine = makeMessage(withBob.id, alice.id, 'Mine to edit');
+    mockDb.messages.push(mine);
+    seedReadMark(withBob.id, alice.id, mine.createdAt);
+    renderApp(`/messages/${withBob.id}`);
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    const text = await within(log).findByText('Mine to edit');
+
+    fireEvent.pointerDown(text, {
+      pointerType: 'touch',
+      isPrimary: true,
+      button: 0,
+      clientX: 5,
+      clientY: 5,
+    });
+    expect(await screen.findByRole('button', { name: 'Delete message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Love' })).toBeInTheDocument();
+    fireEvent.pointerUp(text);
+    await user.click(screen.getByRole('button', { name: 'Edit message' }));
+
+    expect(await within(log).findByRole('textbox', { name: 'Edit message' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Love' })).toBeNull();
   });
 });

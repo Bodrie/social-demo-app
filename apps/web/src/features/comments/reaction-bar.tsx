@@ -1,9 +1,17 @@
 import { REACTIONS, type ReactionSummary, type ReactionType } from '@beso/shared';
 import { cn } from 'cn';
 import { SmilePlusIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+/** An entry of the press-and-hold surface, under the emojis: what the hover menu offers on desktop. */
+export type PressAction = {
+  label: string;
+  icon?: ReactNode;
+  destructive?: boolean;
+  onSelect: () => void;
+};
 
 type PressProps = {
   /**
@@ -13,6 +21,11 @@ type PressProps = {
   pressedOn?: HTMLElement | null;
   /** The picker closed (a pick, Escape, a tap outside): the parent clears `pressedOn`. */
   onClose?: () => void;
+  /**
+   * Shown under the emojis when opened by a press. Touch screens have no hover toolbar and no
+   * menu button, so this is where edit, delete and report live there.
+   */
+  actions?: PressAction[];
 };
 
 type ReactionPickerProps = PressProps & {
@@ -23,7 +36,11 @@ type ReactionPickerProps = PressProps & {
   className?: string;
 };
 
-/** The "Add reaction" button with its popover of emojis; picking yours again removes it. */
+/**
+ * The "Add reaction" button with its popover of emojis; picking yours again removes it. The
+ * button exists for fine pointers only (callers reveal it on hover); on a touch screen the
+ * popover opens over the pressed element instead, with the `actions` under the emojis.
+ */
 export function ReactionPicker({
   mine,
   onReact,
@@ -32,6 +49,7 @@ export function ReactionPicker({
   className,
   pressedOn = null,
   onClose,
+  actions,
 }: ReactionPickerProps) {
   const [open, setOpen] = useState(false);
   const anchor = useMemo(() => (pressedOn ? { current: pressedOn } : null), [pressedOn]);
@@ -48,7 +66,10 @@ export function ReactionPicker({
           variant="ghost"
           size="icon-xs"
           aria-label="Add reaction"
-          className={cn('text-muted-foreground hover:text-foreground rounded-full', className)}
+          className={cn(
+            'text-muted-foreground hover:text-foreground pointer-coarse:hidden rounded-full',
+            className,
+          )}
           disabled={disabled}
         >
           <SmilePlusIcon />
@@ -57,7 +78,11 @@ export function ReactionPicker({
       <PopoverContent
         align={anchor ? 'center' : align}
         side={anchor ? 'top' : 'bottom'}
+        collisionPadding={8}
         className="w-auto p-1"
+        // Opened by a finger: focus wandering (a browser replaying the release as mouse
+        // events) must not close it; a tap outside or Escape still does.
+        onFocusOutside={anchor ? (event) => event.preventDefault() : undefined}
       >
         <fieldset className="flex gap-0.5">
           <legend className="sr-only">Pick a reaction</legend>
@@ -80,6 +105,27 @@ export function ReactionPicker({
             </button>
           ))}
         </fieldset>
+        {anchor && actions && actions.length > 0 ? (
+          <div className="mt-1 flex flex-col border-t pt-1">
+            {actions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className={cn(
+                  'hover:bg-muted flex items-center gap-2 rounded-md px-2 py-2 text-sm [&_svg]:size-4',
+                  action.destructive && 'text-destructive',
+                )}
+                onClick={() => {
+                  change(false);
+                  action.onSelect();
+                }}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
@@ -92,6 +138,8 @@ type ReactionBarProps = PressProps & {
   /** Without the picker: pills only (chat puts the picker next to the bubble instead). */
   picker?: boolean;
   className?: string;
+  /** For the picker's button (hover reveal on fine pointers; it is gone on coarse ones). */
+  pickerClassName?: string;
 };
 
 /** Pills for the reactions a comment or message has, plus a picker for adding or changing yours. */
@@ -101,8 +149,10 @@ export function ReactionBar({
   disabled,
   picker = true,
   className,
+  pickerClassName,
   pressedOn,
   onClose,
+  actions,
 }: ReactionBarProps) {
   const present = REACTIONS.filter((reaction) => summary.counts[reaction.type] > 0);
 
@@ -134,8 +184,10 @@ export function ReactionBar({
           mine={summary.mine}
           onReact={onReact}
           disabled={disabled}
+          className={pickerClassName}
           pressedOn={pressedOn}
           onClose={onClose}
+          actions={actions}
         />
       ) : null}
     </div>

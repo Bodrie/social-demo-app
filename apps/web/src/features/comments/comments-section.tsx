@@ -504,6 +504,14 @@ type CommentItemProps = {
   children?: ReactNode;
 };
 
+/**
+ * The comment's own controls (menu, reaction picker): on fine pointers they appear while the
+ * comment is hovered, holds keyboard focus or has a menu open; touch screens have none and
+ * use the press-and-hold instead (`pointer-coarse:hidden` sits on the controls themselves).
+ */
+const REVEAL_ON_HOVER =
+  'pointer-coarse:hidden opacity-0 group-hover/comment:opacity-100 group-has-[:focus-visible]/comment:opacity-100 data-[state=open]:opacity-100';
+
 function CommentItem({
   comment,
   compact = false,
@@ -550,112 +558,135 @@ function CommentItem({
         <UserAvatar user={comment.author} className={compact ? 'size-6' : 'size-8'} />
       </Link>
       <div className="min-w-0 flex-1 space-y-1.5">
-        <LongPressArea
-          onLongPress={setPressedOn}
-          className={cn(
-            'bg-muted rounded-lg px-3 py-2',
-            highlighted && 'ring-primary/50 ring-2 ring-offset-2 ring-offset-card',
-          )}
-        >
-          <div className="flex items-baseline gap-2">
-            <Link to={profile} className="truncate text-sm font-semibold hover:underline">
-              {comment.author.name}
-            </Link>
-            <span className="text-muted-foreground shrink-0 text-xs">
-              <time dateTime={comment.createdAt} title={formatDateTime(comment.createdAt)}>
-                {formatRelativeTime(comment.createdAt)}
-                <span className="sr-only"> ({formatDateTime(comment.createdAt)})</span>
-              </time>
-              {comment.editedAt ? (
-                <>
-                  {' · '}
-                  <EditedMarker
-                    editedAt={comment.editedAt}
-                    queryKey={queryKeys.revisions.comment(comment.id)}
-                    fetchRevisions={(options) => fetchCommentRevisions(comment.id, options)}
-                  />
-                </>
-              ) : null}
-            </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  ref={optionsRef}
-                  variant="ghost"
-                  size="icon-xs"
-                  className="text-muted-foreground -mr-1 ml-auto"
-                  aria-label="Comment options"
-                >
-                  <MoreHorizontalIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isAuthor ? (
-                  <DropdownMenuItem onSelect={onEdit}>
-                    <PencilIcon /> Edit comment
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem onSelect={() => setReporting(true)}>
-                    <FlagIcon /> Report comment
-                  </DropdownMenuItem>
-                )}
-                {canDelete ? (
-                  <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-                    <Trash2Icon /> Delete comment
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {reporting ? (
-              <Suspense fallback={null}>
-                <ReportDialog
-                  target={{ type: 'comment', id: comment.id }}
-                  open={reporting}
-                  onOpenChange={setReporting}
-                  returnFocusTo={() => optionsRef.current?.focus()}
-                />
-              </Suspense>
-            ) : null}
-          </div>
-          {editing ? (
-            <div className="pt-1">
-              <InlineEditor
-                initial={comment.content}
-                maxLength={COMMENT_MAX_LENGTH}
-                label="Edit comment"
-                pending={saving}
-                submitOnEnter
-                onSave={onSaveEdit}
-                onCancel={onCancelEdit}
-              />
-            </div>
-          ) : (
-            <RichText
-              text={comment.content}
-              mentions={comment.mentions}
-              hashtags
-              className="text-sm break-words whitespace-pre-wrap"
-            />
-          )}
-        </LongPressArea>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <ReactionBar
-            summary={comment.reactions}
-            onReact={onReact}
-            pressedOn={pressedOn}
-            onClose={() => setPressedOn(null)}
-          />
-          <Button
-            ref={replyButtonRef}
-            type="button"
-            variant="link"
-            size="sm"
-            className="h-auto p-0 text-xs"
-            onClick={onReply}
+        {/* The group ends before the replies, so hovering one does not reveal this comment's controls. */}
+        <div className="group/comment space-y-1.5">
+          <LongPressArea
+            onLongPress={setPressedOn}
+            className={cn(
+              'bg-muted rounded-lg px-3 py-2',
+              highlighted && 'ring-primary/50 ring-2 ring-offset-2 ring-offset-card',
+            )}
           >
-            Reply
-          </Button>
-          {footer}
+            <div className="flex items-baseline gap-2">
+              <Link to={profile} className="truncate text-sm font-semibold hover:underline">
+                {comment.author.name}
+              </Link>
+              <span className="text-muted-foreground shrink-0 text-xs">
+                <time dateTime={comment.createdAt} title={formatDateTime(comment.createdAt)}>
+                  {formatRelativeTime(comment.createdAt)}
+                  <span className="sr-only"> ({formatDateTime(comment.createdAt)})</span>
+                </time>
+                {comment.editedAt ? (
+                  <>
+                    {' · '}
+                    <EditedMarker
+                      editedAt={comment.editedAt}
+                      queryKey={queryKeys.revisions.comment(comment.id)}
+                      fetchRevisions={(options) => fetchCommentRevisions(comment.id, options)}
+                    />
+                  </>
+                ) : null}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    ref={optionsRef}
+                    variant="ghost"
+                    size="icon-xs"
+                    className={cn('text-muted-foreground -mr-1 ml-auto', REVEAL_ON_HOVER)}
+                    aria-label="Comment options"
+                  >
+                    <MoreHorizontalIcon />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {isAuthor ? (
+                    <DropdownMenuItem onSelect={onEdit}>
+                      <PencilIcon /> Edit comment
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onSelect={() => setReporting(true)}>
+                      <FlagIcon /> Report comment
+                    </DropdownMenuItem>
+                  )}
+                  {canDelete ? (
+                    <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                      <Trash2Icon /> Delete comment
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {reporting ? (
+                <Suspense fallback={null}>
+                  <ReportDialog
+                    target={{ type: 'comment', id: comment.id }}
+                    open={reporting}
+                    onOpenChange={setReporting}
+                    returnFocusTo={() => optionsRef.current?.focus()}
+                  />
+                </Suspense>
+              ) : null}
+            </div>
+            {editing ? (
+              <div className="pt-1">
+                <InlineEditor
+                  initial={comment.content}
+                  maxLength={COMMENT_MAX_LENGTH}
+                  label="Edit comment"
+                  pending={saving}
+                  submitOnEnter
+                  onSave={onSaveEdit}
+                  onCancel={onCancelEdit}
+                />
+              </div>
+            ) : (
+              <RichText
+                text={comment.content}
+                mentions={comment.mentions}
+                hashtags
+                className="text-sm break-words whitespace-pre-wrap"
+              />
+            )}
+          </LongPressArea>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <ReactionBar
+              summary={comment.reactions}
+              onReact={onReact}
+              pickerClassName={REVEAL_ON_HOVER}
+              pressedOn={pressedOn}
+              onClose={() => setPressedOn(null)}
+              actions={[
+                isAuthor
+                  ? { label: 'Edit comment', icon: <PencilIcon />, onSelect: onEdit }
+                  : {
+                      label: 'Report comment',
+                      icon: <FlagIcon />,
+                      onSelect: () => setReporting(true),
+                    },
+                ...(canDelete
+                  ? [
+                      {
+                        label: 'Delete comment',
+                        icon: <Trash2Icon />,
+                        destructive: true,
+                        onSelect: onDelete,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+            <Button
+              ref={replyButtonRef}
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
+              onClick={onReply}
+            >
+              Reply
+            </Button>
+            {footer}
+          </div>
         </div>
         {children}
       </div>

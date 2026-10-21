@@ -28,9 +28,32 @@ describe('ImageProcessor', () => {
     expect([small.width, small.height]).toEqual([800, 600]);
   });
 
-  it('crops covers to the banner ratio', async () => {
+  it('crops covers to the 3:1 banner the profile shows', async () => {
     const cover = await processor.process(await image(800, 800), 'cover');
-    expect([cover.width, cover.height]).toEqual([1600, 600]);
+    expect([cover.width, cover.height]).toEqual([1800, 600]);
+  });
+
+  it('only resizes a cover the cropper already framed at 3:1', async () => {
+    const framed = await sharp({
+      create: { width: 1200, height: 400, channels: 3, background: '#336699' },
+    })
+      .composite([
+        // A bright band at the very top: an `attention` crop of a taller frame would centre on it.
+        {
+          input: { create: { width: 1200, height: 40, channels: 3, background: '#ffffff' } },
+          top: 0,
+          left: 0,
+        },
+      ])
+      .png()
+      .toBuffer();
+    const cover = await processor.process(framed, 'cover');
+    const { data } = await sharp(cover.data).raw().toBuffer({ resolveWithObject: true });
+
+    expect([cover.width, cover.height]).toEqual([1800, 600]);
+    // The band is still at the top (first row white) and the bottom row is still blue.
+    expect(data[0]).toBeGreaterThan(240);
+    expect(data[(600 - 1) * 1800 * 3]).toBeLessThan(100);
   });
 
   it('strips metadata', async () => {

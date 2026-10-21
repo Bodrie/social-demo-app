@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { UploadKind } from '@beso/shared';
+import { PROFILE_PICTURE_SIZES, type UploadKind } from '@beso/shared';
 import sharp from 'sharp';
 import { badRequest, unsupportedMedia } from '../common/errors.js';
 import type { Env } from '../config/env.js';
@@ -10,9 +10,13 @@ export const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp', 'gif', 'avif']);
 
 type Preset = { width: number; height?: number; fit: 'cover' | 'inside'; quality: number };
 
+/**
+ * Avatars and covers come out at the shared frame sizes (the web cropper sends them at that
+ * ratio already, so the `attention` crop below only acts on files uploaded uncropped).
+ */
 export const PRESETS: Record<UploadKind, Preset> = {
-  avatar: { width: 512, height: 512, fit: 'cover', quality: 80 },
-  cover: { width: 1600, height: 600, fit: 'cover', quality: 80 },
+  avatar: { ...PROFILE_PICTURE_SIZES.avatar, fit: 'cover', quality: 80 },
+  cover: { ...PROFILE_PICTURE_SIZES.cover, fit: 'cover', quality: 80 },
   post: { width: 1920, height: 1920, fit: 'inside', quality: 82 },
   message: { width: 1600, height: 1600, fit: 'inside', quality: 82 },
 };

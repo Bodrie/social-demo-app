@@ -79,4 +79,67 @@ test.describe('on a phone', () => {
     await expect(bubble).toBeVisible();
     await carol.context().close();
   });
+
+  test.describe('with a touch screen', () => {
+    test.use({ hasTouch: true });
+
+    test('messages carry no icons; a press-and-hold offers reactions and options', async ({
+      page,
+    }) => {
+      await openHome(page);
+      await page.goto('/messages/with/carol');
+      const log = page.getByRole('log', { name: `Conversation with ${USERS.carol.name}` });
+      await expect(log).toBeVisible();
+      const text = `Held on a phone ${Date.now()}`;
+      await page.getByRole('textbox', { name: `Message ${USERS.carol.name}` }).fill(text);
+      await page.keyboard.press('Enter');
+      const bubble = log.getByText(text);
+      await expect(bubble).toBeVisible();
+      // A coarse pointer: no per-message toolbar at all.
+      await expect(page.getByRole('button', { name: 'Add reaction' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Message options' })).toHaveCount(0);
+
+      // A real touch held on the bubble (Playwright has no long press; CDP sends the touch).
+      const box = await bubble.boundingBox();
+      if (!box) throw new Error('The bubble has no box');
+      const cdp = await page.context().newCDPSession(page);
+      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+      await expect(page.getByRole('button', { name: 'Love' })).toBeVisible();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await expect(page.getByRole('button', { name: 'Love' })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit message' }).tap();
+      await expect(log.getByRole('textbox', { name: 'Edit message' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Love' })).toBeHidden();
+    });
+
+    test('a comment held with a finger offers reactions and its options', async ({ page }) => {
+      await openHome(page);
+      const article = page
+        .getByRole('article')
+        .filter({ has: page.getByRole('button', { name: /^Comments [1-9]/ }) })
+        .first();
+      await article.getByRole('button', { name: /^Comments \d+/ }).click();
+      const comments = page.getByRole('region', { name: 'Comments' });
+      // The author's name (the avatar link is aria-hidden): a held link must not open either.
+      const bubble = comments.getByRole('listitem').first().getByRole('link').first();
+      await expect(bubble).toBeVisible();
+      await expect(comments.getByRole('button', { name: 'Add reaction' })).toHaveCount(0);
+      await expect(comments.getByRole('button', { name: 'Comment options' })).toHaveCount(0);
+
+      const box = await bubble.boundingBox();
+      if (!box) throw new Error('The comment has no box');
+      const cdp = await page.context().newCDPSession(page);
+      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+      await expect(page.getByRole('button', { name: 'Love' })).toBeVisible();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await expect(page.getByRole('button', { name: 'Love' })).toBeVisible();
+      await expect(page.getByRole('button', { name: /^(Report|Edit) comment$/ })).toBeVisible();
+      // The held author link did not open.
+      await expect(page).toHaveURL(/\/$/);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('button', { name: 'Love' })).toBeHidden();
+    });
+  });
 });

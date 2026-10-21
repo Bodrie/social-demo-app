@@ -348,6 +348,7 @@ export const postHandlers = [
       return apiError(400, 'VALIDATION_ERROR', 'Validation failed', { file: 'A file is required' });
     }
     mockDb.uploads += 1;
+    mockDb.lastUpload = { name: file.name, type: file.type, size: file.size };
     const key = `${kind}/${testId('post', 900 + mockDb.uploads).replace('01a13f00', '0f0f0f0f')}.webp`;
     return HttpResponse.json(
       {
