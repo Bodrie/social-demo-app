@@ -116,13 +116,20 @@ test.describe('chat', () => {
     // Send waits for the upload to finish (the button is disabled until then).
     await page.getByRole('button', { name: 'Send' }).click();
     const sent = aliceLog.getByRole('listitem').filter({ hasText: caption });
-    await expect(sent.getByRole('img', { name: 'Sent by you' })).toBeVisible();
+    await expect(sent.getByRole('button', { name: 'Open picture sent by you' })).toBeVisible();
     await expect(page.getByRole('img', { name: 'Attachment preview' })).toHaveCount(0);
 
     // Bob gets the picture pushed into his open thread.
     const bobLog = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
     const received = bobLog.getByRole('listitem').filter({ hasText: caption });
-    await expect(received.getByRole('img', { name: 'Sent by Alice Anderson' })).toBeVisible();
+    const picture = received.getByRole('button', { name: 'Open picture sent by Alice Anderson' });
+    await expect(picture).toBeVisible();
+    // A press opens it in the viewer, over the thread.
+    await picture.click();
+    const viewer = bob.getByRole('dialog', { name: 'Picture sent by Alice Anderson' });
+    await expect(viewer.getByRole('img', { name: 'Sent by Alice Anderson' })).toBeVisible();
+    await bob.keyboard.press('Escape');
+    await expect(viewer).toBeHidden();
     await bob.context().close();
   });
 

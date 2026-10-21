@@ -4,7 +4,7 @@ import { apiErrorSchema } from './errors.js';
 import { uuidSchema } from './common.js';
 import type { Notification } from './notifications.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
-import { messageImageKeySchema } from './uploads.js';
+import { messageImageKeySchema, storedImageSchema } from './uploads.js';
 import { userSummarySchema } from './users.js';
 
 export const MESSAGE_MAX_LENGTH = 2000;
@@ -65,6 +65,8 @@ export const messageSchema = z.object({
   kind: messageKindSchema,
   /** Empty when the message is a picture only, a system line or deleted. */
   content: z.string(),
+  image: storedImageSchema.nullable(),
+  /** @deprecated `image.url`, kept for tabs opened before D2 (they parse the old shape). */
   imageUrl: z.url().nullable(),
   /** Null until the sender edited the text; the previous texts are its revisions. */
   editedAt: z.iso.datetime().nullable(),

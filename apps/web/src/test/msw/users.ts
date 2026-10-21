@@ -40,7 +40,7 @@ export const userHandlers = [
         .map((post) => ({
           id: post.id,
           content: post.content,
-          imageUrl: post.imageUrl,
+          imageUrls: post.images.map((image) => image.url),
           hashtags: post.hashtags,
           createdAt: post.createdAt,
           editedAt: post.editedAt,

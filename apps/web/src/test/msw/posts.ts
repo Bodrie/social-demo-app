@@ -40,6 +40,7 @@ import { mockDb, paginate, reactionsFor } from './db';
 const notFound = (what: string) => apiError(404, 'NOT_FOUND', `${what} not found`);
 const forbidden = (message: string) => apiError(403, 'FORBIDDEN', message);
 const noContent = () => new HttpResponse(null, { status: 204 });
+const storedUrl = (key: string) => `http://localhost/api/v1/uploads/${key}`;
 const param = (value: string | readonly string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? '';
 
@@ -154,9 +155,13 @@ export const postHandlers = [
       return apiError(400, 'BAD_REQUEST', 'Unknown post', { quotedPostId: 'Unknown post' });
     }
     if (original) original.repostCount += 1;
+    const keys = body.imageKeys ?? (body.imageKey ? [body.imageKey] : []);
+    // The fake uploads are all 64×64 (the upload handler below says so).
+    const images = keys.map((key) => ({ url: storedUrl(key), width: 64, height: 64 }));
     const post = makePost({
       content: body.content,
-      imageUrl: body.imageKey ? `http://localhost/api/v1/uploads/${body.imageKey}` : null,
+      images,
+      imageUrl: images[0]?.url ?? null,
       author: summaryOf(mockDb.user),
       createdAt: new Date().toISOString(),
       quotedPost: original
@@ -164,6 +169,7 @@ export const postHandlers = [
             id: original.id,
             author: original.author,
             content: original.content,
+            images: original.images,
             imageUrl: original.imageUrl,
             createdAt: original.createdAt,
           }
@@ -350,10 +356,11 @@ export const postHandlers = [
     mockDb.uploads += 1;
     mockDb.lastUpload = { name: file.name, type: file.type, size: file.size };
     const key = `${kind}/${testId('post', 900 + mockDb.uploads).replace('01a13f00', '0f0f0f0f')}.webp`;
+    mockDb.uploadedNames.set(storedUrl(key), file.name);
     return HttpResponse.json(
       {
         key,
-        url: `http://localhost/api/v1/uploads/${key}`,
+        url: storedUrl(key),
         width: 64,
         height: 64,
         bytes: file.size,

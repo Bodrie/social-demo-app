@@ -4,7 +4,12 @@ import { type PostRow, toPost } from './posts.mapper.js';
 const row: PostRow = {
   id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
   content: 'hello',
-  imageKey: 'post/01a13ed6-d3ec-71cb-b39f-fbc256a293b1.webp',
+  images: [
+    { upload: { key: 'post/01a13ed6-d3ec-71cb-b39f-fbc256a293b1.webp', width: 1200, height: 800 } },
+    {
+      upload: { key: 'post/01a13ed6-d3ec-71cb-b39f-fbc256a293b3.webp', width: null, height: null },
+    },
+  ],
   editedAt: null,
   createdAt: new Date('2026-10-15T10:00:00.000Z'),
   updatedAt: new Date('2026-10-15T10:05:00.000Z'),
@@ -44,6 +49,19 @@ describe('toPost', () => {
       commentCount: 2,
       likedByMe: true,
       editedAt: null,
+      images: [
+        {
+          url: 'http://assets.local/post/01a13ed6-d3ec-71cb-b39f-fbc256a293b1.webp',
+          width: 1200,
+          height: 800,
+        },
+        {
+          url: 'http://assets.local/post/01a13ed6-d3ec-71cb-b39f-fbc256a293b3.webp',
+          width: null,
+          height: null,
+        },
+      ],
+      // The first picture, for tabs opened before D2.
       imageUrl: 'http://assets.local/post/01a13ed6-d3ec-71cb-b39f-fbc256a293b1.webp',
       author: { username: 'alice', avatarUrl: null },
       mentions: [
@@ -54,6 +72,13 @@ describe('toPost', () => {
       ],
       hashtags: ['hello'],
       createdAt: '2026-10-15T10:00:00.000Z',
+    });
+  });
+
+  it('has no pictures and no legacy URL for a text-only post', () => {
+    expect(toPost({ ...row, images: [] }, 'http://assets.local')).toMatchObject({
+      images: [],
+      imageUrl: null,
     });
   });
 

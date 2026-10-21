@@ -22,6 +22,7 @@ export const TABLES = [
   'post_likes',
   'post_mentions',
   'post_hashtags',
+  'post_images',
   'posts',
   'uploads',
   'users',

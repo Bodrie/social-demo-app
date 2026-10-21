@@ -61,6 +61,8 @@ export const mockDb = {
   uploads: 0,
   /** The last file the fake API received, for asserting what left the browser. */
   lastUpload: null as { name: string; type: string; size: number } | null,
+  /** Which file became which key (uploads run in parallel, so their order is not the keys'). */
+  uploadedNames: new Map<string, string>(),
   /** Links the fake API "mailed"; tests read the token here instead of an inbox. */
   emailTokens: [] as { token: string; kind: 'verify' | 'reset' | 'change'; email: string }[],
   /** The signed-in user's devices, as GET /auth/sessions lists them. */
@@ -104,6 +106,7 @@ export function resetMockDb(): void {
   mockDb.messageRevisions = new Map();
   mockDb.uploads = 0;
   mockDb.lastUpload = null;
+  mockDb.uploadedNames = new Map();
   mockDb.emailTokens = [];
   mockDb.sessions = [];
   mockDb.lastRegistration = null;

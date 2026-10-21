@@ -101,6 +101,7 @@ describe('ChatGateway', () => {
       senderId: alice.id,
       kind: 'user' as const,
       content: 'fixed',
+      image: null,
       imageUrl: null,
       editedAt: '2026-10-20T10:01:00.000Z',
       deletedAt: null,

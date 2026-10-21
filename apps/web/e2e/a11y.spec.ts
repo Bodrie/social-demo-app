@@ -69,6 +69,27 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/ (dark)');
   });
 
+  test('a post with three pictures and the picture viewer, light and dark', async ({ page }) => {
+    // The seed gives Bob's #photography post three pictures.
+    await openHome(page);
+    await page.goto('/tags/photography');
+    const post = page.getByRole('article').filter({ hasText: 'New #photography set' }).first();
+    await expect(post.getByRole('button', { name: 'Open picture 3 of 3' })).toBeVisible();
+    await audit(page, '/tags/photography');
+    const viewer = page.getByRole('dialog', { name: 'Pictures posted by Bob Brown' });
+    const auditViewer = async (theme: string) => {
+      await post.getByRole('button', { name: 'Open picture 2 of 3' }).click();
+      await expect(viewer.getByRole('img', { name: 'Posted by Bob Brown, 2 of 3' })).toBeVisible();
+      await audit(page, `picture viewer (${theme})`);
+      await page.keyboard.press('Escape');
+      await expect(viewer).toBeHidden();
+    };
+    await auditViewer('light');
+    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await auditViewer('dark');
+  });
+
   test('a thread of replies with its composer open', async ({ page }) => {
     await openHome(page);
     const text = `Thread audit ${Date.now()}`;

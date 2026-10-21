@@ -28,17 +28,17 @@ async function agentFor(t: TestApp, user: CreatedUser): Promise<TestAgent> {
   return agent;
 }
 
-async function createPost(agent: TestAgent, content: string, imageKey?: string) {
-  const response = await agent.post('/api/v1/posts').send({ content, imageKey }).expect(201);
+async function createPost(agent: TestAgent, content: string, imageKeys?: string[]) {
+  const response = await agent.post('/api/v1/posts').send({ content, imageKeys }).expect(201);
   return postSchema.parse(response.body);
 }
 
-async function uploadPicture(agent: TestAgent): Promise<string> {
+async function uploadPicture(agent: TestAgent, kind = 'post'): Promise<string> {
   const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#333' } })
     .png()
     .toBuffer();
   const response = await agent
-    .post('/api/v1/uploads?kind=post')
+    .post(`/api/v1/uploads?kind=${kind}`)
     .attach('file', image, 'pic.png')
     .expect(201);
   return uploadResponseSchema.parse(response.body).key;
@@ -110,7 +110,8 @@ describe('DELETE /users/me', () => {
 
     // My content and traces on other people's content.
     const key = await uploadPicture(agent);
-    const myPost = await createPost(agent, 'Mine, with a picture', key);
+    const second = await uploadPicture(agent);
+    const myPost = await createPost(agent, 'Mine, with two pictures', [key, second]);
     const theirPost = await createPost(friendAgent, 'Theirs');
     await agent.post(`/api/v1/posts/${theirPost.id}/comments`).send({ content: 'me' }).expect(201);
     await agent.put(`/api/v1/posts/${theirPost.id}/like`).expect(204);
@@ -141,6 +142,11 @@ describe('DELETE /users/me', () => {
           .expect(201)
       ).body,
     );
+    const sent = await uploadPicture(agent, 'message');
+    await agent
+      .post(`/api/v1/conversations/${group.id}/messages`)
+      .send({ content: 'with a picture', imageKey: sent })
+      .expect(201);
     await agent.post(`/api/v1/conversations/${group.id}/messages`).send({ content: 'newest' });
     const solo = conversationSchema.parse(
       (
@@ -211,7 +217,9 @@ describe('DELETE /users/me', () => {
 
     // Files and the last mail.
     expect(await t.prisma.upload.count({ where: { ownerId: me.id } })).toBe(0);
-    expect(existsSync(path.join(process.env.UPLOADS_DIR ?? '', key))).toBe(false);
+    for (const file of [key, second, sent]) {
+      expect(existsSync(path.join(process.env.UPLOADS_DIR ?? '', file))).toBe(false);
+    }
     const mail = await waitForEmail(me.email, /account was deleted/);
     expect(mail.text).toContain(me.name);
 
@@ -260,7 +268,7 @@ describe('GET /users/me/export', () => {
     const friendAgent = await agentFor(t, friend);
 
     const key = await uploadPicture(agent);
-    const post = await createPost(agent, 'Exported #keep', key);
+    const post = await createPost(agent, 'Exported #keep', [key]);
     await agent.patch(`/api/v1/posts/${post.id}`).send({ content: 'Exported #keep, edited' });
     const theirPost = await createPost(friendAgent, 'Theirs');
     await agent.post(`/api/v1/posts/${theirPost.id}/comments`).send({ content: 'hello' });
@@ -289,7 +297,7 @@ describe('GET /users/me/export', () => {
       hashtags: ['keep'],
       revisions: [{ content: 'Exported #keep' }],
     });
-    expect(data.posts[0]?.imageUrl).toContain(key);
+    expect(data.posts[0]?.imageUrls).toEqual([expect.stringContaining(key)]);
     expect(data.comments.map((comment) => comment.content)).toEqual(['hello']);
     expect(data.likes.map((like) => like.postId)).toEqual([theirPost.id]);
     expect(data.bookmarks.map((bookmark) => bookmark.postId)).toEqual([theirPost.id]);

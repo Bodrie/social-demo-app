@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { uploadResponseSchema } from '@beso/shared';
@@ -63,7 +63,7 @@ describe('daily jobs', () => {
     const orphan = await uploadPicture(agent);
     const attached = await uploadPicture(agent);
     const fresh = await uploadPicture(agent);
-    await agent.post('/api/v1/posts').send({ content: 'with a picture', imageKey: attached });
+    await agent.post('/api/v1/posts').send({ content: 'with a picture', imageKeys: [attached] });
     await t.prisma.upload.updateMany({
       where: { key: { in: [orphan, attached] } },
       data: { createdAt: ago(25 * HOUR) },
@@ -76,6 +76,27 @@ describe('daily jobs', () => {
     expect(existsSync(fileOf(orphan))).toBe(false);
     expect(existsSync(fileOf(attached))).toBe(true);
     expect(existsSync(fileOf(fresh))).toBe(true);
+  });
+
+  it('records the size of uploads stored before sizes were kept, and goes on past a missing file', async () => {
+    const agent = await agentFor(t, await createUser(t.prisma));
+    const older = await uploadPicture(agent);
+    const missing = await uploadPicture(agent);
+    await t.prisma.upload.updateMany({
+      where: { key: { in: [older, missing] } },
+      data: { width: null, height: null, bytes: null },
+    });
+    rmSync(fileOf(missing));
+
+    await jobs.runDaily(now);
+
+    const rows = await t.prisma.upload.findMany({
+      where: { key: { in: [older, missing] } },
+      select: { key: true, width: true, height: true, bytes: true },
+    });
+    expect(rows.find((row) => row.key === older)).toMatchObject({ width: 64, height: 64 });
+    expect(rows.find((row) => row.key === older)?.bytes).toBeGreaterThan(0);
+    expect(rows.find((row) => row.key === missing)).toMatchObject({ width: null, bytes: null });
   });
 
   it('drops expired tokens and keeps the live and the rotated ones', async () => {

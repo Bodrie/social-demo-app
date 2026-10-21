@@ -160,7 +160,7 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
                 )}
               >
                 <span className="shrink-0">{senderPrefix}</span>
-                {lastMessage.imageUrl ? (
+                {lastMessage.image ? (
                   <ImageIcon className="size-3.5 shrink-0" aria-hidden="true" />
                 ) : null}
                 <span className={cn('truncate', lastMessage.deletedAt && 'italic')}>

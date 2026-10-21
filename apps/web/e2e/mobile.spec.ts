@@ -95,6 +95,8 @@ test.describe('on a phone', () => {
       await page.keyboard.press('Enter');
       const bubble = log.getByText(text);
       await expect(bubble).toBeVisible();
+      // Measure the confirmed bubble: the optimistic one is swapped for it when the ack lands.
+      await expect(log.getByText('Sending…')).toHaveCount(0);
       // A coarse pointer: no per-message toolbar at all.
       await expect(page.getByRole('button', { name: 'Add reaction' })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Message options' })).toHaveCount(0);
@@ -127,6 +129,8 @@ test.describe('on a phone', () => {
       await expect(comments.getByRole('button', { name: 'Add reaction' })).toHaveCount(0);
       await expect(comments.getByRole('button', { name: 'Comment options' })).toHaveCount(0);
 
+      // The touch lands where the box is on screen, so the comment must be on screen first.
+      await bubble.scrollIntoViewIfNeeded();
       const box = await bubble.boundingBox();
       if (!box) throw new Error('The comment has no box');
       const cdp = await page.context().newCDPSession(page);

@@ -53,6 +53,7 @@ export class JobsService {
         name: 'orphaned uploads',
         run: (now) => uploads.deleteOrphans(before(now, ORPHAN_UPLOAD_GRACE_MS)),
       },
+      { name: 'upload sizes', run: () => uploads.fillSizes() },
       {
         name: 'old notifications',
         run: (now) =>

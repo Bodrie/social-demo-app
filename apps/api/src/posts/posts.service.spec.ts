@@ -33,16 +33,16 @@ describe('PostsService', () => {
 
   describe('delete', () => {
     it('refuses to delete somebody else’s post', async () => {
-      prisma.post.findUnique.mockResolvedValue({ authorId: 'owner', imageKey: null } as never);
+      prisma.post.findUnique.mockResolvedValue({ authorId: 'owner', images: [] } as never);
 
       await expect(service.delete('intruder', 'post-1')).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.post.delete).not.toHaveBeenCalled();
     });
 
-    it('deletes the own post and discards its image', async () => {
+    it('deletes the own post and discards its pictures', async () => {
       prisma.post.findUnique.mockResolvedValue({
         authorId: 'owner',
-        imageKey: 'post/x.webp',
+        images: [{ key: 'post/x.webp' }, { key: 'post/y.webp' }],
       } as never);
       prisma.post.delete.mockResolvedValue({} as never);
 
@@ -50,6 +50,7 @@ describe('PostsService', () => {
 
       expect(prisma.post.delete).toHaveBeenCalledWith({ where: { id: 'post-1' } });
       expect(uploads.discard).toHaveBeenCalledWith('post/x.webp');
+      expect(uploads.discard).toHaveBeenCalledWith('post/y.webp');
     });
 
     it('404s on unknown posts', async () => {

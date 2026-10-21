@@ -1,10 +1,15 @@
 import { z } from 'zod';
 import { uuidSchema } from './common.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
-import { postImageKeySchema } from './uploads.js';
+import { postImageKeySchema, storedImageSchema } from './uploads.js';
 import { userSummarySchema } from './users.js';
 
 export const POST_MAX_LENGTH = 500;
+/** Pictures per post (D2), shown as a grid on the card. */
+export const POST_MAX_IMAGES = 4;
+
+/** Kept next to `images` for tabs opened before D2 (they parse the old shape); drop it later. */
+const legacyImageUrlSchema = z.string().nullable();
 
 /**
  * The original inside a quote post, one level deep (quoting a quote shows its text, not its
@@ -16,7 +21,9 @@ export const postEmbedSchema = z.union([
     id: z.uuid(),
     author: userSummarySchema,
     content: z.string(),
-    imageUrl: z.string().nullable(),
+    images: z.array(storedImageSchema),
+    /** @deprecated The first of `images`. */
+    imageUrl: legacyImageUrlSchema,
     createdAt: z.iso.datetime(),
   }),
 ]);
@@ -28,7 +35,10 @@ export const isAvailableEmbed = (embed: PostEmbed): embed is AvailableEmbed =>
 export const postSchema = z.object({
   id: z.uuid(),
   content: z.string(),
-  imageUrl: z.string().nullable(),
+  /** In the order the author attached them, at most `POST_MAX_IMAGES`. */
+  images: z.array(storedImageSchema),
+  /** @deprecated The first of `images`. */
+  imageUrl: legacyImageUrlSchema,
   author: userSummarySchema,
   likeCount: z.int().nonnegative(),
   commentCount: z.int().nonnegative(),
@@ -64,6 +74,12 @@ export const createPostSchema = z.object({
     .trim()
     .min(1, 'Write something first')
     .max(POST_MAX_LENGTH, `At most ${POST_MAX_LENGTH} characters`),
+  imageKeys: z
+    .array(postImageKeySchema)
+    .max(POST_MAX_IMAGES, `At most ${POST_MAX_IMAGES} pictures`)
+    .refine((keys) => new Set(keys).size === keys.length, 'Each picture only once')
+    .optional(),
+  /** @deprecated One picture, as tabs opened before D2 send it; `imageKeys` wins when both come. */
   imageKey: postImageKeySchema.optional(),
   /** Makes the post a quote of that post; a plain repost (no text) is `PUT /posts/:id/repost` instead. */
   quotedPostId: uuidSchema.optional(),
@@ -71,7 +87,7 @@ export const createPostSchema = z.object({
 export type CreatePostInput = z.input<typeof createPostSchema>;
 export type CreatePostData = z.output<typeof createPostSchema>;
 
-/** Only the text can change; the picture is fixed once posted. */
+/** Only the text can change; the pictures are fixed once posted. */
 export const updatePostSchema = createPostSchema.pick({ content: true });
 export type UpdatePostInput = z.input<typeof updatePostSchema>;
 export type UpdatePostData = z.output<typeof updatePostSchema>;

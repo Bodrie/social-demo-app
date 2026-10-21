@@ -32,6 +32,18 @@ export const uploadResponseSchema = z.object({
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
 
 /**
+ * A stored picture as responses show it (D2). The size lets the page reserve the space before
+ * the file arrives; it is null only for a file stored before sizes were recorded whose size the
+ * daily job could not read yet.
+ */
+export const storedImageSchema = z.object({
+  url: z.string(),
+  width: z.int().positive().nullable(),
+  height: z.int().positive().nullable(),
+});
+export type StoredImage = z.infer<typeof storedImageSchema>;
+
+/**
  * The frames the profile pictures are shown in: the API resizes every avatar and cover to
  * exactly these sizes and the web cropper offers the same ratios (1:1 and 3:1), so what a
  * member frames is what the page shows, with no second crop by the browser.

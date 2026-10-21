@@ -90,8 +90,10 @@ export function storeMessage(
   content: string,
   imageKey?: string,
 ): Message {
+  const url = imageKey ? `http://localhost/api/v1/uploads/${imageKey}` : null;
   const message = makeMessage(conversationId, senderId, content, {
-    imageUrl: imageKey ? `http://localhost/api/v1/uploads/${imageKey}` : null,
+    image: url ? { url, width: 64, height: 64 } : null,
+    imageUrl: url,
     createdAt: new Date().toISOString(),
   });
   mockDb.messages.push(message);
@@ -228,6 +230,7 @@ export const conversationHandlers = [
     if (message.deletedAt === null) {
       message.deletedAt = new Date().toISOString();
       message.content = '';
+      message.image = null;
       message.imageUrl = null;
     }
     return HttpResponse.json(message);

@@ -53,7 +53,7 @@ export class AccountService {
           select: {
             id: true,
             content: true,
-            imageKey: true,
+            images: { select: { key: true }, orderBy: { position: 'asc' } },
             createdAt: true,
             editedAt: true,
             hashtags: { select: { tag: true }, orderBy: { tag: 'asc' } },
@@ -117,7 +117,7 @@ export class AccountService {
       posts: user.posts.map((post) => ({
         id: post.id,
         content: post.content,
-        imageUrl: url(post.imageKey),
+        imageUrls: post.images.map((image) => this.assets.url(image.key)),
         hashtags: post.hashtags.map((hashtag) => hashtag.tag),
         createdAt: iso(post.createdAt),
         editedAt: post.editedAt === null ? null : iso(post.editedAt),

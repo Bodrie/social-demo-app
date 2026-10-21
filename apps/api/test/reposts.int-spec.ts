@@ -107,6 +107,7 @@ describe('reposts and quotes', () => {
       id: original.id,
       author: expect.objectContaining({ username: 'alice' }),
       content: 'Quote me #tag',
+      images: [],
       imageUrl: null,
       createdAt: original.createdAt,
     });

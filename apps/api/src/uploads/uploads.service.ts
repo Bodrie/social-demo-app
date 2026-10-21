@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { UploadKind, UploadResponse } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
@@ -9,6 +10,9 @@ import { ImageProcessor } from './image-processor.js';
 import { STORAGE, type StorageService } from './storage.js';
 
 export type OwnershipCheck = { ownerId: string; kind: UploadKind; field: string };
+
+/** Files measured per daily run by `fillSizes`; the uploads stored before D2 fit in one. */
+const SIZE_BATCH = 1000;
 
 @Injectable()
 export class UploadsService {
@@ -26,7 +30,16 @@ export class UploadsService {
     const key = `${kind}/${randomUUID()}.webp`;
     await this.storage.put(key, image.data, image.contentType);
     try {
-      await this.prisma.upload.create({ data: { key, ownerId, kind } });
+      await this.prisma.upload.create({
+        data: {
+          key,
+          ownerId,
+          kind,
+          width: image.width,
+          height: image.height,
+          bytes: image.data.length,
+        },
+      });
     } catch (error) {
       // A file without a row is invisible to the orphan reaper: take it back out at once.
       await this.deleteFiles([key]);
@@ -59,6 +72,18 @@ export class UploadsService {
     }
   }
 
+  /** `assertOwned` for several keys at once (the pictures of a post), in one query. */
+  async assertAllOwned(keys: readonly string[], check: OwnershipCheck): Promise<void> {
+    const distinct = new Set(keys);
+    if (distinct.size === 0) return;
+    const owned = await this.prisma.upload.count({
+      where: { key: { in: [...distinct] }, ownerId: check.ownerId, kind: check.kind },
+    });
+    if (owned !== distinct.size) {
+      throw badRequest('Unknown upload', { [check.field]: 'Unknown upload' });
+    }
+  }
+
   /**
    * Removes files whose rows are already gone (an account was deleted and the `uploads` rows
    * cascaded with it, or the orphan reaper took them). Best effort, one failure does not stop
@@ -87,11 +112,51 @@ export class UploadsService {
       DELETE FROM uploads u
       WHERE u.created_at < ${before}
         AND NOT EXISTS (SELECT 1 FROM users x WHERE x.avatar_key = u.key OR x.cover_key = u.key)
-        AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.image_key = u.key)
+        AND NOT EXISTS (SELECT 1 FROM post_images p WHERE p.key = u.key)
         AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.image_key = u.key)
       RETURNING u.key`;
     await this.deleteFiles(rows.map((row) => row.key));
     return rows.length;
+  }
+
+  /**
+   * Housekeeping (JobsService): records the size of files stored before uploads kept it (D2),
+   * reading them back from storage. A file that cannot be read is logged and stays without a
+   * size (pages then show it without reserving its space). Returns the count measured.
+   */
+  async fillSizes(): Promise<number> {
+    const rows = await this.prisma.upload.findMany({
+      where: { width: null },
+      select: { key: true },
+      orderBy: { createdAt: 'asc' },
+      take: SIZE_BATCH,
+    });
+    let measured = 0;
+    for (const { key } of rows) {
+      // oxlint-disable-next-line no-await-in-loop -- one file in memory at a time, on purpose
+      if (await this.measure(key)) measured += 1;
+    }
+    return measured;
+  }
+
+  private async measure(key: string): Promise<boolean> {
+    try {
+      const stream = await this.storage.open(key);
+      if (!stream) {
+        this.logger.warn({ key }, 'The file of an upload is missing; its size stays unknown');
+        return false;
+      }
+      const data = await buffer(stream);
+      const size = await this.images.measure(data);
+      await this.prisma.upload.updateMany({
+        where: { key },
+        data: { ...size, bytes: data.length },
+      });
+      return true;
+    } catch (error) {
+      this.logger.warn({ err: error, key }, 'Could not measure an upload');
+      return false;
+    }
   }
 
   /** Deletes a file once nothing references it any more. Best effort, never throws. */
@@ -100,7 +165,7 @@ export class UploadsService {
     try {
       const [profiles, posts, messages] = await Promise.all([
         this.prisma.user.count({ where: { OR: [{ avatarKey: key }, { coverKey: key }] } }),
-        this.prisma.post.count({ where: { imageKey: key } }),
+        this.prisma.postImage.count({ where: { key } }),
         this.prisma.message.count({ where: { imageKey: key } }),
       ]);
       if (profiles + posts + messages > 0) return;

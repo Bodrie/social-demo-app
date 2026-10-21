@@ -62,7 +62,8 @@ C5  chat extras (edit, reactions, role lines, sound) ✅ 2026-10-20 ─┐
 B6  # autocomplete                  ✅ 2026-10-20           │  v2.7
 C7  realtime activity                                       │
 D4  picture cropping                ✅ 2026-10-21          ─┘
-D2  richer posts · D3 TOTP · E1–E4                             later minors
+D2  richer posts                    ✅ 2026-10-21 (pulled forward by the owner)
+D3  TOTP · E1–E4                                               later minors
 ```
 
 The order inside a milestone can move; the dependencies that must hold are in §7. Moderation stays
@@ -399,9 +400,10 @@ the way a message or a notification does.
 - Tests: int (change flow incl. taken address and expired token, notice mails in the outbox, sessions list and single sign-out), web (cards), e2e (sessions list shows the Playwright browser).
 - As built (2026-10-20): the change form is shared with the waiting room (`EmailChangeForm`: a mistyped address is fixed before the account opens, and the confirmation marks the new address verified); the `change_email` kind has no cooldown (hourly cap and route throttles instead); `POST /auth/email/confirm` is public and answers `{ email }` only; the link lands on `/confirm-email`; re-sending the *verification* stays in the waiting room (Settings is not reachable unverified). Sessions are ordered by last activity; the row's id changes with each rotation (the chain keeps `createdAt`).
 
-### D2. Richer posts · M–L
+### D2. Richer posts · M–L · ✅ 2026-10-21
 
 - Uploads store `width`, `height`, `bytes` (migration `upload_dimensions`, backfilled from the files on disk once), so every image response carries dimensions → `width`/`height` attributes and `srcset` end layout shift (performance item). Several pictures per post: `post_images(post_id, position, key)` with the single `image_key` migrated into it, `createPostSchema.imageKeys` (max 4), a grid on the card, swipe on phones, a lightbox (backlog) shared with chat pictures and profile covers. Link previews are **not** in this slice (SSRF-safe fetching, caching and a queue are their own piece of work; backlog).
+- As built (2026-10-21, started by the owner ahead of C7): one migration `richer_posts` instead of `upload_dimensions`. `uploads.width/height/bytes` are written at upload time; files stored earlier are measured by a daily job (`UploadsService.fillSizes`, reading them back through `StorageService`) rather than by a one-off script, so nothing has to be run by hand after the deploy and a file that cannot be read stays without a size (the page then does not reserve its space). `post_images.key` and `messages.image_key` became foreign keys to `uploads.key` (the migration first creates any missing upload row, so it cannot stop a deploy); responses read the size through them as `StoredImage` (`{ url, width, height }`): `images` on posts and quote embeds, `image` on messages. `imageUrl` stays next to them (the first picture) and `createPostSchema.imageKey` is still accepted, both only for tabs opened before the deploy (they parse the old shape); dropping them is in `BACKLOG.md`. The card shows one picture in its own proportions within the height limit and two to four in a 16:9 grid (three: one tall on the left); the composer takes several files at once, each uploading on its own with remove and retry. The lightbox (`components/lightbox.tsx`, its dialog a lazy chunk of 1.4 kB gz) serves post pictures, chat pictures (they used to open a new tab) and the profile cover and avatar; it wraps around rather than disabling its arrows, swipes on touch, and hands focus back to whatever opened it. Quote embeds show the pictures without opening them. Bundle budget 256 → 258 kB (256.2 measured).
 
 ### D3. Two-factor authentication (TOTP) · M · ADR 0018
 

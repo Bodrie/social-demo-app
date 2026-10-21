@@ -1,5 +1,7 @@
 import {
+  type UploadResponse,
   apiErrorSchema,
+  isAvailableEmbed,
   postListSchema,
   postSchema,
   revisionListSchema,
@@ -15,6 +17,17 @@ async function agentFor(t: TestApp, user: CreatedUser): Promise<TestAgent> {
   const agent = request.agent(t.server);
   await login(agent, user.email);
   return agent;
+}
+
+async function uploadPicture(agent: TestAgent, width = 640, height = 480): Promise<UploadResponse> {
+  const image = await sharp({ create: { width, height, channels: 3, background: '#224466' } })
+    .png()
+    .toBuffer();
+  const response = await agent
+    .post('/api/v1/uploads?kind=post')
+    .attach('file', image, 'pic.png')
+    .expect(201);
+  return uploadResponseSchema.parse(response.body);
 }
 
 async function createPost(agent: TestAgent, content: string): Promise<string> {
@@ -34,33 +47,91 @@ describe('posts', () => {
   });
 
   describe('POST /posts', () => {
-    it('creates a post with an uploaded image and returns the feed shape', async () => {
+    it('creates a post with uploaded pictures in their order, each with its size', async () => {
       const me = await createUser(t.prisma);
       const agent = await agentFor(t, me);
-      const image = await sharp({
-        create: { width: 640, height: 480, channels: 3, background: '#224466' },
-      })
-        .png()
-        .toBuffer();
-      const upload = uploadResponseSchema.parse(
-        (await agent.post('/api/v1/uploads?kind=post').attach('file', image, 'pic.png').expect(201))
-          .body,
-      );
+      const wide = await uploadPicture(agent, 640, 480);
+      const tall = await uploadPicture(agent, 300, 600);
+      const square = await uploadPicture(agent, 400, 400);
 
       const response = await agent
         .post('/api/v1/posts')
-        .send({ content: '  First!  ', imageKey: upload.key })
+        .send({ content: '  First!  ', imageKeys: [tall.key, wide.key, square.key] })
         .expect(201);
       const post = postSchema.parse(response.body);
 
       expect(post).toMatchObject({
         content: 'First!',
-        imageUrl: upload.url,
+        images: [
+          { url: tall.url, width: 300, height: 600 },
+          { url: wide.url, width: 640, height: 480 },
+          { url: square.url, width: 400, height: 400 },
+        ],
+        imageUrl: tall.url,
         likeCount: 0,
         commentCount: 0,
         likedByMe: false,
         author: { id: me.id, username: me.username },
       });
+      const fetched = postSchema.parse(
+        (await agent.get(`/api/v1/posts/${post.id}`).expect(200)).body,
+      );
+      expect(fetched.images).toEqual(post.images);
+
+      // A quote shows the original's pictures in its embed.
+      const quote = postSchema.parse(
+        (
+          await agent
+            .post('/api/v1/posts')
+            .send({ content: 'look', quotedPostId: post.id })
+            .expect(201)
+        ).body,
+      );
+      expect(quote.images).toEqual([]);
+      expect(quote.imageUrl).toBeNull();
+      expect(quote.quotedPost && isAvailableEmbed(quote.quotedPost)).toBe(true);
+      expect(quote.quotedPost).toMatchObject({ images: post.images, imageUrl: tall.url });
+    });
+
+    it('still takes the single imageKey of tabs opened before D2', async () => {
+      const agent = await agentFor(t, await createUser(t.prisma));
+      const upload = await uploadPicture(agent);
+
+      const response = await agent
+        .post('/api/v1/posts')
+        .send({ content: 'old tab', imageKey: upload.key })
+        .expect(201);
+
+      expect(postSchema.parse(response.body).images).toEqual([
+        { url: upload.url, width: 640, height: 480 },
+      ]);
+    });
+
+    it('refuses more than four pictures, the same one twice and uploads that are not mine', async () => {
+      const me = await createUser(t.prisma);
+      const agent = await agentFor(t, me);
+      const mine = await Promise.all([1, 2, 3, 4, 5].map(() => uploadPicture(agent, 64, 64)));
+      const theirs = await uploadPicture(await agentFor(t, await createUser(t.prisma)), 64, 64);
+
+      const five = await agent
+        .post('/api/v1/posts')
+        .send({ content: 'pics', imageKeys: mine.map((upload) => upload.key) })
+        .expect(400);
+      expect(apiErrorSchema.parse(five.body).fields).toHaveProperty('imageKeys');
+
+      const twice = await agent
+        .post('/api/v1/posts')
+        .send({ content: 'pics', imageKeys: [mine[0]?.key, mine[0]?.key] })
+        .expect(400);
+      expect(apiErrorSchema.parse(twice.body).fields).toHaveProperty('imageKeys');
+
+      const foreign = await agent
+        .post('/api/v1/posts')
+        .send({ content: 'pics', imageKeys: [mine[0]?.key, theirs.key] })
+        .expect(400);
+      expect(apiErrorSchema.parse(foreign.body).fields).toEqual({ imageKeys: 'Unknown upload' });
+      // Nothing was attached on the way.
+      expect(await t.prisma.postImage.count({ where: { key: mine[0]?.key } })).toBe(0);
     });
 
     it('validates content and image keys', async () => {
@@ -78,15 +149,17 @@ describe('posts', () => {
 
       const wrongKind = await agent
         .post('/api/v1/posts')
-        .send({ content: 'pic', imageKey: 'avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp' })
+        .send({ content: 'pic', imageKeys: ['avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp'] })
         .expect(400);
-      expect(apiErrorSchema.parse(wrongKind.body).fields).toHaveProperty('imageKey');
+      expect(Object.keys(apiErrorSchema.parse(wrongKind.body).fields ?? {})).toEqual([
+        expect.stringMatching(/^imageKeys/),
+      ]);
 
       const unknown = await agent
         .post('/api/v1/posts')
-        .send({ content: 'pic', imageKey: 'post/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp' })
+        .send({ content: 'pic', imageKeys: ['post/01a13ed6-d3ec-71cb-b39f-fbc256a293b9.webp'] })
         .expect(400);
-      expect(apiErrorSchema.parse(unknown.body).fields).toEqual({ imageKey: 'Unknown upload' });
+      expect(apiErrorSchema.parse(unknown.body).fields).toEqual({ imageKeys: 'Unknown upload' });
     });
 
     it('requires a session', async () => {
@@ -225,11 +298,12 @@ describe('posts', () => {
             .expect(201)
         ).body,
       );
+      const second = await uploadPicture(authorAgent);
       const postId = postSchema.parse(
         (
           await authorAgent
             .post('/api/v1/posts')
-            .send({ content: 'bye', imageKey: upload.key })
+            .send({ content: 'bye', imageKeys: [upload.key, second.key] })
             .expect(201)
         ).body,
       ).id;
@@ -239,7 +313,9 @@ describe('posts', () => {
 
       await authorAgent.delete(`/api/v1/posts/${postId}`).expect(204);
       await authorAgent.get(`/api/v1/posts/${postId}`).expect(404);
+      // Every picture goes with the post.
       await request(t.server).get(`/api/v1/uploads/${upload.key}`).expect(404);
+      await request(t.server).get(`/api/v1/uploads/${second.key}`).expect(404);
       await authorAgent.delete(`/api/v1/posts/${postId}`).expect(404);
     });
   });

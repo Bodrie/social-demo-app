@@ -4,10 +4,11 @@ import { Link } from 'react-router';
 import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
+import { PostImages } from './post-images';
 
 type QuotedPostCardProps = {
   embed: PostEmbed;
-  /** Inside the repost popover: a preview, no picture. */
+  /** Inside the repost popover: a preview, no pictures. */
   compact?: boolean;
   className?: string;
 };
@@ -53,15 +54,14 @@ export function QuotedPostCard({ embed, compact = false, className }: QuotedPost
         mentions={[]}
         className="mt-2 line-clamp-6 text-sm break-words whitespace-pre-wrap"
       />
-      {embed.imageUrl && !compact ? (
-        <img
-          src={embed.imageUrl}
+      {compact ? null : (
+        <PostImages
+          images={embed.images}
           alt={`Posted by ${embed.author.name}`}
-          loading="lazy"
-          decoding="async"
-          className="mt-2 max-h-64 w-full rounded-md border object-cover"
+          maxHeightClass="max-h-64"
+          className="mt-2 rounded-md"
         />
-      ) : null}
+      )}
     </div>
   );
 }

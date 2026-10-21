@@ -149,7 +149,9 @@ describe('systemLineText / messagePreview', () => {
     ).toBe('Message deleted');
     expect(
       messagePreview(
-        makeMessage(group.id, bob.id, '', { imageUrl: 'http://localhost/pic.webp' }),
+        makeMessage(group.id, bob.id, '', {
+          image: { url: 'http://localhost/pic.webp', width: 64, height: 64 },
+        }),
         group,
         alice.id,
       ),
