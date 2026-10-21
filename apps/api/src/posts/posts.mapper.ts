@@ -1,5 +1,10 @@
 import type { Post, PostEmbed } from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
+import {
+  type StoredImageRow,
+  storedImageSelect,
+  toStoredImage,
+} from '../uploads/uploads.mapper.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 
 /** Mentioned members, resolved at read time so a renamed member still links to the right profile. */
@@ -8,12 +13,18 @@ export const mentionsSelect = {
   orderBy: { user: { username: 'asc' } },
 } as const;
 
+/** The pictures of a post in the author's order, each with its size (D2). */
+const imagesSelect = {
+  select: { upload: { select: storedImageSelect } },
+  orderBy: { position: 'asc' },
+} as const;
+
 /** Everything a feed item needs, in one query: author, counts, entities, the embed and the viewer's flags. */
 export function postSelect(viewerId: string) {
   return {
     id: true,
     content: true,
-    imageKey: true,
+    images: imagesSelect,
     editedAt: true,
     createdAt: true,
     updatedAt: true,
@@ -29,7 +40,7 @@ export function postSelect(viewerId: string) {
       select: {
         id: true,
         content: true,
-        imageKey: true,
+        images: imagesSelect,
         createdAt: true,
         author: { select: userSummarySelect },
       },
@@ -41,6 +52,12 @@ export function postSelect(viewerId: string) {
 
 export type PostRow = Prisma.PostGetPayload<{ select: ReturnType<typeof postSelect> }>;
 
+/** The pictures plus the single URL tabs opened before D2 still read. */
+function toImages(rows: { upload: StoredImageRow }[], assetsBase: string) {
+  const images = rows.map((row) => toStoredImage(row.upload, assetsBase));
+  return { images, imageUrl: images[0]?.url ?? null };
+}
+
 /** `hidden` are authors the viewer must not see (ADR 0016): their original shows the frame instead. */
 function toEmbed(row: PostRow, assetsBase: string, hidden?: ReadonlySet<string>): PostEmbed | null {
   if (row.quotedPost && !hidden?.has(row.quotedPost.author.id)) {
@@ -48,8 +65,7 @@ function toEmbed(row: PostRow, assetsBase: string, hidden?: ReadonlySet<string>)
       id: row.quotedPost.id,
       author: toUserSummary(row.quotedPost.author, assetsBase),
       content: row.quotedPost.content,
-      imageUrl:
-        row.quotedPost.imageKey === null ? null : `${assetsBase}/${row.quotedPost.imageKey}`,
+      ...toImages(row.quotedPost.images, assetsBase),
       createdAt: row.quotedPost.createdAt.toISOString(),
     };
   }
@@ -69,7 +85,7 @@ export function toPost(
   return {
     id: row.id,
     content: row.content,
-    imageUrl: row.imageKey === null ? null : `${assetsBase}/${row.imageKey}`,
+    ...toImages(row.images, assetsBase),
     author: toUserSummary(row.author, assetsBase),
     likeCount: row._count.likes,
     commentCount: row._count.comments,

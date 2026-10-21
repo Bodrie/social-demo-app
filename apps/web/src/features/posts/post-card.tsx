@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { InlineEditor } from '@/components/inline-editor';
+import { Lightbox } from '@/components/lightbox';
 import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
 import { UserLink } from '@/components/user-link';
@@ -14,6 +15,7 @@ import { useCurrentUser } from '@/features/auth/current-user';
 import { CommentsSection } from '@/features/comments/comments-section';
 import { focusLater } from '@/lib/focus';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
+import { PostImages } from './post-images';
 import { PostMenu } from './post-menu';
 import { QuotedPostCard } from './quoted-post-card';
 import { RepostControl } from './repost-control';
@@ -45,6 +47,7 @@ export function PostCard({
   const toggleBookmark = useToggleBookmark();
   const [commentsOpen, setCommentsOpen] = useState(expanded);
   const [editing, setEditing] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
   // The editor replaces the text and takes focus; when it goes, focus returns to the menu.
   const stopEditing = () => {
@@ -138,18 +141,20 @@ export function PostCard({
           />
         )}
         {post.quotedPost ? <QuotedPostCard embed={post.quotedPost} className="mt-3" /> : null}
-        {post.imageUrl ? (
-          <img
-            src={post.imageUrl}
-            alt={`Posted by ${post.author.name}`}
-            loading="lazy"
-            decoding="async"
-            className={cn(
-              'mt-3 w-full rounded-lg border object-cover',
-              expanded ? 'max-h-[40rem]' : 'max-h-[32rem]',
-            )}
-          />
-        ) : null}
+        <PostImages
+          images={post.images}
+          alt={`Posted by ${post.author.name}`}
+          onOpen={setViewing}
+          maxHeightClass={expanded ? 'max-h-[40rem]' : 'max-h-[32rem]'}
+          className="mt-3"
+        />
+        <Lightbox
+          images={post.images}
+          index={viewing}
+          onIndexChange={setViewing}
+          title={`Pictures posted by ${post.author.name}`}
+          alt={`Posted by ${post.author.name}`}
+        />
       </div>
 
       <footer className="flex items-center gap-1 px-3 pt-2 pb-2">

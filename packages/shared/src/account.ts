@@ -29,7 +29,7 @@ export const accountExportSchema = z.object({
     z.object({
       id: z.uuid(),
       content: z.string(),
-      imageUrl: z.string().nullable(),
+      imageUrls: z.array(z.string()),
       hashtags: z.array(z.string()),
       createdAt: z.iso.datetime(),
       editedAt: z.iso.datetime().nullable(),

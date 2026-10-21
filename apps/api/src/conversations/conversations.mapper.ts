@@ -1,5 +1,6 @@
 import { type Conversation, type Message, type SystemLine, systemLineSchema } from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
+import { storedImageSelect, toStoredImage } from '../uploads/uploads.mapper.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 
 export const messageSelect = {
@@ -9,6 +10,7 @@ export const messageSelect = {
   kind: true,
   content: true,
   imageKey: true,
+  image: { select: storedImageSelect },
   editedAt: true,
   deletedAt: true,
   systemMeta: true,
@@ -32,7 +34,8 @@ export function toMessage(row: MessageRow, assetsBase: string): Message {
     senderId: row.senderId,
     kind: row.kind,
     content: row.content,
-    imageUrl: row.imageKey === null ? null : `${assetsBase}/${row.imageKey}`,
+    image: row.image ? toStoredImage(row.image, assetsBase) : null,
+    imageUrl: row.image ? `${assetsBase}/${row.image.key}` : null,
     editedAt: row.editedAt ? row.editedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
     system: systemLineOf(row),

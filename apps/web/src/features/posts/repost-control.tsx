@@ -90,6 +90,7 @@ export function RepostControl({ post }: { post: Post }) {
             id: post.id,
             author: post.author,
             content: post.content,
+            images: post.images,
             imageUrl: post.imageUrl,
             createdAt: post.createdAt,
           }}

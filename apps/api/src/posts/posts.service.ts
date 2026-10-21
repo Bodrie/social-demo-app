@@ -51,13 +51,10 @@ export class PostsService {
   }
 
   async create(authorId: string, input: CreatePostData): Promise<Post> {
-    if (input.imageKey) {
-      await this.uploads.assertOwned(input.imageKey, {
-        ownerId: authorId,
-        kind: 'post',
-        field: 'imageKey',
-      });
-    }
+    // A tab opened before D2 sends its one picture as `imageKey`.
+    const field = input.imageKeys ? 'imageKeys' : 'imageKey';
+    const imageKeys = input.imageKeys ?? (input.imageKey ? [input.imageKey] : []);
+    await this.uploads.assertAllOwned(imageKeys, { ownerId: authorId, kind: 'post', field });
     // A quote is a post of its own that embeds another (ADR 0017); the original must exist now,
     // later it may go and leave the frame behind.
     let quoted: { id: string; authorId: string } | null = null;
@@ -77,7 +74,7 @@ export class PostsService {
         data: {
           authorId,
           content: input.content,
-          imageKey: input.imageKey ?? null,
+          images: { create: imageKeys.map((key, position) => ({ key, position })) },
           quotedPostId: quoted?.id ?? null,
           wasQuote: quoted !== null,
           createdAt,
@@ -344,7 +341,7 @@ export class PostsService {
   ): Promise<void> {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      select: { authorId: true, imageKey: true, quotedPostId: true },
+      select: { authorId: true, quotedPostId: true, images: { select: { key: true } } },
     });
     if (!post) throw notFound('Post not found');
     if (!options.asAdmin && post.authorId !== viewerId) {
@@ -362,7 +359,7 @@ export class PostsService {
           ]
         : []),
     ]);
-    await this.uploads.discard(post.imageKey);
+    await Promise.all(post.images.map((image) => this.uploads.discard(image.key)));
   }
 
   /**

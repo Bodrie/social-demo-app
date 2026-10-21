@@ -40,6 +40,9 @@ function seedChats() {
   return { withCarol, withBob };
 }
 
+/** A picture in the thread is a button that opens the viewer; its image carries the source. */
+const pictureOf = (button: HTMLElement) => button.querySelector('img');
+
 describe('messages', () => {
   it('lists conversations with unread counts and a navigation badge', async () => {
     signedInAs(alice);
@@ -188,8 +191,10 @@ describe('messages', () => {
     };
     await user.click(sendButton);
 
-    const sending = await within(log).findByRole('img', { name: 'Sent by you' });
-    const preview = sending.getAttribute('src');
+    const sending = await within(log).findByRole('button', { name: 'Open picture sent by you' });
+    const preview = pictureOf(sending)?.getAttribute('src');
+    // The upload's size is on the optimistic bubble already (64×64 from the fake API).
+    expect(pictureOf(sending)).toHaveAttribute('width', '64');
     expect(preview).toMatch(/^blob:/);
     expect(within(log).getByText('Sending…')).toBeInTheDocument();
     // The composer handed the preview over instead of revoking it under the bubble.
@@ -199,21 +204,30 @@ describe('messages', () => {
     await waitFor(() =>
       expect(mockDb.messages.at(-1)).toMatchObject({
         content: '',
-        imageUrl: expect.stringContaining('/uploads/message/'),
+        image: expect.objectContaining({ url: expect.stringContaining('/uploads/message/') }),
       }),
     );
     await waitFor(() => expect(within(log).queryByText('Sending…')).not.toBeInTheDocument());
     // Confirmed: the bubble shows the server's copy and the preview is released.
-    expect(within(log).getByRole('img', { name: 'Sent by you' })).toHaveAttribute(
-      'src',
-      expect.stringContaining('/uploads/message/'),
-    );
+    expect(
+      pictureOf(within(log).getByRole('button', { name: 'Open picture sent by you' })),
+    ).toHaveAttribute('src', expect.stringContaining('/uploads/message/'));
     expect(revoke).toHaveBeenCalledWith(preview);
     revoke.mockRestore();
     // Push and ack confirm the same optimistic bubble: still one picture.
-    expect(within(log).getAllByRole('img', { name: 'Sent by you' })).toHaveLength(1);
+    expect(within(log).getAllByRole('button', { name: 'Open picture sent by you' })).toHaveLength(
+      1,
+    );
     expect(screen.queryByRole('img', { name: 'Attachment preview' })).not.toBeInTheDocument();
     expect(rowsOf()[0]).toHaveTextContent('You: Picture');
+
+    // A press on the picture opens it in the viewer (it used to open a new tab).
+    await user.click(within(log).getByRole('button', { name: 'Open picture sent by you' }));
+    const viewer = await screen.findByRole('dialog', { name: 'Picture sent by you' });
+    expect(within(viewer).getByRole('img', { name: 'Sent by you' })).toHaveAttribute(
+      'src',
+      expect.stringContaining('/uploads/message/'),
+    );
   });
 
   it('shows when the peer is typing and signals its own typing sparsely', async () => {

@@ -59,6 +59,33 @@ describe('ProfilePage', () => {
     expect(header.queryByRole('button', { name: 'Follow' })).not.toBeInTheDocument();
   });
 
+  it('opens the cover and the profile picture in the viewer', async () => {
+    signedInAs(alice);
+    const stored = mockDb.users.find((user) => user.id === bob.id);
+    if (!stored) throw new Error('bob is missing');
+    stored.avatarUrl = 'http://localhost/api/v1/uploads/avatar/bob.webp';
+    stored.coverUrl = 'http://localhost/api/v1/uploads/cover/bob.webp';
+    renderApp('/u/bob');
+    const user = userEvent.setup();
+
+    const header = within(await screen.findByRole('region', { name: 'Bob Brown' }));
+    await user.click(header.getByRole('button', { name: 'Open cover picture' }));
+    const cover = await screen.findByRole('dialog', { name: 'Cover picture of Bob Brown' });
+    expect(within(cover).getByRole('img', { name: 'Bob Brown' })).toHaveAttribute(
+      'src',
+      stored.coverUrl,
+    );
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await user.click(header.getByRole('button', { name: 'Open profile picture' }));
+    const avatar = await screen.findByRole('dialog', { name: 'Profile picture of Bob Brown' });
+    expect(within(avatar).getByRole('img', { name: 'Bob Brown' })).toHaveAttribute(
+      'src',
+      stored.avatarUrl,
+    );
+  });
+
   it('explains an unknown username', async () => {
     signedInAs(alice);
     renderApp('/u/nobody');

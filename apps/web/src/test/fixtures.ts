@@ -7,6 +7,7 @@ import type {
   Notification,
   NotificationType,
   Post,
+  StoredImage,
   UserPrivate,
   UserSummary,
 } from '@beso/shared';
@@ -90,6 +91,16 @@ export function summaryOf(user: UserPrivate): UserSummary {
   return { id: user.id, username: user.username, name: user.name, avatarUrl: user.avatarUrl };
 }
 
+/** A stored post picture as responses carry it; `n` keeps the URLs apart. */
+export function makeImage(n: number, width: number | null = 1200, height: number | null = 800) {
+  const image: StoredImage = {
+    url: `http://localhost/api/v1/uploads/post/${testId('post', 800 + n)}.webp`,
+    width,
+    height,
+  };
+  return image;
+}
+
 /** Each call is one minute older than the previous one, so lists sort newest-first. */
 export function makePost(overrides: Partial<Post> = {}): Post {
   sequence += 1;
@@ -97,6 +108,7 @@ export function makePost(overrides: Partial<Post> = {}): Post {
   return {
     id: testId('post', sequence),
     content: `Post number ${sequence}`,
+    images: [],
     imageUrl: null,
     author: summaryOf(bob),
     likeCount: 0,
@@ -181,6 +193,7 @@ export function makeMessage(
     senderId,
     kind: 'user',
     content,
+    image: null,
     imageUrl: null,
     editedAt: null,
     deletedAt: null,

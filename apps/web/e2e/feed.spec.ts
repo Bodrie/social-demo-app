@@ -5,23 +5,38 @@ import { openHome } from './helpers.js';
 const PHOTO = path.join(import.meta.dirname, 'fixtures', 'photo.png');
 
 test.describe('feed', () => {
-  test('publish a post with an image, like it, comment, then delete everything', async ({
+  test('publish a post with two pictures, view them, like it, comment, then delete everything', async ({
     page,
   }) => {
     await openHome(page);
     const text = `Hello from Playwright ${Date.now()}`;
 
     await page.getByLabel('New post').fill(text);
-    await page.getByLabel('Attach an image').setInputFiles(PHOTO);
-    await expect(page.getByRole('img', { name: 'Attachment preview' })).toBeVisible();
+    await page.getByLabel('Attach an image').setInputFiles([PHOTO, PHOTO]);
+    await expect(page.getByRole('img', { name: /^Attachment preview \d$/ })).toHaveCount(2);
     const publish = page.getByRole('button', { name: 'Post', exact: true });
     await expect(publish).toBeEnabled();
     await publish.click();
 
     const post = page.getByRole('article').filter({ hasText: text }).first();
     await expect(post).toBeVisible();
-    await expect(post.getByRole('img', { name: /Posted by Alice/ })).toBeVisible();
     await expect(page.getByLabel('New post')).toHaveValue('');
+
+    // Both pictures sit side by side; the viewer pages between them and gives focus back.
+    const second = post.getByRole('button', { name: 'Open picture 2 of 2' });
+    await expect(post.getByRole('button', { name: 'Open picture 1 of 2' })).toBeVisible();
+    await second.click();
+    const viewer = page.getByRole('dialog', { name: 'Pictures posted by Alice Anderson' });
+    await expect(
+      viewer.getByRole('img', { name: 'Posted by Alice Anderson, 2 of 2' }),
+    ).toBeVisible();
+    await page.keyboard.press('ArrowRight');
+    await expect(
+      viewer.getByRole('img', { name: 'Posted by Alice Anderson, 1 of 2' }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(viewer).toBeHidden();
+    await expect(second).toBeFocused();
 
     // Like, then unlike: the count and the pressed state follow.
     const like = post.getByRole('button', { name: /^Like/ });

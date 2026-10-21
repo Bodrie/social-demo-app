@@ -17,6 +17,8 @@ export type OutgoingMessage = {
   imageKey?: string;
   /** Local object URL of the picture, for the optimistic bubble; the receiver revokes it. */
   previewUrl?: string;
+  /** The uploaded picture's size, so the optimistic bubble already has its final shape. */
+  previewSize?: { width: number | null; height: number | null };
 };
 
 type MessageComposerProps = {
@@ -54,6 +56,7 @@ export function MessageComposer({
         content: trimmed,
         imageKey: image.state.upload.key,
         previewUrl: image.state.previewUrl,
+        previewSize: { width: image.state.upload.width, height: image.state.upload.height },
       });
       // The thread's optimistic bubble shows the preview from here on and revokes it once the
       // message is confirmed; revoking it now would break the bubble before it renders.

@@ -443,8 +443,10 @@ describe('chat', () => {
     );
     expect(ack.ok).toBe(true);
     if (!ack.ok) return;
-    expect(ack.message).toMatchObject({ content: '', imageUrl: picture.url });
-    expect(messageSchema.parse(await bobReceives).imageUrl).toBe(picture.url);
+    // The picture comes with its size (D2); `imageUrl` stays for tabs opened before.
+    const image = { url: picture.url, width: picture.width, height: picture.height };
+    expect(ack.message).toMatchObject({ content: '', image, imageUrl: picture.url });
+    expect(messageSchema.parse(await bobReceives).image).toEqual(image);
 
     // Text and picture together over HTTP; the picture shows up in history and the list.
     const both = await uploadPicture(aliceSession.agent, 'message');
@@ -456,7 +458,11 @@ describe('chat', () => {
           .expect(201)
       ).body,
     );
-    expect(viaHttp).toMatchObject({ content: 'look', imageUrl: both.url });
+    expect(viaHttp).toMatchObject({
+      content: 'look',
+      image: { url: both.url },
+      imageUrl: both.url,
+    });
     const history = messageListSchema.parse(
       (await bobSession.agent.get(`/api/v1/conversations/${direct.id}/messages`).expect(200)).body,
     );
@@ -768,7 +774,7 @@ describe('chat follow-ups (B3b): pagination, deletion, roles and system lines', 
           .expect(200)
       ).body,
     );
-    expect(deleted).toMatchObject({ id: message.id, content: '', imageUrl: null });
+    expect(deleted).toMatchObject({ id: message.id, content: '', image: null, imageUrl: null });
     expect(deleted.deletedAt).not.toBeNull();
     expect(messageSchema.parse(await pushed)).toEqual(deleted);
 

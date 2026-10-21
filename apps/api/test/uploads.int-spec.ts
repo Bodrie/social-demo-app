@@ -176,7 +176,7 @@ describe('uploads', () => {
         (
           await agent
             .post('/api/v1/posts')
-            .send({ content: 'one', imageKey: upload.key })
+            .send({ content: 'one', imageKeys: [upload.key] })
             .expect(201)
         ).body,
       );
@@ -184,7 +184,7 @@ describe('uploads', () => {
         (
           await agent
             .post('/api/v1/posts')
-            .send({ content: 'two', imageKey: upload.key })
+            .send({ content: 'two', imageKeys: [upload.key] })
             .expect(201)
         ).body,
       );

@@ -44,7 +44,7 @@ export function appendToThread(
             (item) =>
               item.senderId === message.senderId &&
               item.content === message.content &&
-              (item.imageUrl === null) === (message.imageUrl === null),
+              (item.image === null) === (message.image === null),
           );
       return prependItem(confirmed, message);
     },

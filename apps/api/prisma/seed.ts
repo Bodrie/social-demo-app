@@ -13,6 +13,7 @@ import { faker } from '@faker-js/faker';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { extractEntities } from '@beso/shared';
 import argon2 from 'argon2';
+import sharp from 'sharp';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { ActivityType, NotificationType, ReactionType } from '../src/generated/prisma/enums.js';
 import { TABLES } from '../src/prisma/tables.js';
@@ -52,7 +53,10 @@ assertSeedTarget(databaseUrl);
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
 
-/** Writes a generated file into the uploads dir, records its owner, and returns the storage key. */
+/**
+ * Writes a generated file into the uploads dir, records its owner and size, and returns the
+ * storage key.
+ */
 async function seedFile(
   kind: 'avatar' | 'post' | 'message',
   ownerId: string,
@@ -62,8 +66,26 @@ async function seedFile(
   const file = path.join(uploadsDir, key);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, data);
-  await prisma.upload.create({ data: { key, ownerId, kind } });
+  const { width, height } = await sharp(data).metadata();
+  await prisma.upload.create({ data: { key, ownerId, kind, width, height, bytes: data.length } });
   return key;
+}
+
+/** Pictures for a post: generated files of the author's, attached in order. */
+async function seedPostImages(
+  postId: string,
+  authorId: string,
+  captions: string[],
+  size?: { width: number; height: number },
+): Promise<void> {
+  const keys: string[] = [];
+  for (const [index, caption] of captions.entries()) {
+    const image = await placeholderPostImage(caption, `${postId}-${index}`, size);
+    keys.push(await seedFile('post', authorId, image));
+  }
+  await prisma.postImage.createMany({
+    data: keys.map((key, position) => ({ postId, position, key })),
+  });
 }
 
 /** Usernames must satisfy the shared rule (lowercase letters, digits, underscores) and be unique. */
@@ -179,13 +201,22 @@ async function seed(): Promise<void> {
     ),
     select: { id: true, authorId: true, createdAt: true },
   });
+  // About a third of the posts carry pictures: mostly one (now and then a tall one), a few up to four.
   for (const post of posts) {
     if (faker.number.int({ min: 1, max: 10 }) <= 3) {
-      const image = await placeholderPostImage(faker.word.words(2), post.id);
-      await prisma.post.update({
-        where: { id: post.id },
-        data: { imageKey: await seedFile('post', post.authorId, image) },
-      });
+      const count = faker.helpers.weightedArrayElement([
+        { weight: 6, value: 1 },
+        { weight: 2, value: 2 },
+        { weight: 1, value: 3 },
+        { weight: 1, value: 4 },
+      ]);
+      const tall = count === 1 && faker.datatype.boolean({ probability: 0.3 });
+      await seedPostImages(
+        post.id,
+        post.authorId,
+        Array.from({ length: count }, () => faker.word.words(2)),
+        tall ? { width: 720, height: 960 } : undefined,
+      );
     }
   }
   await prisma.activity.createMany({
@@ -429,7 +460,7 @@ async function seed(): Promise<void> {
   // Dated a few days back so they sit inside the trending window without topping the feeds.
   const [alice, bob, carol] = users;
   if (alice && bob && carol) {
-    const tagged = [
+    const tagged: { author: typeof alice; content: string; pictures?: string[] }[] = [
       {
         author: alice,
         content: 'Who is up for a hike this #weekend? @bob @carol bring the good snacks.',
@@ -437,6 +468,7 @@ async function seed(): Promise<void> {
       {
         author: bob,
         content: 'New #photography set from the coast is up. Thanks @alice for the tip!',
+        pictures: ['Dunes', 'Lighthouse', 'Low tide'],
       },
       { author: carol, content: 'First post on #BeSo. Hello everyone, hello @alice!' },
       {
@@ -463,6 +495,7 @@ async function seed(): Promise<void> {
         },
         select: { id: true },
       });
+      if (item.pictures) await seedPostImages(post.id, item.author.id, item.pictures);
       await prisma.activity.create({
         data: {
           actorId: item.author.id,

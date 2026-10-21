@@ -1,7 +1,9 @@
 import type { UserPublic } from '@beso/shared';
 import dayjs from 'dayjs';
 import { CalendarIcon, LinkIcon, MapPinIcon, MessageCircleIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
+import { Lightbox } from '@/components/lightbox';
 import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +20,9 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
   const unblock = useUnblock();
   // Either side of a block gets the reduced profile: who it is, and the way back for the blocker.
   const acrossBlock = user.blocked || user.blockedMe;
+  const [viewing, setViewing] = useState<'avatar' | 'cover' | null>(null);
+  const viewed = viewing === 'avatar' ? user.avatarUrl : viewing === 'cover' ? user.coverUrl : null;
+  const zoomable = 'cursor-zoom-in focus-visible:outline-ring focus-visible:outline-3';
 
   return (
     <section
@@ -26,14 +31,34 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
     >
       <div className="bg-muted relative aspect-[3/1] max-h-56 w-full">
         {user.coverUrl ? (
-          <img src={user.coverUrl} alt="" className="size-full object-cover" />
+          <button
+            type="button"
+            aria-label="Open cover picture"
+            aria-haspopup="dialog"
+            className={`block size-full focus-visible:-outline-offset-3 ${zoomable}`}
+            onClick={() => setViewing('cover')}
+          >
+            <img src={user.coverUrl} alt="" className="size-full object-cover" />
+          </button>
         ) : (
           <div className="from-primary/25 via-primary/10 to-accent size-full bg-linear-to-br" />
         )}
       </div>
       <div className="px-5 pb-5">
         <div className="flex items-end justify-between gap-3">
-          <UserAvatar user={user} size="xl" className="ring-card -mt-12 ring-4" />
+          {user.avatarUrl ? (
+            <button
+              type="button"
+              aria-label="Open profile picture"
+              aria-haspopup="dialog"
+              className={`-mt-12 rounded-full focus-visible:outline-offset-2 ${zoomable}`}
+              onClick={() => setViewing('avatar')}
+            >
+              <UserAvatar user={user} size="xl" className="ring-card ring-4" />
+            </button>
+          ) : (
+            <UserAvatar user={user} size="xl" className="ring-card -mt-12 ring-4" />
+          )}
           <div className="flex gap-2 pt-3">
             {isMe ? (
               <EditProfileDialog />
@@ -140,6 +165,17 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
           </>
         )}
       </div>
+      <Lightbox
+        images={viewed ? [{ url: viewed, width: null, height: null }] : []}
+        index={viewed ? 0 : null}
+        onIndexChange={(next) => {
+          if (next === null) setViewing(null);
+        }}
+        title={
+          viewing === 'cover' ? `Cover picture of ${user.name}` : `Profile picture of ${user.name}`
+        }
+        alt={user.name}
+      />
     </section>
   );
 }

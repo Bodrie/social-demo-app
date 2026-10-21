@@ -31,6 +31,9 @@
   --ring: oklch(0.5 0.15 241);
   --like: oklch(0.62 0.22 15);
   --online: oklch(0.7 0.19 150);
+  /* Behind the picture viewer: dark in both themes, so pictures are seen as they are. */
+  --scrim: oklch(0.13 0.01 255 / 0.96);
+  --scrim-foreground: oklch(0.97 0.004 250);
 }
 
 .dark {
@@ -81,6 +84,8 @@
   --color-ring: var(--ring);
   --color-like: var(--like);
   --color-online: var(--online);
+  --color-scrim: var(--scrim);
+  --color-scrim-foreground: var(--scrim-foreground);
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
 

@@ -1,5 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { type Conversation, MESSAGE_MAX_LENGTH, type ReactionType } from '@beso/shared';
+import {
+  type Conversation,
+  MESSAGE_MAX_LENGTH,
+  type ReactionType,
+  type StoredImage,
+} from '@beso/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
 import {
@@ -25,6 +30,7 @@ import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { ErrorState } from '@/components/empty-state';
 import { InlineEditor } from '@/components/inline-editor';
+import { Lightbox } from '@/components/lightbox';
 import { LongPressArea } from '@/components/long-press-area';
 import { RichText } from '@/components/rich-text';
 import {
@@ -201,6 +207,13 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       senderId: me.id,
       kind: 'user',
       content: outgoing.content,
+      image: outgoing.previewUrl
+        ? {
+            url: outgoing.previewUrl,
+            width: outgoing.previewSize?.width ?? null,
+            height: outgoing.previewSize?.height ?? null,
+          }
+        : null,
       imageUrl: outgoing.previewUrl ?? null,
       imageKey: outgoing.imageKey,
       editedAt: null,
@@ -354,7 +367,8 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
                       {
                         content: message.content,
                         imageKey: message.imageKey,
-                        previewUrl: message.imageUrl ?? undefined,
+                        previewUrl: message.image?.url,
+                        previewSize: message.image ?? undefined,
                       },
                       message.id,
                     )
@@ -409,6 +423,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
   const [editing, setEditing] = useState<string | null>(null);
   // A press-and-hold on a bubble opens the reaction picker over it, as native apps do.
   const [pressed, setPressed] = useState<{ id: string; element: HTMLElement } | null>(null);
+  const [viewing, setViewing] = useState<{ image: StoredImage; sentBy: string } | null>(null);
   const lastMine = messages.findLast(
     (m) => m.senderId === meId && !m.status && m.kind === 'user' && m.deletedAt === null,
   );
@@ -444,6 +459,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         const previous = messages[index - 1];
         const next = messages[index + 1];
         const mine = message.senderId === meId;
+        const sentBy = mine ? 'you' : senderName(message.senderId);
         const newDay = !previous || !dayjs(previous.createdAt).isSame(message.createdAt, 'day');
         if (message.kind === 'system') {
           return (
@@ -500,7 +516,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 }}
                 className={cn(
                   'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
-                  message.imageUrl ? 'p-1' : 'px-3.5 py-2',
+                  message.image ? 'p-1' : 'px-3.5 py-2',
                   isEditing && 'w-[78%]',
                   deleted
                     ? 'text-muted-foreground border border-dashed bg-transparent italic'
@@ -512,25 +528,30 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 )}
               >
                 {deleted ? <span className="block">Message deleted</span> : null}
-                {message.imageUrl ? (
-                  <a
-                    href={message.imageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                {message.image ? (
+                  <button
+                    type="button"
+                    aria-label={`Open picture sent by ${sentBy}`}
+                    aria-haspopup="dialog"
+                    className="block cursor-zoom-in overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    onClick={() => {
+                      if (message.image) setViewing({ image: message.image, sentBy });
+                    }}
                   >
-                    <span className="sr-only">(opens in a new tab)</span>
                     <img
-                      src={message.imageUrl}
-                      alt={`Sent by ${mine ? 'you' : senderName(message.senderId)}`}
+                      src={message.image.url}
+                      // The size reserves the bubble's shape before the file arrives (D2).
+                      width={message.image.width ?? undefined}
+                      height={message.image.height ?? undefined}
+                      alt=""
                       loading="lazy"
                       decoding="async"
                       className="max-h-72 w-auto max-w-full object-cover"
                     />
-                  </a>
+                  </button>
                 ) : null}
                 {isEditing ? (
-                  <div className={cn('text-foreground', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}>
+                  <div className={cn('text-foreground', message.image && 'px-2.5 pt-1.5 pb-1')}>
                     <InlineEditor
                       initial={message.content}
                       maxLength={MESSAGE_MAX_LENGTH}
@@ -547,7 +568,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                   <RichText
                     as="span"
                     text={message.content}
-                    className={cn('block', message.imageUrl && 'px-2.5 pt-1.5 pb-1')}
+                    className={cn('block', message.image && 'px-2.5 pt-1.5 pb-1')}
                     linkClassName={mine ? 'text-primary-foreground underline' : undefined}
                   />
                 ) : null}
@@ -660,6 +681,15 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Lightbox
+        images={viewing ? [viewing.image] : []}
+        index={viewing ? 0 : null}
+        onIndexChange={(next) => {
+          if (next === null) setViewing(null);
+        }}
+        title={`Picture sent by ${viewing?.sentBy ?? ''}`}
+        alt={`Sent by ${viewing?.sentBy ?? ''}`}
+      />
     </ol>
   );
 }

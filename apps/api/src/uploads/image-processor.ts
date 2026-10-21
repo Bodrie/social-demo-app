@@ -68,6 +68,12 @@ export class ImageProcessor {
     }
   }
 
+  /** The pixel size of a stored file, for files stored before sizes were recorded (D2). */
+  async measure(input: Buffer): Promise<{ width: number; height: number }> {
+    const { width, height } = await sharp(input, { limitInputPixels: false }).metadata();
+    return { width, height };
+  }
+
   /** Header-only sniffing; the pixel budget is enforced when the image is actually decoded. */
   private async detectFormat(input: Buffer): Promise<string | undefined> {
     try {

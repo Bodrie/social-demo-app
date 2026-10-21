@@ -24,7 +24,7 @@ in `BACKLOG.md`.
 | ~~Notifications~~ ✅ 2026-10-20 | nobody is told about likes, comments, follows, mentions or messages received while away | done as B4 (ADR 0015): per-user rows from the domain events, bell + badges, `/notifications`, pushed over the chat socket; web push later (E2) |
 | Moderation basics | necessary the moment the site is public | block and mute, report a post, an admin role with a small queue |
 | ~~Email and sessions in Settings~~ ✅ 2026-10-20 | change the address (confirm the new one first), re-send verification, list of sessions with "sign out this device" | refresh tokens already record user agent and IP |
-| Richer posts | several pictures per post, width/height stored at upload (fixes layout shift), link previews after | upload metadata exists in the `uploads` response already |
+| ~~Richer posts~~ ✅ 2026-10-21 | several pictures per post, width/height stored at upload (fixes layout shift), link previews after | done as D2: up to four pictures per post in a grid, sizes on every picture, a lightbox for post, chat and profile pictures; link previews stay in `BACKLOG.md` |
 
 ## 3. Polish and depth
 
