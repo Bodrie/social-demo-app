@@ -2,7 +2,7 @@ import { APP_NAME } from '@beso/shared';
 import { ImageIcon, MessageCircleIcon, UsersIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { BesoMark, Logo } from '@/components/logo';
+import { BesoMark, Logo, Wordmark } from '@/components/logo';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { usePageTitle } from '@/lib/use-page-title';
 
@@ -41,9 +41,9 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
         className="auth-panel relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex xl:p-14"
       >
         <div className="auth-panel-grid pointer-events-none absolute inset-0" />
-        <span className="relative flex items-center gap-2 self-start text-xl font-semibold tracking-tight">
-          <BesoMark variant="outline" className="size-8" />
-          BeSo
+        <span className="relative flex items-center gap-2 self-start">
+          <BesoMark variant="mono" className="size-8" />
+          <Wordmark variant="mono" className="h-[22px]" />
         </span>
         <div className="relative max-w-md space-y-8">
           <div className="space-y-4">
@@ -69,7 +69,7 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-white/50">{APP_NAME} · a demo social network</p>
+        <p className="relative text-xs text-white/50">{APP_NAME} · a small social network</p>
       </aside>
 
       <div className="flex min-h-svh flex-col lg:min-h-0">

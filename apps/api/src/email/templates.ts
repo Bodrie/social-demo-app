@@ -1,3 +1,5 @@
+import { BRAND_COLOR, MARK_CID, MARK_SIZE } from './brand.js';
+
 export type EmailContent = { subject: string; text: string; html: string };
 
 const BRAND = 'BeSo';
@@ -11,16 +13,19 @@ export function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** One plain layout for every message: no images, no tracking, readable in any client. */
+/**
+ * One plain layout for every message, readable in any client: the only image is the logo,
+ * sent inline (`cid:`, see brand.ts) so nothing is fetched and nothing can track the reader.
+ */
 function layout(title: string, paragraphs: string[], link?: { label: string; href: string }) {
   const body = paragraphs.map((p) => `<p style="margin:0 0 16px">${p}</p>`).join('');
   const button = link
-    ? `<p style="margin:24px 0"><a href="${escapeHtml(link.href)}" style="display:inline-block;background:#1d6fb8;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px">${escapeHtml(link.label)}</a></p>`
+    ? `<p style="margin:24px 0"><a href="${escapeHtml(link.href)}" style="display:inline-block;background:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px">${escapeHtml(link.label)}</a></p>`
     : '';
   const fallback = link
-    ? `<p style="margin:0 0 16px;color:#5b6472;font-size:13px">If the button does not work, copy this address into your browser:<br><a href="${escapeHtml(link.href)}" style="color:#1d6fb8;word-break:break-all">${escapeHtml(link.href)}</a></p>`
+    ? `<p style="margin:0 0 16px;color:#5b6472;font-size:13px">If the button does not work, copy this address into your browser:<br><a href="${escapeHtml(link.href)}" style="color:${BRAND_COLOR};word-break:break-all">${escapeHtml(link.href)}</a></p>`
     : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title></head><body style="margin:0;background:#f4f6f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c2330;font-size:16px;line-height:1.5"><div style="max-width:520px;margin:0 auto;padding:32px 20px"><p style="margin:0 0 24px;font-weight:700;font-size:18px;color:#1d6fb8">${BRAND}</p><div style="background:#ffffff;border-radius:14px;padding:28px 24px;border:1px solid #e3e7ee"><h1 style="margin:0 0 16px;font-size:20px">${escapeHtml(title)}</h1>${body}${button}${fallback}</div><p style="margin:24px 0 0;color:#8a93a1;font-size:12px">You received this email because an account on ${BRAND} uses this address. If that was not you, you can ignore it.</p></div></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title></head><body style="margin:0;background:#f4f6f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c2330;font-size:16px;line-height:1.5"><div style="max-width:520px;margin:0 auto;padding:32px 20px"><p style="margin:0 0 24px"><img src="cid:${MARK_CID}" width="${MARK_SIZE.width}" height="${MARK_SIZE.height}" alt="${BRAND}" style="display:block;width:${MARK_SIZE.width}px;height:${MARK_SIZE.height}px;border:0"></p><div style="background:#ffffff;border-radius:14px;padding:28px 24px;border:1px solid #e3e7ee"><h1 style="margin:0 0 16px;font-size:20px">${escapeHtml(title)}</h1>${body}${button}${fallback}</div><p style="margin:24px 0 0;color:#8a93a1;font-size:12px">You received this email because an account on ${BRAND} uses this address. If that was not you, you can ignore it.</p></div></body></html>`;
 }
 
 export function verificationEmail(input: {

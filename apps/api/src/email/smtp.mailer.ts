@@ -27,6 +27,13 @@ export class SmtpMailer implements Mailer {
       subject: email.subject,
       text: email.text,
       html: email.html,
+      // A `cid` makes nodemailer send the file inline (Content-Disposition: inline).
+      attachments: email.attachments?.map(({ filename, contentType, content, cid }) => ({
+        filename,
+        contentType,
+        content,
+        cid,
+      })),
     });
   }
 }

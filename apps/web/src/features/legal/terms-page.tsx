@@ -7,7 +7,7 @@ export function TermsPage() {
   return (
     <LegalLayout
       title="Terms of use"
-      intro={`These are the rules for using ${APP_NAME}, a demonstration social network run by ${OPERATOR_NAME}. By creating an account you agree to them.`}
+      intro={`These are the rules for using ${APP_NAME}, a small social network run by ${OPERATOR_NAME}. By creating an account you agree to them.`}
     >
       <LegalSection title="What this is">
         <p>

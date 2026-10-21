@@ -8,7 +8,7 @@ import { CONTACT_EMAIL, REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
 
 /** Keep in step with the text: both pages print it, and a change in the text is a change in the date. */
-export const LEGAL_UPDATED_ON = '19 October 2026';
+export const LEGAL_UPDATED_ON = '21 October 2026';
 
 type LegalLayoutProps = {
   title: string;
@@ -62,7 +62,7 @@ export function LegalLayout({ title, intro, children }: LegalLayoutProps) {
         </article>
       </main>
       <footer className="text-muted-foreground mx-auto w-full max-w-3xl px-4 pb-8 text-xs sm:px-6">
-        {APP_NAME} · a demo social network ·{' '}
+        {APP_NAME} · a small social network ·{' '}
         <Link to="/" className="hover:text-foreground underline-offset-4 hover:underline">
           Back to the app
         </Link>

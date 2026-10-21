@@ -109,7 +109,7 @@ export function SettingsPage() {
             <h2>About</h2>
           </CardTitle>
           <CardDescription>
-            {APP_NAME} is a demo social network. The small print lives here.
+            {APP_NAME} is a small social network. The small print lives here.
           </CardDescription>
         </CardHeader>
         <CardContent>

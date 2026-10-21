@@ -31,7 +31,7 @@ export function SiteFooter() {
           </li>
         </ul>
       </nav>
-      <p className="mt-1">{APP_NAME} · a demo social network</p>
+      <p className="mt-1">{APP_NAME} · a small social network</p>
     </footer>
   );
 }

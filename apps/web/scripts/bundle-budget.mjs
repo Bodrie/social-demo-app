@@ -13,8 +13,10 @@ import path from 'node:path';
 // threads: the fold, the nested list and the reply composer live in the comments section, which
 // the feed's card renders on demand but which shares every primitive with the card, so splitting
 // it off only added chunk overhead; measured 250.1 kB after D1 + C2. E1's zod/mini build of
-// `@beso/shared` is the planned way back under 250).
-const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 252);
+// `@beso/shared` is the planned way back under 250), 252 → 256 (R3, the logo: the wordmark is
+// the owner's reference logotype traced into outlines, `scripts/wordmark.json`, about 3 kB gz
+// in the header's chunk; a trace from a sharper original would be smaller; measured 254.7 kB).
+const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 256);
 const dist = path.resolve(import.meta.dirname, '../dist');
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8');
 const initial = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(

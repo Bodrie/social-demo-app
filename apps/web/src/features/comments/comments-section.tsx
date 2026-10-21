@@ -32,6 +32,7 @@ import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { InlineEditor } from '@/components/inline-editor';
+import { LongPressArea } from '@/components/long-press-area';
 import { MentionTextarea } from '@/components/mention-textarea';
 import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
@@ -525,6 +526,8 @@ function CommentItem({
   const itemRef = useRef<HTMLLIElement>(null);
   const optionsRef = useRef<HTMLButtonElement>(null);
   const [reporting, setReporting] = useState(false);
+  // A press-and-hold on the comment opens the reaction picker over it, as native apps do.
+  const [pressedOn, setPressedOn] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (highlighted && typeof itemRef.current?.scrollIntoView === 'function') {
       itemRef.current.scrollIntoView({ block: 'center' });
@@ -547,7 +550,8 @@ function CommentItem({
         <UserAvatar user={comment.author} className={compact ? 'size-6' : 'size-8'} />
       </Link>
       <div className="min-w-0 flex-1 space-y-1.5">
-        <div
+        <LongPressArea
+          onLongPress={setPressedOn}
           className={cn(
             'bg-muted rounded-lg px-3 py-2',
             highlighted && 'ring-primary/50 ring-2 ring-offset-2 ring-offset-card',
@@ -633,9 +637,14 @@ function CommentItem({
               className="text-sm break-words whitespace-pre-wrap"
             />
           )}
-        </div>
+        </LongPressArea>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <ReactionBar summary={comment.reactions} onReact={onReact} />
+          <ReactionBar
+            summary={comment.reactions}
+            onReact={onReact}
+            pressedOn={pressedOn}
+            onClose={() => setPressedOn(null)}
+          />
           <Button
             ref={replyButtonRef}
             type="button"
