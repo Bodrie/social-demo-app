@@ -36,15 +36,21 @@ describe('LongPressArea', () => {
 
     fireEvent.pointerDown(area, touch());
     act(() => {
-      vi.advanceTimersByTime(449);
+      vi.advanceTimersByTime(349);
     });
     expect(onLongPress).not.toHaveBeenCalled();
+    // Android would open its own menu (and cancel the pointer) at ~400 ms: never in here.
+    expect(fireEvent.contextMenu(area)).toBe(false);
     act(() => {
       vi.advanceTimersByTime(1);
     });
     expect(onLongPress).toHaveBeenCalledExactlyOnceWith(area);
 
+    // The release: browsers replay it as mouse events whose `mousedown` would move focus
+    // (and close the popover the press opened); both are cancelled, the click is swallowed.
     fireEvent.pointerUp(area);
+    expect(fireEvent.touchEnd(area)).toBe(false);
+    expect(fireEvent.mouseDown(area)).toBe(false);
     fireEvent.click(link);
     expect(onClick).not.toHaveBeenCalled();
     // The next tap is an ordinary click again.
@@ -66,6 +72,9 @@ describe('LongPressArea', () => {
       vi.advanceTimersByTime(200);
     });
     fireEvent.pointerUp(area);
+    // A short tap keeps its ordinary release.
+    expect(fireEvent.touchEnd(area)).toBe(true);
+    expect(fireEvent.mouseDown(area)).toBe(true);
     settle();
     expect(onLongPress).not.toHaveBeenCalled();
 
@@ -77,6 +86,8 @@ describe('LongPressArea', () => {
     fireEvent.pointerDown(area, touch({ pointerType: 'mouse' }));
     settle();
     expect(onLongPress).not.toHaveBeenCalled();
+    // A mouse keeps its right-click menu.
+    expect(fireEvent.contextMenu(area)).toBe(true);
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'menu' }), touch());
     settle();

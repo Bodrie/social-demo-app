@@ -553,13 +553,32 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 ) : null}
               </LongPressArea>
               {settled ? (
-                <div className="flex shrink-0 items-center md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:has-[[data-state=open]]:opacity-100">
+                // Fine pointers: shown while the row is hovered, holds keyboard focus or has a
+                // menu open. Touch screens: not there at all, the press-and-hold is the way in.
+                <div className="pointer-coarse:hidden flex shrink-0 items-center opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 has-[[data-state=open]]:opacity-100">
                   <ReactionPicker
                     mine={reactions?.mine ?? null}
                     onReact={onReact}
                     align={mine ? 'end' : 'start'}
                     pressedOn={pressed?.id === message.id ? pressed.element : null}
                     onClose={() => setPressed(null)}
+                    actions={
+                      canManage
+                        ? [
+                            {
+                              label: 'Edit message',
+                              icon: <PencilIcon />,
+                              onSelect: () => setEditing(message.id),
+                            },
+                            {
+                              label: 'Delete message',
+                              icon: <Trash2Icon />,
+                              destructive: true,
+                              onSelect: () => setDeleting(message.id),
+                            },
+                          ]
+                        : undefined
+                    }
                   />
                   {canManage ? (
                     <DropdownMenu>

@@ -10,6 +10,16 @@ async function openComments(name: string) {
   return { user, section: await screen.findByRole('region', { name: 'Comments' }) };
 }
 
+/** A finger landing on an element, the start of a press-and-hold. */
+const hold = (element: HTMLElement) =>
+  fireEvent.pointerDown(element, {
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    clientX: 5,
+    clientY: 5,
+  });
+
 describe('CommentsSection', () => {
   it('opens on demand, adds with Enter and keeps the count in step', async () => {
     signedInAs(alice);
@@ -117,6 +127,36 @@ describe('CommentsSection', () => {
       'false',
     );
     await waitFor(() => expect(mockDb.reactions).toHaveLength(1));
+  });
+
+  it('a held comment offers reactions and its options', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { commentCount: 2 });
+    mockDb.comments.push(
+      makeComment(post!.id, { content: 'Theirs to report' }),
+      makeComment(post!.id, { content: 'Mine to edit', author: summaryOf(alice) }),
+    );
+    renderApp('/');
+    const { user, section } = await openComments('Comments 2');
+
+    const theirs = await within(section).findByText('Theirs to report');
+    hold(theirs);
+    expect(await screen.findByRole('button', { name: 'Report comment' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Love' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit comment' })).toBeNull();
+    fireEvent.pointerUp(theirs);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Love' })).toBeNull());
+
+    const mine = within(section).getByText('Mine to edit');
+    hold(mine);
+    expect(await screen.findByRole('button', { name: 'Delete comment' })).toBeInTheDocument();
+    fireEvent.pointerUp(mine);
+    await user.click(screen.getByRole('button', { name: 'Edit comment' }));
+    expect(
+      await within(section).findByRole('textbox', { name: 'Edit comment' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Love' })).toBeNull();
   });
 
   it('sorts by most reactions on request', async () => {
