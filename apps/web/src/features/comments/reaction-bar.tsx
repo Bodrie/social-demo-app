@@ -1,11 +1,21 @@
 import { REACTIONS, type ReactionSummary, type ReactionType } from '@beso/shared';
 import { cn } from 'cn';
 import { SmilePlusIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-type ReactionPickerProps = {
+type PressProps = {
+  /**
+   * A press-and-hold on the bubble (`LongPressArea`): while set, the picker is open and sits
+   * over that element instead of under its button.
+   */
+  pressedOn?: HTMLElement | null;
+  /** The picker closed (a pick, Escape, a tap outside): the parent clears `pressedOn`. */
+  onClose?: () => void;
+};
+
+type ReactionPickerProps = PressProps & {
   mine: ReactionType | null;
   onReact: (type: ReactionType | null) => void;
   disabled?: boolean;
@@ -20,10 +30,18 @@ export function ReactionPicker({
   disabled,
   align = 'start',
   className,
+  pressedOn = null,
+  onClose,
 }: ReactionPickerProps) {
   const [open, setOpen] = useState(false);
+  const anchor = useMemo(() => (pressedOn ? { current: pressedOn } : null), [pressedOn]);
+  const change = (next: boolean) => {
+    setOpen(next);
+    if (!next) onClose?.();
+  };
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open || anchor !== null} onOpenChange={change}>
+      {anchor ? <PopoverAnchor virtualRef={anchor} /> : null}
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -36,7 +54,11 @@ export function ReactionPicker({
           <SmilePlusIcon />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align={align} className="w-auto p-1">
+      <PopoverContent
+        align={anchor ? 'center' : align}
+        side={anchor ? 'top' : 'bottom'}
+        className="w-auto p-1"
+      >
         <fieldset className="flex gap-0.5">
           <legend className="sr-only">Pick a reaction</legend>
           {REACTIONS.map(({ type, emoji, label }) => (
@@ -51,7 +73,7 @@ export function ReactionPicker({
               )}
               onClick={() => {
                 onReact(mine === type ? null : type);
-                setOpen(false);
+                change(false);
               }}
             >
               {emoji}
@@ -63,7 +85,7 @@ export function ReactionPicker({
   );
 }
 
-type ReactionBarProps = {
+type ReactionBarProps = PressProps & {
   summary: ReactionSummary;
   onReact: (type: ReactionType | null) => void;
   disabled?: boolean;
@@ -79,6 +101,8 @@ export function ReactionBar({
   disabled,
   picker = true,
   className,
+  pressedOn,
+  onClose,
 }: ReactionBarProps) {
   const present = REACTIONS.filter((reaction) => summary.counts[reaction.type] > 0);
 
@@ -105,7 +129,15 @@ export function ReactionBar({
           </button>
         );
       })}
-      {picker ? <ReactionPicker mine={summary.mine} onReact={onReact} disabled={disabled} /> : null}
+      {picker ? (
+        <ReactionPicker
+          mine={summary.mine}
+          onReact={onReact}
+          disabled={disabled}
+          pressedOn={pressedOn}
+          onClose={onClose}
+        />
+      ) : null}
     </div>
   );
 }

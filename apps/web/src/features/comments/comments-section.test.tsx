@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { alice, bob, carol, makeComment, summaryOf } from '@/test/fixtures';
 import { mockDb, seedPosts, signedInAs } from '@/test/msw/handlers';
@@ -253,5 +253,31 @@ describe('CommentsSection', () => {
     expect(linked.closest('li')).toHaveAttribute('data-highlighted', 'true');
     expect(screen.getByRole('list', { name: 'Replies' })).toBeInTheDocument();
     expect(screen.getByText('Parent of the link')).toBeInTheDocument();
+  });
+
+  it('opens the reaction picker over a comment held with a finger', async () => {
+    signedInAs(alice);
+    const [post] = seedPosts(1, { commentCount: 1 });
+    mockDb.comments.push(makeComment(post!.id, { content: 'Hold me' }));
+    renderApp('/');
+    const { user, section } = await openComments('Comments 1');
+    const text = await within(section).findByText('Hold me');
+
+    fireEvent.pointerDown(text, {
+      pointerType: 'touch',
+      isPrimary: true,
+      button: 0,
+      clientX: 5,
+      clientY: 5,
+    });
+    const love = await screen.findByRole('button', { name: 'Love' });
+    fireEvent.pointerUp(text);
+    await user.click(love);
+    expect(await within(section).findByRole('button', { name: 'Love 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('button', { name: 'Love' })).toBeNull();
+    await waitFor(() => expect(mockDb.reactions).toHaveLength(1));
   });
 });

@@ -7,7 +7,7 @@ export function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy notice"
-      intro={`${APP_NAME} is a small social network run by ${OPERATOR_NAME} as a demonstration project. This notice explains what personal data it processes, why, for how long, and what you can do about it.`}
+      intro={`${APP_NAME} is a small social network run by ${OPERATOR_NAME} as a personal project. This notice explains what personal data it processes, why, for how long, and what you can do about it.`}
     >
       <LegalSection title="Who is responsible">
         <p>

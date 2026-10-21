@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
 import { ErrorState } from '@/components/empty-state';
 import { InlineEditor } from '@/components/inline-editor';
+import { LongPressArea } from '@/components/long-press-area';
 import { RichText } from '@/components/rich-text';
 import {
   AlertDialog,
@@ -406,6 +407,8 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
   const react = useReactToMessage(conversation.id);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  // A press-and-hold on a bubble opens the reaction picker over it, as native apps do.
+  const [pressed, setPressed] = useState<{ id: string; element: HTMLElement } | null>(null);
   const lastMine = messages.findLast(
     (m) => m.senderId === meId && !m.status && m.kind === 'user' && m.deletedAt === null,
   );
@@ -490,8 +493,11 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
               </p>
             ) : null}
             <div className={cn('flex max-w-full items-center gap-1', mine && 'flex-row-reverse')}>
-              <div
+              <LongPressArea
                 title={formatDateTime(message.createdAt)}
+                onLongPress={(element) => {
+                  if (settled) setPressed({ id: message.id, element });
+                }}
                 className={cn(
                   'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
                   message.imageUrl ? 'p-1' : 'px-3.5 py-2',
@@ -545,13 +551,15 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                     linkClassName={mine ? 'text-primary-foreground underline' : undefined}
                   />
                 ) : null}
-              </div>
+              </LongPressArea>
               {settled ? (
                 <div className="flex shrink-0 items-center md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:has-[[data-state=open]]:opacity-100">
                   <ReactionPicker
                     mine={reactions?.mine ?? null}
                     onReact={onReact}
                     align={mine ? 'end' : 'start'}
+                    pressedOn={pressed?.id === message.id ? pressed.element : null}
+                    onClose={() => setPressed(null)}
                   />
                   {canManage ? (
                     <DropdownMenu>

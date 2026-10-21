@@ -11,7 +11,7 @@ export function setupOpenApi(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('BeSo API')
     .setDescription(
-      'Social network demo app – REST API. Browser clients authenticate with the httpOnly access cookie; other clients may send the same token as a Bearer header. Routes marked @Public() need no session.',
+      'REST API of BeSo, a small social network. Browser clients authenticate with the httpOnly access cookie; other clients may send the same token as a Bearer header. Routes marked @Public() need no session.',
     )
     .setVersion('1.0')
     .addCookieAuth(ACCESS_COOKIE, { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE }, 'cookie')

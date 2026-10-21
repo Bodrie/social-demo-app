@@ -17,7 +17,8 @@ export function playMessageSound(): void {
   const start = audio.currentTime;
   const gain = audio.createGain();
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.12, start + 0.01);
+  // Peak 0.18 (was 0.12): about +3.5 dB, which the ear hears as roughly a third louder.
+  gain.gain.exponentialRampToValueAtTime(0.18, start + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
   gain.connect(audio.destination);
   for (const [frequency, at] of [

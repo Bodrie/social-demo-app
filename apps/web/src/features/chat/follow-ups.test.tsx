@@ -300,4 +300,37 @@ describe('chat follow-ups', () => {
       ]),
     );
   });
+
+  it('opens the reaction picker over a message held with a finger', async () => {
+    signedInAs(alice);
+    const withBob = seedDirect(alice.id, bob.id);
+    const his = makeMessage(withBob.id, bob.id, 'Hold this one');
+    mockDb.messages.push(his);
+    seedReadMark(withBob.id, alice.id, his.createdAt);
+    renderApp(`/messages/${withBob.id}`);
+    const user = userEvent.setup();
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    const text = await within(log).findByText('Hold this one');
+
+    fireEvent.pointerDown(text, {
+      pointerType: 'touch',
+      isPrimary: true,
+      button: 0,
+      clientX: 5,
+      clientY: 5,
+    });
+    const love = await screen.findByRole('button', { name: 'Love' });
+    fireEvent.pointerUp(text);
+    await user.click(love);
+    expect(await within(log).findByRole('button', { name: 'Love 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('button', { name: 'Love' })).toBeNull();
+    await waitFor(() =>
+      expect(mockDb.messages.find((m) => m.id === his.id)?.reactions).toEqual([
+        { userId: alice.id, type: 'LOVE' },
+      ]),
+    );
+  });
 });

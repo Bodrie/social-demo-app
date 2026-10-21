@@ -2,7 +2,7 @@
   "name": "beso",
   "version": "2.0.0-dev",
   "private": true,
-  "description": "BeSo \u2013 social network demo app (monorepo)",
+  "description": "BeSo \u2013 a small social network (monorepo)",
   "packageManager": "pnpm@11.1.0",
   "engines": {
     "node": ">=24",
@@ -18,6 +18,7 @@
     "check": "turbo run lint typecheck test build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "brand": "node scripts/brand-assets.mjs",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @beso/api db:generate",
