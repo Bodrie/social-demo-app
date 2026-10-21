@@ -31,6 +31,17 @@ export const uploadResponseSchema = z.object({
 });
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
 
+/**
+ * The frames the profile pictures are shown in: the API resizes every avatar and cover to
+ * exactly these sizes and the web cropper offers the same ratios (1:1 and 3:1), so what a
+ * member frames is what the page shows, with no second crop by the browser.
+ */
+export const PROFILE_PICTURE_SIZES = {
+  avatar: { width: 512, height: 512 },
+  cover: { width: 1800, height: 600 },
+} as const;
+export type ProfilePictureKind = keyof typeof PROFILE_PICTURE_SIZES;
+
 /** Mirrors the API defaults so forms can validate before uploading. */
 export const UPLOAD_LIMITS = {
   maxBytes: 5 * 1024 * 1024,

@@ -40,7 +40,7 @@ test.describe('profile', () => {
     ).toBeVisible();
   });
 
-  test('edit the own profile with a new avatar', async ({ page }) => {
+  test('edit the own profile with a new avatar through the cropper', async ({ page }) => {
     await openHome(page);
     await page.getByRole('button', { name: 'Account menu' }).click();
     await page.getByRole('menuitem', { name: 'Profile' }).click();
@@ -51,6 +51,14 @@ test.describe('profile', () => {
     const bio = `Playwright was here ${Date.now()}`;
     await dialog.getByLabel('Bio').fill(bio);
     await dialog.getByLabel('Choose avatar').setInputFiles(PHOTO);
+    // The cropper replaces the preview and takes the focus; frame the picture, then accept it.
+    const frame = dialog.getByRole('application', { name: 'Avatar position' });
+    await expect(frame).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await dialog.getByRole('button', { name: 'Zoom in' }).click();
+    await dialog.getByRole('button', { name: 'Use this' }).click();
+    await expect(frame).toBeHidden();
+    await expect(dialog.getByRole('button', { name: 'Change avatar' })).toBeFocused();
     const save = dialog.getByRole('button', { name: 'Save changes' });
     await expect(save).toBeEnabled();
     await save.click();

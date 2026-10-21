@@ -1,6 +1,9 @@
+import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { type Page, expect, test } from '@playwright/test';
 import { ANONYMOUS, animationsDone, openHome } from './helpers.js';
+
+const PHOTO = path.join(import.meta.dirname, 'fixtures', 'photo.png');
 
 /** WCAG 2.1 A/AA checks; `best-practice` rules are left out on purpose (too opinionated for a feed). */
 async function audit(page: Page, label: string): Promise<void> {
@@ -215,6 +218,9 @@ test.describe('accessibility (signed in)', () => {
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await expect(page.getByRole('dialog', { name: 'Edit profile' })).toBeVisible();
     await audit(page, 'edit profile dialog');
+    await page.getByLabel('Choose cover').setInputFiles(PHOTO);
+    await expect(page.getByRole('application', { name: 'Cover position' })).toBeVisible();
+    await audit(page, 'edit profile dialog (cropper)');
   });
 
   test('keyboard: skip link and focus after navigation', async ({ page }) => {

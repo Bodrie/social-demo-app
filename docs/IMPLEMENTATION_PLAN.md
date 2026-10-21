@@ -61,7 +61,7 @@ C2  comment replies                 ✅ 2026-10-20          ─┘
 C5  chat extras (edit, reactions, role lines, sound) ✅ 2026-10-20 ─┐
 B6  # autocomplete                  ✅ 2026-10-20           │  v2.7
 C7  realtime activity                                       │
-D4  picture cropping                                       ─┘
+D4  picture cropping                ✅ 2026-10-21          ─┘
 D2  richer posts · D3 TOTP · E1–E4                             later minors
 ```
 
@@ -415,6 +415,8 @@ the centre cut the API presets take today.
 
 - Web: after a file is chosen in the edit-profile dialog, a cropper replaces the preview (fixed aspect: 1:1 for the avatar, 3:1 for the cover; drag to move, wheel/pinch and +/- buttons to zoom, arrow keys to move, every control labelled), "Use this" draws the chosen area to a canvas and hands the blob to `useImageUpload(kind)` as today; the API presets keep resizing and converting (a cropped file is just a smaller file; no API change). `react-easy-crop` pinned in the catalog and loaded lazily inside the dialog, so the first paint carries nothing. Post and chat pictures stay uncropped.
 - Tests: web (the upload receives the cropped blob, keyboard operation, cancel keeps the old picture), e2e extension of `profile.spec.ts` (change the avatar through the cropper), axe on the dialog with the cropper open.
+
+Shipped 2026-10-21 with one deliberate departure from "no API change": the cover preset was 1600×600 (8:3) while the profile header and the field preview show 3:1, so the browser cropped a second time whatever the member chose. `PROFILE_PICTURE_SIZES` in `packages/shared` (avatar 512², cover 1800×600) now feeds both the API presets and the cropper's ratios; sharp's `attention` crop stays as the fallback for files uploaded uncropped (API clients, e2e).
 
 ---
 
