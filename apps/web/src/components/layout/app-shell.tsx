@@ -14,6 +14,8 @@ import { RightBar } from './right-bar';
 // Sound and browser notifications are off by default: their code loads only for people who
 // turned one on, keeping the first paint small.
 const MessageAlerts = lazy(() => import('@/features/chat/message-alerts'));
+// Web push stays out of the first paint: nothing about it is needed before the page is up.
+const PushSync = lazy(() => import('@/features/push/push-sync'));
 
 const isWide = (handle: unknown): boolean =>
   typeof handle === 'object' && handle !== null && 'wide' in handle && handle.wide === true;
@@ -74,6 +76,9 @@ export function AppShell() {
         )}
       </div>
       {me.settings.chatBubbles ? <ChatBubbles /> : null}
+      <Suspense fallback={null}>
+        <PushSync />
+      </Suspense>
       {me.settings.messageSound || me.settings.browserNotifications ? (
         <Suspense fallback={null}>
           <MessageAlerts />

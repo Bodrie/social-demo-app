@@ -70,6 +70,10 @@ export const queryKeys = {
     blocked: ['moderation', 'blocked'] as const,
     muted: ['moderation', 'muted'] as const,
   },
+  push: {
+    /** `{ publicKey }`: whether the server has web push switched on (ADR 0022). */
+    config: ['push', 'config'] as const,
+  },
   notifications: {
     all: ['notifications'] as const,
     list: ['notifications', 'list'] as const,

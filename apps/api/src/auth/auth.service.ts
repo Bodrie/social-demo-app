@@ -121,7 +121,7 @@ export class AuthService {
     return {
       user,
       tokens: {
-        accessToken: await this.signAccessToken(user),
+        accessToken: await this.signAccessToken(user, rotated.signInId),
         refreshToken: rotated.raw,
         refreshExpiresAt: rotated.expiresAt,
       },
@@ -180,11 +180,12 @@ export class AuthService {
     // An address confirmed some other way (a password reset) leaves its old link spent but
     // with nothing to do; such a link must not become a way in (review L1).
     if (confirmed.count === 0) return null;
-    if (!rawRefreshToken || !(await this.refreshTokens.isLiveFor(rawRefreshToken, userId))) {
-      return null;
-    }
+    const signInId = rawRefreshToken
+      ? await this.refreshTokens.liveSignIn(rawRefreshToken, userId)
+      : null;
+    if (!signInId) return null;
     const user = await this.users.getPrivateById(userId);
-    return { user, accessToken: await this.signAccessToken(user) };
+    return { user, accessToken: await this.signAccessToken(user, signInId) };
   }
 
   /** A fresh link for a signed-in member who is still waiting; a no-op once verified. */
@@ -413,10 +414,8 @@ export class AuthService {
 
   private async session(userId: string, meta: RequestMeta): Promise<AuthResult> {
     const user = await this.users.getPrivateById(userId);
-    const [accessToken, refresh] = await Promise.all([
-      this.signAccessToken(user),
-      this.refreshTokens.issue(userId, meta),
-    ]);
+    const refresh = await this.refreshTokens.issue(userId, meta);
+    const accessToken = await this.signAccessToken(user, refresh.signInId);
     return {
       user,
       tokens: { accessToken, refreshToken: refresh.raw, refreshExpiresAt: refresh.expiresAt },
@@ -433,14 +432,16 @@ export class AuthService {
       );
   }
 
-  /** `ev` and `role` travel in the token so the guards need no lookup. */
+  /** `ev` and `role` travel in the token so the guards need no lookup; `sid` names the sign-in. */
   private signAccessToken(
     user: Pick<UserPrivate, 'id' | 'emailVerifiedAt' | 'role'>,
+    signInId: string,
   ): Promise<string> {
     return this.accessTokens.sign({
       sub: user.id,
       ev: user.emailVerifiedAt !== null,
       role: user.role,
+      sid: signInId,
     });
   }
 }

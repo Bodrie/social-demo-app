@@ -78,6 +78,10 @@ services:
       JOBS_ENABLED: ${JOBS_ENABLED:-true}
       # Who reads the reports queue (RUNBOOK §6).
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # Web push (RUNBOOK §2.8); all three or none, push is off without them.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     volumes:
       - uploads:/data/uploads
     stop_grace_period: 20s

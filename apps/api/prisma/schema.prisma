@@ -48,6 +48,7 @@ model User {
   activities        Activity[]           @relation("ActivityActor")
   targetedBy        Activity[]           @relation("ActivityTargetUser")
   refreshTokens     RefreshToken[]
+  pushSubscriptions PushSubscription[]
   sentMessages      Message[]            @relation("MessageSender")
   messageReactions  MessageReaction[]
   conversations     ConversationMember[]
@@ -563,11 +564,36 @@ model RefreshToken {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   /// The last rotation (or the issue); the sessions list shows it as "last active".
   lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  /// The sign-in this token descends from: new at sign-in, carried along the rotation chain,
+  /// and the access token's `sid` (ADR 0022: a device's push subscription ends with it).
+  signInId   String    @default(uuid(7)) @map("sign_in_id") @db.Uuid
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([signInId])
   @@map("refresh_tokens")
+}
+
+/// A browser that receives web push for a member (ADR 0022): one row per push endpoint, tied to
+/// the sign-in it was made under and deleted when that sign-in ends.
+model PushSubscription {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  signInId   String   @map("sign_in_id") @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// The last time the app handed it over (every start of a signed-in tab).
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([signInId])
+  @@map("push_subscriptions")
 }
 
 enum ConversationKind {

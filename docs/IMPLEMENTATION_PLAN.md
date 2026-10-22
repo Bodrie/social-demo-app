@@ -75,7 +75,7 @@ D2  richer posts                    ✅ 2026-10-21 (pulled forward by the owner)
 E4  code structure                  ✅ 2026-10-22 (the emoji picker upgrade waits for November)
 ── agreed 2026-10-22 (§7, §10 third round) ──
 C7  realtime activity                ✅ 2026-10-22              finishes v2.7
-E2  installable app + web push                                 v2.8  (step 1)
+E2  installable app + web push      ✅ 2026-10-22              v2.8  (step 1)
 F1  invites + explore                                       ─┐
 F2a achievements: engine, first groups                      │
 F2b achievements: recognition, community, hidden, time zone │  v2.9  (step 2)
@@ -482,7 +482,7 @@ publish something new, the export and the erasure (ADR 0012) for every new per-u
 notifications through `NotificationsService`, pushes from domain events, its seed data, and its
 own achievements (F2's catalogue lists them).
 
-### E2. Installable app and web push · M–L · ADR 0022 "Web push" (step 1)
+### E2. Installable app and web push · M–L · ADR 0022 "Web push" (step 1) · ✅ 2026-10-22
 
 The base of the later steps: an incoming call, "your move" and an event reminder have to reach a
 closed tab, and an installed app with notifications is most of what members mean by "a real app".
@@ -513,6 +513,25 @@ closed tab, and an installed app with notifications is most of what members mean
   fake sender, the 410 clean-up, the sign-out clean-up), web (the Settings card with a stubbed
   `PushManager`), e2e (the manifest and the service worker are served and register; push itself is
   not driven end to end). Runbook: generating the VAPID keys, the `.env` lines.
+- As built (2026-10-22): the device belongs to a **sign-in**, not just a member. A refresh-token
+  chain had no stable id (each rotation is a new row), so a signed-out device would have kept
+  receiving message previews: `refresh_tokens.sign_in_id` (migration `web_push`) is carried along
+  rotation and signed into the access token as `sid`; every way sessions end emits
+  `SessionsEndedEvent`, which drops the subscriptions of sign-ins with no live token (a daily job
+  catches expiry). Tokens without `sid` get 401 on the push route and are refreshed by the client.
+  Endpoints must belong to a known push service (the API posts to them: SSRF), ten devices per
+  member at most. Sending is detached from the request. The words of a notification push come
+  from `NOTIFICATION_PHRASES` in shared, which the web's `NotificationText` now reads as well. The
+  service worker shows a push only when no app window is visible, a message uses the conversation
+  id as its tag like B3b's tab notification, and `MessageAlerts` leaves the system notification to
+  the worker where this browser has push on. `localStorage` remembers which member switched push
+  on in a browser, so another member signing in there drops it; a subscription made with replaced
+  VAPID keys is made again on the next start. Found on the way: `UsersService.updateSettings`
+  copied each known key by name, so new preference keys were silently dropped; it now merges any
+  key of the shared schema. The install offer (`beforeinstallprompt`) is kept for Settings and the
+  account menu; `pnpm brand` draws the manifest's icons. `PushSync` is lazy: the first paint grew
+  by 1 kB (257.3 of 258). Playwright's headless shell has no notifications, so e2e covers the
+  manifest, the icons, the worker's registration and the card; the switch flow is in the web tests.
 
 ### F1. Invites and the explore feed · M (step 2)
 

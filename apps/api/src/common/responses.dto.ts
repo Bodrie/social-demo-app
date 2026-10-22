@@ -16,6 +16,7 @@ import {
   notificationListSchema,
   postListSchema,
   postSchema,
+  pushConfigSchema,
   reactionSummarySchema,
   reportSchema,
   revisionListSchema,
@@ -58,6 +59,7 @@ export class CommentListDto extends createZodDto(commentListSchema) {}
 export class ReactionSummaryDto extends createZodDto(reactionSummarySchema) {}
 export class TrendingTagListDto extends createZodDto(trendingTagListSchema) {}
 export class UploadResponseDto extends createZodDto(uploadResponseSchema) {}
+export class PushConfigDto extends createZodDto(pushConfigSchema) {}
 
 // Activity and notifications
 export class ActivityListDto extends createZodDto(activityListSchema) {}

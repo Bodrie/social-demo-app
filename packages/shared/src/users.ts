@@ -83,6 +83,12 @@ export const userSettingsSchema = z.object({
   chatBubbles: z.boolean().default(true),
   messageSound: z.boolean().default(false),
   browserNotifications: z.boolean().default(false),
+  /** Web push (ADR 0022), for every device of the member that switched it on. */
+  pushMessages: z.boolean().default(true),
+  /** Likes, comments, replies, reactions, mentions, follows, reposts and quotes. */
+  pushSocial: z.boolean().default(true),
+  /** Whether a message's words appear in its push notification, or only "New message". */
+  pushPreviews: z.boolean().default(true),
 });
 export type UserSettings = z.infer<typeof userSettingsSchema>;
 
@@ -91,6 +97,9 @@ export const updateSettingsSchema = z.object({
   chatBubbles: z.boolean().optional(),
   messageSound: z.boolean().optional(),
   browserNotifications: z.boolean().optional(),
+  pushMessages: z.boolean().optional(),
+  pushSocial: z.boolean().optional(),
+  pushPreviews: z.boolean().optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

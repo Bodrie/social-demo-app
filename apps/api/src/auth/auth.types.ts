@@ -2,7 +2,13 @@ import type { UserRole } from '@beso/shared';
 import type { Request } from 'express';
 
 /** What the auth guard attaches to the request. */
-export type AuthUser = { id: string; emailVerified: boolean; role: UserRole };
+export type AuthUser = {
+  id: string;
+  emailVerified: boolean;
+  role: UserRole;
+  /** The sign-in behind this session (`sid`); null on a token from before sign-ins had ids. */
+  signInId: string | null;
+};
 
 export type AuthenticatedRequest = Request & { user?: AuthUser };
 

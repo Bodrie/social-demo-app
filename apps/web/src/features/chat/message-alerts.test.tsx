@@ -4,6 +4,7 @@ import { alice, bob, makeMessage } from '@/test/fixtures';
 import { seedDirect } from '@/test/msw/db';
 import { mockDb, signedInAs } from '@/test/msw/handlers';
 import { renderApp } from '@/test/render';
+import { setPushActiveHere } from '@/lib/push';
 import { fakeSocket } from '@/test/socket-mock';
 
 const oscillators = vi.fn();
@@ -149,5 +150,23 @@ describe('message alerts', () => {
     expect(shown).toEqual([]);
     expect(oscillators).not.toHaveBeenCalled();
     FakeNotification.permission = 'granted';
+  });
+
+  it('leaves the system notification to the service worker where this browser gets push', async () => {
+    const me = signedInAs(alice);
+    me.settings = { ...me.settings, messageSound: true, browserNotifications: true };
+    const withBob = seedDirect(alice.id, bob.id);
+    renderApp('/');
+    await screen.findByLabelText('New post');
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+    setPushActiveHere(true);
+    visibility = 'hidden';
+    act(() =>
+      fakeSocket.serverEmit(SOCKET_EVENTS.messageNew, makeMessage(withBob.id, bob.id, 'Lunch?')),
+    );
+    // The sound still plays; only the system notification is the service worker's.
+    await waitFor(() => expect(oscillators).toHaveBeenCalled());
+    expect(shown).toEqual([]);
+    setPushActiveHere(false);
   });
 });

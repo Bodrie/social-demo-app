@@ -1,9 +1,26 @@
+import { createECDH } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
 import { OUTBOX_DIR, STORAGE_STATE } from './e2e/helpers.js';
 
 const WEB_PORT = 4173;
 const API_PORT = 3000;
 const isCI = Boolean(process.env.CI);
+
+/**
+ * A throwaway VAPID pair, so the API has web push switched on and the app registers its service
+ * worker (ADR 0022); nothing is ever pushed. P-256, base64url, the private key padded to 32 bytes
+ * as web-push does it.
+ */
+const vapid = createECDH('prime256v1');
+vapid.generateKeys();
+const privateKey = vapid.getPrivateKey();
+const VAPID_ENV = {
+  VAPID_PUBLIC_KEY: vapid.getPublicKey('base64url'),
+  VAPID_PRIVATE_KEY: Buffer.concat([Buffer.alloc(32 - privateKey.length), privateKey]).toString(
+    'base64url',
+  ),
+  VAPID_SUBJECT: 'mailto:e2e@example.com',
+};
 
 /**
  * End-to-end tests run against the real API and a seeded PostgreSQL
@@ -59,6 +76,7 @@ export default defineConfig({
         // from the preview proxy's address: a full run asks GET /auth/me ~100 times a minute,
         // and the 429s that follow leave every later page without a session.
         THROTTLE_LIMIT: '10000',
+        ...VAPID_ENV,
       },
     },
     {

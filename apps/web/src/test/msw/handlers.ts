@@ -4,6 +4,7 @@ import { conversationHandlers } from './conversations';
 import { authHandlers } from './auth';
 import { notificationHandlers } from './notifications';
 import { postHandlers } from './posts';
+import { pushHandlers } from './push';
 import { tagHandlers } from './tags';
 import { userHandlers } from './users';
 
@@ -20,4 +21,5 @@ export const handlers = [
   ...adminHandlers,
   ...conversationHandlers,
   ...tagHandlers,
+  ...pushHandlers,
 ];

@@ -52,11 +52,17 @@ describe('toUserSettings', () => {
       chatBubbles: false,
       messageSound: false,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
     });
     expect(toUserSettings(null)).toEqual({
       chatBubbles: true,
       messageSound: false,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
     });
     expect(toUserSettings('garbage').chatBubbles).toBe(true);
   });

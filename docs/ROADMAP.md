@@ -45,7 +45,7 @@ and few members online at once. The slices are Track F of `IMPLEMENTATION_PLAN.m
 
 | Step | Item | Why | Notes |
 |---|---|---|---|
-| 1 | Installable app and web push (E2) | the phone is where members are; calls, game turns and reminders must reach a closed tab | manifest, icons, a push-only service worker, preferences per kind; iPhone push needs the installed app |
+| 1 | ~~Installable app and web push (E2)~~ ✅ 2026-10-22 | the phone is where members are; calls, game turns and reminders must reach a closed tab | manifest, icons, a push-only service worker, preferences per kind; iPhone push needs the installed app |
 | 2 | Invites and an explore feed (F1) | a newcomer's empty feed is the biggest risk of a new network | personal invite links (the invitee follows the inviter), `/explore` with Latest and Popular |
 | 2 | Achievements (F2) | turns sign-ups into members (the first badges are an onboarding checklist) and rewards welcoming, replying and being worth reading | 120 badges (tiers counted) in seven groups, 22 of them hidden, plus the ones later slices add; no streaks; shown on the profile with a switch |
 | 2 | Polls (F3) | the cheapest way to start a conversation | 2–4 options, one vote, a closing time; brings the frequent job runner the later steps need |

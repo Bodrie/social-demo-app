@@ -268,6 +268,29 @@ Mismatched halves (a site key from one widget, the secret of another) fail every
 with "Please complete the bot check"; a Cloudflare outage answers 503 `CAPTCHA_UNAVAILABLE`
 and nobody can register until it is back, by design.
 
+### 2.8 Push notifications (VAPID keys)
+
+Web push (ADR 0022) needs a key pair that identifies this server to the browsers' push services.
+Without the three variables push is simply off and Settings says so; nothing else changes.
+Once the release with push runs, make the pair in the api container (or anywhere with the repo:
+`pnpm --filter @beso/api push:keys`):
+
+```bash
+cd /opt/beso
+docker compose exec -w /app/apps/api api node node_modules/web-push/src/cli.js generate-vapid-keys
+nano .env    # VAPID_PUBLIC_KEY=…, VAPID_PRIVATE_KEY=…, VAPID_SUBJECT=mailto:<the contact address of the legal pages>
+./update.sh  # the .env changed: the API restarts with push on
+docker compose logs api | grep -c 'push notifications are switched off'   # 0 since this start
+```
+
+Settings → Notifications then offers "Push notifications on this device".
+
+The private key is a secret like `JWT_SECRET`: only in `.env`. Keep the pair: replacing it makes
+every device subscribe again the next time it opens BeSo (it happens by itself, but a device that
+is not opened gets nothing until then). Browsers allow push only on https (and localhost).
+Members switch it on per device in Settings → Notifications; on iPhone and iPad only after
+"Add to Home Screen" (iOS 16.4+).
+
 ## 3. First start
 
 As `beso`:

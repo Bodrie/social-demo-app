@@ -36,6 +36,34 @@ export const notificationSchema = z.object({
 });
 export type Notification = z.infer<typeof notificationSchema>;
 
+/**
+ * How each notification reads after the actor's name, and which excerpt it quotes. The web
+ * renders these words with links (`NotificationText`), a push notification as plain text
+ * (`notificationPush`): a new type is one entry here.
+ */
+export const NOTIFICATION_PHRASES: Record<
+  NotificationType,
+  { phrase: string; quotes: 'post' | 'comment' | null }
+> = {
+  POST_LIKED: { phrase: 'liked your post', quotes: 'post' },
+  POST_COMMENTED: { phrase: 'commented on your post', quotes: 'comment' },
+  COMMENT_REPLIED: { phrase: 'replied to your comment', quotes: 'comment' },
+  COMMENT_REACTED: { phrase: 'reacted to your comment', quotes: 'comment' },
+  USER_FOLLOWED: { phrase: 'started following you', quotes: null },
+  MENTIONED_IN_POST: { phrase: 'mentioned you in a post', quotes: 'post' },
+  MENTIONED_IN_COMMENT: { phrase: 'mentioned you in a comment', quotes: 'comment' },
+  POST_REPOSTED: { phrase: 'reposted your post', quotes: 'post' },
+  POST_QUOTED: { phrase: 'quoted your post', quotes: 'post' },
+};
+
+/** Where a notification leads: the post (at the comment, for comment types) or the actor. */
+export function notificationLink(notification: Notification): string {
+  const { post, comment } = notification;
+  if (post && comment) return `/p/${post.id}?comment=${comment.id}`;
+  if (post) return `/p/${post.id}`;
+  return `/u/${notification.actor.username}`;
+}
+
 export const notificationListSchema = paginatedSchema(notificationSchema);
 export type NotificationList = z.infer<typeof notificationListSchema>;
 

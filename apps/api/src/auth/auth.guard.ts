@@ -35,7 +35,12 @@ export class AuthGuard implements CanActivate {
     const payload = await this.tokens.verify(token);
     if (!payload) throw unauthorized('Invalid or expired session');
     const emailVerified = payload.ev ?? true;
-    request.user = { id: payload.sub, emailVerified, role: payload.role ?? 'member' };
+    request.user = {
+      id: payload.sub,
+      emailVerified,
+      role: payload.role ?? 'member',
+      signInId: payload.sid ?? null,
+    };
 
     if (!emailVerified) {
       const allowed = this.reflector.getAllAndOverride<boolean | undefined>(ALLOW_UNVERIFIED_KEY, [

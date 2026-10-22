@@ -86,7 +86,9 @@ catalog:
   vitest-mock-extended: 5.1.1
   # api uploads
   sharp: 0.35.5
+  web-push: 3.6.7
   nodemailer: 10.1.2
+  '@types/web-push': 3.6.4
   '@types/nodemailer': 8.0.2
   multer: 2.4.0
   '@types/multer': 2.3.0

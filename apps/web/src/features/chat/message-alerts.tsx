@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { flattenPages } from '@/lib/infinite';
+import { pushActiveHere } from '@/lib/push';
 import { playMessageSound } from '@/lib/notification-sound';
 import { queryKeys } from '@/lib/query-keys';
 import { useChat } from './chat-context';
@@ -20,7 +21,7 @@ const notificationsGranted = (): boolean =>
  * (exactly when a bubble appears or the badge goes up), hidden tab or not; the browser
  * notification only while the tab is hidden, since a visible tab shows the bubble instead.
  * The permission is only ever asked for from that switch; here a missing one simply means no
- * notification.
+ * notification. Where this browser receives web push, the service worker shows it instead.
  */
 export default function MessageAlerts() {
   const me = useCurrentUser();
@@ -40,6 +41,8 @@ export default function MessageAlerts() {
         if (messageSound && !onScreen) playMessageSound();
         if (document.visibilityState !== 'hidden') return;
         if (!browserNotifications || !notificationsGranted()) return;
+        // This browser gets the push (ADR 0022): its service worker shows the same notification.
+        if (pushActiveHere()) return;
         const conversation =
           queryClient.getQueryData<Conversation>(
             queryKeys.conversations.detail(message.conversationId),

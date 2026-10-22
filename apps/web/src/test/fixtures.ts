@@ -65,7 +65,14 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     pendingEmail: null,
     role: 'member',
     emailVerifiedAt: '2026-10-15T10:05:00.000Z',
-    settings: { chatBubbles: true, messageSound: false, browserNotifications: false },
+    settings: {
+      chatBubbles: true,
+      messageSound: false,
+      browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
+    },
     ...overrides,
   };
 }

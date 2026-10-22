@@ -6,6 +6,7 @@ import {
   NOTIFICATION_RETENTION_DAYS,
   NotificationsService,
 } from '../notifications/notifications.service.js';
+import { PushService } from '../push/push.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -36,11 +37,14 @@ export class JobsService {
     account: AccountService,
     uploads: UploadsService,
     notifications: NotificationsService,
+    push: PushService,
   ) {
     const { warnAfterDays, deleteAfterDays } = UNVERIFIED_ACCOUNT_POLICY;
     this.jobs = [
       { name: 'expired email tokens', run: (now) => emailTokens.deleteExpired(now) },
       { name: 'expired refresh tokens', run: (now) => refreshTokens.deleteExpired(now) },
+      // After the tokens: a sign-in whose last token expired takes its push devices along.
+      { name: 'push devices of ended sign-ins', run: (now) => push.pruneEnded(now) },
       {
         name: 'unverified accounts',
         run: (now) => account.eraseUnverified(before(now, deleteAfterDays * DAY_MS)),

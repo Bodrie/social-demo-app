@@ -26,6 +26,7 @@ import { ModerationModule } from './moderation/moderation.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { PushModule } from './push/push.module.js';
 import { SearchModule } from './search/search.module.js';
 import { TagsModule } from './tags/tags.module.js';
 import { TokensModule } from './tokens/tokens.module.js';
@@ -72,6 +73,7 @@ import { UsersModule } from './users/users.module.js';
     FollowsModule,
     ActivitiesModule,
     NotificationsModule,
+    PushModule,
     ConversationsModule,
     ChatModule,
     JobsModule,

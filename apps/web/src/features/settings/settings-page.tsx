@@ -20,6 +20,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { announceSessionChange, endSession } from '@/features/auth/use-me';
 import { PrivacyCard } from '@/features/moderation/privacy-card';
+import { PushSettings } from '@/features/push/push-settings';
 import { logoutEverywhere } from '@/lib/api/auth';
 import { REPOSITORY_URL } from '@/lib/env';
 import { usePageTitle } from '@/lib/use-page-title';
@@ -84,6 +85,21 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ChatSettings />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle asChild>
+            <h2>Notifications</h2>
+          </CardTitle>
+          <CardDescription>
+            What reaches your devices while BeSo is closed: switched on per device, chosen for your
+            account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PushSettings />
         </CardContent>
       </Card>
 

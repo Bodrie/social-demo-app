@@ -9,9 +9,9 @@ describe('AccessTokensService', () => {
   const tokens = new AccessTokensService(new JwtService(accessTokenJwtOptions(SECRET, 60)));
 
   it('verifies what it signs', async () => {
-    const token = await tokens.sign({ sub: USER_ID, ev: true, role: 'admin' });
+    const token = await tokens.sign({ sub: USER_ID, ev: true, role: 'admin', sid: USER_ID });
     const payload = await tokens.verify(token);
-    expect(payload).toMatchObject({ sub: USER_ID, ev: true, role: 'admin' });
+    expect(payload).toMatchObject({ sub: USER_ID, ev: true, role: 'admin', sid: USER_ID });
     expect(payload?.exp).toBeGreaterThan(Date.now() / 1000);
   });
 

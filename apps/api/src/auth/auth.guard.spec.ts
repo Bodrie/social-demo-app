@@ -57,6 +57,7 @@ describe('AuthGuard', () => {
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       emailVerified: true,
       role: 'member',
+      signInId: null,
     });
   });
 
@@ -74,6 +75,7 @@ describe('AuthGuard', () => {
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       emailVerified: false,
       role: 'member',
+      signInId: null,
     });
 
     const verified = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9', ev: true });
@@ -87,6 +89,20 @@ describe('AuthGuard', () => {
     await expect(
       guard.canActivate(contextFor({ headers: {}, cookies: { access_token: token } })),
     ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('carries the sign-in id of the session when the token has one', async () => {
+    const token = await jwt.signAsync({
+      sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
+      ev: true,
+      sid: '01a13ed6-d3ec-71cb-b39f-fbc256a293b1',
+    });
+    const request: Partial<AuthenticatedRequest> = {
+      headers: {},
+      cookies: { access_token: token },
+    };
+    await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+    expect(request.user?.signInId).toBe('01a13ed6-d3ec-71cb-b39f-fbc256a293b1');
   });
 
   it('rejects missing and tampered tokens', async () => {

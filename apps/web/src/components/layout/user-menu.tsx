@@ -1,5 +1,6 @@
 import {
   BookmarkIcon,
+  DownloadIcon,
   LogOutIcon,
   ScaleIcon,
   SettingsIcon,
@@ -21,11 +22,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useLogout } from '@/features/auth/use-auth-mutations';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { useInstallPrompt } from '@/lib/install-prompt';
 
 export function UserMenu() {
   const user = useCurrentUser();
   const navigate = useNavigate();
   const logout = useLogout();
+  const install = useInstallPrompt();
   // After choosing a page, focus belongs to that page (AppShell moves it to <main>), not back
   // on this button as Radix would do by default.
   const navigated = useRef(false);
@@ -80,6 +83,11 @@ export function UserMenu() {
         {user.role === 'admin' ? (
           <DropdownMenuItem onSelect={() => go('/admin')}>
             <ShieldCheckIcon /> Admin
+          </DropdownMenuItem>
+        ) : null}
+        {install.available ? (
+          <DropdownMenuItem onSelect={() => void install.install()}>
+            <DownloadIcon /> Install app
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />

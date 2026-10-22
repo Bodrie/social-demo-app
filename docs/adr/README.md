@@ -24,5 +24,6 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0017](0017-feed-items.md) | Feed items: plain reposts as pointers, quotes as posts, the feed a union with one row per post at its newest occurrence | Accepted |
 | [0018](0018-migrations-image-and-updater.md) | Migrations in a one-shot `beso-migrate` image (the API image loses the Prisma CLI); `update.sh` pulls only our images, all or nothing, and applies only what changed, migrating on its own first | Accepted |
 | [0019](0019-response-contracts.md) | Every JSON response parsed with its shared schema (`@ZodResponse` + the global serializer; a mismatch is a logged 500); OpenAPI 3.1 with response schemas | Accepted |
+| [0022](0022-web-push.md) | Web push tied to the sign-in it was made under (`sid` in the access token, devices dropped when sessions end), only known push services, the tab first and the service worker otherwise, detached sending; installable app (manifest, icons, install offer) | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.

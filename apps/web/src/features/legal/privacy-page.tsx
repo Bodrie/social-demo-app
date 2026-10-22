@@ -79,11 +79,18 @@ export function PrivacyPage() {
             <strong>Resend</strong> delivers our email: it receives your email address, your name
             and the content of the confirmation and password reset messages we send you.
           </li>
+          <li>
+            <strong>Your browser's push service</strong> (Google for Chrome and most other browsers,
+            Mozilla for Firefox, Apple for Safari, Microsoft for Edge) delivers push notifications,
+            only if you switch them on for a device. The notification's content is encrypted for
+            your browser alone, so the push service cannot read it; it sees that a notification is
+            on its way to your device.
+          </li>
         </LegalList>
         <p>
           Nobody else receives your data unless the law requires it. We do not transfer your data
-          outside the European Union ourselves; Cloudflare and Resend operate globally under their
-          own EU data transfer arrangements.
+          outside the European Union ourselves; Cloudflare, Resend and the push services operate
+          globally under their own EU data transfer arrangements.
         </p>
       </LegalSection>
 
@@ -92,8 +99,9 @@ export function PrivacyPage() {
           {APP_NAME} uses two cookies, both strictly necessary: one carries your session for a few
           minutes, the other lets the app renew that session for up to seven days. They cannot be
           read by scripts and are never used for tracking. Your light or dark theme preference is
-          kept in your browser's local storage. There are no analytics or advertising cookies, so
-          there is no cookie banner.
+          kept in your browser's local storage, and so is which account switched on push
+          notifications in that browser (so nobody else signing in there receives them). There are
+          no analytics or advertising cookies, so there is no cookie banner.
         </p>
       </LegalSection>
 
