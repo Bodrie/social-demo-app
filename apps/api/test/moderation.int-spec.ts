@@ -159,7 +159,7 @@ describe('moderation: block, mute, report (ADR 0016)', () => {
     const mine = notificationListSchema.parse(
       (await aliceAgent.get('/api/v1/notifications').expect(200)).body,
     );
-    expect(mine.items.some((item) => item.actor.id === bob.id)).toBe(false);
+    expect(mine.items.some((item) => item.actor?.id === bob.id)).toBe(false);
 
     const blocked = memberListSchema.parse(
       (await aliceAgent.get('/api/v1/users/me/blocked?limit=1').expect(200)).body,
@@ -204,11 +204,11 @@ describe('moderation: block, mute, report (ADR 0016)', () => {
     const mine = notificationListSchema.parse(
       (await carolAgent.get('/api/v1/notifications').expect(200)).body,
     );
-    expect(mine.items.some((item) => item.actor.id === bob.id)).toBe(false);
+    expect(mine.items.some((item) => item.actor?.id === bob.id)).toBe(false);
     const activity = activityListSchema.parse(
       (await carolAgent.get('/api/v1/activities').expect(200)).body,
     );
-    expect(activity.items.some((item) => item.actor.id === bob.id)).toBe(false);
+    expect(activity.items.some((item) => item.actor?.id === bob.id)).toBe(false);
 
     const muted = memberListSchema.parse(
       (await carolAgent.get('/api/v1/users/me/muted').expect(200)).body,

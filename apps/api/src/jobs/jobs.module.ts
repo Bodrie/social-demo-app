@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AccountModule } from '../account/account.module.js';
+import { AchievementsModule } from '../achievements/achievements.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PushModule } from '../push/push.module.js';
@@ -16,6 +17,7 @@ import { JobsService } from './jobs.service.js';
     UploadsModule,
     NotificationsModule,
     PushModule,
+    AchievementsModule,
   ],
   providers: [JobsService, JobsScheduler],
   exports: [JobsService],

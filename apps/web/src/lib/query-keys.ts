@@ -78,6 +78,15 @@ export const queryKeys = {
     /** Who a `/join/<code>` link is from. */
     lookup: (code: string) => ['invites', 'lookup', code] as const,
   },
+  achievements: {
+    all: ['achievements'] as const,
+    /** The member's own badges with the progress of every series (F2). */
+    mine: ['achievements', 'mine'] as const,
+    /** What a member earned, as everyone else sees it. */
+    user: (userId: string) => ['achievements', 'user', userId] as const,
+    /** Holders per badge, for "12 % of members have this". */
+    stats: ['achievements', 'stats'] as const,
+  },
   push: {
     /** `{ publicKey }`: whether the server has web push switched on (ADR 0022). */
     config: ['push', 'config'] as const,

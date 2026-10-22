@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
 import type { AccountService } from '../account/account.service.js';
+import type { AchievementsService } from '../achievements/achievements.service.js';
 import type { EmailTokensService } from '../auth/email-tokens.service.js';
 import type { RefreshTokensService } from '../auth/refresh-tokens.service.js';
 import type { NotificationsService } from '../notifications/notifications.service.js';
@@ -17,6 +18,7 @@ describe('JobsService.runDaily', () => {
   let uploads: DeepMockProxy<UploadsService>;
   let notifications: DeepMockProxy<NotificationsService>;
   let push: DeepMockProxy<PushService>;
+  let achievements: DeepMockProxy<AchievementsService>;
   let service: JobsService;
 
   beforeAll(() => {
@@ -37,7 +39,17 @@ describe('JobsService.runDaily', () => {
     uploads.deleteOrphans.mockResolvedValue(0);
     notifications.deleteOlderThan.mockResolvedValue(0);
     push.pruneEnded.mockResolvedValue(0);
-    service = new JobsService(emailTokens, refreshTokens, account, uploads, notifications, push);
+    achievements = mockDeep<AchievementsService>();
+    achievements.sweep.mockResolvedValue(0);
+    service = new JobsService(
+      emailTokens,
+      refreshTokens,
+      account,
+      uploads,
+      notifications,
+      push,
+      achievements,
+    );
   });
 
   it('runs every job with the cut-offs of the retention policy', async () => {
@@ -46,6 +58,7 @@ describe('JobsService.runDaily', () => {
     expect(emailTokens.deleteExpired).toHaveBeenCalledWith(now);
     expect(refreshTokens.deleteExpired).toHaveBeenCalledWith(now);
     expect(push.pruneEnded).toHaveBeenCalledWith(now);
+    expect(achievements.sweep).toHaveBeenCalledWith(now);
     expect(account.eraseUnverified).toHaveBeenCalledWith(new Date('2026-09-20T04:00:00.000Z'));
     expect(account.warnUnverified).toHaveBeenCalledWith(new Date('2026-09-27T04:00:00.000Z'), now);
     expect(uploads.deleteOrphans).toHaveBeenCalledWith(new Date('2026-10-19T04:00:00.000Z'));

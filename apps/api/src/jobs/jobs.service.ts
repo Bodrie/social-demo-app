@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AccountService, UNVERIFIED_ACCOUNT_POLICY } from '../account/account.service.js';
+import { AchievementsService } from '../achievements/achievements.service.js';
 import { EmailTokensService } from '../auth/email-tokens.service.js';
 import { RefreshTokensService } from '../auth/refresh-tokens.service.js';
 import {
@@ -38,6 +39,7 @@ export class JobsService {
     uploads: UploadsService,
     notifications: NotificationsService,
     push: PushService,
+    achievements: AchievementsService,
   ) {
     const { warnAfterDays, deleteAfterDays } = UNVERIFIED_ACCOUNT_POLICY;
     this.jobs = [
@@ -63,6 +65,8 @@ export class JobsService {
         run: (now) =>
           notifications.deleteOlderThan(before(now, NOTIFICATION_RETENTION_DAYS * DAY_MS)),
       },
+      // Tenure, and whatever a failed listener missed (ADR 0021).
+      { name: 'achievements', run: (now) => achievements.sweep(now) },
     ];
   }
 

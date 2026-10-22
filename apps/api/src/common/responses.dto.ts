@@ -30,6 +30,11 @@ import {
   userPublicSchema,
   verifyEmailResponseSchema,
 } from '@beso/shared';
+import {
+  achievementListSchema,
+  achievementStatsSchema,
+  myAchievementsSchema,
+} from '@beso/shared/achievements';
 import { createZodDto } from 'nestjs-zod';
 
 /*
@@ -47,6 +52,9 @@ export class SessionListDto extends createZodDto(sessionListSchema) {}
 export class AccountExportDto extends createZodDto(accountExportSchema) {}
 export class InviteDto extends createZodDto(inviteSchema) {}
 export class InviteLookupDto extends createZodDto(inviteLookupSchema) {}
+export class AchievementListDto extends createZodDto(achievementListSchema) {}
+export class MyAchievementsDto extends createZodDto(myAchievementsSchema) {}
+export class AchievementStatsDto extends createZodDto(achievementStatsSchema) {}
 
 // People
 export class UserPublicDto extends createZodDto(userPublicSchema) {}

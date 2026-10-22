@@ -89,6 +89,10 @@ export const userSettingsSchema = z.object({
   pushSocial: z.boolean().default(true),
   /** Whether a message's words appear in its push notification, or only "New message". */
   pushPreviews: z.boolean().default(true),
+  /** Others see the member's badges (F2); off hides them from everyone but the member. */
+  showAchievements: z.boolean().default(true),
+  /** The Getting started card on the home feed was dismissed. */
+  hideGettingStarted: z.boolean().default(false),
 });
 export type UserSettings = z.infer<typeof userSettingsSchema>;
 
@@ -100,6 +104,8 @@ export const updateSettingsSchema = z.object({
   pushMessages: z.boolean().optional(),
   pushSocial: z.boolean().optional(),
   pushPreviews: z.boolean().optional(),
+  showAchievements: z.boolean().optional(),
+  hideGettingStarted: z.boolean().optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

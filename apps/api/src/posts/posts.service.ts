@@ -27,6 +27,7 @@ import {
 } from '../common/pagination.js';
 import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
 import {
+  PostBookmarkedEvent,
   PostCreatedEvent,
   PostLikedEvent,
   PostQuotedEvent,
@@ -501,10 +502,16 @@ export class PostsService {
   /** A private save-for-later (C3a): idempotent, no count on the post, no event, nobody told. */
   async bookmark(viewerId: string, postId: string): Promise<void> {
     await this.assertExists(postId);
-    await this.prisma.bookmark.createMany({
+    const { count } = await this.prisma.bookmark.createMany({
       data: { userId: viewerId, postId },
       skipDuplicates: true,
     });
+    if (count === 1) {
+      await this.events.emitAsync(
+        PostBookmarkedEvent.EVENT,
+        new PostBookmarkedEvent(postId, viewerId),
+      );
+    }
   }
 
   async unbookmark(viewerId: string, postId: string): Promise<void> {

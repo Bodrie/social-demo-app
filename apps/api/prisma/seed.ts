@@ -149,11 +149,14 @@ async function seed(): Promise<void> {
   const users = await prisma.user.createManyAndReturn({
     data: [...FIXED_USERS.map((u) => ({ ...u, bio: null, website: null })), ...fakeUsers].map(
       // Demo accounts are born verified; real members confirm their address through the mailed link.
-      // alice runs the demo: she reads the reports queue (ADR 0016).
+      // alice runs the demo: she reads the reports queue (ADR 0016). Their badges are not counted
+      // yet (F2): the first count awards what the seeded data reached, silently, like the
+      // accounts that existed before achievements.
       (u) => ({
         ...u,
         passwordHash,
         emailVerifiedAt: new Date(),
+        achievementsCheckedAt: null,
         role: u.username === 'alice' ? ('admin' as const) : ('member' as const),
       }),
     ),

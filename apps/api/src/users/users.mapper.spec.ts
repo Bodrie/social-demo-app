@@ -55,6 +55,8 @@ describe('toUserSettings', () => {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
     });
     expect(toUserSettings(null)).toEqual({
       chatBubbles: true,
@@ -63,6 +65,8 @@ describe('toUserSettings', () => {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
     });
     expect(toUserSettings('garbage').chatBubbles).toBe(true);
   });

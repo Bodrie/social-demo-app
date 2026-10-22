@@ -25,5 +25,6 @@ export const TABLES = [
   'post_images',
   'posts',
   'uploads',
+  'user_achievements',
   'users',
 ] as const;

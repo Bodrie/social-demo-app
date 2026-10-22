@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   type Message,
   type Notification,
@@ -13,6 +14,7 @@ import {
 import { unauthorized } from '../common/errors.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import type { Env } from '../config/env.js';
+import { PushSubscribedEvent } from '../events/user.events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { toUserSettings } from '../users/users.mapper.js';
 import { PUSH_SENDER, type PushOptions, type PushSender } from './push.sender.js';
@@ -43,6 +45,7 @@ export class PushService {
     private readonly prisma: PrismaService,
     @Inject(PUSH_SENDER) private readonly sender: PushSender | null,
     config: ConfigService<Env, true>,
+    private readonly events: EventEmitter2,
   ) {
     this.publicKey = sender ? (config.get('VAPID_PUBLIC_KEY', { infer: true }) ?? null) : null;
   }
@@ -86,6 +89,7 @@ export class PushService {
         where: { id: { in: devices.map((device) => device.id) } },
       });
     }
+    await this.events.emitAsync(PushSubscribedEvent.EVENT, new PushSubscribedEvent(user.id));
   }
 
   async unsubscribe(userId: string, endpoint: string): Promise<void> {
@@ -109,9 +113,12 @@ export class PushService {
         )`;
   }
 
-  /** A notification, to the recipient's devices when they want social pushes. */
+  /**
+   * A notification, to the recipient's devices when they want social pushes. Badges stay in the
+   * app (the bell and a toast): they come in bursts and the daily sweep's at night (ADR 0021).
+   */
   async notify(userId: string, notification: Notification): Promise<void> {
-    if (!this.enabled) return;
+    if (!this.enabled || notification.type === 'ACHIEVEMENT_EARNED') return;
     const payload = notificationPush(notification);
     await this.deliver([userId], (recipient) => (recipient.settings.pushSocial ? payload : null), {
       ...SOCIAL_PUSH,

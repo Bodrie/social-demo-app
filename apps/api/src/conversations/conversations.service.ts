@@ -32,6 +32,7 @@ import {
   ConversationLeftEvent,
   ConversationReadEvent,
   ConversationUpdatedEvent,
+  GroupCreatedEvent,
   MessageDeletedEvent,
   MessageSentEvent,
   MessageUpdatedEvent,
@@ -140,6 +141,7 @@ export class ConversationsService {
       ConversationUpdatedEvent.EVENT,
       new ConversationUpdatedEvent(row.id, memberIdsOf(row)),
     );
+    await this.events.emitAsync(GroupCreatedEvent.EVENT, new GroupCreatedEvent(row.id, meId));
     return toConversation(row, 0, this.assets.base);
   }
 
@@ -299,7 +301,7 @@ export class ConversationsService {
         select: messageSelect,
       }),
     ]);
-    return this.announceUpdate(updated, row);
+    return this.announceUpdate(updated, row, meId);
   }
 
   /** Previous texts of a message, most recently replaced first; members only. */
@@ -328,7 +330,7 @@ export class ConversationsService {
       create: { messageId, userId: meId, type },
       update: { type },
     });
-    return this.announceUpdate(await this.messageRow(messageId), row);
+    return this.announceUpdate(await this.messageRow(messageId), row, meId);
   }
 
   /** Removes the caller's reaction, if any. */
@@ -336,7 +338,7 @@ export class ConversationsService {
     const row = await this.rowForMember(meId, id);
     await this.userMessage(id, messageId);
     await this.prisma.messageReaction.deleteMany({ where: { messageId, userId: meId } });
-    return this.announceUpdate(await this.messageRow(messageId), row);
+    return this.announceUpdate(await this.messageRow(messageId), row, meId);
   }
 
   /** Moves the caller's read mark to now; the others hear about it only when it actually moved. */
@@ -612,11 +614,15 @@ export class ConversationsService {
   }
 
   /** Every member, the actor's own tabs included, gets the message as it is now. */
-  private async announceUpdate(updated: MessageRow, row: ConversationRow): Promise<Message> {
+  private async announceUpdate(
+    updated: MessageRow,
+    row: ConversationRow,
+    actorId: string,
+  ): Promise<Message> {
     const message = this.toMessage(updated);
     await this.events.emitAsync(
       MessageUpdatedEvent.EVENT,
-      new MessageUpdatedEvent(message, memberIdsOf(row)),
+      new MessageUpdatedEvent(message, memberIdsOf(row), actorId),
     );
     return message;
   }

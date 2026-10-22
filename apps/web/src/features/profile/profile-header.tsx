@@ -14,6 +14,7 @@ import { FollowButton } from '@/features/users/follow-button';
 import { displayUrl } from '@/lib/format';
 import { EditProfileDialog } from './edit-profile-dialog';
 import { InviteButton } from '@/features/invites/invite-button';
+import { BadgeStrip } from '@/features/achievements/badge-strip';
 
 export function ProfileHeader({ user }: { user: UserPublic }) {
   const me = useCurrentUser();
@@ -166,6 +167,7 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
                 </dd>
               </div>
             </dl>
+            <BadgeStrip userId={user.id} />
           </>
         )}
       </div>

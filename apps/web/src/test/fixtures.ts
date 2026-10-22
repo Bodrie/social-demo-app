@@ -72,6 +72,8 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
     },
     ...overrides,
   };
@@ -178,6 +180,7 @@ export function makeNotification(
     id: testId('notification', sequence),
     type,
     actor: summaryOf(bob),
+    achievementKey: null,
     post: null,
     comment: null,
     readAt: null,
@@ -185,6 +188,10 @@ export function makeNotification(
     ...overrides,
   };
 }
+
+/** A badge the signed-in member earned (F2): the one notification without an actor. */
+export const makeBadgeNotification = (key: string, overrides: Partial<Notification> = {}) =>
+  makeNotification('ACHIEVEMENT_EARNED', { actor: null, achievementKey: key, ...overrides });
 
 /** Each call is one minute newer than the previous one, so threads read top to bottom. */
 export function makeMessage(

@@ -104,7 +104,7 @@ describe('invites', () => {
     const notifications = notificationListSchema.parse(
       (await aliceAgent.get('/api/v1/notifications').expect(200)).body,
     );
-    const fromNewcomer = notifications.items.filter((n) => n.actor.id === newcomer.id);
+    const fromNewcomer = notifications.items.filter((n) => n.actor?.id === newcomer.id);
     expect(fromNewcomer.map((n) => n.type)).toEqual(['INVITE_JOINED']);
 
     // The export says whose invite it was.

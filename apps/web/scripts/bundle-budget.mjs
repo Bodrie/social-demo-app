@@ -18,8 +18,12 @@ import path from 'node:path';
 // in the header's chunk; a trace from a sharper original would be smaller; measured 254.7 kB),
 // 256 → 258 (D2, richer posts: the card's picture grid, the composer's several uploads and the
 // viewer's entry point are on the feed's first paint, the viewer itself loads on demand;
-// measured 256.2 kB).
-const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 258);
+// measured 256.2 kB), 258 → 259 (F2a, achievements: the catalogue is an entry of its own,
+// `@beso/shared/achievements`, loaded only by the badge screens; what stays on the first paint is
+// the settings keys, the actor-less notification, the push handler and two lazy entry points,
+// about 0.5 kB, plus the bundler re-splitting zod, Radix and one icon into chunks of their own
+// now that lazy badge screens share them, about 0.9 kB; measured 258.6 kB, E1 still the way back).
+const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 259);
 const dist = path.resolve(import.meta.dirname, '../dist');
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8');
 const initial = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(

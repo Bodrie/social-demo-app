@@ -6,6 +6,7 @@ import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
 export const notificationSelect = {
   id: true,
   type: true,
+  achievementKey: true,
   readAt: true,
   createdAt: true,
   actor: { select: userSummarySelect },
@@ -19,7 +20,8 @@ export function toNotification(row: NotificationRow, assetsBase: string): Notifi
   return {
     id: row.id,
     type: row.type,
-    actor: toUserSummary(row.actor, assetsBase),
+    actor: row.actor ? toUserSummary(row.actor, assetsBase) : null,
+    achievementKey: row.achievementKey,
     post: row.post ? { id: row.post.id, excerpt: excerpt(row.post.content) } : null,
     comment: row.comment ? { id: row.comment.id, excerpt: excerpt(row.comment.content) } : null,
     readAt: row.readAt === null ? null : row.readAt.toISOString(),

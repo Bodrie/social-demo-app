@@ -17,6 +17,7 @@ const notification = (overrides: Partial<Notification>): Notification => ({
   id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b2',
   type: 'POST_LIKED',
   actor,
+  achievementKey: null,
   post: { id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b3', excerpt: 'Hello world' },
   comment: null,
   readAt: null,
@@ -94,5 +95,21 @@ describe('notificationPush', () => {
     );
     expect(long.body).toHaveLength(PUSH_BODY_LENGTH);
     expect(long.body.endsWith('…')).toBe(true);
+  });
+
+  it('names the badge of an achievement, which has no actor', () => {
+    const badge = notificationPush(
+      notification({
+        type: 'ACHIEVEMENT_EARNED',
+        actor: null,
+        achievementKey: 'posts-50',
+        post: null,
+      }),
+    );
+    expect(badge).toMatchObject({
+      title: 'BeSo',
+      body: 'You earned a badge',
+      url: '/badges',
+    });
   });
 });

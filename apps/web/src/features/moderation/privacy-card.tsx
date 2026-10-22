@@ -1,10 +1,14 @@
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
 import type { UserSummary } from '@beso/shared';
+import { useId } from 'react';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCurrentUser } from '@/features/auth/current-user';
+import { Preference } from '@/features/settings/preference';
+import { useUpdateSettings } from '@/features/settings/use-settings';
 import { type Pages, flattenPages } from '@/lib/infinite';
 import { useBlockedMembers, useMutedMembers, useUnblock, useUnmute } from './use-moderation';
 
@@ -68,8 +72,14 @@ function MemberList({ label, query, action, onAction, pending, empty }: MemberLi
   );
 }
 
-/** Settings → Privacy: whom the viewer blocked and muted, with the way back (ADR 0016). */
+/**
+ * Settings → Privacy: whether others see the member's badges (F2), and whom the member blocked
+ * and muted, with the way back (ADR 0016).
+ */
 export function PrivacyCard() {
+  const me = useCurrentUser();
+  const update = useUpdateSettings();
+  const badgesId = useId();
   const blocked = useBlockedMembers();
   const muted = useMutedMembers();
   const unblock = useUnblock();
@@ -85,6 +95,13 @@ export function PrivacyCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        <Preference
+          id={badgesId}
+          label="Show my badges on my profile"
+          description="Off, your badges are yours alone: others see none of them on your profile."
+          checked={me.settings.showAchievements}
+          onCheckedChange={(checked) => update.mutate({ showAchievements: checked })}
+        />
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">Blocked</h3>
           <MemberList

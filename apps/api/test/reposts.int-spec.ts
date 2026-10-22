@@ -207,7 +207,7 @@ describe('reposts and quotes', () => {
     expect(
       after.items
         .filter((item) => item.type === 'POST_REPOSTED')
-        .map((item) => [item.actor.username, item.post?.excerpt]),
+        .map((item) => [item.actor?.username, item.post?.excerpt]),
     ).toEqual([]);
     expect(
       activityListSchema

@@ -51,3 +51,12 @@ export class PostQuotedEvent {
     readonly originalAuthorId: string,
   ) {}
 }
+
+/** A member saved a post for later (C3a); only the first save of a post emits it. */
+export class PostBookmarkedEvent {
+  static readonly EVENT = 'post.bookmarked';
+  constructor(
+    readonly postId: string,
+    readonly userId: string,
+  ) {}
+}

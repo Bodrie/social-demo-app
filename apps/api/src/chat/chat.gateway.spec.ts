@@ -88,6 +88,7 @@ describe('ChatGateway', () => {
     const notification: Notification = {
       id: '0199b6a0-0000-7000-8000-0000000000aa',
       type: 'POST_LIKED',
+      achievementKey: null,
       actor: summary(2),
       post: { id: '0199b6a0-0000-7000-8000-0000000000bb', excerpt: 'Hello' },
       comment: null,
@@ -140,7 +141,7 @@ describe('ChatGateway', () => {
       createdAt: '2026-10-20T10:00:00.000Z',
     };
 
-    gateway.onMessageUpdated(new MessageUpdatedEvent(message, [alice.id, bob.id]));
+    gateway.onMessageUpdated(new MessageUpdatedEvent(message, [alice.id, bob.id], bob.id));
 
     expect(server.to).toHaveBeenCalledWith([`user:${alice.id}`, `user:${bob.id}`]);
     expect(broadcast).toHaveBeenCalledWith('message:updated', message);

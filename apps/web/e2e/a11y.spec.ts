@@ -202,6 +202,15 @@ test.describe('accessibility (signed in)', () => {
       page.getByRole('list', { name: 'Followers' }).getByRole('listitem').first(),
     ).toBeVisible();
     await audit(page, '/u/bob/followers');
+    // Badges in their tier colours, locked ones with progress: both themes (F2).
+    await page.goto('/u/alice/badges');
+    await expect(page.getByRole('region', { name: 'Milestones' })).toBeVisible();
+    await audit(page, '/u/alice/badges (light)');
+    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await audit(page, '/u/alice/badges (dark)');
+    await page.getByRole('button', { name: 'Switch to light theme' }).click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
     await page.goto('/tags/weekend');
     await expect(page.getByRole('heading', { level: 1, name: '#weekend' })).toBeVisible();
     await expect(

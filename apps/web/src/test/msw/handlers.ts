@@ -1,3 +1,4 @@
+import { achievementHandlers } from './achievements';
 import { activityHandlers } from './activities';
 import { adminHandlers } from './admin';
 import { conversationHandlers } from './conversations';
@@ -15,6 +16,7 @@ export { mockDb, resetMockDb as resetMocks, seedFollow, seedPosts, signedInAs } 
 // Order matters: posts handlers own `/users/:userId/posts`, users handlers own `/users/:id`.
 export const handlers = [
   ...authHandlers,
+  ...achievementHandlers,
   ...postHandlers,
   ...userHandlers,
   ...activityHandlers,

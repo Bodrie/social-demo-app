@@ -71,13 +71,17 @@ export function pushExcerpt(text: string): string {
   return flat.length > PUSH_BODY_LENGTH ? `${flat.slice(0, PUSH_BODY_LENGTH - 1)}…` : flat;
 }
 
-/** The push for a notification: the actor as the title, the same words the web shows. */
+/**
+ * The push for a notification: the actor as the title, the same words the web shows. A badge
+ * has no actor; the API does not push those (they come in bursts, the daily sweep's at night),
+ * but the shape stays total.
+ */
 export function notificationPush(notification: Notification): PushPayload {
   const { phrase, quotes } = NOTIFICATION_PHRASES[notification.type];
   const quoted = quotes === null ? null : notification[quotes];
   const sentence = quoted ? `${phrase}: “${quoted.excerpt}”` : phrase;
   return {
-    title: notification.actor.name,
+    title: notification.actor?.name ?? 'BeSo',
     body: pushExcerpt(sentence.charAt(0).toUpperCase() + sentence.slice(1)),
     url: notificationLink(notification),
     tag: `notification:${notification.id}`,

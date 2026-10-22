@@ -49,3 +49,9 @@ export class UserMentionedEvent {
     readonly commentId: string | null,
   ) {}
 }
+
+/** A device of the member switched web push on (ADR 0022). */
+export class PushSubscribedEvent {
+  static readonly EVENT = 'push.subscribed';
+  constructor(readonly userId: string) {}
+}

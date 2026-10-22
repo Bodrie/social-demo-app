@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./achievements": {
+      "types": "./dist/achievements.d.ts",
+      "import": "./dist/achievements.js"
     }
   },
   "files": [

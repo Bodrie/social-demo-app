@@ -47,6 +47,10 @@ export function useUnreadNotifications(): number {
  * unless that older copy was still unread.
  */
 export function receiveNotification(queryClient: QueryClient, notification: Notification): void {
+  // A new badge changes the member's badges, the checklist and the profile strip.
+  if (notification.type === 'ACHIEVEMENT_EARNED') {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.achievements.all });
+  }
   const pages = queryClient.getQueryData<Pages<Notification>>(queryKeys.notifications.list);
   const previous = pages && flattenPages(pages).find((item) => item.id === notification.id);
   if (pages) {

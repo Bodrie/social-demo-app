@@ -5,7 +5,7 @@ import { AssetsService } from '../assets/assets.service.js';
 import { notFound } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
-import type { NotificationType } from '../generated/prisma/client.js';
+import type { NotificationType, Prisma } from '../generated/prisma/client.js';
 import { VisibilityService } from '../moderation/visibility.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { notificationSelect, toNotification } from './notifications.mapper.js';
@@ -13,13 +13,14 @@ import { notificationSelect, toNotification } from './notifications.mapper.js';
 /** Rows older than this are removed by the daily jobs; nobody scrolls back that far. */
 export const NOTIFICATION_RETENTION_DAYS = 90;
 
-/** Who is told about what; the subjects a type carries. */
+/** Who is told about what; the subjects a type carries. Only a badge has no actor. */
 export type NotificationInput = {
   userId: string;
   type: NotificationType;
-  actorId: string;
+  actorId: string | null;
   postId?: string | null;
   commentId?: string | null;
+  achievementKey?: string | null;
 };
 
 /**
@@ -36,9 +37,13 @@ export class NotificationsService {
     private readonly visibility: VisibilityService,
   ) {}
 
-  /** Nothing from someone the member blocked, who blocked them, or whom they muted (ADR 0016). */
-  private async silenced(userId: string): Promise<{ actorId: { notIn: string[] } }> {
-    return { actorId: { notIn: await this.visibility.hiddenAuthorIds(userId) } };
+  /**
+   * Nothing from someone the member blocked, who blocked them, or whom they muted (ADR 0016).
+   * Actor-less rows (badges) always pass: `NOT IN` alone would drop their null.
+   */
+  private async silenced(userId: string): Promise<Prisma.NotificationWhereInput> {
+    const hidden = await this.visibility.hiddenAuthorIds(userId);
+    return { OR: [{ actorId: null }, { actorId: { notIn: hidden } }] };
   }
 
   async list(userId: string, query: CursorQuery): Promise<Paginated<Notification>> {
@@ -60,7 +65,7 @@ export class NotificationsService {
 
   async unreadCount(userId: string): Promise<UnreadCount> {
     const count = await this.prisma.notification.count({
-      where: { userId, readAt: null, ...(await this.silenced(userId)) },
+      where: { AND: [{ userId, readAt: null }, await this.silenced(userId)] },
     });
     return { count };
   }
@@ -88,18 +93,22 @@ export class NotificationsService {
    * Writes the notification and pushes it. Nobody is told about their own doing. A repeat of
    * the same event (a reaction removed and put back, a mention edited out and in) refreshes
    * the one row, new and unread again, rather than adding another; the unique key covers the
-   * types whose subjects are all set, this lookup the ones with a null subject.
+   * types whose subjects are all set, this lookup the ones with a null subject. A badge has no
+   * actor, so those two rules do not apply to it.
    */
   async notify(input: NotificationInput): Promise<Notification | null> {
-    if (input.userId === input.actorId) return null;
-    // Nothing from someone the recipient blocked, who blocked them, or whom they muted (ADR 0016).
-    if (await this.visibility.isSilencedFor(input.userId, input.actorId)) return null;
+    if (input.actorId !== null) {
+      if (input.userId === input.actorId) return null;
+      // Nothing from someone the recipient blocked, who blocked them, or whom they muted (ADR 0016).
+      if (await this.visibility.isSilencedFor(input.userId, input.actorId)) return null;
+    }
     const key = {
       userId: input.userId,
       type: input.type,
       actorId: input.actorId,
       postId: input.postId ?? null,
       commentId: input.commentId ?? null,
+      achievementKey: input.achievementKey ?? null,
     };
     const existing = await this.prisma.notification.findFirst({ where: key, select: { id: true } });
     const row = existing

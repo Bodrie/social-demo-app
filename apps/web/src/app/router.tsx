@@ -85,6 +85,7 @@ export const routes: RouteObject[] = [
                   { path: ':conversationId', lazy: chat('ThreadPage') },
                 ],
               },
+              { path: 'badges', lazy: profile('BadgesRedirect') },
               {
                 path: 'p/:postId',
                 lazy: async () => ({
@@ -116,6 +117,7 @@ export const routes: RouteObject[] = [
                   { index: true, lazy: profile('ProfilePosts') },
                   { path: 'followers', lazy: profile('ProfileFollowers') },
                   { path: 'following', lazy: profile('ProfileFollowing') },
+                  { path: 'badges', lazy: profile('ProfileBadges') },
                 ],
               },
               {

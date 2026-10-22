@@ -27,6 +27,8 @@ describe('PATCH /users/me/settings', () => {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
     });
 
     const patched = authResponseSchema.parse(
@@ -40,6 +42,8 @@ describe('PATCH /users/me/settings', () => {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
     });
 
     const after = authResponseSchema.parse((await agent.get('/api/v1/auth/me').expect(200)).body);
@@ -55,6 +59,8 @@ describe('PATCH /users/me/settings', () => {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
     });
   });
 

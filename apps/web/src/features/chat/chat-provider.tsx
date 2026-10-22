@@ -20,6 +20,7 @@ import {
 } from '@beso/shared';
 import type { z } from 'zod';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { receiveActivity } from '@/features/activities/use-activities';
@@ -73,6 +74,8 @@ function withTyping(map: TypingMap, conversationId: string, userId: string, typi
 export function ChatProvider({ children }: { children: ReactNode }) {
   const me = useCurrentUser();
   const queryClient = useQueryClient();
+  // Stable in a data router, so it never reconnects the socket.
+  const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
   const [online, setOnline] = useState<UserSummary[]>([]);
   const [typing, setTypingMap] = useState<TypingMap>(() => new Map());
@@ -168,9 +171,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const onPresence = guarded(presenceUpdateSchema, (users: PresenceUpdate) => setOnline(users));
     // The pushes that are not about chat ride the same socket: notifications (ADR 0015) and
     // the activity of people one follows (C7).
-    const onNotification = guarded(notificationSchema, (notification: Notification) =>
-      receiveNotification(queryClient, notification),
-    );
+    const onNotification = guarded(notificationSchema, (notification: Notification) => {
+      receiveNotification(queryClient, notification);
+      if (notification.type === 'ACHIEVEMENT_EARNED') {
+        void import('@/features/achievements/badge-toast').then(({ showBadgeToast }) =>
+          showBadgeToast(notification.achievementKey, () => void navigate('/badges')),
+        );
+      }
+    });
     const onActivity = guarded(activitySchema, (activity: Activity) =>
       receiveActivity(queryClient, activity),
     );
@@ -305,7 +313,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       timers.clear();
       setTypingMap(new Map());
     };
-  }, [me.id, queryClient, markRead, setPeerTyping]);
+  }, [me.id, queryClient, markRead, setPeerTyping, navigate]);
 
   const sendMessage = useCallback(async (conversationId: string, input: SendMessageInput) => {
     const socket = socketRef.current;

@@ -2,3 +2,5 @@
 export { ProfileFollowers, ProfileFollowing } from './profile-followers';
 export { ProfilePage } from './profile-page';
 export { ProfilePosts } from './profile-posts';
+export { BadgesRedirect } from '@/features/achievements/badges-redirect';
+export { ProfileBadges } from '@/features/achievements/profile-badges';

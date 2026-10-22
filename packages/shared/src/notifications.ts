@@ -19,18 +19,22 @@ export const NOTIFICATION_TYPES = [
   'POST_QUOTED',
   /** The actor registered through your invite link and now follows you (F1). */
   'INVITE_JOINED',
+  /** The member earned the badge `achievementKey` (F2); the one type without an actor. */
+  'ACHIEVEMENT_EARNED',
 ] as const;
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
 /**
- * Something that happened to the viewer's own things. `post` is set for everything but a
- * follow; `comment` for the comment types; `readAt` once the viewer has seen it.
+ * Something that happened to the viewer's own things. `actor` is null for an earned badge
+ * only; `post` is set for everything but a follow, an invite and a badge; `comment` for the
+ * comment types; `achievementKey` for a badge; `readAt` once the viewer has seen it.
  */
 export const notificationSchema = z.object({
   id: z.uuid(),
   type: notificationTypeSchema,
-  actor: userSummarySchema,
+  actor: userSummarySchema.nullable(),
+  achievementKey: z.string().nullable(),
   post: excerptSchema.nullable(),
   comment: excerptSchema.nullable(),
   readAt: z.iso.datetime().nullable(),
@@ -57,14 +61,20 @@ export const NOTIFICATION_PHRASES: Record<
   POST_REPOSTED: { phrase: 'reposted your post', quotes: 'post' },
   POST_QUOTED: { phrase: 'quoted your post', quotes: 'post' },
   INVITE_JOINED: { phrase: 'accepted your invite and follows you', quotes: null },
+  /** Has no actor: the web names the badge (`achievementSentence`, `@beso/shared/achievements`). */
+  ACHIEVEMENT_EARNED: { phrase: 'You earned a badge', quotes: null },
 };
 
-/** Where a notification leads: the post (at the comment, for comment types) or the actor. */
+/**
+ * Where a notification leads: the post (at the comment, for comment types), the actor, or the
+ * member's own badges (`/badges` redirects to the profile tab).
+ */
 export function notificationLink(notification: Notification): string {
-  const { post, comment } = notification;
+  const { post, comment, actor } = notification;
   if (post && comment) return `/p/${post.id}?comment=${comment.id}`;
   if (post) return `/p/${post.id}`;
-  return `/u/${notification.actor.username}`;
+  if (actor) return `/u/${actor.username}`;
+  return '/badges';
 }
 
 export const notificationListSchema = paginatedSchema(notificationSchema);

@@ -5,6 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AccountModule } from './account/account.module.js';
+import { AchievementsModule } from './achievements/achievements.module.js';
 import { ActivitiesModule } from './activities/activities.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { RolesGuard } from './admin/roles.guard.js';
@@ -75,6 +76,7 @@ import { UsersModule } from './users/users.module.js';
     InvitesModule,
     ActivitiesModule,
     NotificationsModule,
+    AchievementsModule,
     PushModule,
     ConversationsModule,
     ChatModule,

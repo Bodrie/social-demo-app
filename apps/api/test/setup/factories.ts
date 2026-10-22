@@ -1,3 +1,4 @@
+import { ACHIEVEMENTS } from '@beso/shared/achievements';
 import argon2 from 'argon2';
 import type request from 'supertest';
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
@@ -38,6 +39,22 @@ export async function createUser(
       ...overrides,
     },
     select: { id: true, email: true, username: true, name: true },
+  });
+}
+
+/**
+ * Gives members every badge (F2), for tests about other notifications: whatever they do then
+ * earns them nothing new, so no ACHIEVEMENT_EARNED rows join the lists under test.
+ */
+export async function holdEveryBadge(
+  prisma: PrismaService,
+  ...users: readonly { id: string }[]
+): Promise<void> {
+  await prisma.userAchievement.createMany({
+    data: users.flatMap((user) =>
+      ACHIEVEMENTS.map((achievement) => ({ userId: user.id, key: achievement.key })),
+    ),
+    skipDuplicates: true,
   });
 }
 

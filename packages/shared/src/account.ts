@@ -61,6 +61,10 @@ export const accountExportSchema = z.object({
     code: z.string().nullable(),
     invitedBy: z.object({ userId: z.uuid(), username: z.string() }).nullable(),
   }),
+  /** Earned badges (F2), oldest first. */
+  achievements: z.array(
+    z.object({ key: z.string(), title: z.string(), earnedAt: z.iso.datetime() }),
+  ),
   messages: z.array(
     z.object({
       id: z.uuid(),

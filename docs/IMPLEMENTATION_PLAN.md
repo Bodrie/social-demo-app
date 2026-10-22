@@ -77,7 +77,7 @@ E4  code structure                  ✅ 2026-10-22 (the emoji picker upgrade wai
 C7  realtime activity                ✅ 2026-10-22              finishes v2.7
 E2  installable app + web push      ✅ 2026-10-22              v2.8  (step 1)
 F1  invites + explore                ✅ 2026-10-22          ─┐
-F2a achievements: engine, first groups                      │
+F2a achievements: engine, first groups ✅ 2026-10-22        │
 F2b achievements: recognition, community, hidden, time zone │  v2.9  (step 2)
 F3  polls + frequent jobs                                   │
 F4  weekly digest                                           ─┘
@@ -629,6 +629,25 @@ badges visible on the profile with a switch to hide them; no announcements in th
 **Commits.** **F2a**: the engine, the notification change, the settings, the profile tab and strip,
 the Getting started card, and the groups Getting started, Firsts, Milestones and Tenure. **F2b**:
 Recognition, Community, Hidden and the time zone. Later slices add theirs in their own commits.
+
+- As built, F2a (2026-10-22): the four groups as listed (Locked down waits for D3), 55 badges. The
+  definitions, types and schemas are the entry `@beso/shared/achievements` rather than part of
+  the main one, so the web loads them with the badge screens only. Instead of a `notified` column,
+  `users.achievements_checked_at` marks an account as counted: the accounts from before F2 (and
+  the seed's) start null and their first check, by any event, the sweep or a profile view, awards
+  what they had reached silently; new accounts get the stamp at creation, so their badges are
+  announced from the first. The sweep's awards therefore notify too (tenure arrives as a badge).
+  Awards use `createManyAndReturn` with `skipDuplicates`, so racing checks announce a badge once.
+  Badges are **not** sent as web push (bursts, and the sweep runs at night): the bell, the toast
+  and the Badges tab carry them. New small events: `GroupCreatedEvent`, `PostBookmarkedEvent`
+  (first save of a post), `PushSubscribedEvent`, and `MessageUpdatedEvent.actorId`. Indexes added
+  for counting: `comments.author_id`, `messages.sender_id`, `comment_reactions.user_id`,
+  `post_hashtags.post_id`. The interface says "Badges": the tab is `/u/:username/badges`
+  (tiered series folded into one tile with the next goal), `/badges` leads to one's own, the
+  strip of the three rarest sits under the profile's counts, the Getting started card is lazy on
+  Home (the checklist's "Show Getting started on Home" button on one's own Badges tab undoes the
+  dismissal), the switch is in Settings → Privacy. Bundle budget 258 → 259 kB (258.6 measured;
+  most of the growth is the bundler re-splitting zod and Radix into chunks of their own).
 
 **Catalogue**: 120 badges with every tier counted, 22 of them hidden, before the later slices add theirs (titles are proposals; tiers are bronze · silver · gold · platinum)
 

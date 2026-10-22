@@ -5,6 +5,7 @@ const TABS = [
   { to: '.', label: 'Posts', end: true },
   { to: 'followers', label: 'Followers', end: false },
   { to: 'following', label: 'Following', end: false },
+  { to: 'badges', label: 'Badges', end: false },
 ];
 
 export function ProfileTabs() {

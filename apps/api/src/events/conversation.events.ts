@@ -24,6 +24,8 @@ export class MessageUpdatedEvent {
   constructor(
     readonly message: Message,
     readonly memberIds: readonly string[],
+    /** Who changed it: the sender for an edit, the reacting member for a reaction. */
+    readonly actorId: string,
   ) {}
 }
 
@@ -63,5 +65,14 @@ export class ConversationLeftEvent {
     readonly conversationId: string,
     readonly userId: string,
     readonly memberIds: readonly string[],
+  ) {}
+}
+
+/** A member started a group (the `group_created` system line is written in the same go). */
+export class GroupCreatedEvent {
+  static readonly EVENT = 'group.created';
+  constructor(
+    readonly conversationId: string,
+    readonly creatorId: string,
   ) {}
 }
