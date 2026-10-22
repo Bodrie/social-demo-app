@@ -2,7 +2,7 @@
 
 ## State of the repo
 
-- v2 is the whole repository: the 2026 rebuild replaced the original Express/CRA app (phases 0–7 in `docs/REBUILD_PLAN.md`, decisions D1–D23 as ADRs in `docs/adr/`). Add a new ADR instead of silently changing a decision; park deferrals in `docs/BACKLOG.md`. Upcoming work: `docs/ROADMAP.md` says what and why, `docs/IMPLEMENTATION_PLAN.md` says how and in which order (slices A1–E4); finished slices get a row in `docs/REBUILD_PLAN.md` §4.12.
+- v2 is the whole repository: the 2026 rebuild replaced the original Express/CRA app (phases 0–7 in `docs/REBUILD_PLAN.md`, decisions D1–D23 as ADRs in `docs/adr/`). Add a new ADR instead of silently changing a decision; park deferrals in `docs/BACKLOG.md`. Upcoming work: `docs/ROADMAP.md` says what and why, `docs/IMPLEMENTATION_PLAN.md` says how and in which order (slices A1–F10; Track F, growth and play, agreed 2026-10-22); finished slices get a row in `docs/REBUILD_PLAN.md` §4.12.
 - Code lives in `apps/api` (NestJS 12, ESM), `apps/web` (Vite 8 + React 19), `apps/migrate` (the one-shot migrations image: a manifest with the Prisma CLI and a Dockerfile that copies the API's `prisma/`), `packages/shared` (zod schemas, constants; built with tsdown) and `packages/config` (tsconfig + oxlint presets); `deploy/` holds the production stack (see `docs/RUNBOOK.md`).
 
 ## Commands (run from the repo root)

@@ -1,9 +1,12 @@
 # Implementation plan (after R1, 2026-10-19)
 
-**Status:** v0.5 — on 2026-10-20 the owner removed C1 (newcomer experience, parked in
+**Status:** v0.6 — on 2026-10-22 the owner agreed the next stretch after v2.7: Track F, growth and
+play (§7: the installable app with push first, then invites, achievements, polls and a weekly
+digest, games that others can watch, events and stories, one-to-one calls, a store app), with the
+decisions in §10 (third round); monitoring stays in `BACKLOG.md`. Before that, v0.5: on 2026-10-20 the owner removed C1 (newcomer experience, parked in
 `BACKLOG.md`) and pulled five backlog items into the plan as v2.7 (C5 chat extras, B6 `#`
 autocomplete, C7 realtime activity, D4 picture cropping) and an E4 line (emoji picker upgrade);
-otherwise v0.3, reviewed by the owner on 2026-10-19 in two rounds (all decisions in §9; no open points).
+otherwise v0.3, reviewed by the owner on 2026-10-19 in two rounds (all decisions in §10).
 Written against `dev` at `cedd8f2` (legal pages, pre-release hardening and the runbook revision are
 in; `main` is at PR #25). **The site opens to visitors around 2026-10-29.**
 **Relation to the other documents:** `ROADMAP.md` says *what* and *why*; this document says *how*, in
@@ -15,6 +18,12 @@ commits; `pnpm check`, `pnpm test:int` and the Playwright suite stay green per s
 its shared zod schemas, API module, web feature, unit + integration + web tests, an e2e spec or an
 extension of one, and its new pages in `e2e/a11y.spec.ts`. Sizes are the plan's S / M / L / XL, not
 hours.
+
+**Where we are on 2026-10-22** (§0 below is the picture of 2026-10-19): shipped A2–A4, B1–B6, C2,
+C3, C5, C6, D1, D2, D4 and E4 (merged up to D2, E4 and the L26 fix on `dev`); the box, the tunnel,
+Turnstile and Resend run. Open: C7 (last of v2.7), D3, E1, E2 (now step 1 of Track F), Track F;
+A1's monitor, alerts and off-box copies and E3 sit in `BACKLOG.md` ("Monitoring and alerting"), C4
+stays deferred.
 
 ---
 
@@ -35,9 +44,9 @@ hours.
 
 ## 1. Tracks and order
 
-Five tracks. A is what the opening needs; B is the agreed product order (mentions → post pages +
+Six tracks. A is what the opening needs; B is the agreed product order (mentions → post pages +
 search → chat), extended with notifications and moderation; C are gaps nobody had written down; D is
-account depth; E is polish and operations.
+account depth; E is polish and operations; F (added 2026-10-22) is growth and play.
 
 Sequence (one commit each, PR `dev → main` at each milestone line). The owner keeps the agreed order
 and the opening date is fixed, so the two go-live slices that need code (A2, A3) follow B2 and land
@@ -63,10 +72,25 @@ B6  # autocomplete                  ✅ 2026-10-20           │  v2.7
 C7  realtime activity                                       │
 D4  picture cropping                ✅ 2026-10-21          ─┘
 D2  richer posts                    ✅ 2026-10-21 (pulled forward by the owner)
-D3  TOTP · E1–E4                                               later minors
+E4  code structure                  ✅ 2026-10-22 (the emoji picker upgrade waits for November)
+── agreed 2026-10-22 (§7, §10 third round) ──
+C7  realtime activity                                          finishes v2.7
+E2  installable app + web push                                 v2.8  (step 1)
+F1  invites + explore                                       ─┐
+F2a achievements: engine, first groups                      │
+F2b achievements: recognition, community, hidden, time zone │  v2.9  (step 2)
+F3  polls + frequent jobs                                   │
+F4  weekly digest                                           ─┘
+F5  games: engine, Connect Four, watching                   ─┐  v2.10 (step 3)
+F6  chess                                                   ─┘
+F7  events                                                  ─┐  v2.11 (step 4)
+F8  stories                                                 ─┘
+F9  one-to-one calls                                           v2.12 (step 5)
+F10 store app (Android first)                                  v3.0  (step 6)
+D3  TOTP between any two milestones · E1 when performance asks · E4 emoji picker in November
 ```
 
-The order inside a milestone can move; the dependencies that must hold are in §7. Moderation stays
+The order inside a milestone can move; the dependencies that must hold are in §8. Moderation stays
 in v2.6 by the owner's choice; if abuse shows up after the opening, B5a (block + report) is the slice
 to pull forward, nothing else depends on its position.
 
@@ -75,6 +99,8 @@ to pull forward, nothing else depends on its position.
 ## 2. Track A – the opening
 
 ### A1. First deployment, uptime check, off-box backups · S (ops, owner)
+
+*Status 2026-10-22: the box, the tunnel, Turnstile and Resend run (owner). L19–L21 and L26 are fixed; the monitor, the failure alerts (L27) and the off-box copies were parked by the owner in `BACKLOG.md` ("Monitoring and alerting", "Operations").*
 
 - Runbook §1–3 on the box; rehearse the restore drill (§5) once against a scratch database.
 - Monitor: Cloudflare health check (or any external monitor) on `https://social.bodrie.dev/api/v1/auth/me` expecting 401; `/health` stays internal.
@@ -180,7 +206,7 @@ at the bottom with its unread badge, two chat windows docked at the bottom, side
 of the column; phone sketch: the Messenger pattern, a horizontal row of bubbles across the top and
 the open conversation filling the screen below it). This brings back the legacy app's "chat heads +
 up to two windows" on top of the persisted conversations. All points were settled on 2026-10-19
-(§9, second table).
+(§10, second table).
 
 **Vocabulary.** A *bubble* is a round `ConversationAvatar` in the column at the right edge. A
 *window* is a docked mini thread (header, messages, composer) at the bottom, left of the column.
@@ -317,9 +343,10 @@ Pulled from the backlog on 2026-10-20 (owner); B1 left it out on purpose.
 
 ### C1. Newcomer experience · removed 2026-10-20
 
-Dropped by the owner (reverses Q8 in §9). The explore feed, the empty-feed state and the one-time
+Dropped by the owner (reverses Q8 in §10). The explore feed, the empty-feed state and the one-time
 "follow people" step are parked in `BACKLOG.md` (Web). The slice id stays so the others keep
-their names.
+their names. *Back on 2026-10-22 in a new shape: the explore feed and the empty-feed state in F1
+(with invites), the "follow people" step as F2's Getting started checklist.*
 
 ### C2. Comment replies · M · ✅ 2026-10-20
 
@@ -425,15 +452,457 @@ Shipped 2026-10-21 with one deliberate departure from "no API change": the cover
 ## 6. Track E – polish and operations
 
 - **E1 Performance**: `zod/mini` build of `packages/shared` for the browser (tsdown second entry), font preload for the Latin Inter subset, `fetchpriority="high"` on the first feed image, route chunk prefetch on link hover, measured with Lighthouse before and after (baseline in the backlog: feed 64, profile 74 on mobile).
-- **E2 PWA + web push**: manifest, icons, a minimal service worker (no offline cache of API data), `push_subscriptions(user_id, endpoint, keys)` with `web-push` (VAPID keys in env), a `NotificationsListener` fan-out to subscriptions; the switch joins the B3a preferences.
-- **E3 Observability**: error tracking (GlitchTip self-hosted on the box or Sentry's free tier; `@sentry/node` + `@sentry/react`, DSNs by env, request id attached), `enableShutdownHooks({ useProcessExit: true })` so pino flushes, route `ECONNRESET`/`EPIPE` through pino at debug (backlog), a status page later.
+- **E2 PWA + web push**: detailed on 2026-10-22 as step 1 of Track F (§7), where it now lives.
+- **E3 Observability**: error tracking (GlitchTip self-hosted on the box or Sentry's free tier; `@sentry/node` + `@sentry/react`, DSNs by env, request id attached), `enableShutdownHooks({ useProcessExit: true })` so pino flushes, route `ECONNRESET`/`EPIPE` through pino at debug (backlog), a status page later. *Parked by the owner on 2026-10-22 with the rest of the monitoring: `BACKLOG.md`, "Monitoring and alerting", step 3.*
 - **E4 Code structure** (backlog) · ✅ 2026-10-22 except the emoji picker line: `TokensModule`, `HttpExceptionFilter` → `ApiExceptionFilter`, event-name casing, `@ZodResponse` everywhere (started in A4), `migrate` as a one-shot image so the API image loses the Prisma CLI.
   *As built (2026-10-22, owner: "full fixes, downtime is fine"):* `tokens/` (`AccessTokensService` is the only user of the JWT secret; the global guard and the gateway import `TokensModule`); the filter renamed and taught to tell a response mismatch (`ZodSerializationException`, a logged masked 500) from a request validation error, which the duck-typed check had confused; `user.profileUpdated` → `profile.updated`, `auth.sessionsRevoked` → `sessions.revoked`; `@ZodResponse` on all 63 JSON handlers (ADR 0019, OpenAPI now 3.1); the migrate image (ADR 0018) needed a `.pnpmfile.cjs` because `@prisma/client`'s optional peer put the CLI back into the production install (API image 963 → 602 MB, not the 450 MB estimated); `update.sh` reworked with it, which also closes review L19–L21 from A1 (only our images pulled, all or nothing; the tunnel token in the environment; the password rule written where it is set) and runs the migrations on their own first because compose removes the old API container before a failing `migrate` inside `up -d`. Owner steps: make `beso-migrate` public, refresh `deploy/` (RUNBOOK §4.1).
   Maintenance (added 2026-10-20): upgrade `emoji-picker-react` 4.22 → 5.x — the emoji picker behind the composer and the chat composer; 5.0.0 shipped on 2026-10-10 as a major version with a changed API, so wait for a few weeks of fixes (not before November 2026), then re-check the lazy chunk's size and the keyboard behaviour of the picker.
 
 ---
 
-## 7. Dependencies
+## 7. Track F – growth and play (added 2026-10-22)
+
+Agreed with the owner on 2026-10-22, once v2.7 is done (decisions in §10, third round). The order:
+finish v2.7 with C7; **step 1** the installable app and web push (E2, detailed below); **step 2**
+filling the network: invites and the explore feed (F1), achievements (F2a, F2b), polls (F3) and the
+weekly digest (F4); **step 3** games that others can watch (F5 the engine and Connect Four, F6
+chess); **step 4** events (F7) and stories (F8); **step 5** one-to-one calls (F9); **step 6** a store
+app (F10). D3 (two-factor sign-in) fits between any two steps.
+
+What shapes the sizes: one home box behind a tunnel that carries HTTP and WebSockets but no UDP
+and accepts no inbound connections; a residential upload line and the box's own disk; an i5 shared
+with Frigate; a small community in which few people are online at the same time. Hence no media
+servers and no video on the box, managed relays where real-time media needs them, asynchronous
+modes before live ones, and nothing that only works with a crowd.
+
+Every F slice keeps the existing rules on top of §9: `VisibilityService` in every new list and
+`assertNotBlocked` on every new interaction between two members, a report target wherever members
+publish something new, the export and the erasure (ADR 0012) for every new per-user table or file,
+notifications through `NotificationsService`, pushes from domain events, its seed data, and its
+own achievements (F2's catalogue lists them).
+
+### E2. Installable app and web push · M–L · ADR 0022 "Web push" (step 1)
+
+The base of the later steps: an incoming call, "your move" and an event reminder have to reach a
+closed tab, and an installed app with notifications is most of what members mean by "a real app".
+
+- Manifest (`name` BeSo, `display: standalone`, theme colours from the tokens, shortcuts to
+  Messages and Notifications) and icons: `pnpm brand` also writes the 192 and 512 px and the
+  maskable PNGs. Install offers: the browser's own prompt where there is one
+  (`beforeinstallprompt`, offered from Settings and the account menu) and a short "Share → Add to
+  Home Screen" note on iPhone Safari, where push works only for an installed app (iOS 16.4+).
+- A service worker for push only, with no caching of the app or the API: `index.html` stays
+  `no-cache` and the reload after a deploy (`lib/new-version.ts`) stays in charge; an offline page
+  at most. `push` shows the notification unless a window of the app is focused
+  (`clients.matchAll`); `notificationclick` focuses an open window or opens the link.
+- API: `push_subscriptions(id, user_id, endpoint unique, p256dh, auth, user_agent, created_at,
+  last_used_at)`; `GET /push/public-key`, `PUT /push/subscriptions` (upsert by endpoint),
+  `DELETE /push/subscriptions` (by endpoint). `PushService` (`web-push`, VAPID keys from
+  `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) sends for `notification.created` and
+  `message.sent` to members whose preferences allow it; a 404 or 410 from the push service deletes
+  the subscription. Signing out removes this device's subscription; sign out everywhere, a password
+  reset and a suspension remove them all; the erasure cascades.
+- Preferences in `users.settings`: `pushMessages`, `pushSocial` (likes, comments, replies,
+  mentions, follows, reposts), `pushPreviews` (message text in the notification, default on); later
+  slices add `pushGames`, `pushEvents`, `pushCalls`. A device is on or off by having a subscription.
+  Settings → Notifications card; the in-tab `Notification` of B3b stays for an open tab.
+- Payloads: a title, a short body, a link and a tag (one per conversation or notification type, so
+  a newer one replaces the older).
+- Tests: unit (payloads, the preference filter), int (subscription routes, the fan-out through a
+  fake sender, the 410 clean-up, the sign-out clean-up), web (the Settings card with a stubbed
+  `PushManager`), e2e (the manifest and the service worker are served and register; push itself is
+  not driven end to end). Runbook: generating the VAPID keys, the `.env` lines.
+
+### F1. Invites and the explore feed · M (step 2)
+
+The newcomer experience parked on 2026-10-20, now with invites: a new network's biggest risk is a
+newcomer looking at an empty feed.
+
+- Invites: one personal link per member, `/join/<code>` (`invite_codes(code unique, user_id,
+  created_at, revoked_at)`; a new code on request, the old one stops working). `GET /invites/:code`
+  (public, throttled) answers the inviter's `UserSummary` for the join page; `registerSchema` gains
+  an optional `inviteCode`; `users.invited_by_id` (SetNull). When the invitee confirms the address,
+  they follow the inviter and the inviter gets `INVITE_JOINED` with a Follow back button (P1).
+  "Invite friends" in the account menu and on the own profile: copy the link, or the system share
+  sheet where there is one (`navigator.share`). Turnstile and the email confirmation still apply;
+  registering does not require an invite.
+- Explore: `/explore` with **Latest** (`GET /posts?scope=all`: everyone's posts and quotes newest
+  first through `postSelect(viewerId)`, hidden authors removed) and **Popular** (the last 7 days by
+  likes + 2 × comments + reposts, with a ranked cursor like `?sort=top`), in the navigation next to
+  Home. An empty home feed points to Explore and People.
+- Tests: int (codes, registration with and without one, the follow and the notification after the
+  confirmation, revoked codes, explore visibility and both orders), web (join page, invite menu,
+  explore tabs, empty feed), e2e (invite link → register → confirm → following the inviter), axe for
+  `/join/:code` and `/explore`.
+
+### F2. Achievements · M + M (two commits) · ADR 0021 "Achievements" (step 2)
+
+Badges for what members do and for what others do with what they share. The first ones form an
+onboarding checklist that turns a sign-up into an active member; the rest reward what a small
+network lives on (welcoming newcomers, replying, being worth reading), and every later slice adds
+its own. Rules agreed with the owner (§10, third round): **no streaks**; volume badges mixed with
+badges that need other people; **earned is earned** (deleting posts later takes nothing away);
+badges visible on the profile with a switch to hide them; no announcements in the activity feed.
+
+**How it works**
+
+- Definitions live in `packages/shared/src/achievements.ts`: per badge a key (`posts-50`), group,
+  series and tier, title, description (a hint for hidden ones), lucide icon name and whether it is
+  hidden. The tiers of a series are separate keys with a threshold each. The API stores
+  `user_achievements(user_id, key text, earned_at, notified boolean)`, primary key
+  `(user_id, key)`; keys are text checked against the shared list, so a new badge needs no
+  migration.
+- Evaluation counts, it never increments: `AchievementsService.check(userId, series[])` runs one
+  indexed count per series and inserts every tier reached and not yet held (`createMany` with
+  `skipDuplicates`). That makes it idempotent and correct after deletions. `AchievementsListener`
+  (the twin of `NotificationsListener`, never throws) maps domain events to the members and series
+  concerned: `post.created` to the author's posts, pictures, tags, firsts and the content checks of
+  that post; `post.liked` to the liker's likes given and the author's likes received and post
+  highlights; `comment.created` to comments, replies, first responder and welcome committee, and
+  the post author's conversation highlights; `user.followed` to following, followers, mutual
+  follows and welcome committee; `profile.updated`, `message.sent`, reposts, quotes, mentions and
+  reactions likewise. Checks of a single post or comment (only emoji, exactly 500 characters, a
+  palindrome, a kiss emoji, the time of day) run on the item the event carries.
+- A daily sweep (`AchievementsService.sweep(now)`, one more entry in `JobsService`) checks every
+  series of every member: tenure, "Around the clock" and whatever a failed listener missed. Its
+  awards are **silent** (`notified = true`, no notification), so the first run after the deploy is a
+  backfill rather than a dozen notifications per member.
+- Notifications: `ACHIEVEMENT_EARNED` through `NotificationsService` without an actor:
+  `notifications.actor_id` becomes nullable and the table gains `achievement_key`; `notify` skips
+  its "your own doing" rule for actor-less types; the unique key includes the badge. Pushed like
+  any notification (`notification:new`, a toast with the badge while the tab is open, E2 for a
+  closed one); the sentence lives in `notification-text.tsx`, with the badge's icon where the avatar
+  would be.
+- Time zone: `users.settings.timeZone` (an IANA name checked with `Intl`), set by the web from
+  `Intl.DateTimeFormat().resolvedOptions().timeZone` after sign-in when it is missing, shown and
+  changeable in Settings. The time-of-day and calendar badges use it (none without it); F4 uses it
+  for the digest's hour; the export carries it.
+- Settings: `showAchievements` (default on; off hides the badges from everyone else, never from the
+  member) and `hideGettingStarted` (the checklist card dismissed).
+- Routes: `GET /users/:id/achievements` (earned badges; hidden ones only once earned; nothing when
+  the owner hides them or across a block), `GET /users/me/achievements` (earned badges plus the
+  progress of every series, the checklist and hidden found / total), `GET /achievements/stats`
+  (holders per badge as a share of members, cached in memory for an hour: "12 % of members have
+  this"). Lists keep the `{ items, nextCursor }` shape.
+- Web: a strip of the three rarest badges on the profile header and an **Achievements** tab (a
+  grouped grid; on one's own profile locked badges are greyed with their progress, hidden ones show
+  as "?" with the number found); the **Getting started** card at the top of the home feed until it
+  is done or dismissed; a toast when a badge arrives; the switch in Settings → Privacy and the time
+  zone in Settings → Account. Badges are lucide icons in token-coloured circles (bronze, silver,
+  gold and platinum get tokens of their own, contrast-checked in both themes), so no artwork.
+- The export lists earned badges; the erasure cascades.
+
+**Commits.** **F2a**: the engine, the notification change, the settings, the profile tab and strip,
+the Getting started card, and the groups Getting started, Firsts, Milestones and Tenure. **F2b**:
+Recognition, Community, Hidden and the time zone. Later slices add theirs in their own commits.
+
+**Catalogue**: 120 badges with every tier counted, 22 of them hidden, before the later slices add theirs (titles are proposals; tiers are bronze · silver · gold · platinum)
+
+_Getting started_ (the checklist card; a badge each, and one for all six)
+
+| Badge | Earned for |
+|---|---|
+| Say cheese | a profile picture |
+| Widescreen | a cover photo |
+| About me | a bio |
+| Good company | following three members |
+| Hello, world | the first post |
+| Joining in | the first comment |
+| All set | all six above |
+
+_Firsts_
+
+| Badge | Earned for |
+|---|---|
+| Worth a thousand words | the first post with a picture |
+| Tagged | the first post with a hashtag |
+| Shout-out | the first @mention of a member |
+| Pass it on | the first repost |
+| In my own words | the first quote |
+| Say hi | the first chat message |
+| Host | the first group chat created |
+| Big heart | the first like given |
+| Feelings | the first reaction on a comment or a message |
+| Saved for later | the first bookmark |
+| The full picture | picture, cover, bio, city and website all filled in |
+| Pocket-sized | push switched on for a device (with E2) |
+| Locked down | two-factor sign-in switched on (with D3) |
+
+_Milestones_
+
+| Badge | Counts | Tiers |
+|---|---|---|
+| Storyteller | posts | 10 · 50 · 100 · 250 |
+| Commentator | comments | 10 · 50 · 100 · 250 |
+| In the thread | replies to comments | 10 · 50 · 100 |
+| Generous | likes given | 10 · 100 · 500 · 1 000 |
+| Expressive | reactions given on comments and messages | 10 · 100 · 500 |
+| Shutterbug | pictures posted | 10 · 50 · 200 |
+| Chatterbox | chat messages sent | 100 · 1 000 · 5 000 |
+| Tag explorer | different hashtags used | 5 · 20 · 50 |
+| Amplifier | reposts and quotes made | 10 · 50 · 100 |
+| Well connected | members followed | 10 · 25 · 50 · 100 |
+| Collector | achievements earned | 10 · 25 · 50 |
+
+_Recognition_ (what others do with what you share)
+
+| Badge | Earned for |
+|---|---|
+| Crowd | followers: 10 · 25 · 50 · 100 |
+| Loved | likes received: 10 · 100 · 500 · 1 000 |
+| Hit · Smash hit · Legend | one post with 10 · 25 · 50 likes |
+| Conversation starter · Town square | one post with 10 · 25 comments |
+| Crowd favourite | one comment with 10 reactions |
+| Spreading · Viral | one post reposted or quoted 5 · 20 times |
+| Talk of the town | mentioned by 10 different members |
+| Trendsetter | the first to use a hashtag that 5 other members then used |
+
+_Community_
+
+| Badge | Earned for |
+|---|---|
+| Welcome committee | following or commenting on members in their first week: 1 · 5 · 20 newcomers |
+| First responder | the first comment on another member's post: 1 · 10 · 50 posts |
+| Inner circle | mutual follows: 5 · 15 · 30 |
+| Crew | a group chat you created reaches 5 members |
+| Big table | being in a group chat of 10 or more |
+| Recruiter | members who joined through your invite: 1 · 5 · 10 (with F1) |
+
+_Tenure_
+
+| Badge | Earned for |
+|---|---|
+| One month · Six months · One year · Two years · Three years · Five years | time since sign-up (the daily sweep) |
+| Pioneer | an account from before the opening (2026-10-29): the testers |
+| Founding member | joining within 30 days after the opening |
+| One of the first 100 | being among the first 100 accounts by sign-up |
+
+_Hidden_ (a "?" until earned; times in the member's time zone)
+
+| Badge | Earned for |
+|---|---|
+| Night owl | a post or comment between 02:00 and 04:59 |
+| Early bird | a post between 05:00 and 06:59 |
+| Make a wish | a post at 11:11, morning or evening |
+| Around the clock | posts, comments or messages in every one of the 24 hours (over any time) |
+| Weekend warrior | 20 posts on Saturdays and Sundays |
+| Happy new year | a post in the first hour of 1 January |
+| Leap of faith | a post on 29 February (next: 2028) |
+| Unlucky for some | a post on a Friday the 13th (next: 2026-11-13) |
+| Trick or treat | a post with 🎃 or 👻 on 31 October |
+| Un beso | a post or message with 😘 or 💋 (BeSo: _beso_, a kiss) |
+| Home team | a post with #beso |
+| Speechless | a post made only of emoji |
+| To the letter | a post of exactly 500 characters, the limit |
+| Racecar | a post that reads the same backwards (7 letters or more; spaces and punctuation ignored) |
+| Quick draw | a reply within a minute of the comment it answers (someone else's) |
+| Archaeologist | a comment on a post more than a year old |
+| Welcome back | a post after 60 days without one |
+| Perfectionist | a post edited three times |
+| Inception | quoting a post that is itself a quote |
+| Full range | all five comment reactions used at least once |
+| Talking to myself | a reply to your own comment |
+| Detective | five hidden achievements found |
+
+_Added by later slices_ (in their own commits)
+
+| Slice | Badges |
+|---|---|
+| F3 polls | First poll · Pollster (a poll with 20 votes) · Voice heard (voted in 10 · 50 polls) |
+| F5 games | First game · First win · Winner (10 · 50 · 100 wins) · Good sport (a rematch after a loss) · Kibitzer (watched 10 games) · hidden Diagonal thinking (a Connect Four win on a diagonal) |
+| F6 chess | Checkmate (the first chess win) · Grandmaster in the making (25 chess wins) · hidden Scholar (mate within four moves) · hidden Horse play (a win after promoting to a knight) · hidden Stalemate (a draw by stalemate) · hidden Photo finish (a win with less than 10 seconds on your clock) |
+| F7 events | Host with the most (1 · 5 events hosted) · Regular (attended 1 · 5 · 10) · Crowd puller (an event with 10 going) |
+| F8 stories | First story · Snapshots (10 · 50 stories) · Must-see (a story seen by 20) |
+| F9 calls | First call · Long distance (a call longer than an hour) |
+
+**Feasibility.** Every badge above is computed from tables that exist, or arrive with the slice that
+adds it, through indexed counts; "Around the clock" and tenure run only in the daily sweep. Nothing
+new is recorded for the badges' sake except the time zone. Not offered: streaks (agreed), badges
+for reporting or blocking people, badges that would reveal private data (bookmarks of one's posts,
+sessions, devices).
+
+- Tests: unit (every threshold and content check; time zones across a daylight-saving change; the
+  leap day; palindromes and emoji with combining characters), int (an event awards once, a deletion
+  revokes nothing, the sweep is silent and idempotent, actor-less notifications, hidden and
+  switched-off badges, blocks), web (the profile tab and strip, the checklist card, the toast, the
+  settings), e2e (a new member completes the checklist, sees the toast and the card go).
+
+### F3. Polls · M (step 2)
+
+- A post may carry a poll: `polls(post_id PK, closes_at, ended_notified_at)`,
+  `poll_options(id, post_id, position, text ≤ 80)`, `poll_votes(post_id, user_id, option_id,
+  created_at)` with `(post_id, user_id)` unique. `createPostSchema` gains an optional
+  `poll: { options: 2–4 texts, duration: 1 h | 1 d | 3 d | 7 d }`; the post shape gains
+  `poll: { options: [{ id, text, votes }], totalVotes, myVote, closesAt, closed } | null`, counted
+  with one `groupBy` per page like reactions. `PUT /posts/:id/poll/vote { optionId }`: one vote,
+  final (P3). Results show after voting or once closed, always to the author. The poll cannot change
+  after the first vote; the post text can. Quote embeds show "Poll" and the text only.
+- **Frequent jobs** (ADR 0012 amendment 2): `JobsService.runFrequent(now)` every 5 minutes next to
+  the daily run, behind the same `JOBS_ENABLED`, under the same rules (the clock as a parameter,
+  idempotent through `*_notified_at` stamps, counts logged). Its first task: `POLL_ENDED` to the
+  author and the voters. F4, F5, F7 and F8 add theirs.
+- Tests: int (creation, vote rules, counts, closing, the frequent job), web (the composer with a
+  poll, voting, result states), e2e (alice posts a poll, bob votes, both see the result).
+
+### F4. Weekly digest · M · ADR 0010 amendment 2 (step 2)
+
+- One mail a week, on Monday at 09:00 in the member's time zone (F2b), on by default with a one-click
+  unsubscribe (P4): the most liked posts from people they follow in the last 7 days (up to five),
+  new followers, unread notifications and messages, badges earned, and later upcoming events (F7)
+  and games waiting for their move (F5). Only to members not active in the last 3 days
+  (`refresh_tokens.last_used_at`) and only when there is something to say; `users.digest_sent_at`
+  keeps it to once a week (frequent jobs, F3).
+- Unsubscribing without signing in: a signed token (an HMAC of the user id and the purpose, no
+  expiry, no table) in the footer link and in the `List-Unsubscribe` and `List-Unsubscribe-Post`
+  headers (RFC 8058); `POST /email/unsubscribe { token }` is public. Settings → Email gains the
+  switch (`digest: weekly | off`). The privacy notice names the digest (`LEGAL_UPDATED_ON` bumped).
+- Tests: int (selection rules, the hour in several time zones, once a week, the token and the
+  headers in the outbox), web (the switch, the unsubscribe page), e2e (the unsubscribe link from the
+  outbox).
+
+### F5. Games: the engine, Connect Four and watching · L · ADR 0023 "Turn-based games" (step 3)
+
+The best fit of the new features: it reuses the socket, notifications, profiles and the feed, and
+gives members something to do together.
+
+- An engine in `packages/shared/src/games/`: a game is pure functions over plain data
+  (`initialState`, `applyMove(state, move, seat)` → the new state or an error,
+  `result(state)` → nothing yet or `{ winner, reason }`, zod schemas for its state and moves), so
+  the browser shows legal moves and the server referees. Connect Four first (7 × 6; a draw on a full
+  board): small enough to prove invitations, turns, watching and notifications.
+- Data: `games(id, type, status invited | active | finished | declined | cancelled, mode
+  correspondence | live, visibility public | followers | players, created_by, state jsonb,
+  move_count, turn_seat, deadline_at, result jsonb, created_at, started_at, finished_at)`,
+  `game_players(game_id, user_id, seat, outcome)`, `game_moves(game_id, ply, user_id, move jsonb,
+  created_at)` (the state can be replayed from them), `game_watchers(game_id, user_id,
+  first_seen_at)` for Kibitzer.
+- Routes: `POST /games { type, opponentId, mode, visibility }` (a challenge; `assertNotBlocked`;
+  the opponent's `gameInvites: everyone | following | nobody`), accept, decline, cancel,
+  `POST /games/:id/moves { ply, move }` (the `ply` must equal `move_count`, so a double tap or a race
+  is a 409), resign, offer and accept a draw, rematch, `GET /games/:id` (state, players, moves),
+  `GET /games?status=&userId=`, `GET /games/watch` (public games in progress).
+- Realtime: moves come in over HTTP and go out as domain events. The gateway gains **game rooms**
+  (`game:<id>`): `game:watch { gameId }` joins after the visibility check (a member blocked by
+  either player is refused) and answers the state, `game:unwatch` leaves, `game:update` goes to the
+  room and to the players' user rooms, and the room's size goes out as a watcher count (names are
+  not shown, P5).
+- Correspondence first (P5): 3 days per move, then the game is lost on time (a frequent job).
+  Notifications `GAME_INVITED`, `GAME_TURN` (not while the player has the game open) and
+  `GAME_ENDED`; a finished game becomes an activity ("alice beat bob at Connect Four") unless it was
+  players-only. Preference `pushGames`.
+- Web: `/games` (invitations, your games with "your move" first, games to watch, Challenge someone
+  through `PeoplePicker`), `/games/:id` (board, players, moves, watcher count, resign, draw,
+  rematch), Challenge from the profile menu and the chat thread header. Keyboard play (arrow keys
+  pick a column, Enter drops) and an `<output>` announcing every move. Lazy routes.
+- Seed: a game in progress between alice and bob, a finished one. Tests: unit (rules, wins, draws),
+  int (lifecycle, move conflicts, visibility, blocks, timeouts, watchers), gateway spec (rooms), web
+  (board, hub), e2e (bob challenges alice and they play to a win while carol watches the moves
+  arrive).
+
+### F6. Chess · L (step 3)
+
+- `chess.js` (BSD-2) on both sides inside the engine contract (FEN as the state, SAN for moves,
+  every draw rule it knows); a board from `react-chessboard` (MIT; not chessground, which is GPL-3),
+  lazy loaded; a promotion picker; PGN download; finished games replayable move by move.
+- Modes: correspondence (1, 3 or 7 days per move) and **live** with clocks (5+0, 10+5, 15+10).
+  The clocks are the server's, without timers: every move stores the time used, and when a clock
+  runs out on the opponent's screen the client claims the timeout and the server checks it against
+  the stored times (`POST /games/:id/claim-timeout`), so a restart loses nothing.
+- Accessibility: moves can also be typed in SAN next to the board, the move list is a table, check
+  and the last move are announced.
+- Engine assistance cannot be prevented in casual play. Ratings and leaderboards wait in
+  `BACKLOG.md` until members ask.
+- Tests: unit (the adapter, clocks), int (a live game to a timeout claim, draws, PGN), web (board
+  with promotion, typed moves), e2e (a scholar's mate in a live game while a third member watches).
+
+**Later games** on the same engine, each a small slice in the order members ask for them: checkers,
+backgammon (dice rolled by the server), a daily word puzzle everyone plays and compares, battleship
+(hidden information through a per-seat view of the state).
+
+### F7. Events · L · ADR 0024 "Events" (step 4)
+
+- `events(id, host_id, title ≤ 100, description ≤ 2000, starts_at, ends_at?, time_zone,
+  place ≤ 200, cover_key?, visibility public | followers, capacity?, cancelled_at, created_at)` and
+  `event_rsvps(event_id, user_id, status going | maybe | declined, created_at)`. Creating an event
+  also creates a post that embeds it (like a quote), so it reaches the host's followers.
+- Routes: create, edit (going and maybe are told), cancel, `PUT /events/:id/rsvp`,
+  `GET /events/:id`, `GET /events?scope=upcoming | hosting | attending`,
+  `GET /events/:id/calendar.ics`.
+- Notifications `EVENT_RSVP` (to the host), `EVENT_CHANGED` and `EVENT_CANCELLED` (to going and
+  maybe), `EVENT_REMINDER` 24 hours before (frequent jobs; push with E2, preference `pushEvents`).
+  The host can open a group chat for the people going (`createGroup`); later RSVPs are offered to
+  join it.
+- Web: `/events` (upcoming, hosting, attending), `/events/:id` (cover, the time in the viewer's
+  zone with the host's zone noted, place with a map link, going and maybe, RSVP), "Event" in the
+  composer, the event card in feeds; the cover through the cropper (3:1, the profile cover frame).
+- Reports gain the `event` target. The export lists events and RSVPs; erasing a host cancels their
+  events and tells the guests.
+- Tests: int (visibility, RSVP rules, reminders, changes, the `.ics`), web, e2e (alice hosts, bob
+  says he is going, the reminder arrives).
+
+### F8. Stories · L · ADR 0025 "Stories" (step 4)
+
+- Pictures and text only. No video: transcoding on the shared i5, the storage, the home upload
+  line, and Cloudflare's terms for video on the free plan. `stories(id, user_id, image_key?, text?,
+  background?, created_at, expires_at = created_at + 24 h)` with an upload kind `story` (a 9:16
+  preset, 1080 × 1920; the cropper gains the frame) and `story_views(story_id, viewer_id,
+  viewed_at)`.
+- Visible to everyone who can see the author's posts (P7). The ring row above the feed shows the
+  people you follow with active stories, unseen ones first; profiles show the ring on the avatar.
+  `POST /stories`, `DELETE /stories/:id`, `GET /stories/feed`, `GET /users/:id/stories`,
+  `POST /stories/:id/view` (idempotent), `GET /stories/:id/viewers` (the author only).
+- Replies and reactions go to the direct chat as a message that cites the story (`messages.story_id`,
+  SetNull; "This story is no longer available" once it is gone).
+- Expired stories disappear at read; a frequent job deletes their files through
+  `UploadsService.discard`. Reports gain the `story` target.
+- Web: the ring row; a full-screen viewer (tap or arrow keys to move, hold or Space to pause, swipe
+  down or Escape to close, progress bars, reduced motion respected, focus kept inside); the
+  composer (a picture through the cropper, or text on a token-coloured background).
+- Tests: int (expiry, visibility, views, replies), web (the viewer by keyboard and pointer, the
+  composer), e2e (alice posts a story, bob sees the ring, views it and replies, alice sees bob among
+  the viewers).
+
+### F9. One-to-one calls · L–XL · ADR 0026 "Calls" (step 5)
+
+- Audio and video between two members over WebRTC, peer to peer. Signalling over the chat socket
+  (`call:invite`, `call:accept`, `call:decline`, `call:cancel`, `call:end` and `call:signal` with
+  the SDP and the ICE candidates; zod-validated payloads with acks, like messages); the call's state
+  in memory (one instance); `calls(id, conversation_id, caller_id, callee_id, media, created_at,
+  answered_at, ended_at, end_reason)` for the history, shown as system lines ("Missed video call",
+  "Audio call · 12 min").
+- ICE: Cloudflare's STUN, and a **managed TURN relay** for the connections that cannot go direct
+  (mobile networks often): the box cannot relay media through the tunnel and opens no ports by
+  design. `GET /calls/ice-servers` hands out short-lived credentials from the provider (Cloudflare's
+  TURN service first, P8). Direct calls show each side the other's address; a "relay only" switch
+  hides it at the cost of relayed traffic (the privacy notice says so).
+- Who can call: `whoCanCall: everyone | following | nobody` (P8, default following); blocks refuse.
+  It rings for 30 s; a closed tab rings through push (E2, `pushCalls`); then it is a missed call.
+- Web: call buttons in the thread header and in chat windows, the incoming call dialog (the ring
+  sound by preference), the call view (mute, camera, switch camera on phones, screen sharing on
+  desktop, hang up, picture in picture). A lazy chunk.
+- Group calls need a media server (SFU) and stay in `BACKLOG.md`.
+- Tests: unit (the call state machine), gateway spec (signalling, refusals), web (the dialogs with
+  a stubbed `RTCPeerConnection`), e2e (two browsers with Chromium's fake media devices connect and
+  hang up).
+
+### F10. Store app · L, plus the store chores · ADR 0027 "Native app" (step 6)
+
+- The same React build in a Capacitor shell; Android first (no macOS needed), iOS when the cost is
+  accepted (Apple's $99 a year, a macOS runner or a Mac for the builds).
+- Signing in without the site's cookies: the shell runs on an origin of its own, so the access
+  token goes in the `Authorization` header (already accepted) and the refresh token travels in the
+  body and lives in the device's secure storage (a native variant of `/auth/refresh` bound to a
+  device id).
+- Native push (FCM, APNs) as a second transport behind `PushService`; deep links
+  (`/.well-known/assetlinks.json` and `apple-app-site-association`, served by Caddy); the camera and
+  photo picker for uploads; safe areas and the status bar.
+- Store requirements: reporting and blocking exist (B5); the privacy labels follow the privacy
+  notice.
+- Tests: the web suites cover the interface; CI builds the Android app and runs a smoke test.
+
+---
+
+## 8. Dependencies
 
 ```
 B1 mentions ──► B4 notifications (UserMentionedEvent)
@@ -449,11 +918,19 @@ B4 notifications ──► E2 web push, C7 realtime activity (the push path thro
 B3b chat ──► C5 chat extras (message cache, system lines, the options menu)
 B1 mentions ──► B6 # autocomplete (MentionTextarea)
 A2, A3 ──► the opening; A4 ──► nothing
+E2 push ──► F5/F6 "your move", F7 reminders and F9 ringing for closed tabs, F10 (native push behind PushService)
+F2a achievements engine ──► every later F slice (its badges); F1 invites ──► F2's Recruiter
+F2b time zone ──► F4 (Monday 09:00 local), the time-of-day badges
+F3 frequent jobs ──► F4 sending, F5 move deadlines, F7 reminders, F8 expiry
+F5 engine + game rooms ──► F6 chess, later games
+B4 notifications ──► F1, F2a (actor-less ACHIEVEMENT_EARNED), F3, F5, F7
+D4 cropper ──► F7 covers, F8 (9:16 frame); B3b/C5 chat ──► F8 story replies, F9 call lines
+B5 moderation ──► every F slice (blocks, new report targets)
 ```
 
 ---
 
-## 8. Per-slice definition of done
+## 9. Per-slice definition of done
 
 1. Shared schemas and constants in `packages/shared` (never duplicated), API module with DTOs via `createZodDto`, migration committed with the schema change, seed extended when the feature has demo value.
 2. Unit tests for parsers and mappers, integration tests for every route and rule, web tests for every new page and state, one e2e scenario, new pages added to `e2e/a11y.spec.ts`.
@@ -463,7 +940,7 @@ A2, A3 ──► the opening; A4 ──► nothing
 
 ---
 
-## 9. Decisions taken in the review (2026-10-19)
+## 10. Decisions taken in the reviews (2026-10-19, 2026-10-22)
 
 | # | Question | Decision |
 |---|---|---|
@@ -498,3 +975,27 @@ A2, A3 ──► the opening; A4 ──► nothing
 | Q-R2 | Reposts in the feed | One row per post, the newest of the original or a plain repost from someone I follow; quotes are distinct posts. |
 
 No open points remain; the plan is ready to start with B1.
+
+### Third round (growth and play, 2026-10-22)
+
+| # | Point | Decision |
+|---|---|---|
+| R3-1 | What comes after v2.7 | Track F in this order: E2 installable app + push → F1 invites + explore, F2 achievements, F3 polls, F4 digest → F5/F6 games with watching → F7 events, F8 stories → F9 one-to-one calls → F10 store app. D3 between any two steps. |
+| R3-2 | Bulgarian interface | Not for now (`BACKLOG.md`). |
+| R3-3 | Monitoring, alerting, error tracking, dashboards | Not now; parked in `BACKLOG.md` in that order. |
+| R3-4 | Achievements | In, step 2, with an extended catalogue including hidden badges; no streaks; volume and recognition badges mixed; earned is earned; visible on the profile with a switch. |
+| R3-5 | Not now | Group calls and live audio rooms (a media server), video stories and video uploads (the box and the line), a React Native rewrite, self-hosted TURN or SFU on the box (no inbound ports by design). |
+
+**Proposed defaults** (the slice uses them unless the owner says otherwise when it starts)
+
+| # | Slice | Default |
+|---|---|---|
+| P1 | F1 | The invitee follows the inviter on confirming the address; the inviter is notified and offered Follow back, nothing automatic. |
+| P2 | F2 | Badges shown by default; the backfill is silent; the founding window is the 30 days after the opening (2026-10-29 → 2026-11-28); "Pioneer" for accounts from before it. |
+| P3 | F3 | 2–4 options, one vote, final; results after voting or at the close (always to the author); 1 h, 1 day, 3 days or 7 days. |
+| P4 | F4 | On by default with one-click unsubscribe; Monday 09:00 local; only to members away for 3 days and only with something to say. |
+| P5 | F5/F6 | Correspondence first (3 days a move, then lost on time); live with clocks for chess; visibility "followers" by default; watchers shown as a count, not by name; results in the activity feed unless players-only. |
+| P6 | F7 | Public or followers-only events; a reminder 24 hours before; the attendees' group chat only when the host opens it. |
+| P7 | F8 | Visible to everyone who can see the author's posts; the ring row for people you follow; the viewers list for the author only; pictures and text only. |
+| P8 | F9 | `whoCanCall` defaults to people you follow; Cloudflare's TURN service first; a "relay only" switch for members who prefer to hide their address. |
+| P9 | F10 | Only after E2 has been in use for a while; Android first, iOS when the yearly fee and the macOS builds are accepted. |
