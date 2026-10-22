@@ -1,9 +1,9 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import { emailNotVerified, unauthorized } from '../common/errors.js';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import { ALLOW_UNVERIFIED_KEY } from './allow-unverified.decorator.js';
-import { type AuthenticatedRequest, accessTokenPayloadSchema } from './auth.types.js';
+import type { AuthenticatedRequest } from './auth.types.js';
 import { ACCESS_COOKIE, readCookie } from './cookies.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 
@@ -14,7 +14,7 @@ import { IS_PUBLIC_KEY } from './public.decorator.js';
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private readonly jwt: JwtService,
+    private readonly tokens: AccessTokensService,
     private readonly reflector: Reflector,
   ) {}
 
@@ -32,7 +32,7 @@ export class AuthGuard implements CanActivate {
     const token = extractAccessToken(request);
     if (!token) throw unauthorized('Authentication required');
 
-    const payload = await verifyAccessToken(this.jwt, token);
+    const payload = await this.tokens.verify(token);
     if (!payload) throw unauthorized('Invalid or expired session');
     const emailVerified = payload.ev ?? true;
     request.user = { id: payload.sub, emailVerified, role: payload.role ?? 'member' };
@@ -45,16 +45,6 @@ export class AuthGuard implements CanActivate {
       if (!allowed) throw emailNotVerified();
     }
     return true;
-  }
-}
-
-/** Verifies signature, issuer and expiry, then the claim shape; undefined when any of it fails. */
-export async function verifyAccessToken(jwt: JwtService, token: string) {
-  try {
-    const parsed = accessTokenPayloadSchema.safeParse(await jwt.verifyAsync<object>(token));
-    return parsed.success ? parsed.data : undefined;
-  } catch {
-    return undefined;
   }
 }
 

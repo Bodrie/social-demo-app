@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { JwtService } from '@nestjs/jwt';
 import type {
   ChangeEmailData,
   ChangePasswordData,
@@ -26,8 +25,9 @@ import type { Env } from '../config/env.js';
 import { EmailService } from '../email/email.service.js';
 import { UserRegisteredEvent } from '../events/user.events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import { UsersService } from '../users/users.service.js';
-import type { AccessTokenClaims, IssuedTokens, RequestMeta } from './auth.types.js';
+import type { IssuedTokens, RequestMeta } from './auth.types.js';
 import type { CookieSettings } from './cookies.js';
 import { EmailTokensService, INVALID_LINK } from './email-tokens.service.js';
 import { dummyPasswordHash, hashPassword, verifyPassword } from './password.js';
@@ -47,7 +47,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
-    private readonly jwt: JwtService,
+    private readonly accessTokens: AccessTokensService,
     private readonly refreshTokens: RefreshTokensService,
     private readonly emailTokens: EmailTokensService,
     private readonly email: EmailService,
@@ -437,11 +437,10 @@ export class AuthService {
   private signAccessToken(
     user: Pick<UserPrivate, 'id' | 'emailVerifiedAt' | 'role'>,
   ): Promise<string> {
-    const claims: AccessTokenClaims = {
+    return this.accessTokens.sign({
       sub: user.id,
       ev: user.emailVerifiedAt !== null,
       role: user.role,
-    };
-    return this.jwt.signAsync(claims);
+    });
   }
 }

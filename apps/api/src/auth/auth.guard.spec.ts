@@ -1,6 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import { AuthGuard, extractAccessToken } from './auth.guard.js';
 import type { AuthenticatedRequest } from './auth.types.js';
 import { ALLOW_UNVERIFIED_KEY } from './allow-unverified.decorator.js';
@@ -30,7 +31,7 @@ function contextFor(
 }
 
 describe('AuthGuard', () => {
-  const guard = new AuthGuard(jwt, new Reflector());
+  const guard = new AuthGuard(new AccessTokensService(jwt), new Reflector());
 
   it('ignores non-HTTP contexts (sockets are authenticated at handshake)', async () => {
     const context = { getType: () => 'ws' } as unknown as ExecutionContext;

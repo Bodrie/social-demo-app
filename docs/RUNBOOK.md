@@ -6,10 +6,11 @@ Target: Ubuntu Server 24.04 on an Intel Core i5-6500 (64-bit x86; the images are
 The public address is **https://social.bodrie.dev**, a subdomain of `bodrie.dev` (domain at
 Cloudflare Registrar, DNS on Cloudflare). The apex and `www` stay free for other sites.
 
-The box never builds anything and holds no source code. CI builds two images, the API and the
-web app (the built frontend inside Caddy), and publishes them to GHCR; the box keeps only the
-`deploy/` files (compose file, scripts, `.env`) and pulls those images, together with the stock
-`postgres` and `cloudflared` images (§4).
+The box never builds anything and holds no source code. CI builds three images, the API, the
+web app (the built frontend inside Caddy) and the one-shot migrations (`beso-migrate`, run before
+every start of the API), and publishes them to GHCR; the box keeps only the `deploy/` files
+(compose file, scripts, `.env`) and pulls those images, together with the stock `postgres` and
+`cloudflared` images (§4).
 
 ## 1. One-time server setup
 
@@ -276,7 +277,8 @@ cd /opt/beso
 ss -ltn | grep ':8080 '           # prints nothing; if another service holds 8080, set WEB_PORT=8081 in .env and use that port below
 docker compose --profile tunnel pull
 docker compose --profile tunnel up -d
-docker compose logs -f api        # "Applying database migrations…", then "API listening on port 3000 (production)"; Ctrl-C
+docker compose logs migrate       # ends with "All migrations have been successfully applied."
+docker compose logs -f api        # "API listening on port 3000 (production)"; Ctrl-C
 docker compose ps                 # within a minute: postgres, api and web "(healthy)", cloudflared "Up"
 curl -s http://127.0.0.1:8080/api/v1/auth/me   # {"statusCode":401,...} means Caddy → API works
 docker compose logs cloudflared | grep -i 'registered tunnel connection'   # four lines: the tunnel is up
@@ -285,8 +287,9 @@ docker compose logs cloudflared | grep -i 'registered tunnel connection'   # fou
 The site is now live; run the checks of §2.5 from another machine. At home, use
 https://social.bodrie.dev as well: the stack has no LAN port (cloudflared reaches Caddy over the
 Docker network, which is why the tunnel route is `http://web:80` and never the box's LAN
-address). The api container applies pending Prisma migrations on every start
-(`MIGRATE_ON_START`). There is no seed in production; the first member registers through the
+address). The `migrate` service applies pending Prisma migrations and exits; compose runs it
+to completion before it starts the API (and `docker compose ps -a` lists it as "Exited (0)").
+There is no seed in production; the first member registers through the
 app. An address listed in `ADMIN_EMAILS` is promoted at API start and at **sign-in** only:
 registration plus the confirmation link signs the browser in without a sign-in, so the first
 admin signs out and in once before **Admin** appears in the account menu.
@@ -311,20 +314,44 @@ is streamed out of the api container), so the nightly runs cannot collide with t
 ## 4. Releases (pull-based)
 
 1. Merge to `main`: once every CI job (checks, integration, e2e) has passed, CI runs
-   `.github/workflows/docker.yml`, which publishes `ghcr.io/<owner>/beso-api` and
-   `beso-web` tagged `latest` and `sha-<short>`. A git tag `vX.Y.Z` (same CI run) also
+   `.github/workflows/docker.yml`, which publishes `ghcr.io/<owner>/beso-api`, `beso-web`
+   and `beso-migrate` tagged `latest` and `sha-<short>`. A git tag `vX.Y.Z` (same CI run) also
    publishes `X.Y.Z` and `X.Y`: the image tags drop the `v`, so git tag `v2.0.0` is image
    `2.0.0`. A red run publishes nothing, so the box keeps what it has.
-2. The box runs `update.sh` every 5 minutes: `docker compose pull && up -d`. Nothing happens
-   when the tag's digest did not change.
+2. The box runs `update.sh` every 5 minutes (output in `journalctl -u beso-update`). It pulls
+   `migrate`, `api` and `web` only, all or nothing (a failed pull restarts nothing and fails
+   the unit); when an image, the compose file or `.env` changed since its last successful run,
+   or a service is not running, it runs the migrations on their own
+   (`docker compose run --rm migrate`) and then `docker compose up -d`. Otherwise it does
+   nothing. It remembers what it applied as a hash in `.update-state`; delete that file to
+   force the next run to apply everything again. `postgres` and `cloudflared` are never pulled
+   by it (§6, "Update Postgres or cloudflared").
 3. To pin a release: `TAG=2.0.0` in `.env` (no `v`), then `./update.sh`. Rollback = set the
    previous tag and run it again (migrations are forward-only; see §6 before rolling back
-   across one).
+   across one). After any other `.env` change, `./update.sh` applies it the same way.
 4. GHCR packages are private by default on first push: make them public (package settings)
    or create a read token on the box (`docker login ghcr.io`). `beso-api` and `beso-web` are
-   new packages since the rename (2026-10-20) and GHCR creates packages private: after the
-   first push to `main`, make both public in the package settings (as the old `the-mesh-*`
-   ones were) so the box pulls without a login.
+   new packages since the rename (2026-10-20), `beso-migrate` since slice E4 (2026-10-22):
+   after the first push to `main` that publishes one, make it public in the package settings
+   (as the old `the-mesh-*` ones were) so the box pulls without a login. Until then every
+   `update.sh` run fails at the pull and keeps the running release.
+
+### 4.1 Moving to the migrate service (once, with the E4 release)
+
+Up to E4 the API image ran the migrations itself (`MIGRATE_ON_START`); since E4 the API image no
+longer carries the Prisma CLI and the `migrate` service does it. The new API image still starts
+under the old compose file (it logs that `MIGRATE_ON_START` is ignored), but nothing would apply
+a later migration until `deploy/` is refreshed. Once the E4 images are on GHCR:
+
+```bash
+# GitHub → your profile → Packages → beso-migrate → Package settings → Change visibility → Public
+cd /opt/beso
+curl -fsSL https://github.com/Bodrie/beso/archive/refs/heads/main.tar.gz \
+  | tar -xz -C /opt/beso --strip-components=2 beso-main/deploy
+./update.sh                       # pulls beso-migrate, runs it ("No pending migrations to apply."), recreates the stack
+docker compose ps -a              # migrate "Exited (0)", the rest "(healthy)" / "Up"
+ps -eo args | grep -c '[t]unnel.*--token'   # 0: the tunnel token is no longer on a command line
+```
 
 ## 5. Backups and restore
 
@@ -348,7 +375,7 @@ gunzip -c ~/beso-backups/db-<stamp>.sql.gz | docker compose exec -T postgres sh 
   'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction -q'
 docker run --rm -v beso_uploads:/data -v ~/beso-backups:/backup alpine \
   sh -c 'rm -rf /data/* && tar xzf /backup/uploads-<stamp>.tar.gz -C /data'
-docker compose start api   # applies any migration newer than the backup
+docker compose up -d       # the migrate service applies any migration newer than the backup, then the API starts
 ```
 
 If `psql` stops with an error, nothing of the dump was applied: fix the cause and run the
@@ -364,7 +391,9 @@ volumes) before it is needed.
 | Health (from the box) | `curl -s http://127.0.0.1:8080/api/v1/auth/me` (401 = healthy chain); `docker inspect --format '{{.State.Health.Status}}' beso-api-1` |
 | Health (public) | `curl -s https://social.bodrie.dev/api/v1/auth/me` (401); tunnel status in the Cloudflare One dashboard or `docker compose logs cloudflared` ("Registered tunnel connection") |
 | Tunnel reconnects | normal after an IP change; if it stays "Down", `docker compose --profile tunnel restart cloudflared` and check the token in `.env` |
-| Migrations manually | `docker compose exec api sh -c 'cd apps/api && ./node_modules/.bin/prisma migrate deploy'` |
+| Migrations manually | `docker compose run --rm migrate` (= `prisma migrate deploy`); any other Prisma command through the same image, e.g. `docker compose run --rm migrate migrate status` |
+| Update Postgres or cloudflared | not done by `update.sh`; when you choose to (a Postgres minor release, a cloudflared fix): `docker compose --profile tunnel pull postgres cloudflared && docker compose --profile tunnel up -d`. `postgres:17-alpine` stays on major 17; a major upgrade needs a dump and restore (§5) |
+| Updater output | `journalctl -u beso-update --since today`; `systemctl status beso-update` shows a failed run (a pull that failed, migrations that failed) |
 | Database shell | `docker compose exec postgres psql -U beso -d beso` |
 | Disk | `df -h /var/lib/docker /home/beso` and `docker system df`: if Frigate records to the same disk it can fill it, and a full disk takes Postgres down. `update.sh` runs `docker image prune -f`, which is host-wide but removes only untagged images that no container uses |
 | Mail not arriving | `docker compose logs --since 1h api \| grep -iE 'mail\|smtp'`: `EAUTH` = wrong API key in `SMTP_URL`; a connection timeout = the network blocks port 465, use `smtp.resend.com:2465` (also implicit TLS). A registration whose mail failed still created the account: sign in and press *Send the email again*. Resend → Emails for bounces; DNS records still DNS-only and verified |
@@ -374,14 +403,17 @@ volumes) before it is needed.
 | Admins | `ADMIN_EMAILS=you@example.com,other@example.com` in `.env`, then `docker compose up -d api`: the listed accounts become admins at the next start (or at their next sign-in), every other admin becomes a member. Admins get **Admin** in their account menu: the reports queue at `/admin`, where they settle reports, delete reported posts or comments and suspend members (`docker compose logs api \| grep -E 'Member (un)?suspended\|Report filed'` for the trail; `admin_actions` in the database keeps every action) |
 | Daily housekeeping | runs inside the API at 04:00 UTC (`JobsService`: expired email and refresh tokens, accounts unconfirmed for 30 days after one warning mail at day 23, uploads nobody attached within 24 h, notifications older than 90 days, and the size of uploads stored before sizes were kept, read once from the files). `docker compose logs --since 24h api \| grep -E 'Job (finished\|failed)'` shows one line per job with its count. Several API containers: `JOBS_ENABLED=false` in `.env` for all but one, or every job runs once per container |
 
-Migrations are applied before the new API starts; if a migration fails the container
-exits and `docker compose ps` shows it restarting: fix forward (new migration) rather than
-rolling the image back, because the schema may already be ahead of the old code. Prisma
-records the failed migration as started and refuses every later `migrate deploy` with
-`P3009` until it is told what became of it, so first mark it:
-`docker compose exec api sh -c 'cd apps/api && ./node_modules/.bin/prisma migrate resolve --rolled-back <migration_name>'`
+Migrations are applied before the new API starts. `update.sh` runs them on their own first,
+so when one fails the unit fails (`systemctl status beso-update`, the error in
+`journalctl -u beso-update`) and the running release keeps serving; a plain
+`docker compose up -d` would have removed the old API container before the migration ran and
+left none. Fix forward (new migration) rather than rolling the image back, because the schema
+may already be partly ahead of the old code. Prisma records the failed migration as started and
+refuses every later `migrate deploy` with `P3009` until it is told what became of it, so first
+mark it: `docker compose run --rm migrate migrate resolve --rolled-back <migration_name>`
 (after undoing by hand whatever part of it did apply; `--applied` instead if all of it did),
-then ship the fixing migration and run `./update.sh`.
+then ship the fixing migration and run `./update.sh`. A `P1013` ("invalid database string")
+from the migrate service means `POSTGRES_PASSWORD` holds a character that breaks the URL (§1.4).
 
 ## 7. What is not in place yet
 

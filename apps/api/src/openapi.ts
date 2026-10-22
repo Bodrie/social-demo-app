@@ -9,6 +9,8 @@ export const OPENAPI_JSON_PATH = `${OPENAPI_PATH}/openapi.json`;
 /** Swagger UI + JSON document generated from controllers and zod DTOs. Not mounted in production. */
 export function setupOpenApi(app: INestApplication): void {
   const config = new DocumentBuilder()
+    // 3.1: zod writes nullable fields as `type: [..., "null"]`, which 3.0 does not know.
+    .setOpenAPIVersion('3.1.0')
     .setTitle('BeSo API')
     .setDescription(
       'REST API of BeSo, a small social network. Browser clients authenticate with the httpOnly access cookie; other clients may send the same token as a Bearer header. Routes marked @Public() need no session.',

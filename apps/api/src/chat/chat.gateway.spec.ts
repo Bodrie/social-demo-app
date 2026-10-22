@@ -7,6 +7,7 @@ import type { Env } from '../config/env.js';
 import type { ConversationsService } from '../conversations/conversations.service.js';
 import { MessageUpdatedEvent } from '../events/conversation.events.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import type { UsersService } from '../users/users.service.js';
 import {
   CONNECT_LIMIT,
@@ -64,7 +65,13 @@ describe('ChatGateway', () => {
   beforeEach(() => {
     users = mockDeep<UsersService>();
     presence = new PresenceService();
-    gateway = new ChatGateway(jwt, users, presence, mockDeep<ConversationsService>(), config);
+    gateway = new ChatGateway(
+      new AccessTokensService(jwt),
+      users,
+      presence,
+      mockDeep<ConversationsService>(),
+      config,
+    );
     broadcast = vi.fn();
     server = { to: vi.fn(() => ({ emit: broadcast })), use: vi.fn() };
     gateway.server = server as unknown as Server;

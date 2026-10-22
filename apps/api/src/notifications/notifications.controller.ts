@@ -1,9 +1,11 @@
 import { Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Notification, Paginated, UnreadCount } from '@beso/shared';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto } from '../common/params.dto.js';
+import { NotificationListDto, UnreadCountDto } from '../common/responses.dto.js';
 import { NotificationsQueryDto } from './notifications.dto.js';
 import { NotificationsService } from './notifications.service.js';
 
@@ -13,6 +15,7 @@ export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 
   @Get()
+  @ZodResponse({ status: 200, type: NotificationListDto })
   list(
     @CurrentUser() user: AuthUser,
     @Query() query: NotificationsQueryDto,
@@ -21,6 +24,7 @@ export class NotificationsController {
   }
 
   @Get('unread-count')
+  @ZodResponse({ status: 200, type: UnreadCountDto })
   unreadCount(@CurrentUser() user: AuthUser): Promise<UnreadCount> {
     return this.notifications.unreadCount(user.id);
   }

@@ -1,5 +1,5 @@
-# Production stack for one box: Postgres, the API, the web server and the Cloudflare
-# Tunnel. Copy this directory to the server, fill in `.env` (see .env.example) and run
+# Production stack for one box: Postgres, the migrations, the API, the web server and the
+# Cloudflare Tunnel. Copy this directory to the server, fill in `.env` (see .env.example) and run
 # `docker compose up -d`. Images come from GHCR (built by .github/workflows/docker.yml).
 name: beso
 
@@ -10,6 +10,10 @@ x-logging: &logging
   options:
     max-size: 20m
     max-file: '5'
+
+# The password goes into a URL as is: keep it to letters and digits (`openssl rand -hex 32`),
+# since `/ @ # ? %` would break it (the migrate service then fails with P1013).
+x-database-url: &database-url postgresql://${POSTGRES_USER:-beso}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-beso}
 
 services:
   postgres:
@@ -29,6 +33,19 @@ services:
       retries: 10
     stop_grace_period: 30s
 
+  # One-shot: applies pending migrations and exits; `up -d` runs it to completion before it
+  # starts the API. update.sh also runs it on its own first (`run --rm migrate`), because a
+  # failure inside `up -d` comes after compose has already removed the old API container.
+  migrate:
+    image: ${MIGRATE_IMAGE:-ghcr.io/bodrie/beso-migrate}:${TAG:-latest}
+    restart: 'no'
+    logging: *logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: *database-url
+
   api:
     image: ${API_IMAGE:-ghcr.io/bodrie/beso-api}:${TAG:-latest}
     restart: unless-stopped
@@ -36,10 +53,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       PORT: '3000'
-      DATABASE_URL: postgresql://${POSTGRES_USER:-beso}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-beso}
+      DATABASE_URL: *database-url
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       WEB_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL in .env}
       PUBLIC_ASSETS_URL: ${PUBLIC_URL}/api/v1/uploads
@@ -55,7 +74,6 @@ services:
       TRUST_PROXY: '1'
       LOG_LEVEL: ${LOG_LEVEL:-info}
       UPLOADS_DIR: /data/uploads
-      MIGRATE_ON_START: 'true'
       # Daily housekeeping (RUNBOOK §6); false on every API container but one if there are several.
       JOBS_ENABLED: ${JOBS_ENABLED:-true}
       # Who reads the reports queue (RUNBOOK §6).
@@ -77,12 +95,16 @@ services:
       - '127.0.0.1:${WEB_PORT:-8080}:80'
 
   cloudflared:
+    # Not pulled by update.sh: update it (and postgres) deliberately, RUNBOOK §6.
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     logging: *logging
     profiles: ['tunnel']
-    # Only started with `--profile tunnel`; the token is required then (cloudflared fails loudly without it).
-    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}
+    # Only started with `--profile tunnel`; the token is required then (cloudflared fails loudly
+    # without it). From the environment, not the command line, where `ps` shows it to every user.
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
     depends_on:
       - web
 

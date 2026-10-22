@@ -1,5 +1,8 @@
-/** All refresh tokens of a user were revoked (logout-all or reuse detection). */
+/**
+ * Every session of a member ended (sign out everywhere, password reset, reuse detection,
+ * suspension, account deletion): the gateway closes their sockets.
+ */
 export class SessionsRevokedEvent {
-  static readonly EVENT = 'auth.sessionsRevoked';
+  static readonly EVENT = 'sessions.revoked';
   constructor(readonly userId: string) {}
 }

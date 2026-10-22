@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Build context: the repository root (`docker build -f apps/api/Dockerfile .`).
-# Debian slim rather than Alpine: argon2, sharp and the Prisma engines all ship
-# glibc prebuilds, so nothing is compiled during the install.
+# Debian slim rather than Alpine: argon2 and sharp ship glibc prebuilds, so nothing is
+# compiled during the install. Migrations are not run from here: apps/migrate/Dockerfile is the
+# one-shot image compose runs before the API, so this image carries no Prisma CLI.
 
 ARG NODE_IMAGE=node:24-slim
 ARG PNPM_VERSION=11.1.0
@@ -12,7 +13,7 @@ ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true
 RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .pnpmfile.cjs ./
 COPY packages/config/package.json packages/config/
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
@@ -30,7 +31,7 @@ RUN pnpm --filter @beso/shared build \
  && pnpm --filter @beso/api db:generate \
  && pnpm --filter @beso/api build
 
-# ---------- prod-deps: production dependencies only (incl. prisma CLI for migrations) ----------
+# ---------- prod-deps: production dependencies only (the CLI stays out: .pnpmfile.cjs) ----------
 FROM base AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --prod --filter @beso/api...
@@ -38,7 +39,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # ---------- runtime ----------
 FROM ${NODE_IMAGE} AS runtime
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /data/uploads && chown -R node:node /data
 ENV NODE_ENV=production PORT=3000 UPLOADS_DIR=/data/uploads
@@ -48,8 +49,7 @@ COPY --from=prod-deps --chown=node:node /app/apps/api/node_modules ./apps/api/no
 COPY --from=prod-deps --chown=node:node /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=build --chown=node:node /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build --chown=node:node /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build --chown=node:node /app/apps/api/package.json /app/apps/api/prisma.config.ts ./apps/api/
-COPY --from=build --chown=node:node /app/apps/api/prisma ./apps/api/prisma
+COPY --from=build --chown=node:node /app/apps/api/package.json ./apps/api/
 COPY --from=build --chown=node:node /app/apps/api/dist ./apps/api/dist
 COPY --chown=node:node apps/api/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 # The entrypoint starts as root only to chown the uploads volume, then runs as `node`.

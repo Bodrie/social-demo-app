@@ -1,28 +1,10 @@
-import { type UserRole, userRoleSchema } from '@beso/shared';
+import type { UserRole } from '@beso/shared';
 import type { Request } from 'express';
-import { z } from 'zod';
 
 /** What the auth guard attaches to the request. */
 export type AuthUser = { id: string; emailVerified: boolean; role: UserRole };
 
 export type AuthenticatedRequest = Request & { user?: AuthUser };
-
-/**
- * Claims we sign; `exp`/`iat`/`iss` are added by the JWT library. `ev`: email verified;
- * `role`: so the roles guard needs no lookup (a demotion takes effect within the token's life).
- */
-export type AccessTokenClaims = { sub: string; ev: boolean; role: UserRole };
-
-/** What a verified token must contain before it is trusted. */
-export const accessTokenPayloadSchema = z.object({
-  sub: z.uuid(),
-  /** Absent on tokens signed before verification existed; those accounts were verified by migration. */
-  ev: z.boolean().optional(),
-  /** Absent on tokens signed before roles existed: a member. */
-  role: userRoleSchema.optional(),
-  exp: z.number().int().optional(),
-});
-export type AccessTokenPayload = z.infer<typeof accessTokenPayloadSchema>;
 
 /** Client details recorded with each refresh token. */
 export type RequestMeta = { userAgent?: string; ip?: string };

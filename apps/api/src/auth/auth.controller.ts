@@ -20,6 +20,13 @@ import type {
 } from '@beso/shared';
 import { IdParamDto } from '../common/params.dto.js';
 import type { Request, Response } from 'express';
+import { ZodResponse } from 'nestjs-zod';
+import {
+  ConfirmEmailChangeResponseDto,
+  MeResponseDto,
+  SessionListDto,
+  VerifyEmailResponseDto,
+} from '../common/responses.dto.js';
 import { AllowUnverified } from './allow-unverified.decorator.js';
 import {
   ChangeEmailDto,
@@ -52,7 +59,7 @@ export class AuthController {
   @Public()
   @CredentialRoute()
   @Post('register')
-  @HttpCode(201)
+  @ZodResponse({ status: 201, type: MeResponseDto })
   async register(
     @Body() body: RegisterDto,
     @Req() req: Request,
@@ -66,7 +73,7 @@ export class AuthController {
   @Public()
   @CredentialRoute()
   @Post('login')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MeResponseDto })
   async login(
     @Body() body: LoginDto,
     @Req() req: Request,
@@ -79,7 +86,7 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MeResponseDto })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -136,7 +143,7 @@ export class AuthController {
    */
   @Public()
   @Post('verify-email')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: VerifyEmailResponseDto })
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async verifyEmail(
     @Body() body: VerifyEmailDto,
@@ -171,7 +178,7 @@ export class AuthController {
 
   @Public()
   @Post('reset-password')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MeResponseDto })
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async resetPassword(
     @Body() body: ResetPasswordDto,
@@ -190,7 +197,7 @@ export class AuthController {
   /** Settings → Email: the new address waits for the link mailed to it (ADR 0010 amendment). */
   @AllowUnverified()
   @Post('email')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MeResponseDto })
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async requestEmailChange(
     @CurrentUser() user: AuthUser,
@@ -209,7 +216,7 @@ export class AuthController {
 
   @AllowUnverified()
   @Delete('email')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MeResponseDto })
   async cancelEmailChange(@CurrentUser() user: AuthUser): Promise<AuthResponse> {
     return { user: await this.auth.cancelEmailChange(user.id) };
   }
@@ -217,7 +224,7 @@ export class AuthController {
   /** The link from the mail to the new address; works signed in or not and signs nobody in. */
   @Public()
   @Post('email/confirm')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ConfirmEmailChangeResponseDto })
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   confirmEmailChange(@Body() body: ConfirmEmailChangeDto): Promise<ConfirmEmailChangeResponse> {
     return this.auth.confirmEmailChange(body.token);
@@ -225,6 +232,7 @@ export class AuthController {
 
   /** The member's signed-in devices; the caller's own is marked. */
   @Get('sessions')
+  @ZodResponse({ status: 200, type: SessionListDto })
   async sessions(@CurrentUser() user: AuthUser, @Req() req: Request): Promise<SessionList> {
     const items = await this.auth.sessions(user.id, readCookie(req.cookies, REFRESH_COOKIE));
     return { items, nextCursor: null };
@@ -238,6 +246,7 @@ export class AuthController {
 
   @AllowUnverified()
   @Get('me')
+  @ZodResponse({ status: 200, type: MeResponseDto })
   async me(@CurrentUser() user: AuthUser): Promise<AuthResponse> {
     return { user: await this.auth.me(user.id) };
   }

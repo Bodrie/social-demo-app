@@ -13,9 +13,18 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Conversation, MarkReadResult, Message, Paginated, Revision } from '@beso/shared';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
+import {
+  ConversationDto,
+  ConversationListDto,
+  MarkReadResultDto,
+  MessageDto,
+  MessageListDto,
+  RevisionListDto,
+} from '../common/responses.dto.js';
 import {
   AddMembersDto,
   ConversationsQueryDto,
@@ -37,6 +46,7 @@ export class ConversationsController {
   constructor(private readonly conversations: ConversationsService) {}
 
   @Get()
+  @ZodResponse({ status: 200, type: ConversationListDto })
   list(
     @CurrentUser() user: AuthUser,
     @Query() query: ConversationsQueryDto,
@@ -45,7 +55,7 @@ export class ConversationsController {
   }
 
   @Post()
-  @HttpCode(201)
+  @ZodResponse({ status: 201, type: ConversationDto })
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   createGroup(@CurrentUser() user: AuthUser, @Body() body: CreateGroupDto): Promise<Conversation> {
     return this.conversations.createGroup(user.id, body);
@@ -53,7 +63,7 @@ export class ConversationsController {
 
   /** Idempotent: opens the direct thread with someone, creating it the first time. */
   @Put('direct/:userId')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ConversationDto })
   ensureDirect(
     @CurrentUser() user: AuthUser,
     @Param() params: UserIdParamDto,
@@ -62,12 +72,14 @@ export class ConversationsController {
   }
 
   @Get(':id')
+  @ZodResponse({ status: 200, type: ConversationDto })
   get(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<Conversation> {
     return this.conversations.get(user.id, params.id);
   }
 
   /** Admins rename a group; a system line tells the members. */
   @Patch(':id')
+  @ZodResponse({ status: 200, type: ConversationDto })
   rename(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
@@ -77,6 +89,7 @@ export class ConversationsController {
   }
 
   @Get(':id/messages')
+  @ZodResponse({ status: 200, type: MessageListDto })
   history(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
@@ -87,7 +100,7 @@ export class ConversationsController {
 
   /** HTTP fallback for sending; delivery to open sockets happens through the gateway either way. */
   @Post(':id/messages')
-  @HttpCode(201)
+  @ZodResponse({ status: 201, type: MessageDto })
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   send(
     @CurrentUser() user: AuthUser,
@@ -99,7 +112,7 @@ export class ConversationsController {
 
   /** The sender takes a message back for everyone (soft delete; the row keeps its place). */
   @Delete(':id/messages/:messageId')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MessageDto })
   deleteMessage(
     @CurrentUser() user: AuthUser,
     @Param() params: MessageParamsDto,
@@ -109,6 +122,7 @@ export class ConversationsController {
 
   /** The sender changes the text; the previous one becomes a revision. */
   @Patch(':id/messages/:messageId')
+  @ZodResponse({ status: 200, type: MessageDto })
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   editMessage(
     @CurrentUser() user: AuthUser,
@@ -119,6 +133,7 @@ export class ConversationsController {
   }
 
   @Get(':id/messages/:messageId/revisions')
+  @ZodResponse({ status: 200, type: RevisionListDto })
   messageRevisions(
     @CurrentUser() user: AuthUser,
     @Param() params: MessageParamsDto,
@@ -129,7 +144,7 @@ export class ConversationsController {
 
   /** Sets or switches the caller's reaction; answers the message with its reactions. */
   @Put(':id/messages/:messageId/reaction')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MessageDto })
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   react(
     @CurrentUser() user: AuthUser,
@@ -140,19 +155,19 @@ export class ConversationsController {
   }
 
   @Delete(':id/messages/:messageId/reaction')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MessageDto })
   unreact(@CurrentUser() user: AuthUser, @Param() params: MessageParamsDto): Promise<Message> {
     return this.conversations.unreact(user.id, params.id, params.messageId);
   }
 
   @Post(':id/read')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MarkReadResultDto })
   markRead(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<MarkReadResult> {
     return this.conversations.markRead(user.id, params.id);
   }
 
   @Post(':id/members')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ConversationDto })
   addMembers(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
@@ -177,7 +192,7 @@ export class ConversationsController {
 
   /** Admins only: make someone an admin, or an admin a member again (never the last one). */
   @Put(':id/members/:userId/role')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ConversationDto })
   setRole(
     @CurrentUser() user: AuthUser,
     @Param() params: MemberParamsDto,

@@ -1,7 +1,6 @@
 import { Logger, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
-import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
@@ -40,6 +39,7 @@ import {
 } from '../events/conversation.events.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import { UsersService } from '../users/users.service.js';
 import { authenticateSocket } from './handshake.js';
 import { PresenceService } from './presence.service.js';
@@ -107,7 +107,7 @@ export class ChatGateway
   private presenceTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
-    private readonly jwt: JwtService,
+    private readonly tokens: AccessTokensService,
     private readonly users: UsersService,
     private readonly presence: PresenceService,
     private readonly conversations: ConversationsService,
@@ -123,7 +123,7 @@ export class ChatGateway
   afterInit(server: Server): void {
     server.use((socket: ChatSocket, next) => {
       void (async () => {
-        const session = await authenticateSocket(socket, this.jwt).catch(() => undefined);
+        const session = await authenticateSocket(socket, this.tokens).catch(() => undefined);
         if (!session) {
           next(new Error('Unauthorized'));
           return;

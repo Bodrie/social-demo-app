@@ -1,0 +1,11 @@
+{
+  "name": "@beso/migrate",
+  "version": "0.0.0",
+  "private": true,
+  "description": "One-shot image that applies the API's Prisma migrations (apps/api/prisma) before the API starts; see Dockerfile.",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "catalog:",
+    "prisma": "catalog:"
+  }
+}

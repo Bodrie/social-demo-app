@@ -13,9 +13,16 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Comment, Paginated, ReactionSummary, Revision } from '@beso/shared';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, IdParamDto, PostIdParamDto } from '../common/params.dto.js';
+import {
+  CommentDto,
+  CommentListDto,
+  ReactionSummaryDto,
+  RevisionListDto,
+} from '../common/responses.dto.js';
 import {
   CommentsQueryDto,
   CreateCommentDto,
@@ -30,6 +37,7 @@ export class PostCommentsController {
   constructor(private readonly comments: CommentsService) {}
 
   @Get()
+  @ZodResponse({ status: 200, type: CommentListDto })
   list(
     @CurrentUser() user: AuthUser,
     @Param() params: PostIdParamDto,
@@ -39,7 +47,7 @@ export class PostCommentsController {
   }
 
   @Post()
-  @HttpCode(201)
+  @ZodResponse({ status: 201, type: CommentDto })
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   create(
     @CurrentUser() user: AuthUser,
@@ -57,12 +65,14 @@ export class CommentsController {
 
   /** A single comment, for permalinks (`/p/:postId?comment=:id`) that point past the first page. */
   @Get(':id')
+  @ZodResponse({ status: 200, type: CommentDto })
   byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<Comment> {
     return this.comments.getById(user.id, params.id);
   }
 
   /** The replies under a top-level comment, oldest first. */
   @Get(':id/replies')
+  @ZodResponse({ status: 200, type: CommentListDto })
   replies(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
@@ -72,6 +82,7 @@ export class CommentsController {
   }
 
   @Patch(':id')
+  @ZodResponse({ status: 200, type: CommentDto })
   update(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
@@ -81,6 +92,7 @@ export class CommentsController {
   }
 
   @Get(':id/revisions')
+  @ZodResponse({ status: 200, type: RevisionListDto })
   revisions(
     @Param() params: IdParamDto,
     @Query() query: CursorQueryDto,
@@ -90,7 +102,7 @@ export class CommentsController {
 
   /** Sets or switches the caller's reaction; answers with the fresh summary. */
   @Put(':id/reaction')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ReactionSummaryDto })
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   react(
     @CurrentUser() user: AuthUser,
@@ -101,7 +113,7 @@ export class CommentsController {
   }
 
   @Delete(':id/reaction')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ReactionSummaryDto })
   unreact(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<ReactionSummary> {
     return this.comments.unreact(user.id, params.id);
   }

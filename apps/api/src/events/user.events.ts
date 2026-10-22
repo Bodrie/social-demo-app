@@ -1,11 +1,11 @@
-/** Domain events emitted by the users/auth services. Listeners arrive with the activities slice. */
+/** Domain events about members (users, follows, mentions); names are `<entity>.<past tense>`. */
 export class UserRegisteredEvent {
   static readonly EVENT = 'user.registered';
   constructor(readonly userId: string) {}
 }
 
 export class ProfileUpdatedEvent {
-  static readonly EVENT = 'user.profileUpdated';
+  static readonly EVENT = 'profile.updated';
   constructor(
     readonly userId: string,
     readonly changedFields: string[],

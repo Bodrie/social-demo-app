@@ -19,7 +19,7 @@ ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true VITE_API_URL=${VITE_API_URL} \
     VITE_REPOSITORY_URL=${VITE_REPOSITORY_URL} VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
 RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .pnpmfile.cjs ./
 COPY packages/config/package.json packages/config/
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/

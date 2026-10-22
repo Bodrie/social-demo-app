@@ -7,15 +7,9 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 - **Decode concurrency for uploads** – `UPLOAD_MAX_PIXELS` is 25 MP; add a small semaphore (or `sharp.concurrency(1)`) if memory spikes are observed.
 
 ## Contract / docs
-- **`@ZodResponse` on every handler** – gives runtime output validation and real response schemas in `/api/docs/openapi.json` (today: inputs, auth and operation ids only). Do it when a typed client from the document is wanted; the web uses the shared zod schemas directly.
 - **Email follow-ups** – an admin view of unverified accounts; a revert link in the "address changed" notice (today the old address is only told). (Changing the address and the sessions list shipped as D1 on 2026-10-20, ADR 0010 amendment; accounts never verified are removed after 30 days since C6.)
 - **Pre-D2 picture fields** – posts, quote embeds and messages still answer `imageUrl` next to `images`/`image`, and `POST /posts` still takes a single `imageKey`, so tabs opened before the D2 deploy keep working. Drop both (shared schemas, `toPost`, `toMessage`, `PostsService.create`, one int test) with the next change to the post shape, or a release after D2.
 - **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
-
-## Code structure
-- **TokensModule** (JwtModule + a small access-token service) so `ChatModule` and the global guard stop importing `AuthModule` wholesale.
-- **Rename `HttpExceptionFilter`** → `ApiExceptionFilter` (it handles Prisma, ws and health too).
-- **Event names** – `user.profileUpdated` vs `post.liked` casing; harmonise when touching events next.
 
 ## Operations
 - **Client IP behind the proxy** – Caddy rewrites `X-Forwarded-For` from `CF-Connecting-IP` and the API trusts one hop; add an integration test for `req.ip` with that header chain.
@@ -33,5 +27,5 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 - Performance (Lighthouse mobile: feed 64, profile 74): `zod/mini` build of the shared schemas for the browser (≈ 25 kB gz of the first paint), `srcset` for post images (the sizes are stored since D2, which already set `width`/`height`; LCP), `fetchpriority="high"` on the first feed image, `<link rel=preload>` for the Latin Inter subset, prefetching route chunks on link hover.
 - API logging: aborted client connections surface as raw `Error: read ECONNRESET` / `write EPIPE` lines on stderr (seen while Playwright closes contexts); route them through pino at debug level or ignore them.
 - E2E: a Firefox/WebKit project once the suite is stable in CI; visual snapshots for the main pages.
-- Images: move `prisma migrate deploy` into a one-shot `migrate` image/service so the API runtime image no longer carries the Prisma CLI's dependencies (≈ 960 MB → ≈ 450 MB); multi-arch (`linux/arm64`) builds if the box is ever ARM.
+- Images: multi-arch (`linux/arm64`) builds if the box is ever ARM. (The one-shot `migrate` image shipped with E4 on 2026-10-22, ADR 0018.) The migrate image is 719 MB because the Prisma 7 CLI hard-depends on Studio, effect and pglite; nothing to trim without patching the CLI.
 - Ops: off-box backup copies (rclone), an uptime check on `https://social.bodrie.dev` (a Cloudflare health check or any external monitor hitting `/api/v1/auth/me` for a 401), Cloudflare Bot Fight Mode once the socket.io polling fallback is confirmed unaffected. An origin certificate for Caddy only matters if the tunnel is ever replaced by a direct origin.

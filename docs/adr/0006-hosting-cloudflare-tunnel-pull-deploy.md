@@ -1,6 +1,6 @@
 # 0006 – Self-hosted box behind Cloudflare Tunnel, pull-based releases
 
-Date: 2026-10-15 · Status: Accepted · Plan: §2.9, §2.11, D11, D12
+Date: 2026-10-15 · Status: Accepted (release mechanics superseded by [0018](0018-migrations-image-and-updater.md): migrations in their own image, an updater that pulls only our images) · Plan: §2.9, §2.11, D11, D12
 
 ## Context
 Production runs on one Ubuntu Server 24.04 machine behind a residential ISP connection without a static IP. The repository is public. No domain exists yet.
