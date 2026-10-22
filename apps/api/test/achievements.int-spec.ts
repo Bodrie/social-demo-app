@@ -143,12 +143,15 @@ describe('achievements', () => {
         'first-post',
         'first-hashtag',
         'all-set',
-        // The eleven above tip Collector's first tier.
+        // The three followed are newcomers, and the comment was the first on that post.
+        'newcomers-welcomed-1',
+        'first-responses-1',
+        // The thirteen above tip Collector's first tier.
         'collected-10',
       ].toSorted(),
     );
-    expect(progress).toMatchObject({ following: 3, 'getting-started': 6, collected: 12 });
-    expect(await badgeNotifications(agent)).toHaveLength(12);
+    expect(progress).toMatchObject({ following: 3, 'getting-started': 6, collected: 14 });
+    expect(await badgeNotifications(agent)).toHaveLength(14);
   });
 
   it('counts an account from before achievements silently the first time', async () => {
@@ -177,9 +180,9 @@ describe('achievements', () => {
       .post(`/api/v1/posts/${theirPost.id}/comments`)
       .send({ content: 'First words' })
       .expect(201);
-    expect((await badgeNotifications(agent)).map((n) => n.achievementKey)).toEqual([
-      'first-comment',
-    ]);
+    expect((await badgeNotifications(agent)).map((n) => n.achievementKey ?? '').toSorted()).toEqual(
+      ['first-comment', 'first-responses-1', 'newcomers-welcomed-1'],
+    );
   });
 
   it('shows a member’s badges to others unless hidden, never across a block', async () => {

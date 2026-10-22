@@ -34,6 +34,13 @@ export function PrivacyPage() {
             there. Edits keep the previous versions so that members can see what changed.
           </li>
           <li>
+            <strong>Settings and what follows from your activity:</strong> your preferences (such as
+            notifications and chat options), the time zone your device reports (used for the badges
+            tied to the time of day; you can change it in Settings), the badges you earned, whose
+            invite you joined with, and, for each device where you switch on push notifications, the
+            address its push service gave it.
+          </li>
+          <li>
             <strong>Technical data:</strong> the IP address and browser identification of each
             sign-in session (kept with the session so that unusual activity can be noticed), and
             short-lived server logs that record requests, errors and, when something goes wrong,
@@ -67,8 +74,8 @@ export function PrivacyPage() {
         <LegalList>
           <li>
             <strong>Other members</strong> see your public profile, your posts and comments, your
-            reactions and follows, and whether you are online. Messages are visible only to the
-            members of that conversation.
+            reactions and follows, your badges (unless you hide them in Settings) and whether you
+            are online. Messages are visible only to the members of that conversation.
           </li>
           <li>
             <strong>Cloudflare</strong> sits in front of the server: it terminates the encrypted

@@ -6,7 +6,8 @@ import {
   type AchievementStats,
 } from '@beso/shared/achievements';
 import dayjs from 'dayjs';
-import { AwardIcon } from 'lucide-react';
+import { AwardIcon, CircleHelpIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { EmptyState, ErrorState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,6 +20,9 @@ import { Medallion } from './medallion';
 import { useAchievementStats, useMyAchievements, useUserAchievements } from './use-achievements';
 
 const VISIBLE_TOTAL = ACHIEVEMENTS.filter((achievement) => !achievement.hidden).length;
+const HIDDEN_TOTAL = ACHIEVEMENTS.length - VISIBLE_TOTAL;
+const isHidden = (key: string): boolean =>
+  ACHIEVEMENTS.some((achievement) => achievement.key === key && achievement.hidden);
 
 /** `/u/:username/badges`: the member's own badges with progress, or what another one earned. */
 export function ProfileBadges() {
@@ -39,13 +43,16 @@ function MyBadges() {
     );
   }
   const earned = earnedMap(query.data.earned);
+  const found = [...earned.keys()].filter(isHidden).length;
   const checklistHidden = me.settings.hideGettingStarted && !earned.has('all-set');
   return (
     <div className="space-y-4">
       <div className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-xl border p-4 text-sm">
         <p>
-          You have <strong className="tabular-nums">{earned.size}</strong> of{' '}
-          <span className="tabular-nums">{VISIBLE_TOTAL}</span> badges.
+          You have <strong className="tabular-nums">{earned.size - found}</strong> of{' '}
+          <span className="tabular-nums">{VISIBLE_TOTAL}</span> badges and found{' '}
+          <strong className="tabular-nums">{found}</strong> of{' '}
+          <span className="tabular-nums">{HIDDEN_TOTAL}</span> hidden ones.
         </p>
         {checklistHidden ? (
           <Button
@@ -62,13 +69,15 @@ function MyBadges() {
         const tiles = tilesOf(group, earned).filter(
           (tile) => tile.earned !== null || !(tile.next?.hidden ?? false),
         );
-        return tiles.length === 0 ? null : (
+        const secrets = group === 'hidden' ? <SecretTile found={found} /> : null;
+        return tiles.length === 0 && !secrets ? null : (
           <BadgeGroup
             key={group}
             title={ACHIEVEMENT_GROUP_TITLES[group]}
             tiles={tiles}
             progress={query.data.progress}
             stats={stats.data}
+            extra={secrets}
           />
         );
       })}
@@ -116,9 +125,11 @@ type BadgeGroupProps = {
   /** The member's own counts: locked badges show how far along they are. */
   progress?: Record<string, number>;
   stats: AchievementStats | undefined;
+  /** A last tile of the group's own (the hidden ones still to find). */
+  extra?: ReactNode;
 };
 
-function BadgeGroup({ title, tiles, progress, stats }: BadgeGroupProps) {
+function BadgeGroup({ title, tiles, progress, stats, extra }: BadgeGroupProps) {
   return (
     <section aria-label={title} className="bg-card rounded-xl border p-4">
       <h2 className="mb-3 font-semibold">{title}</h2>
@@ -126,8 +137,31 @@ function BadgeGroup({ title, tiles, progress, stats }: BadgeGroupProps) {
         {tiles.map((tile) => (
           <BadgeTileItem key={tile.id} tile={tile} progress={progress} stats={stats} />
         ))}
+        {extra}
       </ul>
     </section>
+  );
+}
+
+/** The hidden badges not found yet: a question mark and the count, no hints. */
+function SecretTile({ found }: { found: number }) {
+  const left = HIDDEN_TOTAL - found;
+  if (left === 0) return null;
+  return (
+    <li className="flex gap-3">
+      <span
+        aria-hidden="true"
+        className="bg-muted text-muted-foreground border-muted-foreground/40 inline-flex size-14 shrink-0 items-center justify-center rounded-full border border-dashed"
+      >
+        <CircleHelpIcon className="size-7" />
+      </span>
+      <div className="min-w-0 flex-1 text-sm">
+        <p className="font-medium">{left} more to find</p>
+        <p className="text-muted-foreground">
+          Hidden badges show here once you earn them. Some take a sense of humour, some a clock.
+        </p>
+      </div>
+    </li>
   );
 }
 

@@ -90,9 +90,11 @@ export class NotificationsListener {
     });
   }
 
+  /** Only a first reaction; switching the emoji tells nobody. */
   @OnEvent(CommentReactedEvent.EVENT)
-  onCommentReacted(event: CommentReactedEvent): Promise<void> {
-    return this.notify({
+  async onCommentReacted(event: CommentReactedEvent): Promise<void> {
+    if (!event.first) return;
+    await this.notify({
       userId: event.commentAuthorId,
       type: 'COMMENT_REACTED',
       actorId: event.actorId,

@@ -74,6 +74,7 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
       pushPreviews: true,
       showAchievements: true,
       hideGettingStarted: false,
+      timeZone: 'Europe/Sofia',
     },
     ...overrides,
   };

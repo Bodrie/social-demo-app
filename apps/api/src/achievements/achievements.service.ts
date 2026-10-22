@@ -39,8 +39,18 @@ const memberSelect = {
   bio: true,
   city: true,
   website: true,
+  settings: true,
   achievementsCheckedAt: true,
 } as const;
+
+/** Series whose every badge is hidden: their counts would give the riddles away. */
+const HIDDEN_ONLY = new Set<AchievementSeries>(
+  ACHIEVEMENT_SERIES.filter((series) =>
+    ACHIEVEMENTS.filter((achievement) => achievement.series === series).every(
+      (achievement) => achievement.hidden,
+    ),
+  ),
+);
 
 /** Members whose badges are counted: confirmed and not suspended. */
 const counted = { emailVerifiedAt: { not: null }, suspendedAt: null } as const;
@@ -88,6 +98,41 @@ export class AchievementsService {
       });
     }
     return earned;
+  }
+
+  /** Whoever first used one of the post's tags may have just become a Trendsetter. */
+  async checkTagOriginators(postId: string, now = new Date()): Promise<void> {
+    for (const userId of await this.counter.tagOriginators(postId)) {
+      // oxlint-disable-next-line no-await-in-loop -- a post has a handful of tags
+      await this.check(userId, ['trendsetter'], now);
+    }
+  }
+
+  /** A group changed hands or size: its creator's Crew, everyone's Big table. */
+  async checkGroup(conversationId: string, now = new Date()): Promise<void> {
+    const group = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { kind: true, createdById: true, members: { select: { userId: true } } },
+    });
+    if (!group || group.kind !== 'group') return;
+    const size = group.members.length;
+    if (group.createdById && size >= thresholdOf('crew')) {
+      await this.check(group.createdById, ['crew'], now);
+    }
+    if (size < thresholdOf('big-table')) return;
+    for (const { userId } of group.members) {
+      // oxlint-disable-next-line no-await-in-loop -- one member at a time keeps the pool free
+      await this.check(userId, ['big-table'], now);
+    }
+  }
+
+  /** A newcomer confirmed their address: whoever invited them counts one more recruit. */
+  async checkInviterOf(userId: string, now = new Date()): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { invitedById: true },
+    });
+    if (user?.invitedById) await this.check(user.invitedById, ['recruits'], now);
   }
 
   /**
@@ -142,13 +187,17 @@ export class AchievementsService {
     return { items: await this.earned(userId), nextCursor: null };
   }
 
-  /** `GET /users/me/achievements`: the earned badges and the count of every series. */
+  /**
+   * `GET /users/me/achievements`: the earned badges and the count of every series but the
+   * hidden ones (their counts would give them away).
+   */
   async mine(userId: string, now = new Date()): Promise<MyAchievements> {
     const member = await this.member(userId);
     if (!member) return { earned: [], progress: {} };
     await this.backfill(member, now);
     const earned = await this.earned(userId);
-    const counts = await this.counter.count(member, countedSeries(ACHIEVEMENT_SERIES), now);
+    const shown = ACHIEVEMENT_SERIES.filter((series) => !HIDDEN_ONLY.has(series));
+    const counts = await this.counter.count(member, countedSeries(shown), now);
     const held = new Set(earned.map((row) => row.key));
     const progress: Record<string, number> = Object.fromEntries(counts);
     progress['getting-started'] = derivedCount('getting-started', held);
@@ -181,7 +230,13 @@ export class AchievementsService {
   }
 
   private async member(userId: string): Promise<Member | null> {
-    return this.prisma.user.findFirst({ where: { id: userId, ...counted }, select: memberSelect });
+    const row = await this.prisma.user.findFirst({
+      where: { id: userId, ...counted },
+      select: memberSelect,
+    });
+    if (!row) return null;
+    const { settings, ...member } = row;
+    return { ...member, timeZone: toUserSettings(settings).timeZone };
   }
 
   /** Newest first; keys a later version dropped from the catalogue stay out. */
@@ -270,12 +325,25 @@ export class AchievementsService {
   }
 }
 
+/** The smallest threshold of a series: below it there is nothing to check. */
+function thresholdOf(series: AchievementSeries): number {
+  return Math.min(
+    ...ACHIEVEMENTS.filter((achievement) => achievement.series === series).map(
+      (achievement) => achievement.threshold,
+    ),
+  );
+}
+
 function countedSeries(series: readonly AchievementSeries[]): CountedSeries[] {
   return series.filter((name): name is CountedSeries => !isDerived(name));
 }
 
 function derivedCount(series: DerivedSeries, held: ReadonlySet<string>): number {
-  if (series === 'getting-started')
+  if (series === 'getting-started') {
     return GETTING_STARTED_KEYS.filter((key) => held.has(key)).length;
-  return [...held].filter((key) => ACHIEVEMENT_BY_KEY.has(key)).length;
+  }
+  const known = [...held].flatMap((key) => ACHIEVEMENT_BY_KEY.get(key) ?? []);
+  return series === 'collected'
+    ? known.length
+    : known.filter((achievement) => achievement.hidden).length;
 }

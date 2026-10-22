@@ -30,6 +30,7 @@ import { ChatSettings } from './chat-settings';
 import { EmailCard } from './email-card';
 import { PasswordForm } from './password-form';
 import { SessionsList } from './sessions-list';
+import { TimeZoneCard } from './time-zone-card';
 
 const THEMES = [
   { value: 'system', label: 'System', icon: MonitorIcon },
@@ -57,6 +58,8 @@ export function SettingsPage() {
           <ThemePicker />
         </CardContent>
       </Card>
+
+      <TimeZoneCard />
 
       <Card>
         <CardHeader>

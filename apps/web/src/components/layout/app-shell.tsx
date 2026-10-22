@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/features/auth/current-user';
 import { ChatBubbles } from '@/features/chat/bubbles/chat-bubbles';
 import { useUnreadCount } from '@/features/chat/use-conversations';
 import { useUnreadNotifications } from '@/features/notifications/use-notifications';
+import { useTimeZoneSync } from '@/features/settings/time-zone';
 import { useDocumentBadge } from '@/lib/use-document-badge';
 import { Header } from './header';
 import { LeftBar } from './left-bar';
@@ -35,6 +36,7 @@ export function AppShell() {
   const previousPath = useRef(pathname);
   // "(3) Home · BeSo": unread messages and notifications together travel in the tab title.
   useDocumentBadge(useUnreadCount() + useUnreadNotifications());
+  useTimeZoneSync(me.settings.timeZone);
 
   useEffect(() => {
     if (previousPath.current === pathname) return;
@@ -79,6 +81,7 @@ export function AppShell() {
       <Suspense fallback={null}>
         <PushSync />
       </Suspense>
+
       {me.settings.messageSound || me.settings.browserNotifications ? (
         <Suspense fallback={null}>
           <MessageAlerts />

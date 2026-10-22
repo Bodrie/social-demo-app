@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { optionalText } from './common.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
+import { timeZoneSchema } from './time-zone.js';
 import { avatarKeySchema, coverKeySchema } from './uploads.js';
 
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
@@ -93,6 +94,12 @@ export const userSettingsSchema = z.object({
   showAchievements: z.boolean().default(true),
   /** The Getting started card on the home feed was dismissed. */
   hideGettingStarted: z.boolean().default(false),
+  /**
+   * The member's IANA time zone (F2b), set by the web from the device when missing: the
+   * time-of-day badges and the weekly digest use it, nothing does without it. A name `Intl` no
+   * longer knows reads as none rather than spoiling the other settings.
+   */
+  timeZone: timeZoneSchema.nullable().catch(null),
 });
 export type UserSettings = z.infer<typeof userSettingsSchema>;
 
@@ -106,6 +113,7 @@ export const updateSettingsSchema = z.object({
   pushPreviews: z.boolean().optional(),
   showAchievements: z.boolean().optional(),
   hideGettingStarted: z.boolean().optional(),
+  timeZone: timeZoneSchema.nullable().optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

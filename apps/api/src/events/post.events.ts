@@ -60,3 +60,12 @@ export class PostBookmarkedEvent {
     readonly userId: string,
   ) {}
 }
+
+/** The author changed the text of a post (an unchanged text is no edit). */
+export class PostEditedEvent {
+  static readonly EVENT = 'post.edited';
+  constructor(
+    readonly postId: string,
+    readonly authorId: string,
+  ) {}
+}

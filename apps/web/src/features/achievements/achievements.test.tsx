@@ -19,7 +19,9 @@ describe('badges on a profile', () => {
     mockDb.achievementProgress = { posts: 12, following: 1, 'membership-days': 4 };
     renderApp('/u/alice/badges');
 
-    expect(await screen.findByText(/You have/)).toHaveTextContent(/You have 3 of \d+ badges\./);
+    expect(await screen.findByText(/You have/)).toHaveTextContent(
+      /You have 3 of \d+ badges and found 0 of 22 hidden ones\./,
+    );
     const milestones = screen.getByRole('region', { name: 'Milestones' });
     const storyteller = within(milestones).getByText('Storyteller').closest('li');
     if (!storyteller) throw new Error('no Storyteller tile');
@@ -39,6 +41,27 @@ describe('badges on a profile', () => {
     expect(
       within(screen.getByRole('region', { name: 'Tenure' })).getByText('Pioneer'),
     ).toBeInTheDocument();
+  });
+
+  it('keeps hidden badges a riddle until found, and names tiers that have names', async () => {
+    signedInAs(alice);
+    earn(alice.id, 'night-owl', 'top-post-likes-10', 'top-post-likes-25');
+    renderApp('/u/alice/badges');
+
+    expect(await screen.findByText(/You have/)).toHaveTextContent(
+      /You have 2 of \d+ badges and found 1 of 22 hidden ones\./,
+    );
+    const hidden = screen.getByRole('region', { name: 'Hidden' });
+    expect(within(hidden).getByText('Night owl')).toBeInTheDocument();
+    expect(within(hidden).getByText('21 more to find')).toBeInTheDocument();
+    // Only what was found: no other hidden badge, no progress towards one.
+    expect(within(hidden).queryByText('Early bird')).not.toBeInTheDocument();
+    expect(within(hidden).queryByRole('progressbar')).not.toBeInTheDocument();
+
+    const recognition = screen.getByRole('region', { name: 'Recognition' });
+    const hit = within(recognition).getByText('Smash hit').closest('li');
+    expect(hit).toHaveTextContent('Smash hit · Silver');
+    expect(hit).toHaveTextContent('One of your posts got 50 likes.');
   });
 
   it('shows only what another member earned, and the three rarest under their name', async () => {

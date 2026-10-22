@@ -14,5 +14,6 @@ export * from './pagination.js';
 export * from './posts.js';
 export * from './push.js';
 export * from './text.js';
+export * from './time-zone.js';
 export * from './uploads.js';
 export * from './users.js';

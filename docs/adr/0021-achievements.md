@@ -1,6 +1,6 @@
 # 0021 – Achievements: counted, never tallied; earned is earned
 
-Date: 2026-10-22 · Status: Accepted · Plan: `IMPLEMENTATION_PLAN.md` F2 (step 2 of Track F)
+Date: 2026-10-22 · Status: Accepted, amended 2026-10-22 (the rest of the catalogue and the time zone, plan F2b) · Plan: `IMPLEMENTATION_PLAN.md` F2 (step 2 of Track F)
 
 ## Context
 Track F fills a small network. Badges were agreed with the owner (§10, third round) as a way to
@@ -81,3 +81,52 @@ Open questions the platform did not settle:
   part of the design.
 - The first paint grew by 1.4 kB gz (the settings keys, the notification shape, the push handler
   and two lazy entry points, plus the bundler re-splitting shared chunks); the budget is 259 kB.
+
+## Amendment 2026-10-22: Recognition, Community, Hidden and the time zone (plan F2b)
+
+### Context
+F2a left out the badges that depend on other people (Recognition: what others do with a
+member's posts; Community: welcoming, answering, groups, invites) and the hidden ones, many of
+which read the clock ("Night owl", "Happy new year") or the words of a post ("Speechless",
+"Racecar", exactly 500 characters). The clock needs the member's time zone, which nothing stored.
+
+### Decision
+- **The catalogue** grows to 119 badges: Recognition 18, Community 14, Hidden 22 (the plan's 120
+  counted "Locked down", which waits for D3). Tiers may carry titles of their own ("Hit",
+  "Smash hit", "Legend"); `tiered()` takes one title or one per tier, and the web names a tile
+  after the tier on show. A third derived series, `hidden-found`, makes Detective.
+- **Still counted, never tallied.** Every new badge is a series counted from the tables: SQL for
+  relations and timing (most liked post, first comment on a post, follows inside a newcomer's
+  first week, mutual follows, the largest group created or joined, confirmed invitees, a reply
+  within a minute, a comment on a post a year older, a 60-day gap between posts, three edits of
+  one post, a quote of a quote), and JavaScript over the member's posts, comments and messages
+  where SQL cannot say it well. The member's items are loaded at most once per check (`History`
+  in `AchievementCounter`).
+- **The clock in JavaScript, not SQL.** `users.settings.timeZone` (IANA, checked with `Intl`;
+  `localTime`/`isTimeZone`/`timeZoneSchema` in shared `time-zone.ts`) and the clock checks run on
+  `Intl` in the API (`content-checks.ts`), so the API, the web and later the digest share one
+  idea of local time and Postgres's zone list never matters. Without a zone the clock badges
+  count nothing. Times of past items are read in the current zone (a member who moves sees their
+  history in the new one).
+- **The zone comes from the device.** The shell saves `Intl…resolvedOptions().timeZone` when the
+  account has none; Settings → Time zone changes it. There is no "none" to choose, since the
+  shell would set it again; a stored name `Intl` stops knowing reads as none instead of
+  resetting the other settings (`.catch(null)` on the field).
+- **Words.** "Speechless" strips pictographs, skin tones, joiners, variation selectors, flags,
+  tags and keycaps and needs nothing left; "Racecar" folds case and accents (NFD without marks)
+  and needs seven letters; "To the letter" counts UTF-16 units like the composer.
+- **Events.** A switch of comment reaction is now an event too (`CommentReactedEvent.first`
+  tells the notifications listener to keep to first reactions); `PostEditedEvent` drives
+  Perfectionist and the text series; `ConversationUpdatedEvent` checks a group's creator (Crew)
+  and, once it has ten members, everyone in it (Big table); `UserVerifiedEvent` counts the
+  inviter's recruits; a new post checks whoever first used each of its tags (Trendsetter).
+  Around the clock is left to the daily sweep, which reads every message.
+- **Hidden stays hidden.** `GET /users/me/achievements` leaves the series whose badges are all
+  hidden out of `progress`; the Badges tab shows found hidden badges and one "n more to find"
+  tile, never a hint. Others see hidden badges once earned, like any other.
+- **First paint.** Badge icons avoid the ones the first paint uses (Night owl on `moon-star`,
+  Crowd on `user-round-plus`): an icon shared with eager code is split into a chunk of its own.
+  First paint 258.8 kB, within the 259 kB budget.
+- **Privacy notice.** "What we collect" now names preferences, the time zone, badges, the
+  inviter and push devices; "Who else sees it" names badges.
+

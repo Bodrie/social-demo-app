@@ -53,9 +53,61 @@ export const ACHIEVEMENT_SERIES = [
   'pioneer',
   'founding',
   'first-100',
-  /** Derived from the badges themselves: the six Getting started ones, and all of them. */
+  // Recognition: what others do with what the member shares.
+  'followers',
+  'likes-received',
+  /** The most liked post, the most commented one (by others), and so on: one item's count. */
+  'top-post-likes',
+  'top-post-comments',
+  'top-comment-reactions',
+  'top-post-reposts',
+  /** Different members who mentioned the member. */
+  'mentioned-by',
+  /** Tags the member used first that five other members then used. */
+  'trendsetter',
+  // Community.
+  /** Members followed or commented on in their first week. */
+  'newcomers-welcomed',
+  /** Others' posts on which the member wrote the first comment. */
+  'first-responses',
+  'mutual-follows',
+  /** The largest group the member created, and the largest one they are in. */
+  'crew',
+  'big-table',
+  /** Members who joined through the member's invite and confirmed their address. */
+  'recruits',
+  // Hidden. The time ones read the clock in the member's time zone and count nothing without one.
+  'night-owl',
+  'early-bird',
+  'make-a-wish',
+  /** Distinct hours of the day with a post, a comment or a message. */
+  'around-the-clock',
+  'weekend-posts',
+  'new-year',
+  'leap-day',
+  'friday-13',
+  'trick-or-treat',
+  'un-beso',
+  'home-team',
+  'emoji-only',
+  'palindrome',
+  'full-length',
+  'quick-draw',
+  'archaeologist',
+  'welcome-back',
+  /** The most edits of one post. */
+  'perfectionist',
+  'inception',
+  /** Different reaction types the member has on comments. */
+  'full-range',
+  'self-reply',
+  /**
+   * Derived from the badges themselves: the six Getting started ones, all of them, and the
+   * hidden ones.
+   */
   'getting-started',
   'collected',
+  'hidden-found',
 ] as const;
 export type AchievementSeries = (typeof ACHIEVEMENT_SERIES)[number];
 
@@ -94,7 +146,43 @@ export type AchievementIcon =
   | 'calendar-heart'
   | 'flag'
   | 'landmark'
-  | 'medal';
+  | 'medal'
+  | 'user-round-plus'
+  | 'heart-pulse'
+  | 'flame'
+  | 'speech'
+  | 'star'
+  | 'share-2'
+  | 'radio'
+  | 'trending-up'
+  | 'handshake'
+  | 'zap'
+  | 'orbit'
+  | 'sailboat'
+  | 'utensils-crossed'
+  | 'mail-plus'
+  | 'moon-star'
+  | 'sunrise'
+  | 'sparkles'
+  | 'clock'
+  | 'sofa'
+  | 'party-popper'
+  | 'rabbit'
+  | 'cat'
+  | 'ghost'
+  | 'message-circle-heart'
+  | 'house'
+  | 'laugh'
+  | 'ruler'
+  | 'car'
+  | 'timer'
+  | 'shovel'
+  | 'door-open'
+  | 'eraser'
+  | 'layers'
+  | 'palette'
+  | 'message-circle-dashed'
+  | 'fingerprint';
 
 export type AchievementDefinition = {
   key: string;
@@ -149,7 +237,8 @@ const one = (
 /** A series in tiers: one key per threshold, bronze upwards. */
 const tiered = (
   series: AchievementSeries,
-  title: string,
+  /** One title for every tier, or one per tier ("Hit", "Smash hit", "Legend"). */
+  title: string | readonly string[],
   icon: AchievementIcon,
   describe: (count: string) => string,
   thresholds: readonly number[],
@@ -161,7 +250,7 @@ const tiered = (
     series,
     threshold,
     tier: ACHIEVEMENT_TIERS[index] ?? 'platinum',
-    title,
+    title: typeof title === 'string' ? title : (title[index] ?? title.at(-1) ?? ''),
     description: describe(threshold.toLocaleString('en')),
     icon,
     hidden: false,
@@ -169,6 +258,19 @@ const tiered = (
 
 const tenure = (key: string, title: string, days: number, description: string) =>
   one(key, 'tenure', 'membership-days', title, description, 'calendar-heart', days);
+
+/** A hidden badge: shown once earned; until then the member sees only how many they found. */
+const secret = (
+  key: string,
+  series: AchievementSeries,
+  title: string,
+  description: string,
+  icon: AchievementIcon,
+  threshold = 1,
+): AchievementDefinition => ({
+  ...one(key, 'hidden', series, title, description, icon, threshold),
+  hidden: true,
+});
 
 export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   // Getting started: the newcomer's checklist (the card on the home feed).
@@ -335,6 +437,126 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   ),
   ...tiered('collected', 'Collector', 'trophy', (n) => `Earn ${n} achievements.`, [10, 25, 50]),
 
+  // Recognition: what others do with what the member shares.
+  ...tiered(
+    'followers',
+    'Crowd',
+    'user-round-plus',
+    (n) => `${n} members follow you.`,
+    [10, 25, 50, 100],
+    'recognition',
+  ),
+  ...tiered(
+    'likes-received',
+    'Loved',
+    'heart-pulse',
+    (n) => `Your posts got ${n} likes.`,
+    [10, 100, 500, 1000],
+    'recognition',
+  ),
+  ...tiered(
+    'top-post-likes',
+    ['Hit', 'Smash hit', 'Legend'],
+    'flame',
+    (n) => `One of your posts got ${n} likes.`,
+    [10, 25, 50],
+    'recognition',
+  ),
+  ...tiered(
+    'top-post-comments',
+    ['Conversation starter', 'Town square'],
+    'speech',
+    (n) => `One of your posts got ${n} comments from others.`,
+    [10, 25],
+    'recognition',
+  ),
+  one(
+    'crowd-favourite',
+    'recognition',
+    'top-comment-reactions',
+    'Crowd favourite',
+    'One of your comments got 10 reactions.',
+    'star',
+    10,
+  ),
+  ...tiered(
+    'top-post-reposts',
+    ['Spreading', 'Viral'],
+    'share-2',
+    (n) => `One of your posts was reposted or quoted ${n} times.`,
+    [5, 20],
+    'recognition',
+  ),
+  one(
+    'talk-of-the-town',
+    'recognition',
+    'mentioned-by',
+    'Talk of the town',
+    '10 different members mentioned you.',
+    'radio',
+    10,
+  ),
+  one(
+    'trendsetter',
+    'recognition',
+    'trendsetter',
+    'Trendsetter',
+    'You were the first to use a hashtag that five other members then used.',
+    'trending-up',
+  ),
+
+  // Community
+  ...tiered(
+    'newcomers-welcomed',
+    'Welcome committee',
+    'handshake',
+    (n) => `Follow or comment on ${n} newcomers in their first week.`,
+    [1, 5, 20],
+    'community',
+  ),
+  ...tiered(
+    'first-responses',
+    'First responder',
+    'zap',
+    (n) => `Write the first comment on ${n} posts of other members.`,
+    [1, 10, 50],
+    'community',
+  ),
+  ...tiered(
+    'mutual-follows',
+    'Inner circle',
+    'orbit',
+    (n) => `Follow each other with ${n} members.`,
+    [5, 15, 30],
+    'community',
+  ),
+  one(
+    'crew',
+    'community',
+    'crew',
+    'Crew',
+    'A group chat you started reaches 5 members.',
+    'sailboat',
+    5,
+  ),
+  one(
+    'big-table',
+    'community',
+    'big-table',
+    'Big table',
+    'Be in a group chat of 10 or more.',
+    'utensils-crossed',
+    10,
+  ),
+  ...tiered(
+    'recruits',
+    'Recruiter',
+    'mail-plus',
+    (n) => `${n} members joined through your invite.`,
+    [1, 5, 10],
+    'community',
+  ),
+
   // Tenure
   tenure('member-1m', 'One month', 30, 'A month on BeSo.'),
   tenure('member-6m', 'Six months', 182, 'Half a year on BeSo.'),
@@ -359,6 +581,124 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     'Among the first hundred members.',
     'medal',
   ),
+
+  // Hidden: a "?" until found. The times are the member's own (their time zone).
+  secret(
+    'night-owl',
+    'night-owl',
+    'Night owl',
+    'Posted or commented between 2 and 5 at night.',
+    'moon-star',
+  ),
+  secret(
+    'early-bird',
+    'early-bird',
+    'Early bird',
+    'Posted between 5 and 7 in the morning.',
+    'sunrise',
+  ),
+  secret('make-a-wish', 'make-a-wish', 'Make a wish', 'Posted at 11:11.', 'sparkles'),
+  secret(
+    'around-the-clock',
+    'around-the-clock',
+    'Around the clock',
+    'Posted, commented or chatted in every hour of the day.',
+    'clock',
+    24,
+  ),
+  secret(
+    'weekend-warrior',
+    'weekend-posts',
+    'Weekend warrior',
+    'Wrote 20 posts on Saturdays and Sundays.',
+    'sofa',
+    20,
+  ),
+  secret(
+    'happy-new-year',
+    'new-year',
+    'Happy new year',
+    'Posted in the first hour of the year.',
+    'party-popper',
+  ),
+  secret('leap-of-faith', 'leap-day', 'Leap of faith', 'Posted on 29 February.', 'rabbit'),
+  secret(
+    'unlucky-for-some',
+    'friday-13',
+    'Unlucky for some',
+    'Posted on a Friday the 13th.',
+    'cat',
+  ),
+  secret(
+    'trick-or-treat',
+    'trick-or-treat',
+    'Trick or treat',
+    'Posted a 🎃 or a 👻 on Halloween.',
+    'ghost',
+  ),
+  secret(
+    'un-beso',
+    'un-beso',
+    'Un beso',
+    'Sent a 😘 or a 💋 in a post or a message (beso is Spanish for kiss).',
+    'message-circle-heart',
+  ),
+  secret('home-team', 'home-team', 'Home team', 'Posted with #beso.', 'house'),
+  secret('speechless', 'emoji-only', 'Speechless', 'Wrote a post of emoji only.', 'laugh'),
+  secret(
+    'to-the-letter',
+    'full-length',
+    'To the letter',
+    'Wrote a post of exactly 500 characters.',
+    'ruler',
+  ),
+  secret('racecar', 'palindrome', 'Racecar', 'Wrote a post that reads the same backwards.', 'car'),
+  secret(
+    'quick-draw',
+    'quick-draw',
+    'Quick draw',
+    'Replied to someone’s comment within a minute.',
+    'timer',
+  ),
+  secret(
+    'archaeologist',
+    'archaeologist',
+    'Archaeologist',
+    'Commented on a post more than a year old.',
+    'shovel',
+  ),
+  secret(
+    'welcome-back',
+    'welcome-back',
+    'Welcome back',
+    'Posted again after 60 days without a post.',
+    'door-open',
+  ),
+  secret(
+    'perfectionist',
+    'perfectionist',
+    'Perfectionist',
+    'Edited a post three times.',
+    'eraser',
+    3,
+  ),
+  secret('inception', 'inception', 'Inception', 'Quoted a post that quotes another.', 'layers'),
+  secret(
+    'full-range',
+    'full-range',
+    'Full range',
+    'Used all five reactions on comments.',
+    'palette',
+    5,
+  ),
+  secret(
+    'talking-to-myself',
+    'self-reply',
+    'Talking to myself',
+    'Replied to your own comment.',
+    'message-circle-dashed',
+  ),
+  secret('detective', 'hidden-found', 'Detective', 'Found five hidden badges.', 'fingerprint', 5),
 ];
 
 export const ACHIEVEMENT_BY_KEY: ReadonlyMap<string, AchievementDefinition> = new Map(

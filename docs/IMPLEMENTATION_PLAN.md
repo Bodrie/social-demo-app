@@ -78,7 +78,7 @@ C7  realtime activity                ✅ 2026-10-22              finishes v2.7
 E2  installable app + web push      ✅ 2026-10-22              v2.8  (step 1)
 F1  invites + explore                ✅ 2026-10-22          ─┐
 F2a achievements: engine, first groups ✅ 2026-10-22        │
-F2b achievements: recognition, community, hidden, time zone │  v2.9  (step 2)
+F2b achievements: recognition, community, hidden, time zone ✅ 2026-10-22 │  v2.9  (step 2)
 F3  polls + frequent jobs                                   │
 F4  weekly digest                                           ─┘
 F5  games: engine, Connect Four, watching                   ─┐  v2.10 (step 3)
@@ -630,7 +630,7 @@ badges visible on the profile with a switch to hide them; no announcements in th
 the Getting started card, and the groups Getting started, Firsts, Milestones and Tenure. **F2b**:
 Recognition, Community, Hidden and the time zone. Later slices add theirs in their own commits.
 
-- As built, F2a (2026-10-22): the four groups as listed (Locked down waits for D3), 55 badges. The
+- As built, F2a (2026-10-22): the four groups as listed (Locked down waits for D3), 65 badges. The
   definitions, types and schemas are the entry `@beso/shared/achievements` rather than part of
   the main one, so the web loads them with the badge screens only. Instead of a `notified` column,
   `users.achievements_checked_at` marks an account as counted: the accounts from before F2 (and
@@ -648,6 +648,18 @@ Recognition, Community, Hidden and the time zone. Later slices add theirs in the
   Home (the checklist's "Show Getting started on Home" button on one's own Badges tab undoes the
   dismissal), the switch is in Settings → Privacy. Bundle budget 258 → 259 kB (258.6 measured;
   most of the growth is the bundler re-splitting zod and Radix into chunks of their own).
+- As built, F2b (2026-10-22, ADR 0021 amendment): Recognition, Community and Hidden as listed,
+  119 badges in all. Every badge is still a counted series, so the sweep re-evaluates anything:
+  SQL for the relational and timing ones, JavaScript over the member's posts, comments and
+  messages for the words (emoji only, palindromes with accents folded, exactly 500 UTF-16
+  units) and for the clock, which reads `settings.timeZone` with `Intl` (shared
+  `time-zone.ts`), never in SQL. The zone is saved by the shell from the device when missing and
+  changed in a new Settings card; there is no "none" (the shell would set it again). Switching a
+  comment reaction is an event now (`first` keeps notifications to first reactions), and
+  `post.edited` is new. `progress` leaves out the hidden series; the tab shows found hidden
+  badges and "n more to find". Two icons changed to stay off the first paint's modules (258.8 kB,
+  budget unchanged). The privacy notice names preferences, the time zone, badges, the inviter
+  and push devices.
 
 **Catalogue**: 120 badges with every tier counted, 22 of them hidden, before the later slices add theirs (titles are proposals; tiers are bronze · silver · gold · platinum)
 

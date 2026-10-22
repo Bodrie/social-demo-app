@@ -35,6 +35,21 @@ describe('achievements', () => {
     expect(ACHIEVEMENT_BY_KEY.get('all-set')?.threshold).toBe(GETTING_STARTED_KEYS.length);
   });
 
+  it('keeps the hidden badges in their own group, Detective among them', () => {
+    const hidden = ACHIEVEMENTS.filter((achievement) => achievement.hidden);
+    expect(hidden).toHaveLength(22);
+    expect(hidden.every((achievement) => achievement.group === 'hidden')).toBe(true);
+    expect(ACHIEVEMENTS.filter((a) => a.group === 'hidden' && !a.hidden)).toEqual([]);
+    expect(ACHIEVEMENT_BY_KEY.get('detective')?.series).toBe('hidden-found');
+  });
+
+  it('gives tiers their own titles where the catalogue says so', () => {
+    const titles = ACHIEVEMENTS.filter((a) => a.series === 'top-post-likes').map((a) =>
+      achievementName(a),
+    );
+    expect(titles).toEqual(['Hit (Bronze)', 'Smash hit (Silver)', 'Legend (Gold)']);
+  });
+
   it('names a badge with its tier', () => {
     const gold = ACHIEVEMENT_BY_KEY.get('posts-100');
     const pioneer = ACHIEVEMENT_BY_KEY.get('pioneer');

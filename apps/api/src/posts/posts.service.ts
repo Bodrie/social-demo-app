@@ -29,6 +29,7 @@ import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js'
 import {
   PostBookmarkedEvent,
   PostCreatedEvent,
+  PostEditedEvent,
   PostLikedEvent,
   PostQuotedEvent,
   PostRepostedEvent,
@@ -175,6 +176,7 @@ export class PostsService {
           data: entities.hashtags.map((tag) => ({ postId, tag, createdAt: post.createdAt })),
         }),
       ]);
+      await this.events.emitAsync(PostEditedEvent.EVENT, new PostEditedEvent(postId, viewerId));
       const before = new Set(post.mentions.map((mention) => mention.userId));
       await emitMentions(
         this.events,

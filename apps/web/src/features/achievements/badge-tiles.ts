@@ -46,12 +46,14 @@ export function tilesOf(group: AchievementGroup, earned: ReadonlyMap<string, str
       (candidate) => candidate.series === definition.series && candidate.tier !== null,
     );
     const top = tiers.findLast((tier) => earned.has(tier.key)) ?? null;
+    const next = tiers.find((tier) => !earned.has(tier.key)) ?? null;
     tiles.push({
       id: definition.series,
-      title: definition.title,
+      // Tiers may have titles of their own ("Hit", "Smash hit", "Legend").
+      title: (top ?? next ?? definition).title,
       earned: top,
       earnedAt: top ? (earned.get(top.key) ?? null) : null,
-      next: tiers.find((tier) => !earned.has(tier.key)) ?? null,
+      next,
     });
   }
   return tiles;

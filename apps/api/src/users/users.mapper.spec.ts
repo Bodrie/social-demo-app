@@ -57,6 +57,7 @@ describe('toUserSettings', () => {
       pushPreviews: true,
       showAchievements: true,
       hideGettingStarted: false,
+      timeZone: null,
     });
     expect(toUserSettings(null)).toEqual({
       chatBubbles: true,
@@ -67,7 +68,14 @@ describe('toUserSettings', () => {
       pushPreviews: true,
       showAchievements: true,
       hideGettingStarted: false,
+      timeZone: null,
     });
     expect(toUserSettings('garbage').chatBubbles).toBe(true);
+    // A zone Intl no longer knows reads as none and spoils nothing else.
+    expect(toUserSettings({ timeZone: 'Atlantis/Capital', chatBubbles: false })).toMatchObject({
+      timeZone: null,
+      chatBubbles: false,
+    });
+    expect(toUserSettings({ timeZone: 'Europe/Sofia' }).timeZone).toBe('Europe/Sofia');
   });
 });
