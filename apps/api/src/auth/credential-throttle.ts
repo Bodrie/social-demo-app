@@ -1,5 +1,5 @@
 import { type ExecutionContext, SetMetadata } from '@nestjs/common';
-import type { ThrottlerOptions } from '@nestjs/throttler';
+import { DEFAULT_IPV6_SUBNET_PREFIX, type ThrottlerOptions, normalizeIp } from '@nestjs/throttler';
 import { isRecord } from '../common/type-guards.js';
 
 export const CREDENTIAL_ROUTE_KEY = 'credentialRoute';
@@ -18,11 +18,16 @@ export const CREDENTIAL_THROTTLE = {
   perAddress: { limit: 30, ttl: 60_000 },
 } as const;
 
-/** `${ip}:${email}` – the body is read before validation, so normalise defensively. */
+/**
+ * `${address}:${email}` – the body is read before validation, so normalise defensively. The
+ * address is grouped like the stock tracker groups it for the per-address limit (an IPv6
+ * visitor by their /64), or one network could take a fresh per-account budget from each of
+ * its addresses.
+ */
 export function accountTracker(req: Record<string, unknown>): string {
   const body = isRecord(req.body) ? req.body : {};
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-  const ip = typeof req.ip === 'string' ? req.ip : '';
+  const ip = typeof req.ip === 'string' ? normalizeIp(req.ip, DEFAULT_IPV6_SUBNET_PREFIX) : '';
   return `${ip}:${email}`;
 }
 

@@ -387,7 +387,7 @@ volumes) before it is needed.
 | Task | Command |
 |---|---|
 | Status | `docker compose ps` |
-| Logs | `docker compose logs -f api` / `web` / `cloudflared` |
+| Logs | `docker compose logs -f api` / `web` / `cloudflared`. Each API request line has `req.ip`, the visitor's address as Cloudflare reports it (`CF-Connecting-IP`, passed on by Caddy); a request made on the box itself shows Caddy's container address. All requests of one visitor: `docker compose logs --since 24h api \| grep '"ip":"203.0.113.7"'` |
 | Health (from the box) | `curl -s http://127.0.0.1:8080/api/v1/auth/me` (401 = healthy chain); `docker inspect --format '{{.State.Health.Status}}' beso-api-1` |
 | Health (public) | `curl -s https://social.bodrie.dev/api/v1/auth/me` (401); tunnel status in the Cloudflare One dashboard or `docker compose logs cloudflared` ("Registered tunnel connection") |
 | Tunnel reconnects | normal after an IP change; if it stays "Down", `docker compose --profile tunnel restart cloudflared` and check the token in `.env` |

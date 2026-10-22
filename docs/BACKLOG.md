@@ -12,7 +12,6 @@ Real but deferred work, grouped by area. Each line says where it came from and w
 - **`message:new` for an unknown conversation** – a push for a conversation the client has never listed triggers a refetch of the list (`upsertConversation`); push the conversation itself if that round trip shows up.
 
 ## Operations
-- **Client IP behind the proxy** – Caddy rewrites `X-Forwarded-For` from `CF-Connecting-IP` and the API trusts one hop; add an integration test for `req.ip` with that header chain.
 - **Shutdown** – `enableShutdownHooks({ useProcessExit: true })` so pino flushes on SIGTERM.
 - **Access log volume** – 5xx are logged by both the filter (with stack) and pino-http; drop one if logs get noisy.
 

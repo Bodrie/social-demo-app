@@ -79,7 +79,7 @@ to pull forward, nothing else depends on its position.
 - Runbook §1–3 on the box; rehearse the restore drill (§5) once against a scratch database.
 - Monitor: Cloudflare health check (or any external monitor) on `https://social.bodrie.dev/api/v1/auth/me` expecting 401; `/health` stays internal.
 - Off-box copies of `backup.sh` output with `rclone` to any remote; the systemd timer gains a second step. Document the remote in the runbook, not in the repo's env. A failed dump must be noticed (review L27, moved here 2026-10-20): an `OnFailure=` unit that mails or pings, or a healthchecks-style ping at the end of `backup.sh`; and the script must not leave a 0-byte file behind.
-- Fold in the few-line Low items that touch the deploy set: L19 (`update.sh` continues to `up -d` when only one pull fails), L20 (tunnel token via `env_file`, not the command line), L21 (URL-encode `POSTGRES_PASSWORD` in `DATABASE_URL`), L26 (client IP in request logs behind Caddy, with the integration test the backlog asks for). *L19–L21 were done with E4 on 2026-10-22 (ADR 0018); L26 is open.*
+- Fold in the few-line Low items that touch the deploy set: L19 (`update.sh` continues to `up -d` when only one pull fails), L20 (tunnel token via `env_file`, not the command line), L21 (URL-encode `POSTGRES_PASSWORD` in `DATABASE_URL`), L26 (client IP in request logs behind Caddy, with the integration test the backlog asks for). *L19–L21 were done with E4 on 2026-10-22 (ADR 0018), L26 the same day (client address in the request log, with the integration test).*
 - Code side is tiny; no ADR, runbook edits only.
 
 ### A2. Account deletion and data export · M · ADR 0012 "Account lifecycle" · ✅ 2026-10-19
