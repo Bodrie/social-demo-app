@@ -72,7 +72,7 @@ export function ConversationList() {
         <ul
           aria-label="Conversations"
           tabIndex={0}
-          className="min-h-0 flex-1 divide-y overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+          className="min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
         >
           {rows.map((conversation) => (
             <ConversationItem key={conversation.id} conversation={conversation} />

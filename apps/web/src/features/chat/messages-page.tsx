@@ -7,13 +7,18 @@ import { ConversationList } from './conversation-list';
 import { NewGroupDialog } from './new-group-dialog';
 import { NewMessageDialog } from './new-message-dialog';
 
-/** Two panes from `md` up; on phones the list and the thread take turns. */
+/**
+ * Two panes from `md` up; on phones the list and the thread take turns. The panel fills what
+ * the header (3.5rem and its 1px border) and the shell's padding (2 × 1.5rem) leave, to the
+ * pixel: one more and the page itself scrolls under the thread. Short enough for the space
+ * above a phone's keyboard, which shrinks the viewport (`interactive-widget` in index.html).
+ */
 export function MessagesPage() {
   const { conversationId, username } = useParams();
   const threadOpen = Boolean(conversationId ?? username);
 
   return (
-    <div className="bg-card flex h-[calc(100svh-6.5rem)] min-h-[28rem] overflow-hidden rounded-xl border shadow-sm">
+    <div className="bg-card flex h-[calc(100svh-6.5rem-1px)] min-h-60 overflow-hidden rounded-xl border shadow-sm">
       <aside
         aria-label="Conversations"
         className={cn('w-full shrink-0 border-r md:w-80', threadOpen ? 'hidden md:block' : 'block')}

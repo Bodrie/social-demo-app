@@ -6,7 +6,13 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- resizes-content: an on-screen keyboard shrinks the layout (Chrome, Firefox on Android)
+         instead of sliding the page up under it, so the chat's composer sits on the keyboard
+         with the conversation's header still on screen. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+    />
     <meta name="description" content="BeSo – be social: posts, people and messages in one place" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f9" />

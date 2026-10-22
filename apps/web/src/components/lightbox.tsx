@@ -11,13 +11,17 @@ export type LightboxProps = {
   onIndexChange: (index: number | null) => void;
   /** Names the dialog ("Pictures posted by Alice"). */
   title: string;
-  /** Alternative text of every picture ("Posted by Alice"); the position is added to it. */
-  alt: string;
+  /**
+   * Alternative text of every picture ("Posted by Alice"), or of the one at an index when they
+   * differ (a chat's pictures come from several people); the position is added to it.
+   */
+  alt: string | ((index: number) => string);
 };
 
 /**
- * The full-screen picture viewer (D2): post pictures, chat pictures, profile pictures. Its code
- * loads the first time it opens; focus goes back to whatever opened it when it closes.
+ * The full-screen picture viewer (D2): post pictures, chat pictures, profile pictures, each
+ * with a download button. Its code loads the first time it opens; focus goes back to whatever
+ * opened it when it closes.
  */
 export function Lightbox({ index, ...props }: LightboxProps) {
   if (index === null || props.images.length === 0) return null;
