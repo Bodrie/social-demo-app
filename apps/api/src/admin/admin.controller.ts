@@ -1,9 +1,11 @@
 import { Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { AdminReport, Paginated } from '@beso/shared';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { IdParamDto, UserIdParamDto } from '../common/params.dto.js';
+import { AdminReportDto, AdminReportListDto } from '../common/responses.dto.js';
 import { AdminReportsQueryDto } from './admin.dto.js';
 import { AdminService } from './admin.service.js';
 import { Roles } from './roles.decorator.js';
@@ -16,18 +18,19 @@ export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
   @Get('reports')
+  @ZodResponse({ status: 200, type: AdminReportListDto })
   reports(@Query() query: AdminReportsQueryDto): Promise<Paginated<AdminReport>> {
     return this.admin.reports(query);
   }
 
   @Post('reports/:id/resolve')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: AdminReportDto })
   resolve(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<AdminReport> {
     return this.admin.resolve(user.id, params.id);
   }
 
   @Post('reports/:id/dismiss')
-  @HttpCode(200)
+  @ZodResponse({ status: 200, type: AdminReportDto })
   dismiss(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<AdminReport> {
     return this.admin.dismiss(user.id, params.id);
   }

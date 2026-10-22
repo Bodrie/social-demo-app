@@ -13,9 +13,11 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Paginated, Post as PostItem, Revision } from '@beso/shared';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
+import { PostDto, PostListDto, RevisionListDto } from '../common/responses.dto.js';
 import { CreatePostDto, FeedQueryDto, UpdatePostDto, UserPostsQueryDto } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 
@@ -25,23 +27,26 @@ export class PostsController {
   constructor(private readonly posts: PostsService) {}
 
   @Get()
+  @ZodResponse({ status: 200, type: PostListDto })
   feed(@CurrentUser() user: AuthUser, @Query() query: FeedQueryDto): Promise<Paginated<PostItem>> {
     return this.posts.feed(user.id, query);
   }
 
   @Post()
-  @HttpCode(201)
+  @ZodResponse({ status: 201, type: PostDto })
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   create(@CurrentUser() user: AuthUser, @Body() body: CreatePostDto): Promise<PostItem> {
     return this.posts.create(user.id, body);
   }
 
   @Get(':id')
+  @ZodResponse({ status: 200, type: PostDto })
   byId(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<PostItem> {
     return this.posts.getById(user.id, params.id);
   }
 
   @Patch(':id')
+  @ZodResponse({ status: 200, type: PostDto })
   update(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
@@ -51,6 +56,7 @@ export class PostsController {
   }
 
   @Get(':id/revisions')
+  @ZodResponse({ status: 200, type: RevisionListDto })
   revisions(
     @Param() params: IdParamDto,
     @Query() query: CursorQueryDto,
@@ -108,6 +114,7 @@ export class UserPostsController {
   constructor(private readonly posts: PostsService) {}
 
   @Get()
+  @ZodResponse({ status: 200, type: PostListDto })
   byAuthor(
     @CurrentUser() user: AuthUser,
     @Param() params: UserIdParamDto,
@@ -124,6 +131,7 @@ export class BookmarksController {
   constructor(private readonly posts: PostsService) {}
 
   @Get()
+  @ZodResponse({ status: 200, type: PostListDto })
   list(@CurrentUser() user: AuthUser, @Query() query: FeedQueryDto): Promise<Paginated<PostItem>> {
     return this.posts.bookmarks(user.id, query);
   }

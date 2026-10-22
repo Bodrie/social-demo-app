@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  HttpCode,
   Param,
   Post,
   Query,
@@ -15,10 +14,12 @@ import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { UploadResponse } from '@beso/shared';
 import type { Response } from 'express';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { Public } from '../auth/public.decorator.js';
 import { notFound, toApiError, validationError } from '../common/errors.js';
+import { UploadResponseDto } from '../common/responses.dto.js';
 import { UploadPathDto, UploadQueryDto } from './uploads.dto.js';
 import { UploadsService } from './uploads.service.js';
 
@@ -29,7 +30,7 @@ export class UploadsController {
 
   /** multipart/form-data with a single `file` part; `?kind=` selects the processing preset. */
   @Post()
-  @HttpCode(201)
+  @ZodResponse({ status: 201, type: UploadResponseDto })
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')

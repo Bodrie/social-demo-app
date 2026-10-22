@@ -15,30 +15,39 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(uuid(7)) @db.Uuid
-  email           String    @unique
-  username        String    @unique
-  passwordHash    String    @map("password_hash")
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  email                 String    @unique
+  username              String    @unique
+  passwordHash          String    @map("password_hash")
   /// Set once the address was confirmed through a mailed link; the app is closed until then.
-  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  emailVerifiedAt       DateTime? @map("email_verified_at") @db.Timestamptz(3)
   /// When the "confirm or the account is removed" mail went out (JobsService); unverified accounts only.
-  expiryWarnedAt  DateTime? @map("expiry_warned_at") @db.Timestamptz(3)
+  expiryWarnedAt        DateTime? @map("expiry_warned_at") @db.Timestamptz(3)
   /// A new address waiting for its confirmation link (ADR 0010 amendment); swapped in on confirm.
-  pendingEmail    String?   @map("pending_email")
+  pendingEmail          String?   @map("pending_email")
   /// Admins read the reports queue and act on it (ADR 0016); bootstrapped from `ADMIN_EMAILS`.
-  role            UserRole  @default(member)
+  role                  UserRole  @default(member)
   /// A suspended member cannot sign in and their content is hidden; the rows stay for the way back.
-  suspendedAt     DateTime? @map("suspended_at") @db.Timestamptz(3)
-  name            String
-  bio             String?
-  city            String?
-  website         String?
-  avatarKey       String?   @map("avatar_key")
-  coverKey        String?   @map("cover_key")
+  suspendedAt           DateTime? @map("suspended_at") @db.Timestamptz(3)
+  name                  String
+  bio                   String?
+  city                  String?
+  website               String?
+  avatarKey             String?   @map("avatar_key")
+  coverKey              String?   @map("cover_key")
   /// Account-level preferences (`userSettingsSchema` in shared); keys are added as features land.
-  settings        Json      @default("{}") @db.JsonB
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  settings              Json      @default("{}") @db.JsonB
+  /// The member's personal invite link, `/join/<code>` (F1): made when first asked for,
+  /// replaced on request (the old link stops working).
+  inviteCode            String?   @unique @map("invite_code")
+  /// Whose invite link the member registered with; null otherwise, or once that member is gone.
+  invitedById           String?   @map("invited_by_id") @db.Uuid
+  /// When the member's badges were first counted (F2, ADR 0021). A new account starts counted;
+  /// the accounts from before F2 start null, and their first count awards silently whatever they
+  /// had already reached, so nobody gets a burst of notifications.
+  achievementsCheckedAt DateTime? @default(now()) @map("achievements_checked_at") @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   posts             Post[]
   comments          Comment[]
@@ -48,6 +57,9 @@ model User {
   activities        Activity[]           @relation("ActivityActor")
   targetedBy        Activity[]           @relation("ActivityTargetUser")
   refreshTokens     RefreshToken[]
+  invitedBy         User?                @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitees          User[]               @relation("UserInvites")
+  pushSubscriptions PushSubscription[]
   sentMessages      Message[]            @relation("MessageSender")
   messageReactions  MessageReaction[]
   conversations     ConversationMember[]
@@ -68,7 +80,9 @@ model User {
   reports           Report[]             @relation("ReportReporter")
   resolvedReports   Report[]             @relation("ReportResolver")
   adminActions      AdminAction[]
+  achievements      UserAchievement[]
 
+  @@index([invitedById])
   @@map("users")
 }
 
@@ -292,6 +306,8 @@ model PostHashtag {
   @@id([tag, postId])
   @@index([tag, createdAt(sort: Desc), postId(sort: Desc)])
   @@index([createdAt])
+  /// A post's tags (replaced on edit) and a member's distinct tags (achievements, F2).
+  @@index([postId])
   @@map("post_hashtags")
 }
 
@@ -378,6 +394,8 @@ model Comment {
 
   @@index([postId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([postId, reactionsCount(sort: Desc), createdAt(sort: Desc), id(sort: Desc)])
+  /// Counting a member's comments (achievements, F2), the export and the erasure.
+  @@index([authorId])
   @@index([parentId, createdAt, id])
   @@map("comments")
 }
@@ -428,6 +446,7 @@ model CommentReaction {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([commentId, userId])
+  @@index([userId])
   @@index([commentId, type])
   @@map("comment_reactions")
 }
@@ -522,6 +541,8 @@ enum NotificationType {
   MENTIONED_IN_COMMENT
   POST_REPOSTED
   POST_QUOTED
+  INVITE_JOINED
+  ACHIEVEMENT_EARNED
 
   @@map("notification_type")
 }
@@ -529,19 +550,21 @@ enum NotificationType {
 /// What happened to a member's own things (ADR 0015). Written by NotificationsListener from
 /// domain events, never by clients; one row per (recipient, type, actor, post, comment), so a
 /// repeated event refreshes the row instead of adding one. `post_id` is set for every type
-/// but a follow, so the unique key has no nulls to worry about there.
+/// but a follow, so the unique key has no nulls to worry about there. An earned badge (F2) has
+/// no actor and names the badge in `achievement_key` instead; a badge is earned once.
 model Notification {
-  id        String           @id @default(uuid(7)) @db.Uuid
-  userId    String           @map("user_id") @db.Uuid
-  type      NotificationType
-  actorId   String           @map("actor_id") @db.Uuid
-  postId    String?          @map("post_id") @db.Uuid
-  commentId String?          @map("comment_id") @db.Uuid
-  readAt    DateTime?        @map("read_at") @db.Timestamptz(3)
-  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  id             String           @id @default(uuid(7)) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  type           NotificationType
+  actorId        String?          @map("actor_id") @db.Uuid
+  achievementKey String?          @map("achievement_key")
+  postId         String?          @map("post_id") @db.Uuid
+  commentId      String?          @map("comment_id") @db.Uuid
+  readAt         DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user    User     @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
-  actor   User     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  actor   User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
   post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
@@ -563,11 +586,50 @@ model RefreshToken {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   /// The last rotation (or the issue); the sessions list shows it as "last active".
   lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  /// The sign-in this token descends from: new at sign-in, carried along the rotation chain,
+  /// and the access token's `sid` (ADR 0022: a device's push subscription ends with it).
+  signInId   String    @default(uuid(7)) @map("sign_in_id") @db.Uuid
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([signInId])
   @@map("refresh_tokens")
+}
+
+/// A badge a member earned (F2, ADR 0021). Keys come from the shared `ACHIEVEMENTS` list, so a
+/// new badge needs no migration; earned is earned, nothing ever removes a row but the erasure.
+model UserAchievement {
+  userId   String   @map("user_id") @db.Uuid
+  key      String
+  earnedAt DateTime @default(now()) @map("earned_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, key])
+  @@index([key])
+  @@map("user_achievements")
+}
+
+/// A browser that receives web push for a member (ADR 0022): one row per push endpoint, tied to
+/// the sign-in it was made under and deleted when that sign-in ends.
+model PushSubscription {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  signInId   String   @map("sign_in_id") @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// The last time the app handed it over (every start of a signed-in tab).
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([signInId])
+  @@map("push_subscriptions")
 }
 
 enum ConversationKind {
@@ -653,6 +715,7 @@ model Message {
   image        Upload?           @relation(fields: [imageKey], references: [key], onDelete: SetNull)
 
   @@index([conversationId, createdAt, id])
+  @@index([senderId])
   @@index([imageKey])
   @@map("messages")
 }

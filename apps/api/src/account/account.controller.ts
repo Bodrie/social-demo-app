@@ -3,11 +3,13 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { AccountExport } from '@beso/shared';
 import type { Response } from 'express';
+import { ZodResponse } from 'nestjs-zod';
 import { AllowUnverified } from '../auth/allow-unverified.decorator.js';
 import { AuthService } from '../auth/auth.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { clearAuthCookies } from '../auth/cookies.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { AccountExportDto } from '../common/responses.dto.js';
 import { DeleteAccountDto } from './account.dto.js';
 import { AccountService } from './account.service.js';
 
@@ -23,6 +25,7 @@ export class AccountController {
   /** A JSON file download; the browser saves it under the name in the header. */
   @AllowUnverified()
   @Get('export')
+  @ZodResponse({ status: 200, type: AccountExportDto })
   @Throttle({ default: { limit: 2, ttl: 60_000 } })
   async export(
     @CurrentUser() user: AuthUser,

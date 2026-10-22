@@ -1,12 +1,14 @@
 import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { Notification, UserSummary } from '@beso/shared';
+import type { Activity, Notification, UserSummary } from '@beso/shared';
 import type { Server } from 'socket.io';
 import { mockDeep } from 'vitest-mock-extended';
 import type { Env } from '../config/env.js';
 import type { ConversationsService } from '../conversations/conversations.service.js';
+import { ActivityRecordedEvent } from '../events/activity.events.js';
 import { MessageUpdatedEvent } from '../events/conversation.events.js';
 import { NotificationCreatedEvent } from '../events/notification.events.js';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import type { UsersService } from '../users/users.service.js';
 import {
   CONNECT_LIMIT,
@@ -64,7 +66,13 @@ describe('ChatGateway', () => {
   beforeEach(() => {
     users = mockDeep<UsersService>();
     presence = new PresenceService();
-    gateway = new ChatGateway(jwt, users, presence, mockDeep<ConversationsService>(), config);
+    gateway = new ChatGateway(
+      new AccessTokensService(jwt),
+      users,
+      presence,
+      mockDeep<ConversationsService>(),
+      config,
+    );
     broadcast = vi.fn();
     server = { to: vi.fn(() => ({ emit: broadcast })), use: vi.fn() };
     gateway.server = server as unknown as Server;
@@ -80,6 +88,7 @@ describe('ChatGateway', () => {
     const notification: Notification = {
       id: '0199b6a0-0000-7000-8000-0000000000aa',
       type: 'POST_LIKED',
+      achievementKey: null,
       actor: summary(2),
       post: { id: '0199b6a0-0000-7000-8000-0000000000bb', excerpt: 'Hello' },
       comment: null,
@@ -91,6 +100,28 @@ describe('ChatGateway', () => {
 
     expect(server.to).toHaveBeenCalledWith([`user:${recipient.id}`]);
     expect(broadcast).toHaveBeenCalledWith('notification:new', notification);
+  });
+
+  it('pushes a new activity to the followers it names, and to nobody when it names none', () => {
+    const [bob, alice, carol] = [summary(1), summary(2), summary(3)];
+    const activity: Activity = {
+      id: '0199b6a0-0000-7000-8000-0000000000ee',
+      type: 'POST_CREATED',
+      actor: bob,
+      post: { id: '0199b6a0-0000-7000-8000-0000000000ff', excerpt: 'Hello' },
+      comment: null,
+      targetUser: null,
+      createdAt: '2026-10-22T10:00:00.000Z',
+    };
+
+    gateway.onActivityRecorded(new ActivityRecordedEvent(activity, [alice.id, carol.id]));
+    expect(server.to).toHaveBeenCalledWith([`user:${alice.id}`, `user:${carol.id}`]);
+    expect(broadcast).toHaveBeenCalledWith('activity:new', activity);
+
+    // socket.io would broadcast to everyone for an empty room list.
+    server.to.mockClear();
+    gateway.onActivityRecorded(new ActivityRecordedEvent(activity, []));
+    expect(server.to).not.toHaveBeenCalled();
   });
 
   it('pushes an edited or reacted-to message to every member, the actor included', () => {
@@ -110,7 +141,7 @@ describe('ChatGateway', () => {
       createdAt: '2026-10-20T10:00:00.000Z',
     };
 
-    gateway.onMessageUpdated(new MessageUpdatedEvent(message, [alice.id, bob.id]));
+    gateway.onMessageUpdated(new MessageUpdatedEvent(message, [alice.id, bob.id], bob.id));
 
     expect(server.to).toHaveBeenCalledWith([`user:${alice.id}`, `user:${bob.id}`]);
     expect(broadcast).toHaveBeenCalledWith('message:updated', message);

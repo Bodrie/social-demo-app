@@ -11,7 +11,10 @@ export class CommentCreatedEvent {
   ) {}
 }
 
-/** `actorId` put a reaction on a comment that had none from them; switching the emoji is not one. */
+/**
+ * `actorId` put a reaction on a comment, or switched to another emoji. `first` is true when the
+ * comment had none from them: only that one is told to the author (notifications).
+ */
 export class CommentReactedEvent {
   static readonly EVENT = 'comment.reacted';
   constructor(
@@ -19,5 +22,6 @@ export class CommentReactedEvent {
     readonly postId: string,
     readonly actorId: string,
     readonly commentAuthorId: string,
+    readonly first = true,
   ) {}
 }

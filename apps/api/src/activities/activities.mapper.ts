@@ -7,7 +7,8 @@ export const activitySelect = {
   type: true,
   createdAt: true,
   actor: { select: userSummarySelect },
-  post: { select: { id: true, content: true } },
+  // `authorId` decides who may see the activity (ActivitiesListener); it is not answered.
+  post: { select: { id: true, content: true, authorId: true } },
   comment: { select: { id: true, content: true } },
   targetUser: { select: userSummarySelect },
 } satisfies Prisma.ActivitySelect;

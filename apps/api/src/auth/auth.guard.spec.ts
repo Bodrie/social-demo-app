@@ -1,6 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import { AuthGuard, extractAccessToken } from './auth.guard.js';
 import type { AuthenticatedRequest } from './auth.types.js';
 import { ALLOW_UNVERIFIED_KEY } from './allow-unverified.decorator.js';
@@ -30,7 +31,7 @@ function contextFor(
 }
 
 describe('AuthGuard', () => {
-  const guard = new AuthGuard(jwt, new Reflector());
+  const guard = new AuthGuard(new AccessTokensService(jwt), new Reflector());
 
   it('ignores non-HTTP contexts (sockets are authenticated at handshake)', async () => {
     const context = { getType: () => 'ws' } as unknown as ExecutionContext;
@@ -56,6 +57,7 @@ describe('AuthGuard', () => {
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       emailVerified: true,
       role: 'member',
+      signInId: null,
     });
   });
 
@@ -73,6 +75,7 @@ describe('AuthGuard', () => {
       id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
       emailVerified: false,
       role: 'member',
+      signInId: null,
     });
 
     const verified = await jwt.signAsync({ sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9', ev: true });
@@ -86,6 +89,20 @@ describe('AuthGuard', () => {
     await expect(
       guard.canActivate(contextFor({ headers: {}, cookies: { access_token: token } })),
     ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('carries the sign-in id of the session when the token has one', async () => {
+    const token = await jwt.signAsync({
+      sub: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
+      ev: true,
+      sid: '01a13ed6-d3ec-71cb-b39f-fbc256a293b1',
+    });
+    const request: Partial<AuthenticatedRequest> = {
+      headers: {},
+      cookies: { access_token: token },
+    };
+    await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
+    expect(request.user?.signInId).toBe('01a13ed6-d3ec-71cb-b39f-fbc256a293b1');
   });
 
   it('rejects missing and tampered tokens', async () => {

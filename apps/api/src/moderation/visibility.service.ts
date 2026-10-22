@@ -62,6 +62,41 @@ export class VisibilityService {
     if (await this.isBlockedBetween(viewerId, otherId)) throw blocked();
   }
 
+  /**
+   * The members among `viewerIds` who may see something by, about or on the posts of every one
+   * of `subjectIds`: `hiddenAuthorIds` asked the other way round, in three queries however many
+   * viewers there are (for pushes that go to many). Nobody, when a subject is suspended.
+   */
+  async viewersOf(viewerIds: readonly string[], subjectIds: readonly string[]): Promise<string[]> {
+    if (viewerIds.length === 0) return [];
+    const subjects = [...new Set(subjectIds)];
+    const [suspended, blocks, mutes] = await Promise.all([
+      this.prisma.user.count({ where: { id: { in: subjects }, suspendedAt: { not: null } } }),
+      this.prisma.block.findMany({
+        where: {
+          OR: [
+            { blockerId: { in: [...viewerIds] }, blockedId: { in: subjects } },
+            { blockerId: { in: subjects }, blockedId: { in: [...viewerIds] } },
+          ],
+        },
+        select: { blockerId: true, blockedId: true },
+      }),
+      this.prisma.mute.findMany({
+        where: { muterId: { in: [...viewerIds] }, mutedId: { in: subjects } },
+        select: { muterId: true },
+      }),
+    ]);
+    if (suspended > 0) return [];
+    const viewers = new Set(viewerIds);
+    const subjectSet = new Set(subjects);
+    const excluded = new Set(mutes.map((row) => row.muterId));
+    for (const { blockerId, blockedId } of blocks) {
+      if (viewers.has(blockerId) && subjectSet.has(blockedId)) excluded.add(blockerId);
+      if (viewers.has(blockedId) && subjectSet.has(blockerId)) excluded.add(blockedId);
+    }
+    return viewerIds.filter((id) => !excluded.has(id));
+  }
+
   /** Notifications: nothing from someone the recipient blocked, who blocked them, or whom they muted. */
   async isSilencedFor(recipientId: string, actorId: string): Promise<boolean> {
     if (await this.isBlockedBetween(recipientId, actorId)) return true;

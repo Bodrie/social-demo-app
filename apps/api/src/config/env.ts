@@ -33,76 +33,102 @@ const unsetWhenEmpty = <T extends z.ZodType>(schema: T) =>
     schema.optional(),
   );
 
-export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3000),
-  DATABASE_URL: z.url(),
-  LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
-  /** Comma-separated list of browser origins allowed by CORS (credentials on). */
-  WEB_ORIGINS: z
-    .string()
-    .default('http://localhost:5173')
-    .transform(parseOrigins)
-    .pipe(z.array(z.url({ protocol: /^https?$/ })).min(1)),
-  TRUST_PROXY: z.string().default('false').transform(parseTrustProxy),
-  THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
-  THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
-  /** Open chat sockets allowed per user (tabs and devices); more are refused at handshake. */
-  SOCKET_MAX_PER_USER: z.coerce.number().int().positive().default(5),
-  /** Authenticated socket handshakes per user and minute, accepted or not. */
-  SOCKET_CONNECTS_PER_MINUTE: z.coerce.number().int().positive().default(30),
-  /** HS256 secret for access tokens. Generate with `openssl rand -base64 48`. */
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_ACCESS_TTL_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(15 * 60),
-  REFRESH_TTL_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(7 * 24 * 60 * 60),
-  /** Secure flag on auth cookies. Defaults to true in production. */
-  COOKIE_SECURE: z.stringbool().optional(),
-  /** Public base URL for uploaded files. */
-  PUBLIC_ASSETS_URL: z.url().default('http://localhost:3000/api/v1/uploads'),
-  /** Local-disk storage root for uploads (a mounted volume in production). */
-  UPLOADS_DIR: z.string().min(1).default('./uploads'),
-  UPLOAD_MAX_BYTES: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(5 * 1024 * 1024),
-  /** Reject images above this many pixels before decoding (decompression bombs). */
-  UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(25_000_000),
-  /** Where the links in our emails point (the web app). */
-  WEB_URL: z.url().default('http://localhost:5173'),
-  /** `outbox` writes every mail as a JSON file (development, tests); `smtp` sends it. */
-  EMAIL_TRANSPORT: z.enum(['outbox', 'smtp']).default('outbox'),
-  /** SMTP submission URL, e.g. smtps://resend:<api key>@smtp.resend.com:465 */
-  SMTP_URL: z.url().optional(),
-  EMAIL_FROM: z.string().min(3).default('BeSo <noreply@localhost>'),
-  EMAIL_OUTBOX_DIR: z.string().min(1).default('./outbox'),
-  /**
-   * Cloudflare Turnstile secret: with it, registration needs a passed bot check. Without it the
-   * check is skipped (development, tests); production refuses that unless `CAPTCHA=off`.
-   */
-  TURNSTILE_SECRET: unsetWhenEmpty(z.string().min(1)),
-  /** `off` is the explicit choice to run registration without a bot check in production. */
-  CAPTCHA: unsetWhenEmpty(z.enum(['turnstile', 'off'])),
-  /**
-   * Whether this process runs the daily housekeeping jobs (`JobsService`). On when there is one
-   * API container; set to false on every container but one when there are several.
-   */
-  JOBS_ENABLED: z.stringbool().default(true),
-  /**
-   * Comma-separated addresses of the admins (ADR 0016). When set, matching accounts are
-   * promoted at startup and at sign-in and every other admin is demoted at startup; when empty
-   * the roles are left as they are (the seed's, or whatever was set before).
-   */
-  ADMIN_EMAILS: z.string().default('').transform(parseEmails),
-});
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    PORT: z.coerce.number().int().positive().default(3000),
+    DATABASE_URL: z.url(),
+    LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+    /** Comma-separated list of browser origins allowed by CORS (credentials on). */
+    WEB_ORIGINS: z
+      .string()
+      .default('http://localhost:5173')
+      .transform(parseOrigins)
+      .pipe(z.array(z.url({ protocol: /^https?$/ })).min(1)),
+    TRUST_PROXY: z.string().default('false').transform(parseTrustProxy),
+    THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+    THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+    /** Open chat sockets allowed per user (tabs and devices); more are refused at handshake. */
+    SOCKET_MAX_PER_USER: z.coerce.number().int().positive().default(5),
+    /** Authenticated socket handshakes per user and minute, accepted or not. */
+    SOCKET_CONNECTS_PER_MINUTE: z.coerce.number().int().positive().default(30),
+    /** HS256 secret for access tokens. Generate with `openssl rand -base64 48`. */
+    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+    JWT_ACCESS_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(15 * 60),
+    REFRESH_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(7 * 24 * 60 * 60),
+    /** Secure flag on auth cookies. Defaults to true in production. */
+    COOKIE_SECURE: z.stringbool().optional(),
+    /** Public base URL for uploaded files. */
+    PUBLIC_ASSETS_URL: z.url().default('http://localhost:3000/api/v1/uploads'),
+    /** Local-disk storage root for uploads (a mounted volume in production). */
+    UPLOADS_DIR: z.string().min(1).default('./uploads'),
+    UPLOAD_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5 * 1024 * 1024),
+    /** Reject images above this many pixels before decoding (decompression bombs). */
+    UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(25_000_000),
+    /** Where the links in our emails point (the web app). */
+    WEB_URL: z.url().default('http://localhost:5173'),
+    /** `outbox` writes every mail as a JSON file (development, tests); `smtp` sends it. */
+    EMAIL_TRANSPORT: z.enum(['outbox', 'smtp']).default('outbox'),
+    /** SMTP submission URL, e.g. smtps://resend:<api key>@smtp.resend.com:465 */
+    SMTP_URL: z.url().optional(),
+    EMAIL_FROM: z.string().min(3).default('BeSo <noreply@localhost>'),
+    EMAIL_OUTBOX_DIR: z.string().min(1).default('./outbox'),
+    /**
+     * Cloudflare Turnstile secret: with it, registration needs a passed bot check. Without it the
+     * check is skipped (development, tests); production refuses that unless `CAPTCHA=off`.
+     */
+    TURNSTILE_SECRET: unsetWhenEmpty(z.string().min(1)),
+    /** `off` is the explicit choice to run registration without a bot check in production. */
+    CAPTCHA: unsetWhenEmpty(z.enum(['turnstile', 'off'])),
+    /**
+     * Whether this process runs the daily housekeeping jobs (`JobsService`). On when there is one
+     * API container; set to false on every container but one when there are several.
+     */
+    JOBS_ENABLED: z.stringbool().default(true),
+    /**
+     * Comma-separated addresses of the admins (ADR 0016). When set, matching accounts are
+     * promoted at startup and at sign-in and every other admin is demoted at startup; when empty
+     * the roles are left as they are (the seed's, or whatever was set before).
+     */
+    ADMIN_EMAILS: z.string().default('').transform(parseEmails),
+    /**
+     * Web push (ADR 0022): the VAPID key pair (`pnpm --filter @beso/api push:keys`, base64url) and
+     * a contact the push services can reach (`mailto:` or `https:`). All three or none: without
+     * them push is off, and Settings says so.
+     */
+    VAPID_PUBLIC_KEY: unsetWhenEmpty(
+      z.string().regex(/^[A-Za-z0-9_-]{87}$/, 'a base64url P-256 public key'),
+    ),
+    VAPID_PRIVATE_KEY: unsetWhenEmpty(
+      z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'a base64url P-256 private key'),
+    ),
+    VAPID_SUBJECT: unsetWhenEmpty(
+      z.string().regex(/^(mailto:|https:\/\/)\S+$/, 'a mailto: or https: URL'),
+    ),
+  })
+  .superRefine((env, context) => {
+    const vapid = [env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, env.VAPID_SUBJECT];
+    if (vapid.some((value) => value === undefined) && vapid.some((value) => value !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['VAPID_PUBLIC_KEY'],
+        message:
+          'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT go together: set all three or none',
+      });
+    }
+  });
 
 /** "A@x.y, b@x.y" → ["a@x.y", "b@x.y"]. */
 export function parseEmails(value: string): string[] {

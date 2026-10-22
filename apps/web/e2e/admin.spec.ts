@@ -8,7 +8,12 @@ test('a report filed by a member shows up for the admin, who settles it', async 
   const note = `Please look ${Date.now()}`;
   const carol = await (await contextAs(browser, 'carol')).newPage();
   await carol.goto(`/u/${USERS.bob.username}`);
-  const post = carol.getByRole('article').first();
+  // A seeded post of bob's, not "the first one": other specs post, repost and delete as bob
+  // while this one runs.
+  const post = carol
+    .getByRole('article')
+    .filter({ hasText: 'New #photography set from the coast' })
+    .first();
   await post.getByRole('button', { name: 'Post options' }).click();
   await carol.getByRole('menuitem', { name: 'Report post' }).click();
   const dialog = carol.getByRole('dialog', { name: 'Report this post' });

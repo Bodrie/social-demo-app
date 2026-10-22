@@ -16,105 +16,21 @@ import {
 } from '@beso/shared';
 import { JwtService } from '@nestjs/jwt';
 import sharp from 'sharp';
-import { type Socket, io } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import request from 'supertest';
 import { MAX_SOCKETS_PER_USER } from '../src/chat/chat.gateway.js';
 import { type TestApp, createTestApp } from './setup/app.js';
+import { type CreatedUser, type TestAgent, createUser } from './setup/factories.js';
 import {
-  TEST_PASSWORD,
-  type CreatedUser,
-  type TestAgent,
-  cookiesFrom,
-  createUser,
-} from './setup/factories.js';
-
-async function sessionFor(
-  t: TestApp,
-  user: CreatedUser,
-): Promise<{ agent: TestAgent; token: string }> {
-  const agent = request.agent(t.server);
-  const response = await agent
-    .post('/api/v1/auth/login')
-    .send({ email: user.email, password: TEST_PASSWORD })
-    .expect(200);
-  return { agent, token: cookiesFrom(response.headers['set-cookie']).access_token ?? '' };
-}
-
-function connect(
-  t: TestApp,
-  options: { token?: string; cookie?: string; origin?: string },
-): Socket {
-  return io(t.baseUrl, {
-    transports: ['websocket'],
-    autoConnect: false,
-    reconnection: false,
-    auth: options.token ? { token: options.token } : {},
-    extraHeaders: {
-      ...(options.cookie ? { cookie: options.cookie } : {}),
-      ...(options.origin ? { origin: options.origin } : {}),
-    },
-  });
-}
-
-function waitFor<T>(
-  socket: Socket,
-  event: string,
-  predicate: (payload: T) => boolean = () => true,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), 5000);
-    const handler = (payload: T) => {
-      if (!predicate(payload)) return;
-      clearTimeout(timer);
-      socket.off(event, handler);
-      resolve(payload);
-    };
-    socket.on(event, handler);
-  });
-}
-
-/** Resolves with every `event` payload the socket received before `after` settled. */
-async function collectUntil<T>(
-  socket: Socket,
-  event: string,
-  after: Promise<unknown>,
-): Promise<T[]> {
-  const received: T[] = [];
-  const handler = (payload: T) => received.push(payload);
-  socket.on(event, handler);
-  await after;
-  socket.off(event, handler);
-  return received;
-}
-
-/** Polls until `predicate` holds or `timeoutMs` passed (the assertion afterwards tells which). */
-async function until(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!predicate() && Date.now() < deadline) {
-    // oxlint-disable-next-line no-await-in-loop -- polling on purpose
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-}
-
-function connected(socket: Socket): Promise<void> {
-  return new Promise((resolve, reject) => {
-    socket.once('connect', () => resolve());
-    socket.once('connect_error', (error) => reject(error));
-    socket.connect();
-  });
-}
-
-function connectError(socket: Socket): Promise<Error> {
-  return new Promise((resolve, reject) => {
-    socket.once('connect', () => reject(new Error('expected the connection to be refused')));
-    socket.once('connect_error', (error) => resolve(error));
-    socket.connect();
-  });
-}
-
-function disconnected(socket: Socket): Promise<string> {
-  return new Promise((resolve) => socket.once('disconnect', (reason) => resolve(reason)));
-}
+  collectUntil,
+  connect,
+  connectError,
+  connected,
+  disconnected,
+  sessionFor,
+  until,
+  waitFor,
+} from './setup/sockets.js';
 
 function png(): Promise<Buffer> {
   return sharp({ create: { width: 320, height: 200, channels: 3, background: '#3366aa' } })

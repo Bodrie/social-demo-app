@@ -90,9 +90,11 @@ export class NotificationsListener {
     });
   }
 
+  /** Only a first reaction; switching the emoji tells nobody. */
   @OnEvent(CommentReactedEvent.EVENT)
-  onCommentReacted(event: CommentReactedEvent): Promise<void> {
-    return this.notify({
+  async onCommentReacted(event: CommentReactedEvent): Promise<void> {
+    if (!event.first) return;
+    await this.notify({
       userId: event.commentAuthorId,
       type: 'COMMENT_REACTED',
       actorId: event.actorId,
@@ -101,11 +103,12 @@ export class NotificationsListener {
     });
   }
 
+  /** A follow that an invite made says so (F1): one notification, not "started following you". */
   @OnEvent(UserFollowedEvent.EVENT)
   onUserFollowed(event: UserFollowedEvent): Promise<void> {
     return this.notify({
       userId: event.followeeId,
-      type: 'USER_FOLLOWED',
+      type: event.viaInvite ? 'INVITE_JOINED' : 'USER_FOLLOWED',
       actorId: event.followerId,
     });
   }

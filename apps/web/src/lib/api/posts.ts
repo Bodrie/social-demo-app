@@ -1,5 +1,6 @@
 import {
   type CreatePostInput,
+  type ExploreSort,
   type Post,
   type PostList,
   type RevisionList,
@@ -16,6 +17,12 @@ export const fetchFeed = ({ cursor, signal }: PageOptions): Promise<PostList> =>
 
 export const fetchPost = (postId: string, signal?: AbortSignal): Promise<Post> =>
   api.get(`/posts/${postId}`, postSchema, { signal });
+
+export const fetchExplore = (
+  sort: ExploreSort,
+  { cursor, signal }: PageOptions,
+): Promise<PostList> =>
+  api.get(`/explore/posts${queryString({ sort, cursor })}`, postListSchema, { signal });
 
 export const fetchSearchPosts = (q: string, { cursor, signal }: PageOptions): Promise<PostList> =>
   api.get(`/search/posts${queryString({ q, cursor })}`, postListSchema, { signal });

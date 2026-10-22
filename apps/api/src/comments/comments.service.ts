@@ -266,8 +266,8 @@ export class CommentsService {
   }
 
   /**
-   * Sets (or switches) the viewer's reaction. Idempotent for the same type; only the first
-   * reaction of a person on a comment is an event (notifications), a switch is not.
+   * Sets (or switches) the viewer's reaction. Idempotent for the same type; a new reaction and a
+   * switch are events (`first` tells them apart: only the first is a notification).
    */
   async react(viewerId: string, commentId: string, type: ReactionType): Promise<ReactionSummary> {
     const comment = await this.prisma.comment.findUnique({
@@ -276,7 +276,7 @@ export class CommentsService {
     });
     if (!comment) throw notFound('Comment not found');
     await this.visibility.assertNotBlocked(viewerId, comment.authorId);
-    const created = await this.prisma.$transaction(async (tx) => {
+    const change = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.commentReaction.findUnique({
         where: { commentId_userId: { commentId, userId: viewerId } },
         select: { type: true },
@@ -287,20 +287,27 @@ export class CommentsService {
           where: { id: commentId },
           data: { reactionsCount: { increment: 1 } },
         });
-        return true;
+        return 'created';
       }
       if (existing.type !== type) {
         await tx.commentReaction.update({
           where: { commentId_userId: { commentId, userId: viewerId } },
           data: { type },
         });
+        return 'switched';
       }
-      return false;
+      return null;
     });
-    if (created) {
+    if (change) {
       await this.events.emitAsync(
         CommentReactedEvent.EVENT,
-        new CommentReactedEvent(commentId, comment.postId, viewerId, comment.authorId),
+        new CommentReactedEvent(
+          commentId,
+          comment.postId,
+          viewerId,
+          comment.authorId,
+          change === 'created',
+        ),
       );
     }
     return this.summary(viewerId, commentId);

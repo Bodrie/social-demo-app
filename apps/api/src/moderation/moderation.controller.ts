@@ -2,9 +2,11 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Paginated, Report, UserSummary } from '@beso/shared';
+import { ZodResponse } from 'nestjs-zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, UserIdParamDto } from '../common/params.dto.js';
+import { MemberListDto, ReportDto } from '../common/responses.dto.js';
 import { CreateReportDto } from './moderation.dto.js';
 import { ModerationService } from './moderation.service.js';
 
@@ -14,6 +16,7 @@ export class BlocksController {
   constructor(private readonly moderation: ModerationService) {}
 
   @Get('me/blocked')
+  @ZodResponse({ status: 200, type: MemberListDto })
   blocked(
     @CurrentUser() user: AuthUser,
     @Query() query: CursorQueryDto,
@@ -22,6 +25,7 @@ export class BlocksController {
   }
 
   @Get('me/muted')
+  @ZodResponse({ status: 200, type: MemberListDto })
   muted(
     @CurrentUser() user: AuthUser,
     @Query() query: CursorQueryDto,
@@ -61,6 +65,7 @@ export class ReportsController {
 
   /** Ten an hour is plenty for a person and little for a flood. */
   @Post()
+  @ZodResponse({ status: 201, type: ReportDto })
   @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
   report(@CurrentUser() user: AuthUser, @Body() body: CreateReportDto): Promise<Report> {
     return this.moderation.report(user.id, body);

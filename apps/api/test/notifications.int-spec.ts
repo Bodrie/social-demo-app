@@ -14,6 +14,7 @@ import {
   type TestAgent,
   cookiesFrom,
   createUser,
+  holdEveryBadge,
 } from './setup/factories.js';
 
 /** Logs in and keeps the access token, which the socket handshake needs as a cookie header. */
@@ -72,6 +73,8 @@ describe('notifications', () => {
     alice = await createUser(t.prisma, { username: 'alice' });
     bob = await createUser(t.prisma, { username: 'bob' });
     carol = await createUser(t.prisma, { username: 'carol' });
+    // Badges have their own tests (achievements.int-spec.ts).
+    await holdEveryBadge(t.prisma, alice, bob, carol);
     ({ agent: aliceAgent, token: aliceToken } = await sessionFor(t, alice));
     ({ agent: bobAgent } = await sessionFor(t, bob));
     ({ agent: carolAgent, token: carolToken } = await sessionFor(t, carol));
@@ -92,7 +95,7 @@ describe('notifications', () => {
     await comment(aliceAgent, post.id, 'Thanks @bob');
 
     const mine = await list(aliceAgent);
-    expect(mine.map((n) => [n.type, n.actor.username])).toEqual([
+    expect(mine.map((n) => [n.type, n.actor?.username])).toEqual([
       ['MENTIONED_IN_POST', 'bob'],
       ['USER_FOLLOWED', 'bob'],
       ['POST_COMMENTED', 'bob'],
@@ -110,7 +113,7 @@ describe('notifications', () => {
     expect(await unread(aliceAgent)).toBe(4);
 
     const bobs = await list(bobAgent);
-    expect(bobs.map((n) => [n.type, n.actor.username])).toEqual([
+    expect(bobs.map((n) => [n.type, n.actor?.username])).toEqual([
       ['MENTIONED_IN_COMMENT', 'alice'],
       ['COMMENT_REACTED', 'alice'],
     ]);
@@ -137,14 +140,14 @@ describe('notifications', () => {
     await carolAgent.put(`/api/v1/posts/${post.id}/like`).expect(204);
     await carolAgent.put(`/api/v1/users/${alice.id}/follow`).expect(204);
     const before = await list(aliceAgent);
-    expect(before.filter((n) => n.actor.username === 'carol').map((n) => n.type)).toEqual([
+    expect(before.filter((n) => n.actor?.username === 'carol').map((n) => n.type)).toEqual([
       'USER_FOLLOWED',
       'POST_LIKED',
     ]);
     await carolAgent.delete(`/api/v1/posts/${post.id}/like`).expect(204);
     await carolAgent.delete(`/api/v1/users/${alice.id}/follow`).expect(204);
     const after = await list(aliceAgent);
-    expect(after.filter((n) => n.actor.username === 'carol')).toEqual([]);
+    expect(after.filter((n) => n.actor?.username === 'carol')).toEqual([]);
   });
 
   it('marks one or every notification read; somebody else’s is not found', async () => {

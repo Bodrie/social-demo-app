@@ -31,6 +31,15 @@
   --ring: oklch(0.5 0.15 241);
   --like: oklch(0.62 0.22 15);
   --online: oklch(0.7 0.19 150);
+  /* Achievement tiers (F2): the icon on its medallion is at least 5.6:1 in both themes. */
+  --badge-bronze: oklch(0.9 0.06 65);
+  --badge-bronze-foreground: oklch(0.45 0.11 50);
+  --badge-silver: oklch(0.92 0.01 250);
+  --badge-silver-foreground: oklch(0.43 0.02 255);
+  --badge-gold: oklch(0.93 0.09 95);
+  --badge-gold-foreground: oklch(0.47 0.1 75);
+  --badge-platinum: oklch(0.92 0.04 205);
+  --badge-platinum-foreground: oklch(0.43 0.08 215);
   /* Behind the picture viewer: dark in both themes, so pictures are seen as they are. */
   --scrim: oklch(0.13 0.01 255 / 0.96);
   --scrim-foreground: oklch(0.97 0.004 250);
@@ -57,6 +66,14 @@
   --ring: oklch(0.78 0.13 230);
   --like: oklch(0.72 0.2 15);
   --online: oklch(0.76 0.18 150);
+  --badge-bronze: oklch(0.36 0.07 50);
+  --badge-bronze-foreground: oklch(0.86 0.08 65);
+  --badge-silver: oklch(0.36 0.012 255);
+  --badge-silver-foreground: oklch(0.9 0.01 250);
+  --badge-gold: oklch(0.4 0.08 80);
+  --badge-gold-foreground: oklch(0.92 0.11 95);
+  --badge-platinum: oklch(0.37 0.05 215);
+  --badge-platinum-foreground: oklch(0.89 0.06 205);
 }
 
 @theme inline {
@@ -84,6 +101,14 @@
   --color-ring: var(--ring);
   --color-like: var(--like);
   --color-online: var(--online);
+  --color-badge-bronze: var(--badge-bronze);
+  --color-badge-bronze-foreground: var(--badge-bronze-foreground);
+  --color-badge-silver: var(--badge-silver);
+  --color-badge-silver-foreground: var(--badge-silver-foreground);
+  --color-badge-gold: var(--badge-gold);
+  --color-badge-gold-foreground: var(--badge-gold-foreground);
+  --color-badge-platinum: var(--badge-platinum);
+  --color-badge-platinum-foreground: var(--badge-platinum-foreground);
   --color-scrim: var(--scrim);
   --color-scrim-foreground: var(--scrim-foreground);
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;

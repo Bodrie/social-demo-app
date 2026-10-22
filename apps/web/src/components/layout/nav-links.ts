@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   BellIcon,
+  CompassIcon,
   HomeIcon,
   type LucideIcon,
   MessageCircleIcon,
@@ -11,6 +12,7 @@ export type NavLinkItem = { to: string; label: string; icon: LucideIcon; end?: b
 
 export const NAV_LINKS: NavLinkItem[] = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
+  { to: '/explore', label: 'Explore', icon: CompassIcon },
   { to: '/users', label: 'People', icon: UsersIcon },
   { to: '/activity', label: 'Activity', icon: ActivityIcon },
   { to: '/notifications', label: 'Notifications', icon: BellIcon },

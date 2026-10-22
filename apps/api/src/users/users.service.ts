@@ -116,12 +116,12 @@ export class UsersService {
       select: { settings: true },
     });
     if (!current) throw notFound('User not found');
-    const next = { ...toUserSettings(current.settings) };
-    if (patch.chatBubbles !== undefined) next.chatBubbles = patch.chatBubbles;
-    if (patch.messageSound !== undefined) next.messageSound = patch.messageSound;
-    if (patch.browserNotifications !== undefined) {
-      next.browserNotifications = patch.browserNotifications;
-    }
+    // Every key the patch carries replaces the stored one, the rest stay; the shared schema has
+    // the last word, so a key added to it needs nothing here.
+    const changes = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    );
+    const next = toUserSettings({ ...toUserSettings(current.settings), ...changes });
     const row = await this.prisma.user.update({
       where: { id },
       data: { settings: next },

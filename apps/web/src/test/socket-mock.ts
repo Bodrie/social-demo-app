@@ -1,4 +1,5 @@
 import {
+  activitySchema,
   conversationReadPayloadSchema,
   conversationRefSchema,
   markReadPayloadSchema,
@@ -32,6 +33,7 @@ const PUSH_SCHEMAS: Record<string, z.ZodType> = {
   [SOCKET_EVENTS.conversationRemoved]: conversationRefSchema,
   [SOCKET_EVENTS.typingUpdate]: typingUpdateSchema,
   [SOCKET_EVENTS.notificationNew]: notificationSchema,
+  [SOCKET_EVENTS.activityNew]: activitySchema,
 };
 export class FakeSocket {
   connected = false;

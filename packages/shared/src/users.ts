@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { optionalText } from './common.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
+import { timeZoneSchema } from './time-zone.js';
 import { avatarKeySchema, coverKeySchema } from './uploads.js';
 
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
@@ -83,6 +84,22 @@ export const userSettingsSchema = z.object({
   chatBubbles: z.boolean().default(true),
   messageSound: z.boolean().default(false),
   browserNotifications: z.boolean().default(false),
+  /** Web push (ADR 0022), for every device of the member that switched it on. */
+  pushMessages: z.boolean().default(true),
+  /** Likes, comments, replies, reactions, mentions, follows, reposts and quotes. */
+  pushSocial: z.boolean().default(true),
+  /** Whether a message's words appear in its push notification, or only "New message". */
+  pushPreviews: z.boolean().default(true),
+  /** Others see the member's badges (F2); off hides them from everyone but the member. */
+  showAchievements: z.boolean().default(true),
+  /** The Getting started card on the home feed was dismissed. */
+  hideGettingStarted: z.boolean().default(false),
+  /**
+   * The member's IANA time zone (F2b), set by the web from the device when missing: the
+   * time-of-day badges and the weekly digest use it, nothing does without it. A name `Intl` no
+   * longer knows reads as none rather than spoiling the other settings.
+   */
+  timeZone: timeZoneSchema.nullable().catch(null),
 });
 export type UserSettings = z.infer<typeof userSettingsSchema>;
 
@@ -91,6 +108,12 @@ export const updateSettingsSchema = z.object({
   chatBubbles: z.boolean().optional(),
   messageSound: z.boolean().optional(),
   browserNotifications: z.boolean().optional(),
+  pushMessages: z.boolean().optional(),
+  pushSocial: z.boolean().optional(),
+  pushPreviews: z.boolean().optional(),
+  showAchievements: z.boolean().optional(),
+  hideGettingStarted: z.boolean().optional(),
+  timeZone: timeZoneSchema.nullable().optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

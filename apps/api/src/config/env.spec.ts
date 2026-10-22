@@ -34,6 +34,31 @@ describe('validateEnv', () => {
     expect(env.THROTTLE_LIMIT).toBe(5);
   });
 
+  it('takes the web push keys all three together or not at all', () => {
+    const vapid = {
+      VAPID_PUBLIC_KEY: `B${'A'.repeat(86)}`,
+      VAPID_PRIVATE_KEY: 'a'.repeat(43),
+      VAPID_SUBJECT: 'mailto:ops@example.com',
+    };
+    expect(validateEnv({ DATABASE_URL, JWT_SECRET, ...vapid })).toMatchObject(vapid);
+    // Compose passes unset ones as empty strings: that is "push off", not a half setup.
+    expect(
+      validateEnv({
+        DATABASE_URL,
+        JWT_SECRET,
+        VAPID_PUBLIC_KEY: '',
+        VAPID_PRIVATE_KEY: '',
+        VAPID_SUBJECT: '',
+      }).VAPID_PUBLIC_KEY,
+    ).toBeUndefined();
+    expect(() =>
+      validateEnv({ DATABASE_URL, JWT_SECRET, ...vapid, VAPID_PRIVATE_KEY: '' }),
+    ).toThrow(/set all three or none/);
+    expect(() =>
+      validateEnv({ DATABASE_URL, JWT_SECRET, ...vapid, VAPID_SUBJECT: 'ops@example.com' }),
+    ).toThrow(/VAPID_SUBJECT/);
+  });
+
   it('refuses to start without a valid DATABASE_URL', () => {
     expect(() => validateEnv({ JWT_SECRET })).toThrow(/DATABASE_URL/);
     expect(() => validateEnv({ DATABASE_URL: 'not a url', JWT_SECRET })).toThrow(/DATABASE_URL/);

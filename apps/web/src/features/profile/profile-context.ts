@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router';
 
 export type ProfileContext = { user: UserPublic };
 
-/** The profile a nested tab route (posts, followers, following) is showing. */
+/** The profile a nested tab route (posts, followers, following, badges) is showing. */
 export function useProfileContext(): ProfileContext {
   return useOutletContext<ProfileContext>();
 }

@@ -9,6 +9,7 @@ import {
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { type ApiError, type ErrorCode, errorCodeSchema } from '@beso/shared';
+import { ZodSerializationException, ZodValidationException } from 'nestjs-zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { isRecord } from './type-guards.js';
 
@@ -73,7 +74,7 @@ const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
 const GENERIC_SERVER_ERROR = 'Internal server error';
 const SERVICE_UNAVAILABLE = 503;
 
-type ZodIssueLike = { path: PropertyKey[]; message: string };
+type ZodIssueLike = { path: PropertyKey[]; message: string; code?: unknown };
 
 function isZodIssue(value: unknown): value is ZodIssueLike {
   return isRecord(value) && Array.isArray(value.path) && typeof value.message === 'string';
@@ -83,13 +84,21 @@ function hasIssues(value: unknown): value is { issues: ZodIssueLike[] } {
   return isRecord(value) && Array.isArray(value.issues) && value.issues.every(isZodIssue);
 }
 
-/** nestjs-zod's ZodValidationException exposes the ZodError through getZodError(). */
-function isZodValidationException(value: unknown): value is { getZodError: () => unknown } {
-  return (
-    value instanceof HttpException &&
-    'getZodError' in value &&
-    typeof value.getZodError === 'function'
-  );
+/**
+ * Where a response failed its `@ZodResponse` schema: paths and codes only, never the values
+ * (they are someone's data). Undefined for any other exception.
+ */
+export function serializationIssues(
+  exception: unknown,
+): { path: string; code: string; message: string }[] | undefined {
+  if (!(exception instanceof ZodSerializationException)) return undefined;
+  const zodError: unknown = exception.getZodError();
+  if (!hasIssues(zodError)) return [];
+  return zodError.issues.map((issue) => ({
+    path: issue.path.map(String).join('.'),
+    code: typeof issue.code === 'string' ? issue.code : 'unknown',
+    message: issue.message,
+  }));
 }
 
 /** body-parser / multer errors from the `http-errors` package: a status and `expose: true`. */
@@ -185,7 +194,9 @@ function fromPrismaError(
 
 /** Pure mapping from anything thrown to the shared ApiError envelope. */
 export function toApiError(exception: unknown, requestId?: string): ApiError {
-  if (isZodValidationException(exception)) {
+  // Only the request side: a response that fails its schema (ZodSerializationException) is our
+  // bug, a masked 500 below.
+  if (exception instanceof ZodValidationException) {
     const zodError: unknown = exception.getZodError();
     return {
       statusCode: 400,

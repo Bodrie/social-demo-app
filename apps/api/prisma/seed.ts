@@ -4,6 +4,7 @@
  *
  * Fixed accounts (password for all: Password123!):
  *   alice@example.com (alice), bob@example.com (bob), carol@example.com (carol)
+ * alice's invite link is /join/welcome-from-alice (carol joined through it).
  */
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
@@ -23,7 +24,10 @@ const FAKER_SEED = 20261015;
 const FAKE_USER_COUNT = 20;
 export const SEED_PASSWORD = 'Password123!';
 
-export const FIXED_USERS = [
+export /** alice's invite code: `/join/welcome-from-alice` (F1). */
+const SEED_INVITE_CODE = 'welcome-from-alice';
+
+const FIXED_USERS = [
   { email: 'alice@example.com', username: 'alice', name: 'Alice Anderson', city: 'Sofia' },
   { email: 'bob@example.com', username: 'bob', name: 'Bob Brown', city: 'Plovdiv' },
   { email: 'carol@example.com', username: 'carol', name: 'Carol Clark', city: 'Varna' },
@@ -145,17 +149,28 @@ async function seed(): Promise<void> {
   const users = await prisma.user.createManyAndReturn({
     data: [...FIXED_USERS.map((u) => ({ ...u, bio: null, website: null })), ...fakeUsers].map(
       // Demo accounts are born verified; real members confirm their address through the mailed link.
-      // alice runs the demo: she reads the reports queue (ADR 0016).
+      // alice runs the demo: she reads the reports queue (ADR 0016). Their badges are not counted
+      // yet (F2): the first count awards what the seeded data reached, silently, like the
+      // accounts that existed before achievements.
       (u) => ({
         ...u,
         passwordHash,
         emailVerifiedAt: new Date(),
+        achievementsCheckedAt: null,
         role: u.username === 'alice' ? ('admin' as const) : ('member' as const),
       }),
     ),
     select: { id: true, username: true, name: true },
   });
   const userIds = users.map((u) => u.id);
+
+  // --- invites (F1): alice's link has a fixed code (e2e and the a11y check open /join/<code>),
+  // and carol joined through it.
+  const [inviter, , invitee] = users;
+  if (inviter && invitee) {
+    await prisma.user.update({ where: { id: inviter.id }, data: { inviteCode: SEED_INVITE_CODE } });
+    await prisma.user.update({ where: { id: invitee.id }, data: { invitedById: inviter.id } });
+  }
 
   for (const user of users) {
     await prisma.user.update({
@@ -392,6 +407,10 @@ async function seed(): Promise<void> {
             ]
           : [];
       }),
+      // carol came through alice's invite (F1).
+      ...(inviter && invitee
+        ? [{ userId: inviter.id, type: NotificationType.INVITE_JOINED, actorId: invitee.id }]
+        : []),
     ],
     skipDuplicates: true,
   });

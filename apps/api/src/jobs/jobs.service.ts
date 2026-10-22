@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AccountService, UNVERIFIED_ACCOUNT_POLICY } from '../account/account.service.js';
+import { AchievementsService } from '../achievements/achievements.service.js';
 import { EmailTokensService } from '../auth/email-tokens.service.js';
 import { RefreshTokensService } from '../auth/refresh-tokens.service.js';
 import {
   NOTIFICATION_RETENTION_DAYS,
   NotificationsService,
 } from '../notifications/notifications.service.js';
+import { PushService } from '../push/push.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -36,11 +38,15 @@ export class JobsService {
     account: AccountService,
     uploads: UploadsService,
     notifications: NotificationsService,
+    push: PushService,
+    achievements: AchievementsService,
   ) {
     const { warnAfterDays, deleteAfterDays } = UNVERIFIED_ACCOUNT_POLICY;
     this.jobs = [
       { name: 'expired email tokens', run: (now) => emailTokens.deleteExpired(now) },
       { name: 'expired refresh tokens', run: (now) => refreshTokens.deleteExpired(now) },
+      // After the tokens: a sign-in whose last token expired takes its push devices along.
+      { name: 'push devices of ended sign-ins', run: (now) => push.pruneEnded(now) },
       {
         name: 'unverified accounts',
         run: (now) => account.eraseUnverified(before(now, deleteAfterDays * DAY_MS)),
@@ -59,6 +65,8 @@ export class JobsService {
         run: (now) =>
           notifications.deleteOlderThan(before(now, NOTIFICATION_RETENTION_DAYS * DAY_MS)),
       },
+      // Tenure, and whatever a failed listener missed (ADR 0021).
+      { name: 'achievements', run: (now) => achievements.sweep(now) },
     ];
   }
 

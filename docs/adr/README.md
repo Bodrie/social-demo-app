@@ -10,7 +10,7 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0003](0003-auth-jwt-refresh-cookies.md) | Access JWT + rotating refresh token in httpOnly cookies | Accepted (amended by 0011) |
 | [0004](0004-frontend-vite-react-tailwind.md) | Vite + React 19 + Tailwind/shadcn frontend | Accepted |
 | [0005](0005-testing-vitest-playwright.md) | Vitest everywhere, Playwright for end-to-end | Accepted |
-| [0006](0006-hosting-cloudflare-tunnel-pull-deploy.md) | Self-hosted box behind Cloudflare Tunnel, pull-based releases | Accepted (amended by 0011) |
+| [0006](0006-hosting-cloudflare-tunnel-pull-deploy.md) | Self-hosted box behind Cloudflare Tunnel, pull-based releases | Accepted (amended by 0011; release mechanics superseded by 0018) |
 | [0007](0007-typescript-6-then-7.md) | TypeScript 6 now, 7 when tooling allows | Accepted |
 | [0008](0008-linting-oxlint-prettier.md) | oxlint (type-aware) + Prettier | Accepted |
 | [0009](0009-conversations-and-read-marks.md) | Conversations as records, read state per member | Accepted |
@@ -22,5 +22,9 @@ Short records of decisions that shape the rebuild. The full reasoning and the al
 | [0015](0015-notifications.md) | Notifications: rows written from domain events, one per (recipient, type, actor, subject), read marks, pushed over the chat socket | Accepted |
 | [0016](0016-moderation.md) | Moderation: blocks that cut both ways (one `VisibilityService` for every list), mutes for oneself, reports by target id; admins from `ADMIN_EMAILS`, the role in the token, a reports queue with suspension and an audit trail | Accepted |
 | [0017](0017-feed-items.md) | Feed items: plain reposts as pointers, quotes as posts, the feed a union with one row per post at its newest occurrence | Accepted |
+| [0018](0018-migrations-image-and-updater.md) | Migrations in a one-shot `beso-migrate` image (the API image loses the Prisma CLI); `update.sh` pulls only our images, all or nothing, and applies only what changed, migrating on its own first | Accepted |
+| [0019](0019-response-contracts.md) | Every JSON response parsed with its shared schema (`@ZodResponse` + the global serializer; a mismatch is a logged 500); OpenAPI 3.1 with response schemas | Accepted |
+| [0021](0021-achievements.md) | Achievements: definitions in shared as an entry of their own, evaluation by counting (never tallies), earned is earned, a silent backfill for existing members, actor-less `ACHIEVEMENT_EARNED` notifications (not pushed), a profile tab and a Getting started card; amended for Recognition, Community, Hidden and the member's time zone (local time with `Intl`, set from the device) | Accepted (amended 2026-10-22) |
+| [0022](0022-web-push.md) | Web push tied to the sign-in it was made under (`sid` in the access token, devices dropped when sessions end), only known push services, the tab first and the service worker otherwise, detached sending; installable app (manifest, icons, install offer) | Accepted |
 
 Template: Context → Decision → Consequences. Supersede rather than edit once a decision has shipped.

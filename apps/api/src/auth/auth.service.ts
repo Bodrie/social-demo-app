@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { JwtService } from '@nestjs/jwt';
 import type {
   ChangeEmailData,
   ChangePasswordData,
@@ -24,10 +23,12 @@ import {
 } from '../common/errors.js';
 import type { Env } from '../config/env.js';
 import { EmailService } from '../email/email.service.js';
-import { UserRegisteredEvent } from '../events/user.events.js';
+import { UserRegisteredEvent, UserVerifiedEvent } from '../events/user.events.js';
+import { InvitesService } from '../invites/invites.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessTokensService } from '../tokens/access-tokens.service.js';
 import { UsersService } from '../users/users.service.js';
-import type { AccessTokenClaims, IssuedTokens, RequestMeta } from './auth.types.js';
+import type { IssuedTokens, RequestMeta } from './auth.types.js';
 import type { CookieSettings } from './cookies.js';
 import { EmailTokensService, INVALID_LINK } from './email-tokens.service.js';
 import { dummyPasswordHash, hashPassword, verifyPassword } from './password.js';
@@ -47,12 +48,13 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
-    private readonly jwt: JwtService,
+    private readonly accessTokens: AccessTokensService,
     private readonly refreshTokens: RefreshTokensService,
     private readonly emailTokens: EmailTokensService,
     private readonly email: EmailService,
     private readonly events: EventEmitter2,
     @Inject(CAPTCHA) private readonly captcha: CaptchaVerifier,
+    private readonly invites: InvitesService,
     config: ConfigService<Env, true>,
   ) {
     this.cookieSettings = {
@@ -70,8 +72,15 @@ export class AuthService {
     await this.assertHuman(input.captchaToken, meta.ip);
     await this.users.assertAvailable({ email: input.email, username: input.username });
     const passwordHash = await hashPassword(input.password);
+    const invitedById = await this.invites.inviterOf(input.inviteCode);
     const created = await this.prisma.user.create({
-      data: { email: input.email, username: input.username, name: input.name, passwordHash },
+      data: {
+        email: input.email,
+        username: input.username,
+        name: input.name,
+        passwordHash,
+        invitedById,
+      },
       select: { id: true, email: true, name: true },
     });
     await this.events.emitAsync(UserRegisteredEvent.EVENT, new UserRegisteredEvent(created.id));
@@ -121,7 +130,7 @@ export class AuthService {
     return {
       user,
       tokens: {
-        accessToken: await this.signAccessToken(user),
+        accessToken: await this.signAccessToken(user, rotated.signInId),
         refreshToken: rotated.raw,
         refreshExpiresAt: rotated.expiresAt,
       },
@@ -180,11 +189,13 @@ export class AuthService {
     // An address confirmed some other way (a password reset) leaves its old link spent but
     // with nothing to do; such a link must not become a way in (review L1).
     if (confirmed.count === 0) return null;
-    if (!rawRefreshToken || !(await this.refreshTokens.isLiveFor(rawRefreshToken, userId))) {
-      return null;
-    }
+    await this.opened(userId);
+    const signInId = rawRefreshToken
+      ? await this.refreshTokens.liveSignIn(rawRefreshToken, userId)
+      : null;
+    if (!signInId) return null;
     const user = await this.users.getPrivateById(userId);
-    return { user, accessToken: await this.signAccessToken(user) };
+    return { user, accessToken: await this.signAccessToken(user, signInId) };
   }
 
   /** A fresh link for a signed-in member who is still waiting; a no-op once verified. */
@@ -234,13 +245,14 @@ export class AuthService {
   ): Promise<AuthResult> {
     const userId = await this.emailTokens.consume(rawToken, 'password_reset');
     const passwordHash = await hashPassword(newPassword);
-    await this.prisma.$transaction([
+    const [, confirmed] = await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
       this.prisma.user.updateMany({
         where: { id: userId, emailVerifiedAt: null },
         data: { emailVerifiedAt: new Date() },
       }),
     ]);
+    if (confirmed.count === 1) await this.opened(userId);
     await this.emailTokens.voidAll(userId, 'password_reset');
     await this.emailTokens.voidAll(userId, 'verify_email');
     await this.refreshTokens.revokeAll(userId);
@@ -335,7 +347,7 @@ export class AuthService {
     const userId = await this.emailTokens.consume(rawToken, 'change_email');
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { email: true, name: true, pendingEmail: true },
+      select: { email: true, name: true, pendingEmail: true, emailVerifiedAt: true },
     });
     if (!user.pendingEmail) throw badRequest(INVALID_LINK, { token: INVALID_LINK });
     const newEmail = user.pendingEmail;
@@ -350,6 +362,7 @@ export class AuthService {
       data: { email: newEmail, pendingEmail: null, emailVerifiedAt: new Date() },
     });
     await this.emailTokens.voidAll(userId, 'change_email');
+    if (user.emailVerifiedAt === null) await this.opened(userId);
     void this.email
       .sendEmailChanged({ email: user.email, name: user.name }, newEmail)
       .catch((error: unknown) =>
@@ -413,14 +426,17 @@ export class AuthService {
 
   private async session(userId: string, meta: RequestMeta): Promise<AuthResult> {
     const user = await this.users.getPrivateById(userId);
-    const [accessToken, refresh] = await Promise.all([
-      this.signAccessToken(user),
-      this.refreshTokens.issue(userId, meta),
-    ]);
+    const refresh = await this.refreshTokens.issue(userId, meta);
+    const accessToken = await this.signAccessToken(user, refresh.signInId);
     return {
       user,
       tokens: { accessToken, refreshToken: refresh.raw, refreshExpiresAt: refresh.expiresAt },
     };
+  }
+
+  /** The first confirmed address opens the account: an invite's follow happens now (F1). */
+  private async opened(userId: string): Promise<void> {
+    await this.events.emitAsync(UserVerifiedEvent.EVENT, new UserVerifiedEvent(userId));
   }
 
   /** Not awaited: the change is done whether or not the notice can be delivered. */
@@ -433,15 +449,16 @@ export class AuthService {
       );
   }
 
-  /** `ev` and `role` travel in the token so the guards need no lookup. */
+  /** `ev` and `role` travel in the token so the guards need no lookup; `sid` names the sign-in. */
   private signAccessToken(
     user: Pick<UserPrivate, 'id' | 'emailVerifiedAt' | 'role'>,
+    signInId: string,
   ): Promise<string> {
-    const claims: AccessTokenClaims = {
+    return this.accessTokens.sign({
       sub: user.id,
       ev: user.emailVerifiedAt !== null,
       role: user.role,
-    };
-    return this.jwt.signAsync(claims);
+      sid: signInId,
+    });
   }
 }

@@ -20,8 +20,12 @@ export class FollowsService {
     private readonly visibility: VisibilityService,
   ) {}
 
-  /** Idempotent; only a new follow emits an event. */
-  async follow(viewerId: string, targetId: string): Promise<void> {
+  /** Idempotent; only a new follow emits an event. `viaInvite`: the follow an invite makes (F1). */
+  async follow(
+    viewerId: string,
+    targetId: string,
+    options: { viaInvite?: boolean } = {},
+  ): Promise<void> {
     if (viewerId === targetId) throw badRequest('You cannot follow yourself');
     await this.users.assertExists(targetId);
     await this.visibility.assertNotBlocked(viewerId, targetId);
@@ -32,7 +36,7 @@ export class FollowsService {
     if (result.count === 1) {
       await this.events.emitAsync(
         UserFollowedEvent.EVENT,
-        new UserFollowedEvent(viewerId, targetId),
+        new UserFollowedEvent(viewerId, targetId, options.viaInvite ?? false),
       );
     }
   }

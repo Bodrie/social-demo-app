@@ -1,8 +1,7 @@
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useCurrentUser } from '@/features/auth/current-user';
+import { Preference } from './preference';
 import { useUpdateSettings } from './use-settings';
 
 const notificationsSupported = (): boolean => typeof Notification !== 'undefined';
@@ -61,34 +60,6 @@ export function ChatSettings() {
         disabled={!notificationsSupported() || asking}
         onCheckedChange={(checked) => void toggleNotifications(checked)}
       />
-    </div>
-  );
-}
-
-type PreferenceProps = {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  disabled?: boolean;
-  onCheckedChange: (checked: boolean) => void;
-};
-
-function Preference({
-  id,
-  label,
-  description,
-  checked,
-  disabled,
-  onCheckedChange,
-}: PreferenceProps) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-1">
-        <Label htmlFor={id}>{label}</Label>
-        <p className="text-muted-foreground text-sm">{description}</p>
-      </div>
-      <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
     </div>
   );
 }

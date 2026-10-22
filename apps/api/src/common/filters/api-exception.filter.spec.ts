@@ -4,11 +4,11 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ZodValidationException } from 'nestjs-zod';
+import { ZodSerializationException, ZodValidationException } from 'nestjs-zod';
 import { z } from 'zod';
 import { Prisma } from '../../generated/prisma/client.js';
-import { fieldsFromIssues, toApiError } from '../errors.js';
-import { HttpExceptionFilter } from './http-exception.filter.js';
+import { fieldsFromIssues, serializationIssues, toApiError } from '../errors.js';
+import { ApiExceptionFilter } from './api-exception.filter.js';
 
 function zodFailure(): ZodValidationException {
   const result = z
@@ -18,12 +18,31 @@ function zodFailure(): ZodValidationException {
   return new ZodValidationException(result.error);
 }
 
+/** What the serializer throws when a handler's answer does not match its @ZodResponse schema. */
+function responseMismatch(): ZodSerializationException {
+  const result = z
+    .object({ user: z.object({ email: z.email() }) })
+    .safeParse({ user: { email: 'alice-at-example' } });
+  if (result.success) throw new Error('expected a failure');
+  return new ZodSerializationException(result.error);
+}
+
 describe('toApiError', () => {
   it('maps zod validation failures to VALIDATION_ERROR with one message per field', () => {
     const error = toApiError(zodFailure(), 'req-1');
 
     expect(error).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR', requestId: 'req-1' });
     expect(Object.keys(error.fields ?? {})).toEqual(['email', 'age']);
+  });
+
+  it('masks a response that failed its schema as a 500, never as a client error', () => {
+    expect(toApiError(responseMismatch(), 'req-2')).toEqual({
+      statusCode: 500,
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error',
+      fields: undefined,
+      requestId: 'req-2',
+    });
   });
 
   it('maps HttpExceptions by status and keeps their message', () => {
@@ -118,7 +137,18 @@ describe('fieldsFromIssues', () => {
   });
 });
 
-describe('HttpExceptionFilter', () => {
+describe('serializationIssues', () => {
+  it('lists the failing paths of a response without their values', () => {
+    const issues = serializationIssues(responseMismatch());
+    expect(issues).toEqual([
+      { path: 'user.email', code: 'invalid_format', message: expect.any(String) },
+    ]);
+    expect(JSON.stringify(issues)).not.toContain('alice-at-example');
+    expect(serializationIssues(zodFailure())).toBeUndefined();
+  });
+});
+
+describe('ApiExceptionFilter', () => {
   function hostWith(requestId?: string) {
     const json = vi.fn();
     const status = vi.fn(() => ({ json }));
@@ -139,7 +169,7 @@ describe('HttpExceptionFilter', () => {
       switchToWs: () => ({ getClient: () => ({ emit }) }),
     } as unknown as ArgumentsHost;
 
-    new HttpExceptionFilter().catch(new NotFoundException('gone'), host);
+    new ApiExceptionFilter().catch(new NotFoundException('gone'), host);
 
     expect(emit).toHaveBeenCalledWith(
       'exception',
@@ -150,7 +180,7 @@ describe('HttpExceptionFilter', () => {
   it('writes the envelope with the request id', () => {
     const { host, status, json } = hostWith('abc');
 
-    new HttpExceptionFilter().catch(new NotFoundException('gone'), host);
+    new ApiExceptionFilter().catch(new NotFoundException('gone'), host);
 
     expect(status).toHaveBeenCalledWith(404);
     expect(json).toHaveBeenCalledWith(
@@ -167,7 +197,7 @@ describe('HttpExceptionFilter', () => {
       details: {},
     };
 
-    new HttpExceptionFilter().catch(new ServiceUnavailableException(healthResult), host);
+    new ApiExceptionFilter().catch(new ServiceUnavailableException(healthResult), host);
 
     expect(status).toHaveBeenCalledWith(503);
     expect(json).toHaveBeenCalledWith(healthResult);

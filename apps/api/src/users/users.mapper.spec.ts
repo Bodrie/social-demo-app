@@ -52,12 +52,30 @@ describe('toUserSettings', () => {
       chatBubbles: false,
       messageSound: false,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
+      timeZone: null,
     });
     expect(toUserSettings(null)).toEqual({
       chatBubbles: true,
       messageSound: false,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
+      timeZone: null,
     });
     expect(toUserSettings('garbage').chatBubbles).toBe(true);
+    // A zone Intl no longer knows reads as none and spoils nothing else.
+    expect(toUserSettings({ timeZone: 'Atlantis/Capital', chatBubbles: false })).toMatchObject({
+      timeZone: null,
+      chatBubbles: false,
+    });
+    expect(toUserSettings({ timeZone: 'Europe/Sofia' }).timeZone).toBe('Europe/Sofia');
   });
 });

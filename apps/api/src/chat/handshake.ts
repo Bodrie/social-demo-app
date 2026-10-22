@@ -1,8 +1,7 @@
-import type { JwtService } from '@nestjs/jwt';
 import type { Socket } from 'socket.io';
-import { verifyAccessToken } from '../auth/auth.guard.js';
 import { ACCESS_COOKIE } from '../auth/cookies.js';
 import { isRecord } from '../common/type-guards.js';
+import type { AccessTokensService } from '../tokens/access-tokens.service.js';
 
 /** Minimal cookie header parser (values are URL-decoded like express does). */
 export function parseCookies(header: string | undefined): Record<string, string> {
@@ -36,11 +35,11 @@ export type SocketSession = { userId: string; expiresAt: Date | null };
 /** Resolves the session for a connecting socket, or undefined when it must be refused. */
 export async function authenticateSocket(
   socket: Socket,
-  jwt: JwtService,
+  tokens: AccessTokensService,
 ): Promise<SocketSession | undefined> {
   const token = handshakeToken(socket);
   if (!token) return undefined;
-  const payload = await verifyAccessToken(jwt, token);
+  const payload = await tokens.verify(token);
   // Unverified accounts have no business on the socket either (the app is closed to them).
   if (!payload || payload.ev === false) return undefined;
   return {

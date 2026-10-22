@@ -1,19 +1,20 @@
-import type {
-  Activity,
-  Comment,
-  ConversationKind,
-  ConversationRole,
-  Message,
-  Notification,
-  Post,
-  ReactionSummary,
-  Report,
-  Session,
-  ReactionType,
-  Revision,
-  UserPrivate,
-  UserPublic,
+import {
+  type Activity,
+  type Comment,
+  type ConversationKind,
+  type ConversationRole,
+  type Message,
+  type Notification,
+  type Post,
+  type ReactionSummary,
+  type Report,
+  type Session,
+  type ReactionType,
+  type Revision,
+  type UserPrivate,
+  type UserPublic,
 } from '@beso/shared';
+import { type EarnedAchievement } from '@beso/shared/achievements';
 import { alice, bob, carol, makePost, resetFixtureSequence, testId } from '../fixtures';
 
 type Follow = { followerId: string; followingId: string };
@@ -69,6 +70,16 @@ export const mockDb = {
   sessions: [] as Session[],
   /** The body of the last registration, for asserting what the form sent (e.g. the bot-check token). */
   lastRegistration: null as Record<string, unknown> | null,
+  /** Invite codes (F1): code → the member it belongs to. alice's is the seed's. */
+  inviteCodes: new Map<string, string>(),
+  /** `GET /push/config`: null is a server with push switched off (the default). */
+  pushPublicKey: null as string | null,
+  /** Endpoints of the push subscriptions the fake API holds (ADR 0022). */
+  pushEndpoints: [] as string[],
+  /** Earned badges (F2), whoever holds them. */
+  achievements: [] as (EarnedAchievement & { userId: string })[],
+  /** The signed-in member's series counts, as `GET /users/me/achievements` answers them. */
+  achievementProgress: {} as Record<string, number>,
   calls: {
     me: 0,
     refresh: 0,
@@ -79,6 +90,7 @@ export const mockDb = {
     exports: 0,
     deletions: 0,
     notificationsRead: 0,
+    achievementLists: 0,
   },
 };
 
@@ -110,6 +122,11 @@ export function resetMockDb(): void {
   mockDb.emailTokens = [];
   mockDb.sessions = [];
   mockDb.lastRegistration = null;
+  mockDb.inviteCodes = new Map([['welcome-from-alice', alice.id]]);
+  mockDb.pushPublicKey = null;
+  mockDb.pushEndpoints = [];
+  mockDb.achievements = [];
+  mockDb.achievementProgress = {};
   mockDb.calls = {
     me: 0,
     refresh: 0,
@@ -120,6 +137,7 @@ export function resetMockDb(): void {
     exports: 0,
     deletions: 0,
     notificationsRead: 0,
+    achievementLists: 0,
   };
   resetFixtureSequence();
 }

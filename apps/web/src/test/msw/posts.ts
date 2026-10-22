@@ -44,10 +44,25 @@ const storedUrl = (key: string) => `http://localhost/api/v1/uploads/${key}`;
 const param = (value: string | readonly string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? '';
 
+/** Explore's Popular order, as the API ranks it (F1). */
+const popularity = (post: (typeof mockDb.posts)[number]) =>
+  post.likeCount + 2 * post.commentCount + post.repostCount;
+
 export const postHandlers = [
   http.get(`${API}/posts`, ({ request }) => {
     if (!mockDb.user) return unauthorized();
     return HttpResponse.json(paginate(mockDb.posts, new URL(request.url)));
+  }),
+
+  /** Everyone's posts (F1): the mock's posts, newest first or by likes + 2 × comments + reposts. */
+  http.get(`${API}/explore/posts`, ({ request }) => {
+    if (!mockDb.user) return unauthorized();
+    const url = new URL(request.url);
+    const posts =
+      url.searchParams.get('sort') === 'popular'
+        ? mockDb.posts.toSorted((a, b) => popularity(b) - popularity(a))
+        : mockDb.posts;
+    return HttpResponse.json(paginate(posts, url));
   }),
 
   http.get(`${API}/posts/:id`, ({ params }) => {

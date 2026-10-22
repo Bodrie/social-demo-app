@@ -151,7 +151,7 @@ describe('daily jobs', () => {
     await jobs.runDaily(now);
 
     const left = await t.prisma.notification.findMany({
-      where: { userId: { in: [member.id, fan.id] } },
+      where: { userId: { in: [member.id, fan.id] }, type: 'USER_FOLLOWED' },
     });
     expect(left.map((row) => row.userId)).toEqual([fan.id]);
   });
@@ -208,5 +208,39 @@ describe('daily jobs', () => {
     expect(await t.prisma.conversation.findUnique({ where: { id: thread.body.id } })).toBeNull();
     expect((await readOutbox()).filter((entry) => entry.to === stale.email)).toEqual([]);
     expect(await t.prisma.user.findUnique({ where: { id: other.id } })).not.toBeNull();
+  });
+
+  it('awards tenure and what listeners missed; a pre-badge account silently, suspended ones not', async () => {
+    const veteran = await createUser(t.prisma);
+    await registered(veteran, 40);
+    const old = await createUser(t.prisma);
+    await registered(old, 200);
+    await t.prisma.post.create({ data: { authorId: old.id, content: 'From long ago' } });
+    await t.prisma.user.update({ where: { id: old.id }, data: { achievementsCheckedAt: null } });
+    const suspended = await createUser(t.prisma);
+    await registered(suspended, 40);
+    await t.prisma.user.update({
+      where: { id: suspended.id },
+      data: { suspendedAt: new Date() },
+    });
+
+    await jobs.runDaily(now);
+
+    const keysOf = async (userId: string) =>
+      (await t.prisma.userAchievement.findMany({ where: { userId } })).map((row) => row.key);
+    const badgeNotes = (userId: string) =>
+      t.prisma.notification.findMany({ where: { userId, type: 'ACHIEVEMENT_EARNED' } });
+    expect(await keysOf(veteran.id)).toContain('member-1m');
+    expect((await badgeNotes(veteran.id)).map((row) => row.achievementKey)).toContain('member-1m');
+    expect(await keysOf(old.id)).toEqual(expect.arrayContaining(['member-6m', 'first-post']));
+    expect(await badgeNotes(old.id)).toEqual([]);
+    expect(await keysOf(suspended.id)).toEqual([]);
+
+    // A second run finds nothing new.
+    const before = await t.prisma.notification.count({ where: { type: 'ACHIEVEMENT_EARNED' } });
+    await jobs.runDaily(now);
+    expect(await t.prisma.notification.count({ where: { type: 'ACHIEVEMENT_EARNED' } })).toBe(
+      before,
+    );
   });
 });

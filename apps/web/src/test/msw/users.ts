@@ -35,6 +35,7 @@ export const userHandlers = [
     const data: AccountExport = {
       exportedAt: new Date().toISOString(),
       user: me,
+      achievements: [],
       posts: mockDb.posts
         .filter((post) => post.author.id === me.id)
         .map((post) => ({
@@ -53,6 +54,7 @@ export const userHandlers = [
       reactions: [],
       following: [],
       followers: [],
+      invite: { code: null, invitedBy: null },
       messages: [],
       uploads: [],
       messageReactions: [],

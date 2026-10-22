@@ -4,12 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { unauthorized } from '../common/errors.js';
 import type { Env } from '../config/env.js';
-import { SessionsRevokedEvent } from '../events/auth.events.js';
+import { SessionsEndedEvent, SessionsRevokedEvent } from '../events/auth.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { RequestMeta } from './auth.types.js';
 
-export type IssuedRefreshToken = { raw: string; expiresAt: Date };
+/** `signInId`: the sign-in the token descends from, the access token's `sid` (ADR 0022). */
+export type IssuedRefreshToken = { raw: string; expiresAt: Date; signInId: string };
 
 export type SessionRow = {
   id: string;
@@ -55,7 +56,14 @@ export class RefreshTokensService {
   async rotate(raw: string, meta: RequestMeta): Promise<IssuedRefreshToken & { userId: string }> {
     const existing = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: this.hash(raw) },
-      select: { id: true, userId: true, expiresAt: true, revokedAt: true, createdAt: true },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+        revokedAt: true,
+        createdAt: true,
+        signInId: true,
+      },
     });
     if (!existing) throw unauthorized('Invalid refresh token');
 
@@ -71,8 +79,8 @@ export class RefreshTokensService {
         data: { revokedAt: new Date() },
       });
       if (claimed.count !== 1) return null;
-      // The new row is the same session: it keeps when it started and notes this use.
-      return this.issueWith(tx, existing.userId, meta, existing.createdAt);
+      // The new row is the same session: it keeps when it started, its sign-in, and notes this use.
+      return this.issueWith(tx, existing.userId, meta, existing.createdAt, existing.signInId);
     });
     if (!issued) {
       await this.revokeAll(existing.userId);
@@ -82,18 +90,26 @@ export class RefreshTokensService {
     return { userId: existing.userId, ...issued };
   }
 
-  /** Whether `raw` is a live (unrotated, unexpired) refresh token of `userId`. */
-  async isLiveFor(raw: string, userId: string): Promise<boolean> {
+  /** The sign-in of `raw` when it is a live (unrotated, unexpired) refresh token of `userId`. */
+  async liveSignIn(raw: string, userId: string): Promise<string | null> {
     const row = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: this.hash(raw) },
-      select: { userId: true, expiresAt: true, revokedAt: true },
+      select: { userId: true, expiresAt: true, revokedAt: true, signInId: true },
     });
-    return row?.userId === userId && row.revokedAt === null && row.expiresAt > new Date();
+    return row?.userId === userId && row.revokedAt === null && row.expiresAt > new Date()
+      ? row.signInId
+      : null;
   }
 
   /** Logout: the token simply ceases to exist. */
   async revoke(raw: string): Promise<void> {
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: this.hash(raw) },
+      select: { userId: true },
+    });
+    if (!row) return;
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash: this.hash(raw) } });
+    await this.ended(row.userId);
   }
 
   /**
@@ -108,12 +124,14 @@ export class RefreshTokensService {
         ...(keepRaw === undefined ? {} : { tokenHash: { not: this.hash(keepRaw) } }),
       },
     });
+    await this.ended(userId);
   }
 
   /** Sign out everywhere, password reset and the theft response: every session ends, sockets too. */
   async revokeAll(userId: string): Promise<void> {
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.events.emitAsync(SessionsRevokedEvent.EVENT, new SessionsRevokedEvent(userId));
+    await this.ended(userId);
   }
 
   /**
@@ -159,7 +177,13 @@ export class RefreshTokensService {
   /** Ends one session of the member; its access token runs out within its lifetime. */
   async revokeOne(userId: string, id: string): Promise<boolean> {
     const result = await this.prisma.refreshToken.deleteMany({ where: { id, userId } });
-    return result.count === 1;
+    if (result.count !== 1) return false;
+    await this.ended(userId);
+    return true;
+  }
+
+  private async ended(userId: string): Promise<void> {
+    await this.events.emitAsync(SessionsEndedEvent.EVENT, new SessionsEndedEvent(userId));
   }
 
   private async issueWith(
@@ -167,11 +191,12 @@ export class RefreshTokensService {
     userId: string,
     meta: RequestMeta,
     startedAt = new Date(),
+    signInId?: string,
   ): Promise<IssuedRefreshToken> {
     const raw = randomBytes(32).toString('base64url');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + this.ttlMs);
-    await writer.refreshToken.create({
+    const created = await writer.refreshToken.create({
       data: {
         userId,
         tokenHash: this.hash(raw),
@@ -180,9 +205,12 @@ export class RefreshTokensService {
         ip: meta.ip,
         createdAt: startedAt,
         lastUsedAt: now,
+        // A new sign-in gets a new id (the column's default); a rotation passes its own on.
+        ...(signInId === undefined ? {} : { signInId }),
       },
+      select: { signInId: true },
     });
     await writer.refreshToken.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
-    return { raw, expiresAt };
+    return { raw, expiresAt, signInId: created.signInId };
   }
 }

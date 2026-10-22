@@ -24,6 +24,12 @@ describe('PATCH /users/me/settings', () => {
       chatBubbles: true,
       messageSound: false,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
+      timeZone: null,
     });
 
     const patched = authResponseSchema.parse(
@@ -34,6 +40,12 @@ describe('PATCH /users/me/settings', () => {
       chatBubbles: false,
       messageSound: false,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
+      timeZone: null,
     });
 
     const after = authResponseSchema.parse((await agent.get('/api/v1/auth/me').expect(200)).body);
@@ -46,6 +58,12 @@ describe('PATCH /users/me/settings', () => {
       chatBubbles: false,
       messageSound: true,
       browserNotifications: false,
+      pushMessages: true,
+      pushSocial: true,
+      pushPreviews: true,
+      showAchievements: true,
+      hideGettingStarted: false,
+      timeZone: null,
     });
   });
 

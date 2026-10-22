@@ -1,11 +1,20 @@
-/** Domain events emitted by the users/auth services. Listeners arrive with the activities slice. */
+/** Domain events about members (users, follows, mentions); names are `<entity>.<past tense>`. */
 export class UserRegisteredEvent {
   static readonly EVENT = 'user.registered';
   constructor(readonly userId: string) {}
 }
 
+/**
+ * The member's address was confirmed for the first time, so the account is open (by the mailed
+ * link, a password reset, or confirming a corrected address from the waiting room).
+ */
+export class UserVerifiedEvent {
+  static readonly EVENT = 'user.verified';
+  constructor(readonly userId: string) {}
+}
+
 export class ProfileUpdatedEvent {
-  static readonly EVENT = 'user.profileUpdated';
+  static readonly EVENT = 'profile.updated';
   constructor(
     readonly userId: string,
     readonly changedFields: string[],
@@ -17,6 +26,8 @@ export class UserFollowedEvent {
   constructor(
     readonly followerId: string,
     readonly followeeId: string,
+    /** The new member following whoever invited them (F1): told as INVITE_JOINED instead. */
+    readonly viaInvite = false,
   ) {}
 }
 
@@ -37,4 +48,10 @@ export class UserMentionedEvent {
     readonly postId: string,
     readonly commentId: string | null,
   ) {}
+}
+
+/** A device of the member switched web push on (ADR 0022). */
+export class PushSubscribedEvent {
+  static readonly EVENT = 'push.subscribed';
+  constructor(readonly userId: string) {}
 }

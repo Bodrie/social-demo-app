@@ -1,7 +1,8 @@
 import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
-import type { PostList } from '@beso/shared';
+import type { ExploreSort, PostList } from '@beso/shared';
 import {
   fetchBookmarks,
+  fetchExplore,
   fetchFeed,
   fetchPost,
   fetchSearchPosts,
@@ -16,6 +17,19 @@ export const feedQueryOptions = infiniteQueryOptions({
   initialPageParam: NO_CURSOR,
   getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 });
+
+/** Everyone's posts (F1): `latest` or the week's `popular`, a list of its own per order. */
+export const exploreQueryOptions = (sort: ExploreSort) =>
+  infiniteQueryOptions({
+    queryKey: queryKeys.posts.explore(sort),
+    queryFn: ({ pageParam, signal }) => fetchExplore(sort, { cursor: pageParam, signal }),
+    initialPageParam: NO_CURSOR,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+
+export function useExplore(sort: ExploreSort) {
+  return useInfiniteQuery(exploreQueryOptions(sort));
+}
 
 export const userPostsQueryOptions = (userId: string) =>
   infiniteQueryOptions({

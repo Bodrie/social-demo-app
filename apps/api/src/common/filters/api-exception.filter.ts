@@ -6,16 +6,18 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { isHealthCheckResult, toApiError } from '../errors.js';
+import { isHealthCheckResult, serializationIssues, toApiError } from '../errors.js';
 
 /**
- * Catch-all filter: every HTTP error becomes the shared ApiError envelope,
- * terminus health results pass through, and WebSocket handler errors are
- * emitted to the client as an `exception` event with the same envelope.
+ * Catch-all filter: every HTTP error becomes the shared ApiError envelope (Prisma and
+ * body-parser errors included), terminus health results pass through, a response that
+ * fails its `@ZodResponse` schema is a masked 500 logged with the failing paths, and
+ * WebSocket handler errors are emitted to the client as an `exception` event with the
+ * same envelope.
  */
 @Catch()
-export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() === 'ws') {
@@ -47,7 +49,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     const error = toApiError(exception, requestId);
-    if (error.statusCode >= 500) {
+    const issues = serializationIssues(exception);
+    if (issues) {
+      this.logger.error(
+        { requestId, method: request.method, url: request.originalUrl, issues },
+        'Response does not match its schema',
+      );
+    } else if (error.statusCode >= 500) {
       this.logger.error({ err: exception, requestId }, 'Request failed');
     }
     response.status(error.statusCode).json(error);

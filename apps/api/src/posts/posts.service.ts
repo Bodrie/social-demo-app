@@ -10,14 +10,26 @@ import {
   type UpdatePostData,
   type UserPostsQuery,
   extractEntities,
+  EXPLORE_POPULAR_DAYS,
+  type ExploreQuery,
 } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
 import { badRequest, forbidden, notFound } from '../common/errors.js';
 import { emitMentions } from '../common/mentions.js';
-import { decodeCursor, keysetAfter, paginate, paginateBy } from '../common/pagination.js';
+import {
+  decodeCursor,
+  decodeRankedCursor,
+  encodeRankedCursor,
+  keysetAfter,
+  paginate,
+  paginateBy,
+  paginateWith,
+} from '../common/pagination.js';
 import { revisionKey, revisionsAfter, toRevision } from '../common/revisions.js';
 import {
+  PostBookmarkedEvent,
   PostCreatedEvent,
+  PostEditedEvent,
   PostLikedEvent,
   PostQuotedEvent,
   PostRepostedEvent,
@@ -164,6 +176,7 @@ export class PostsService {
           data: entities.hashtags.map((tag) => ({ postId, tag, createdAt: post.createdAt })),
         }),
       ]);
+      await this.events.emitAsync(PostEditedEvent.EVENT, new PostEditedEvent(postId, viewerId));
       const before = new Set(post.mentions.map((mention) => mention.userId));
       await emitMentions(
         this.events,
@@ -305,6 +318,57 @@ export class PostsService {
   }
 
   /**
+   * Explore (F1): everyone's posts and quotes (no plain reposts), without those of people
+   * hidden from the viewer. `latest` newest first; `popular` the last
+   * `EXPLORE_POPULAR_DAYS` by likes + 2 × comments + reposts and quotes, then newest, paged
+   * with a ranked cursor (scores move while someone pages, as with comments' top sort).
+   */
+  async explore(viewerId: string, query: ExploreQuery): Promise<Paginated<Post>> {
+    const hidden = await this.visibility.hiddenAuthorIds(viewerId);
+    if (query.sort === 'latest') return this.list(viewerId, query, {}, hidden);
+
+    const cursor = decodeRankedCursor(query.cursor);
+    const since = new Date(Date.now() - EXPLORE_POPULAR_DAYS * 24 * 60 * 60 * 1000);
+    const after = cursor
+      ? Prisma.sql`WHERE score < ${cursor.score}
+          OR (score = ${cursor.score} AND (created_at < ${cursor.createdAt}
+            OR (created_at = ${cursor.createdAt} AND id < ${cursor.id}::uuid)))`
+      : Prisma.empty;
+    const ranked = await this.prisma.$queryRaw<{ id: string; created_at: Date; score: number }[]>`
+      SELECT id, created_at, score FROM (
+        SELECT p.id, p.created_at,
+          ((SELECT count(*) FROM post_likes AS l WHERE l.post_id = p.id)
+            + 2 * (SELECT count(*) FROM comments AS c WHERE c.post_id = p.id)
+            + p.repost_count)::int AS score
+        FROM posts AS p
+        WHERE p.created_at > ${since}
+          AND NOT (p.author_id = ANY(${hidden}::uuid[]))
+      ) AS scored
+      ${after}
+      ORDER BY score DESC, created_at DESC, id DESC
+      LIMIT ${query.limit + 1}`;
+    if (ranked.length === 0) return { items: [], nextCursor: null };
+    const rows = await this.prisma.post.findMany({
+      where: { id: { in: ranked.map((row) => row.id) } },
+      select: postSelect(viewerId),
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const hiddenSet = new Set(hidden);
+    // A post deleted between the two queries simply drops out of the page.
+    const ordered = ranked.flatMap((rank) => {
+      const row = byId.get(rank.id);
+      return row ? [{ rank, row }] : [];
+    });
+    return paginateWith(
+      ordered,
+      query.limit,
+      ({ rank }) =>
+        encodeRankedCursor({ score: rank.score, createdAt: rank.created_at, id: rank.id }),
+      ({ row }) => toPost(row, this.assets.base, null, hiddenSet),
+    );
+  }
+
+  /**
    * Full-text search over the content: `search_vector` is a generated column (ADR 0014),
    * matched with `websearch_to_tsquery` so quotes, `or` and `-word` work as people expect.
    * Newest first with the usual keyset; the ids come from raw SQL (Prisma has no `@@`), the
@@ -440,10 +504,16 @@ export class PostsService {
   /** A private save-for-later (C3a): idempotent, no count on the post, no event, nobody told. */
   async bookmark(viewerId: string, postId: string): Promise<void> {
     await this.assertExists(postId);
-    await this.prisma.bookmark.createMany({
+    const { count } = await this.prisma.bookmark.createMany({
       data: { userId: viewerId, postId },
       skipDuplicates: true,
     });
+    if (count === 1) {
+      await this.events.emitAsync(
+        PostBookmarkedEvent.EVENT,
+        new PostBookmarkedEvent(postId, viewerId),
+      );
+    }
   }
 
   async unbookmark(viewerId: string, postId: string): Promise<void> {

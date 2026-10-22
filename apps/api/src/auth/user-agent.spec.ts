@@ -41,4 +41,14 @@ describe('maskIp', () => {
     expect(maskIp(undefined)).toBeNull();
     expect(maskIp('garbage')).toBeNull();
   });
+
+  it('never shows more than the network half of a shortened IPv6 address', () => {
+    // Split naively, the first four parts of `2001:db8::1` are the whole address.
+    expect(maskIp('2001:db8::1')).toBe('2001:db8:0:0:…');
+    expect(maskIp('2001:db8:85a3::8a2e:370:7334')).toBe('2001:db8:85a3:0:…');
+    expect(maskIp('::1')).toBe('0:0:0:0:…');
+    expect(maskIp('fe80::1%eth0')).toBe('fe80:0:0:0:…');
+    expect(maskIp('64:ff9b::192.0.2.1')).toBe('64:ff9b:0:0:…');
+    expect(maskIp('2001:db8::1::2')).toBeNull();
+  });
 });

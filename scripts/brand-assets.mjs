@@ -2,8 +2,11 @@
  * The one source of the brand drawing. `pnpm brand` writes:
  *   - apps/web/src/components/logo-paths.ts: the mark and the wordmark as SVG paths (the
  *     wordmark is the reference logotype traced into outlines, see scripts/wordmark.json);
- *   - apps/web/public/favicon.ico (16/32/48), icon.svg (follows the tab's theme) and
- *     apple-touch-icon.png (180, white on the accent);
+ *   - apps/web/public/favicon.ico (16/32/48), icon.svg (follows the tab's theme),
+ *     apple-touch-icon.png (180, white on the accent), the installed app's icons for
+ *     manifest.webmanifest (icon-192.png, icon-512.png, icon-maskable-512.png with the mark inside
+ *     the safe circle) and badge-96.png (the white mark on nothing: Android's status bar icon
+ *     for a push notification);
  *   - apps/api/src/email/logo-png.ts: mark + wordmark as the PNG every mail embeds.
  * Rendering uses the API's `sharp`; the generated modules go through Prettier, so the tree
  * stays clean. `--preview <file.png>` also writes a sheet with the lockup on both themes.
@@ -134,6 +137,23 @@ await writeFile(
   ),
 );
 
+// The installed app (manifest.webmanifest): the touch icon's look at the sizes stores and
+// launchers ask for. A maskable icon may be cut to any shape down to the inner 80 % circle, so
+// its mark is drawn at 60 % around the centre, with a bolder line so it does not thin out.
+const appIcon = (scale, stroke = STROKE) =>
+  markSvg(
+    { line: '#ffffff', heart: '#9ddcff', stroke },
+    `<rect width="48" height="48" fill="${ACCENT}"/><g transform="translate(${(24 - 24 * scale).toFixed(2)} ${(24 - 24 * scale).toFixed(2)}) scale(${scale})">`,
+  ).replace('</svg>', '</g></svg>');
+await writeFile(path.join(webPublic, 'icon-192.png'), await png(appIcon(1), 192));
+await writeFile(path.join(webPublic, 'icon-512.png'), await png(appIcon(1), 512));
+await writeFile(path.join(webPublic, 'icon-maskable-512.png'), await png(appIcon(0.6, 4.5), 512));
+// Android draws a notification's badge from its alpha channel alone: a white mark, bolder.
+await writeFile(
+  path.join(webPublic, 'badge-96.png'),
+  await png(markSvg({ line: '#ffffff', heart: '#ffffff', stroke: 4.5 }), 96),
+);
+
 // The mail header: mark + wordmark, shown 28 px tall, rendered at 4× for sharp screens.
 const MAIL_HEIGHT = 28;
 const mailWidth = Math.round((lockupWidth / 48) * MAIL_HEIGHT);
@@ -183,5 +203,5 @@ if (preview) {
 }
 
 console.log(
-  `written: ${path.relative(root, webPaths)}, favicon.ico, icon.svg, apple-touch-icon.png, ${path.relative(root, emailModule)} (${mail.length} bytes, ${mailWidth}×${MAIL_HEIGHT})${preview ? `, ${preview}` : ''}`,
+  `written: ${path.relative(root, webPaths)}, favicon.ico, icon.svg, apple-touch-icon.png, icon-192.png, icon-512.png, icon-maskable-512.png, badge-96.png, ${path.relative(root, emailModule)} (${mail.length} bytes, ${mailWidth}×${MAIL_HEIGHT})${preview ? `, ${preview}` : ''}`,
 );

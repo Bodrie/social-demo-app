@@ -34,6 +34,13 @@ export function PrivacyPage() {
             there. Edits keep the previous versions so that members can see what changed.
           </li>
           <li>
+            <strong>Settings and what follows from your activity:</strong> your preferences (such as
+            notifications and chat options), the time zone your device reports (used for the badges
+            tied to the time of day; you can change it in Settings), the badges you earned, whose
+            invite you joined with, and, for each device where you switch on push notifications, the
+            address its push service gave it.
+          </li>
+          <li>
             <strong>Technical data:</strong> the IP address and browser identification of each
             sign-in session (kept with the session so that unusual activity can be noticed), and
             short-lived server logs that record requests, errors and, when something goes wrong,
@@ -67,8 +74,8 @@ export function PrivacyPage() {
         <LegalList>
           <li>
             <strong>Other members</strong> see your public profile, your posts and comments, your
-            reactions and follows, and whether you are online. Messages are visible only to the
-            members of that conversation.
+            reactions and follows, your badges (unless you hide them in Settings) and whether you
+            are online. Messages are visible only to the members of that conversation.
           </li>
           <li>
             <strong>Cloudflare</strong> sits in front of the server: it terminates the encrypted
@@ -79,11 +86,18 @@ export function PrivacyPage() {
             <strong>Resend</strong> delivers our email: it receives your email address, your name
             and the content of the confirmation and password reset messages we send you.
           </li>
+          <li>
+            <strong>Your browser's push service</strong> (Google for Chrome and most other browsers,
+            Mozilla for Firefox, Apple for Safari, Microsoft for Edge) delivers push notifications,
+            only if you switch them on for a device. The notification's content is encrypted for
+            your browser alone, so the push service cannot read it; it sees that a notification is
+            on its way to your device.
+          </li>
         </LegalList>
         <p>
           Nobody else receives your data unless the law requires it. We do not transfer your data
-          outside the European Union ourselves; Cloudflare and Resend operate globally under their
-          own EU data transfer arrangements.
+          outside the European Union ourselves; Cloudflare, Resend and the push services operate
+          globally under their own EU data transfer arrangements.
         </p>
       </LegalSection>
 
@@ -92,8 +106,9 @@ export function PrivacyPage() {
           {APP_NAME} uses two cookies, both strictly necessary: one carries your session for a few
           minutes, the other lets the app renew that session for up to seven days. They cannot be
           read by scripts and are never used for tracking. Your light or dark theme preference is
-          kept in your browser's local storage. There are no analytics or advertising cookies, so
-          there is no cookie banner.
+          kept in your browser's local storage, and so is which account switched on push
+          notifications in that browser (so nobody else signing in there receives them). There are
+          no analytics or advertising cookies, so there is no cookie banner.
         </p>
       </LegalSection>
 

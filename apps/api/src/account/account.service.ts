@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { AccountExport, DeleteAccountData } from '@beso/shared';
+import { type AccountExport, type DeleteAccountData } from '@beso/shared';
+import { ACHIEVEMENT_BY_KEY, achievementName } from '@beso/shared/achievements';
 import { AssetsService } from '../assets/assets.service.js';
 import { EmailTokensService } from '../auth/email-tokens.service.js';
 import { verifyPassword } from '../auth/password.js';
@@ -91,6 +92,12 @@ export class AccountService {
           select: { createdAt: true, follower: { select: { id: true, username: true } } },
           orderBy: { createdAt: 'asc' },
         },
+        inviteCode: true,
+        invitedBy: { select: { id: true, username: true } },
+        achievements: {
+          select: { key: true, earnedAt: true },
+          orderBy: [{ earnedAt: 'asc' }, { key: 'asc' }],
+        },
         sentMessages: {
           select: {
             id: true,
@@ -162,6 +169,24 @@ export class AccountService {
         username: follow.follower.username,
         since: iso(follow.createdAt),
       })),
+      invite: {
+        code: user.inviteCode,
+        invitedBy: user.invitedBy
+          ? { userId: user.invitedBy.id, username: user.invitedBy.username }
+          : null,
+      },
+      achievements: user.achievements.flatMap((achievement) => {
+        const definition = ACHIEVEMENT_BY_KEY.get(achievement.key);
+        return definition
+          ? [
+              {
+                key: achievement.key,
+                title: achievementName(definition),
+                earnedAt: iso(achievement.earnedAt),
+              },
+            ]
+          : [];
+      }),
       messages: user.sentMessages.map((message) => ({
         id: message.id,
         conversationId: message.conversationId,

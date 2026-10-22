@@ -56,6 +56,15 @@ export const accountExportSchema = z.object({
   ),
   following: z.array(followEntrySchema),
   followers: z.array(followEntrySchema),
+  /** The member's invite link code (if one was ever made) and whose invite they joined with. */
+  invite: z.object({
+    code: z.string().nullable(),
+    invitedBy: z.object({ userId: z.uuid(), username: z.string() }).nullable(),
+  }),
+  /** Earned badges (F2), oldest first. */
+  achievements: z.array(
+    z.object({ key: z.string(), title: z.string(), earnedAt: z.iso.datetime() }),
+  ),
   messages: z.array(
     z.object({
       id: z.uuid(),

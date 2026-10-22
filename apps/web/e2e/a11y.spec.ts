@@ -29,6 +29,11 @@ test.describe('accessibility (signed out)', () => {
     await page.goto('/register');
     await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
     await audit(page, '/register');
+    await page.goto('/join/welcome-from-alice');
+    await expect(
+      page.getByRole('heading', { name: 'Alice Anderson invited you to BeSo' }),
+    ).toBeVisible();
+    await audit(page, '/join/:code');
     await page.goto('/forgot-password');
     await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
     await audit(page, '/forgot-password');
@@ -165,6 +170,9 @@ test.describe('accessibility (signed in)', () => {
   });
 
   test('people, activity and a profile', async ({ page }) => {
+    // Ten pages and dialogs audited one after another: the default 30 s ran out on a busy
+    // machine (2026-10-22), well before anything was wrong with the pages.
+    test.slow();
     await openHome(page);
     await page.goto('/users');
     await expect(
@@ -173,9 +181,19 @@ test.describe('accessibility (signed in)', () => {
     await audit(page, '/users');
     await page.goto('/activity');
     await expect(
-      page.getByRole('list', { name: 'Activity' }).getByRole('listitem').first(),
+      page.getByRole('list', { name: 'Activity', exact: true }).getByRole('listitem').first(),
     ).toBeVisible();
     await audit(page, '/activity');
+    await page.goto('/explore');
+    await expect(
+      page.getByRole('feed', { name: 'Latest posts' }).getByRole('article').first(),
+    ).toBeVisible();
+    await audit(page, '/explore');
+    await page.getByRole('tab', { name: 'Popular this week' }).click();
+    await expect(
+      page.getByRole('feed', { name: 'Popular posts this week' }).getByRole('article').first(),
+    ).toBeVisible();
+    await audit(page, '/explore?sort=popular');
     await page.goto('/u/bob');
     await expect(page.getByRole('heading', { level: 1, name: 'Bob Brown' })).toBeVisible();
     await audit(page, '/u/bob');
@@ -184,6 +202,15 @@ test.describe('accessibility (signed in)', () => {
       page.getByRole('list', { name: 'Followers' }).getByRole('listitem').first(),
     ).toBeVisible();
     await audit(page, '/u/bob/followers');
+    // Badges in their tier colours, locked ones with progress: both themes (F2).
+    await page.goto('/u/alice/badges');
+    await expect(page.getByRole('region', { name: 'Milestones' })).toBeVisible();
+    await audit(page, '/u/alice/badges (light)');
+    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await audit(page, '/u/alice/badges (dark)');
+    await page.getByRole('button', { name: 'Switch to light theme' }).click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
     await page.goto('/tags/weekend');
     await expect(page.getByRole('heading', { level: 1, name: '#weekend' })).toBeVisible();
     await expect(

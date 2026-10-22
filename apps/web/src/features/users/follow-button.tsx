@@ -8,10 +8,17 @@ type FollowButtonProps = {
   user: Pick<UserPublic, 'id' | 'followedByMe'>;
   size?: 'sm' | 'default';
   className?: string;
+  /** The word while not following, e.g. "Follow back" on an invite's notification (F1). */
+  followLabel?: string;
 };
 
 /** Follow / Following toggle; renders nothing for the viewer's own profile. */
-export function FollowButton({ user, size = 'default', className }: FollowButtonProps) {
+export function FollowButton({
+  user,
+  size = 'default',
+  className,
+  followLabel = 'Follow',
+}: FollowButtonProps) {
   const me = useCurrentUser();
   const toggle = useToggleFollow();
   if (user.id === me.id) return null;
@@ -25,7 +32,7 @@ export function FollowButton({ user, size = 'default', className }: FollowButton
       onClick={() => toggle.mutate({ userId: user.id, following })}
     >
       {following ? <UserCheckIcon /> : <UserPlusIcon />}
-      {following ? 'Following' : 'Follow'}
+      {following ? 'Following' : followLabel}
     </Button>
   );
 }

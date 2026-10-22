@@ -1,5 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  type Activity,
+  activitySchema,
   type ConversationReadPayload,
   conversationReadPayloadSchema,
   type ConversationRef,
@@ -18,12 +20,15 @@ import {
 } from '@beso/shared';
 import type { z } from 'zod';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import type { Socket } from 'socket.io-client';
 import { toast } from 'sonner';
+import { receiveActivity } from '@/features/activities/use-activities';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { receiveNotification } from '@/features/notifications/use-notifications';
 import { ApiClientError, notifySessionLost, refreshSession } from '@/lib/api/client';
 import { markReadHttp, sendMessageHttp } from '@/lib/api/conversations';
+import { queryKeys } from '@/lib/query-keys';
 import type { ChatSocket } from '@/lib/socket';
 import { ChatContext, type ChatContextValue, type MessageContext } from './chat-context';
 import {
@@ -69,6 +74,8 @@ function withTyping(map: TypingMap, conversationId: string, userId: string, typi
 export function ChatProvider({ children }: { children: ReactNode }) {
   const me = useCurrentUser();
   const queryClient = useQueryClient();
+  // Stable in a data router, so it never reconnects the socket.
+  const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
   const [online, setOnline] = useState<UserSummary[]>([]);
   const [typing, setTypingMap] = useState<TypingMap>(() => new Map());
@@ -136,7 +143,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     const onConnect = () => {
       setConnected(true);
-      if (heldBeforeGap) void resyncConversations(queryClient, heldBeforeGap);
+      if (heldBeforeGap) {
+        void resyncConversations(queryClient, heldBeforeGap);
+        // Nothing queues pushes for an absent socket: what they would have brought is fetched.
+        // The notifications list is only marked stale, so an open page keeps its unread tint.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unread });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.notifications.list,
+          refetchType: 'none',
+        });
+      }
       heldBeforeGap = null;
     };
     /**
@@ -152,9 +169,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         else if (import.meta.env.DEV) console.warn('Dropped a socket push', parsed.error.issues);
       };
     const onPresence = guarded(presenceUpdateSchema, (users: PresenceUpdate) => setOnline(users));
-    // The one push that is not about chat rides the same socket (ADR 0015).
-    const onNotification = guarded(notificationSchema, (notification: Notification) =>
-      receiveNotification(queryClient, notification),
+    // The pushes that are not about chat ride the same socket: notifications (ADR 0015) and
+    // the activity of people one follows (C7).
+    const onNotification = guarded(notificationSchema, (notification: Notification) => {
+      receiveNotification(queryClient, notification);
+      if (notification.type === 'ACHIEVEMENT_EARNED') {
+        void import('@/features/achievements/badge-toast').then(({ showBadgeToast }) =>
+          showBadgeToast(notification.achievementKey, () => void navigate('/badges')),
+        );
+      }
+    });
+    const onActivity = guarded(activitySchema, (activity: Activity) =>
+      receiveActivity(queryClient, activity),
     );
     const onMessage = guarded(messageSchema, (message: Message) => {
       // A system line (the server about a membership change or rename) is shown but is nobody's
@@ -252,6 +278,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.on(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
       socket.on(SOCKET_EVENTS.typingUpdate, onTyping);
       socket.on(SOCKET_EVENTS.notificationNew, onNotification);
+      socket.on(SOCKET_EVENTS.activityNew, onActivity);
       socket.on(SOCKET_EVENTS.exception, onException);
       socket.connect();
 
@@ -269,6 +296,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         socket.off(SOCKET_EVENTS.conversationRemoved, onConversationRemoved);
         socket.off(SOCKET_EVENTS.typingUpdate, onTyping);
         socket.off(SOCKET_EVENTS.notificationNew, onNotification);
+        socket.off(SOCKET_EVENTS.activityNew, onActivity);
         socket.off(SOCKET_EVENTS.exception, onException);
         socket.disconnect();
         socketRef.current = null;
@@ -285,7 +313,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       timers.clear();
       setTypingMap(new Map());
     };
-  }, [me.id, queryClient, markRead, setPeerTyping]);
+  }, [me.id, queryClient, markRead, setPeerTyping, navigate]);
 
   const sendMessage = useCallback(async (conversationId: string, input: SendMessageInput) => {
     const socket = socketRef.current;
