@@ -26,8 +26,12 @@ export type LongPressHandlers = {
   onClickCapture: (event: ReactMouseEvent<HTMLElement>) => void;
 };
 
-/** Presses that start on a control are the control's (a menu trigger opens on pointer down). */
-const CONTROLS = 'button, input, textarea, select';
+/**
+ * Presses that start on a control are the control's (a menu trigger opens on pointer down). A
+ * button marked `data-long-press` acts on a click only and lets the hold through: a chat
+ * picture opens on a tap, and a hold on it is the message's.
+ */
+const CONTROLS = 'button:not([data-long-press]), input, textarea, select';
 
 /**
  * Press-and-hold with a finger or a pen, the way native apps open a message's reactions. A

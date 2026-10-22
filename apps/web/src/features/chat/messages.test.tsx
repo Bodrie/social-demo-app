@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SOCKET_EVENTS } from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
@@ -98,6 +98,67 @@ describe('messages', () => {
     await waitFor(() => expect(within(log).queryByText('Sending…')).not.toBeInTheDocument());
     expect(screen.getByRole('textbox', { name: 'Message Bob Brown' })).toHaveValue('');
     expect(rowsOf()[0]).toHaveTextContent('You: Sure!');
+  });
+
+  it('keeps the newest message in view when the thread changes size, unless scrolled up', async () => {
+    const observers: RecordingObserver[] = [];
+    class RecordingObserver {
+      readonly targets: Element[] = [];
+      readonly callback: ResizeObserverCallback;
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+      observe(target: Element): void {
+        this.targets.push(target);
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    // The setup's stub is writable but not configurable, so it is swapped rather than stubbed.
+    const original = window.ResizeObserver;
+    window.ResizeObserver = RecordingObserver;
+    try {
+      signedInAs(alice);
+      const { withBob } = seedChats();
+      renderApp(`/messages/${withBob.id}`);
+      const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+      await within(log).findByText('At noon?');
+      // jsdom lays nothing out: give the log a size of its own.
+      let top = 0;
+      let height = 1000;
+      Object.defineProperties(log, {
+        scrollHeight: { configurable: true, get: () => height },
+        clientHeight: { configurable: true, get: () => 400 },
+        scrollTop: {
+          configurable: true,
+          get: () => top,
+          set: (value: number) => {
+            top = value;
+          },
+        },
+      });
+      const resized = () =>
+        act(() => {
+          for (const observer of observers.filter((o) => o.targets.includes(log))) {
+            observer.callback([], observer);
+          }
+        });
+
+      // A picture's file arrives, or the keyboard shrinks the view: still at the newest message.
+      height = 1300;
+      resized();
+      expect(top).toBe(1300);
+
+      // Scrolled up through the history: a later change leaves the view where it is.
+      top = 300;
+      fireEvent.scroll(log);
+      height = 1600;
+      resized();
+      expect(top).toBe(300);
+    } finally {
+      window.ResizeObserver = original;
+    }
   });
 
   it('shows pushed messages, counts them unread elsewhere and marks "Seen"', async () => {
@@ -223,7 +284,7 @@ describe('messages', () => {
 
     // A press on the picture opens it in the viewer (it used to open a new tab).
     await user.click(within(log).getByRole('button', { name: 'Open picture sent by you' }));
-    const viewer = await screen.findByRole('dialog', { name: 'Picture sent by you' });
+    const viewer = await screen.findByRole('dialog', { name: 'Pictures in this conversation' });
     expect(within(viewer).getByRole('img', { name: 'Sent by you' })).toHaveAttribute(
       'src',
       expect.stringContaining('/uploads/message/'),

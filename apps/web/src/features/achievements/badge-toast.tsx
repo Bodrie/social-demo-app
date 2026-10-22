@@ -10,6 +10,9 @@ export function showBadgeToast(key: string | null, openBadges: () => void): void
     id: `badge:${achievement.key}`,
     description: achievement.description,
     icon: <Medallion achievement={achievement} size="sm" />,
+    // sonner's icon slot is 16 px and does not grow with its content, so the medallion would
+    // spill over the text; its rule outranks a plain utility, hence the `!`.
+    classNames: { icon: 'size-8!' },
     action: { label: 'See badges', onClick: openBadges },
   });
 }

@@ -10,21 +10,14 @@ import dayjs from 'dayjs';
 import {
   ArrowDownIcon,
   ArrowLeftIcon,
+  DownloadIcon,
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
   Trash2Icon,
   UsersIcon,
 } from 'lucide-react';
-import {
-  type UIEvent,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type UIEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
@@ -52,9 +45,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/features/auth/current-user';
-import { ReactionBar, ReactionPicker } from '@/features/comments/reaction-bar';
+import { type PressAction, ReactionBar, ReactionPicker } from '@/features/comments/reaction-bar';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchMessageRevisions } from '@/lib/api/conversations';
+import { savePicture } from '@/lib/download';
 import { formatDateTime, formatDayLabel, formatTime } from '@/lib/format';
 import { flattenPages } from '@/lib/infinite';
 import { firstName } from '@/lib/names';
@@ -106,7 +100,11 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
   const thread = useMessages(conversation.id);
   const messages = useMemo(() => flattenPages(thread.data).toReversed(), [thread.data]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // While an older page loads: a message on screen and how far below the top of the view it
+  // sits, so the view can be put back once the page is in above it.
+  const anchor = useRef<{ element: Element; offset: number } | null>(null);
   // Messages from others that arrived while the viewer was scrolled up, offered as a pill.
   const [newBelow, setNewBelow] = useState(0);
   const [renaming, setRenaming] = useState(false);
@@ -173,22 +171,59 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
     }
   }, [messageCount, typing]);
 
-  const loadOlder = useCallback(async () => {
+  // ...and through whatever changes a height after the render: a picture whose file arrives,
+  // a reaction, the keyboard or a taller composer shrinking the view.
+  useEffect(() => {
     const element = scrollRef.current;
-    const before = element?.scrollHeight ?? 0;
-    await thread.fetchNextPage();
-    requestAnimationFrame(() => {
-      if (element) element.scrollTop += element.scrollHeight - before;
+    const content = contentRef.current;
+    if (!element || !content) return undefined;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottom.current) element.scrollTop = element.scrollHeight;
     });
-  }, [thread]);
+    observer.observe(element);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
+  /** Remembers the first message on screen and its distance from the top of the view. */
+  const rememberAnchor = () => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const top = element.getBoundingClientRect().top;
+    const first = Array.from(element.querySelectorAll('ol > li')).find(
+      (item) => item.getBoundingClientRect().bottom > top,
+    );
+    anchor.current = first
+      ? { element: first, offset: first.getBoundingClientRect().top - top }
+      : null;
+  };
+
+  // The older page is in (it lands in the render that ends the fetch) or the attempt is over:
+  // the remembered message goes back to where it was on screen. A browser that keeps it there
+  // by itself (scroll anchoring) leaves nothing to correct; adding the page's height on top of
+  // that used to throw the view a page down.
+  const fetchingOlder = thread.isFetchingNextPage;
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    const kept = anchor.current;
+    if (fetchingOlder || !element || !kept) return;
+    anchor.current = null;
+    if (stickToBottom.current || !kept.element.isConnected) return;
+    const top = element.getBoundingClientRect().top;
+    element.scrollTop += kept.element.getBoundingClientRect().top - top - kept.offset;
+  }, [fetchingOlder]);
 
   const onScroll = (event: UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
     stickToBottom.current =
       element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM_PX;
     if (stickToBottom.current) setNewBelow((count) => (count === 0 ? count : 0));
-    if (element.scrollTop < LOAD_OLDER_PX && thread.hasNextPage && !thread.isFetchingNextPage) {
-      void loadOlder();
+    if (thread.isFetchingNextPage) {
+      // Scrolling on while the page loads: keep what is on screen now, not what was.
+      if (anchor.current) rememberAnchor();
+    } else if (element.scrollTop < LOAD_OLDER_PX && thread.hasNextPage) {
+      rememberAnchor();
+      void thread.fetchNextPage();
     }
   };
 
@@ -327,7 +362,9 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+          // `overscroll-contain`: the end of the history does not hand the swipe on to the page
+          // (which would move the whole layout, or pull to refresh on a phone).
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
           tabIndex={0}
           role="log"
           aria-label={peer ? `Conversation with ${name}` : `Group ${name}`}
@@ -336,49 +373,52 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
           // announced once, through the status line below the log.
           aria-live="off"
         >
-          {thread.isPending ? (
-            <ThreadSkeleton />
-          ) : thread.isError ? (
-            <ErrorState
-              message="Could not load this conversation."
-              onRetry={() => void thread.refetch()}
-            />
-          ) : (
-            <>
-              {thread.isFetchingNextPage ? (
-                <div className="text-muted-foreground flex justify-center py-2">
-                  <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
-                  <span className="sr-only">Loading older messages</span>
-                </div>
-              ) : null}
-              {messages.length === 0 ? (
-                <p className="text-muted-foreground py-10 text-center text-sm">
-                  {peer
-                    ? `This is the beginning of your conversation with ${name}.`
-                    : `This is the beginning of ${name}. Say hi to everyone.`}
-                </p>
-              ) : (
-                <MessageList
-                  messages={messages}
-                  meId={me.id}
-                  conversation={conversation}
-                  onRetry={(message) =>
-                    void send(
-                      {
-                        content: message.content,
-                        imageKey: message.imageKey,
-                        previewUrl: message.image?.url,
-                        previewSize: message.image ?? undefined,
-                      },
-                      message.id,
-                    )
-                  }
-                />
-              )}
-              {typing ? <TypingIndicator text={typing} className="mt-1" /> : null}
-            </>
-          )}
+          <div ref={contentRef}>
+            {thread.isPending ? (
+              <ThreadSkeleton />
+            ) : thread.isError ? (
+              <ErrorState
+                message="Could not load this conversation."
+                onRetry={() => void thread.refetch()}
+              />
+            ) : (
+              <>
+                {messages.length === 0 ? (
+                  <p className="text-muted-foreground py-10 text-center text-sm">
+                    {peer
+                      ? `This is the beginning of your conversation with ${name}.`
+                      : `This is the beginning of ${name}. Say hi to everyone.`}
+                  </p>
+                ) : (
+                  <MessageList
+                    messages={messages}
+                    meId={me.id}
+                    conversation={conversation}
+                    onRetry={(message) =>
+                      void send(
+                        {
+                          content: message.content,
+                          imageKey: message.imageKey,
+                          previewUrl: message.image?.url,
+                          previewSize: message.image ?? undefined,
+                        },
+                        message.id,
+                      )
+                    }
+                  />
+                )}
+                {typing ? <TypingIndicator text={typing} className="mt-1" /> : null}
+              </>
+            )}
+          </div>
         </div>
+        {thread.isFetchingNextPage ? (
+          // Over the history rather than in it, so nothing on screen moves while it loads.
+          <div className="bg-card text-muted-foreground absolute top-2 left-1/2 flex -translate-x-1/2 rounded-full border p-1.5 shadow-sm">
+            <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+            <span className="sr-only">Loading older messages</span>
+          </div>
+        ) : null}
         {newBelow > 0 ? (
           <Button
             type="button"
@@ -423,7 +463,18 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
   const [editing, setEditing] = useState<string | null>(null);
   // A press-and-hold on a bubble opens the reaction picker over it, as native apps do.
   const [pressed, setPressed] = useState<{ id: string; element: HTMLElement } | null>(null);
-  const [viewing, setViewing] = useState<{ image: StoredImage; sentBy: string } | null>(null);
+  // The viewer pages through every picture of the loaded thread, oldest first; it follows the
+  // message on screen, so history loading in above does not swap the picture.
+  const [viewing, setViewing] = useState<string | null>(null);
+  const pictures = useMemo(
+    () =>
+      messages.flatMap((m) =>
+        m.image ? [{ id: m.id, senderId: m.senderId, image: m.image }] : [],
+      ),
+    [messages],
+  );
+  const pictureImages = useMemo<StoredImage[]>(() => pictures.map((p) => p.image), [pictures]);
+  const viewingIndex = pictures.findIndex((p) => p.id === viewing);
   const lastMine = messages.findLast(
     (m) => m.senderId === meId && !m.status && m.kind === 'user' && m.deletedAt === null,
   );
@@ -432,6 +483,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
   const isGroup = conversation.kind === 'group';
   const senderName = (userId: string) =>
     memberById(conversation, userId)?.user.name ?? 'A former member';
+  const sentByOf = (userId: string) => (userId === meId ? 'you' : senderName(userId));
 
   const confirmDelete = () => {
     if (!deleting) return;
@@ -459,7 +511,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         const previous = messages[index - 1];
         const next = messages[index + 1];
         const mine = message.senderId === meId;
-        const sentBy = mine ? 'you' : senderName(message.senderId);
+        const sentBy = sentByOf(message.senderId);
         const newDay = !previous || !dayjs(previous.createdAt).isSame(message.createdAt, 'day');
         if (message.kind === 'system') {
           return (
@@ -492,6 +544,34 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         const isEditing = editing === message.id;
         const reactions = settled ? reactionSummaryOf(message.reactions, meId) : null;
         const onReact = (type: ReactionType | null) => react.mutate({ message, type });
+        const picture = settled ? message.image : null;
+        // Under the emojis of a press-and-hold: what the hover toolbar and its menu offer.
+        const pressActions: PressAction[] = [
+          ...(picture
+            ? [
+                {
+                  label: 'Download picture',
+                  icon: <DownloadIcon />,
+                  onSelect: () => void savePicture(picture.url),
+                },
+              ]
+            : []),
+          ...(canManage
+            ? [
+                {
+                  label: 'Edit message',
+                  icon: <PencilIcon />,
+                  onSelect: () => setEditing(message.id),
+                },
+                {
+                  label: 'Delete message',
+                  icon: <Trash2Icon />,
+                  destructive: true,
+                  onSelect: () => setDeleting(message.id),
+                },
+              ]
+            : []),
+        ];
         return (
           <li
             key={message.id}
@@ -508,7 +588,10 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 {firstName(senderName(message.senderId))}
               </p>
             ) : null}
-            <div className={cn('flex max-w-full items-center gap-1', mine && 'flex-row-reverse')}>
+            {/* The full width, not shrink-wrapped: the bubble's 78% is of the thread. Around a
+                bubble without a toolbar beside it (touch screens, a message on its way) the row
+                was the bubble's own width, and short messages became a column of letters. */}
+            <div className={cn('flex w-full items-center gap-1', mine && 'flex-row-reverse')}>
               <LongPressArea
                 title={formatDateTime(message.createdAt)}
                 onLongPress={(element) => {
@@ -533,10 +616,10 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                     type="button"
                     aria-label={`Open picture sent by ${sentBy}`}
                     aria-haspopup="dialog"
+                    // A tap opens it; a hold is the message's (reactions, download).
+                    data-long-press=""
                     className="block cursor-zoom-in overflow-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-                    onClick={() => {
-                      if (message.image) setViewing({ image: message.image, sentBy });
-                    }}
+                    onClick={() => setViewing(message.id)}
                   >
                     <img
                       src={message.image.url}
@@ -583,24 +666,19 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                     align={mine ? 'end' : 'start'}
                     pressedOn={pressed?.id === message.id ? pressed.element : null}
                     onClose={() => setPressed(null)}
-                    actions={
-                      canManage
-                        ? [
-                            {
-                              label: 'Edit message',
-                              icon: <PencilIcon />,
-                              onSelect: () => setEditing(message.id),
-                            },
-                            {
-                              label: 'Delete message',
-                              icon: <Trash2Icon />,
-                              destructive: true,
-                              onSelect: () => setDeleting(message.id),
-                            },
-                          ]
-                        : undefined
-                    }
+                    actions={pressActions}
                   />
+                  {picture ? (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Download picture"
+                      className="text-muted-foreground hover:text-foreground rounded-full"
+                      onClick={() => void savePicture(picture.url)}
+                    >
+                      <DownloadIcon />
+                    </Button>
+                  ) : null}
                   {canManage ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -682,13 +760,11 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         </AlertDialogContent>
       </AlertDialog>
       <Lightbox
-        images={viewing ? [viewing.image] : []}
-        index={viewing ? 0 : null}
-        onIndexChange={(next) => {
-          if (next === null) setViewing(null);
-        }}
-        title={`Picture sent by ${viewing?.sentBy ?? ''}`}
-        alt={`Sent by ${viewing?.sentBy ?? ''}`}
+        images={pictureImages}
+        index={viewingIndex === -1 ? null : viewingIndex}
+        onIndexChange={(next) => setViewing(next === null ? null : (pictures[next]?.id ?? null))}
+        title="Pictures in this conversation"
+        alt={(index) => `Sent by ${sentByOf(pictures[index]?.senderId ?? '')}`}
       />
     </ol>
   );

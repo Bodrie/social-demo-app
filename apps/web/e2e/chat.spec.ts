@@ -126,7 +126,7 @@ test.describe('chat', () => {
     await expect(picture).toBeVisible();
     // A press opens it in the viewer, over the thread.
     await picture.click();
-    const viewer = bob.getByRole('dialog', { name: 'Picture sent by Alice Anderson' });
+    const viewer = bob.getByRole('dialog', { name: 'Pictures in this conversation' });
     await expect(viewer.getByRole('img', { name: 'Sent by Alice Anderson' })).toBeVisible();
     await bob.keyboard.press('Escape');
     await expect(viewer).toBeHidden();

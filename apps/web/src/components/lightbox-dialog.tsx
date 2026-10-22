@@ -1,8 +1,9 @@
 import { cn } from 'cn';
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { savePicture } from '@/lib/download';
 import type { LightboxProps } from './lightbox';
 
 /** A horizontal move this long (px), clearly more sideways than up or down, is a swipe. */
@@ -21,6 +22,8 @@ export default function LightboxDialog({
 }: Omit<LightboxProps, 'index'> & { index: number }) {
   const count = images.length;
   const image = images[index];
+  const label = typeof alt === 'function' ? alt(index) : alt;
+  const closeRef = useRef<HTMLButtonElement>(null);
   const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
   // A swipe ends with a click on whatever it ended on; that click must not close the viewer.
   const swiped = useRef(false);
@@ -66,6 +69,11 @@ export default function LightboxDialog({
           aria-describedby={undefined}
           className="text-scrim-foreground fixed inset-0 z-50 flex flex-col outline-none"
           onKeyDown={onKeyDown}
+          // Close, not the download button that comes first: Enter should not save a file.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            closeRef.current?.focus();
+          }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             opener?.focus();
@@ -85,11 +93,28 @@ export default function LightboxDialog({
             ) : (
               <span />
             )}
-            <DialogPrimitive.Close asChild>
-              <Button variant="ghost" size="icon" aria-label="Close" className={controlClass}>
-                <XIcon />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Download picture"
+                className={controlClass}
+                onClick={() => void savePicture(image.url)}
+              >
+                <DownloadIcon />
               </Button>
-            </DialogPrimitive.Close>
+              <DialogPrimitive.Close asChild>
+                <Button
+                  ref={closeRef}
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Close"
+                  className={controlClass}
+                >
+                  <XIcon />
+                </Button>
+              </DialogPrimitive.Close>
+            </div>
           </div>
           {/* The stage: a click beside the picture closes, a swipe moves on. */}
           {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- Escape and the Close button are the keyboard's way out */}
@@ -109,7 +134,7 @@ export default function LightboxDialog({
               src={image.url}
               width={image.width ?? undefined}
               height={image.height ?? undefined}
-              alt={count > 1 ? `${alt}, ${index + 1} of ${count}` : alt}
+              alt={count > 1 ? `${label}, ${index + 1} of ${count}` : label}
               draggable={false}
               className="max-h-full max-w-full object-contain"
             />
