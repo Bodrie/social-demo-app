@@ -23,6 +23,8 @@ import path from 'node:path';
 // the settings keys, the actor-less notification, the push handler and two lazy entry points,
 // about 0.5 kB, plus the bundler re-splitting zod, Radix and one icon into chunks of their own
 // now that lazy badge screens share them, about 0.9 kB; measured 258.6 kB, E1 still the way back).
+// R4 gave some back: the wordmark is drawn as a few stroked paths instead of the traced outlines
+// and the header lost its symbol; measured 255.7 kB (from 258.8), the budget stays where it is.
 const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 259);
 const dist = path.resolve(import.meta.dirname, '../dist');
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8');

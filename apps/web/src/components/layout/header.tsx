@@ -11,6 +11,7 @@ import { UserMenu } from './user-menu';
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
   // A link chosen in the sheet leads to a page; focus goes there, not back to the menu button.
   const navigated = useRef(false);
   const closeAfterNavigation = () => {
@@ -33,8 +34,15 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent
+            ref={sheetRef}
             side="left"
-            className="w-72"
+            className="w-72 outline-none"
+            // The panel takes focus, not its first control: that is the search box, and on a
+            // phone a focused field brings the keyboard up over the navigation. Tab reaches it.
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              sheetRef.current?.focus();
+            }}
             onCloseAutoFocus={(event) => {
               if (navigated.current) event.preventDefault();
               navigated.current = false;

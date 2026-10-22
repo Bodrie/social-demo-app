@@ -1,17 +1,17 @@
 /**
  * The one source of the brand drawing. `pnpm brand` writes:
- *   - apps/web/src/components/logo-paths.ts: the mark and the wordmark as SVG paths (the
- *     wordmark is the reference logotype traced into outlines, see scripts/wordmark.json);
+ *   - apps/web/src/components/logo-paths.ts: the wordmark "Be•So" as SVG paths;
  *   - apps/web/public/favicon.ico (16/32/48), icon.svg (follows the tab's theme),
  *     apple-touch-icon.png (180, white on the accent), the installed app's icons for
- *     manifest.webmanifest (icon-192.png, icon-512.png, icon-maskable-512.png with the mark inside
- *     the safe circle) and badge-96.png (the white mark on nothing: Android's status bar icon
- *     for a push notification);
- *   - apps/api/src/email/logo-png.ts: mark + wordmark as the PNG every mail embeds.
+ *     manifest.webmanifest (icon-192.png, icon-512.png, icon-maskable-512.png with the icon inside
+ *     the safe circle) and badge-96.png (white on nothing: Android's status bar icon for a push
+ *     notification), all of them the open o;
+ *   - apps/api/src/email/logo-png.ts: the wordmark as the PNG every mail embeds.
  * Rendering uses the API's `sharp`; the generated modules go through Prettier, so the tree
- * stays clean. `--preview <file.png>` also writes a sheet with the lockup on both themes.
+ * stays clean. `--preview <file.png>` also writes a sheet with the wordmark on both themes and
+ * the icons.
  */
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,48 +35,105 @@ const FG_DARK = '#e4e8ed';
 const MAIL_TEXT = '#1c2330';
 
 /**
- * The mark's stroke on its 48-unit canvas: round caps and joins, as wide as the wordmark's
- * letters where the two meet (the header shows the mark at 28 px and the wordmark at 19 px).
+ * The wordmark, "Be•So", is drawn rather than set (the owner's reference, 2026-10-22, was a
+ * rounded monoline logotype): one even stroke with round ends, letters built from circles.
+ * Everything is a centre line on a 48-tall box. The outer edges of the letters stand on y = 42;
+ * the lowercase bowls reach up to 18, the capitals to 6. "Be" takes the text colour, "So" and
+ * the dot the accent. The o is open: its top-right quarter breaks off and floats outward. That
+ * o on its own is the icon.
  */
-const STROKE = 3;
+const STROKE = 4.05;
+/** Space between two letters, outer edge to outer edge. */
+const GAP = 4.8;
+
+const f = (n) => Number(n.toFixed(2));
+const at = (cx, cy, r, deg) => [
+  f(cx + r * Math.cos((deg * Math.PI) / 180)),
+  f(cy + r * Math.sin((deg * Math.PI) / 180)),
+];
+const circle = (cx, cy, r) =>
+  `M${f(cx - r)} ${f(cy)} A${f(r)} ${f(r)} 0 1 0 ${f(cx + r)} ${f(cy)} A${f(r)} ${f(r)} 0 1 0 ${f(cx - r)} ${f(cy)} Z`;
+
+/** B: a stem and two bowls, the lower one larger; the bowls' straight runs make it as wide as the e. */
+function letterB(x, top, base) {
+  const middle = top + 0.47 * (base - top);
+  const r1 = (middle - top) / 2;
+  const r2 = (base - middle) / 2;
+  const x1 = x + 8;
+  const x2 = x + 9.5;
+  return {
+    d: `M${f(x)} ${f(top)} V${f(base)} M${f(x)} ${f(top)} H${f(x1)} A${f(r1)} ${f(r1)} 0 0 1 ${f(x1)} ${f(middle)} H${f(x)} M${f(x1)} ${f(middle)} H${f(x2)} A${f(r2)} ${f(r2)} 0 0 1 ${f(x2)} ${f(base)} H${f(x)}`,
+    right: x2 + r2,
+  };
+}
+
+/** The open o: the circle without its top-right quarter, which floats outward on a wider one. */
+function openO(cx, cy, r, stroke) {
+  const [a1x, a1y] = at(cx, cy, r, -100);
+  const [a2x, a2y] = at(cx, cy, r, 2);
+  const R = r + stroke + (1.6 * r) / 9.7;
+  const [b1x, b1y] = at(cx, cy, R, -68);
+  const [b2x, b2y] = at(cx, cy, R, -24);
+  return {
+    d: `M${a1x} ${a1y} A${f(r)} ${f(r)} 0 1 0 ${a2x} ${a2y} M${b1x} ${b1y} A${f(R)} ${f(R)} 0 0 1 ${b2x} ${b2y}`,
+    right: Math.max(cx + r, b2x),
+  };
+}
+
+function drawWordmark() {
+  const s = STROKE;
+  const r = (24 - s) / 2; // a lowercase bowl's outer edge spans the x-height
+  const base = 42 - s / 2;
+  const cy = base - r;
+  const top = 6 + s / 2;
+  const H = base - top;
+
+  const B = letterB(s / 2 + 0.5, top, base);
+  let right = B.right + s / 2;
+
+  // e: a bar across the middle, then over the top and round to an open end at the lower right.
+  const ecx = right + GAP + r + s / 2;
+  const [ex, ey] = at(ecx, cy, r, 38);
+  const E = `M${f(ecx - r)} ${f(cy)} H${f(ecx + r)} A${f(r)} ${f(r)} 0 1 0 ${ex} ${ey}`;
+  right = ecx + r + s / 2;
+
+  // The dot, a little wider than the stroke, in line with the bar of the e.
+  const dotR = 0.75 * s;
+  const dcx = right + GAP + dotR;
+  const dot = circle(dcx, cy, dotR);
+  right = dcx + dotR;
+
+  // S: two arcs meeting on the centre line, the lower one larger.
+  const rt = (0.47 * H) / 2;
+  const rb = H / 2 - rt;
+  const scx = right + GAP + rb + s / 2 + 0.4;
+  const [sx, sy] = at(scx, top + rt, rt, -30);
+  const [tx, ty] = at(scx, base - rb, rb, 150);
+  const S = `M${sx} ${sy} A${f(rt)} ${f(rt)} 0 1 0 ${f(scx)} ${f(top + 2 * rt)} A${f(rb)} ${f(rb)} 0 1 1 ${tx} ${ty}`;
+  right = scx + rb + s / 2;
+
+  const O = openO(right + GAP + r + s / 2 - 0.4, cy, r, s);
+  return {
+    width: Math.ceil(O.right + s / 2 + 0.5),
+    be: `${B.d} ${E}`,
+    so: `${S} ${O.d}`,
+    dot,
+  };
+}
+
+const WORDMARK = drawWordmark();
+const wordmarkSvg = ({ text, accent }, background = '') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WORDMARK.width} 48">${background}<g fill="none" stroke-width="${STROKE}" stroke-linecap="round" stroke-linejoin="round"><path d="${WORDMARK.be}" stroke="${text}"/><path d="${WORDMARK.so}" stroke="${accent}"/></g><path d="${WORDMARK.dot}" fill="${accent}"/></svg>`;
 
 /**
- * The mark on a 48×48 canvas: a lowercase b whose bowl is a message bubble with a tail, drawn
- * as one rounded stroke, and a heart inside it (a kiss, "beso").
+ * The icon: the open o alone on a 48×48 canvas. Its gap is worked out for the stroke it is drawn
+ * with, so the bolder small sizes keep the broken-off piece apart.
  */
-const LETTER = 'M12 6 V33 M12 20 H29 A7 7 0 0 1 36 27 V45 L29 40 H19 A7 7 0 0 1 12 33 Z';
-const HEART =
-  'M24 36 C23.3 35.4 17.5 32 17.5 27.8 A3.4 3.4 0 0 1 24 26.2 A3.4 3.4 0 0 1 30.5 27.8 C30.5 32 24.7 35.4 24 36 Z';
-
-/**
- * The wordmark: "BeSo" as the owner's reference logotype, traced from the picture into filled
- * outlines by `scripts/trace-wordmark.mjs` (see `scripts/wordmark.json` for the source and
- * the settings). The letters are data, not a drawing: re-run the tracer with a sharper
- * picture to improve them. Cap height 40 (y 4..44) in a 48-tall box; "Be" and "So" are
- * separate paths so the accent can take "So".
- */
-const CAP = 40;
-const traced = JSON.parse(await readFile(path.join(root, 'scripts/wordmark.json'), 'utf8'));
-const WORDMARK = {
-  width: Number(traced.viewBox.split(' ')[2]),
-  viewBox: traced.viewBox,
-  be: traced.be,
-  so: traced.so,
+const iconPath = (stroke) => openO(21.5, 26.5, 12.5, stroke).d;
+const iconSvg = ({ color, stroke }, background = '', scale = 1) => {
+  const offset = f(24 - 24 * scale);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${background}<g transform="translate(${offset} ${offset}) scale(${scale})"><path d="${iconPath(stroke)}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`;
 };
-
-const strokeAttrs = `fill="none" stroke-width="${STROKE}" stroke-linecap="round" stroke-linejoin="round"`;
-const markBody = ({ line, heart, stroke = STROKE }) =>
-  `<g ${strokeAttrs.replace(`stroke-width="${STROKE}"`, `stroke-width="${stroke}"`)} stroke="${line}"><path d="${LETTER}"/><path d="${HEART}" fill="${heart}" stroke="none"/></g>`;
-const markSvg = (colors, background = '') =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${background}${markBody(colors)}</svg>`;
-
-/** Mark + wordmark side by side; the wordmark's cap height is a little over half the mark's box. */
-const LOCKUP_CAP = 27;
-const LOCKUP_GAP = 8;
-const factor = LOCKUP_CAP / CAP;
-const lockupWidth = 48 + LOCKUP_GAP + WORDMARK.width * factor;
-const lockupSvg = ({ line, heart, text, accent }, background = '') =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${lockupWidth.toFixed(2)} 48">${background}${markBody({ line, heart })}<g transform="translate(${48 + LOCKUP_GAP} ${(24 - 24 * factor).toFixed(2)}) scale(${factor.toFixed(4)})" fill-rule="evenodd"><path d="${WORDMARK.be}" fill="${text}"/><path d="${WORDMARK.so}" fill="${accent}"/></g></svg>`;
 
 const png = (svg, size) =>
   sharp(Buffer.from(svg), { density: 600 }).resize(size, size).png().toBuffer();
@@ -90,14 +147,14 @@ const writeModule = async (file, code) =>
 // The web component reads the same paths.
 await writeModule(
   webPaths,
-  `// Generated by scripts/brand-assets.mjs (\`pnpm brand\`); do not edit by hand.\n\n/** The mark on a 48×48 canvas: the letter as strokes, the heart as a fill. */\nexport const MARK = {\n  letter: '${LETTER}',\n  heart: '${HEART}',\n  strokeWidth: ${STROKE},\n} as const;\n\n/** "BeSo" traced from the reference logotype: filled outlines (evenodd), cap height 40 (y 4..44). */\nexport const WORDMARK = {\n  viewBox: '${WORDMARK.viewBox}',\n  be: '${WORDMARK.be}',\n  so: '${WORDMARK.so}',\n} as const;\n`,
+  `// Generated by scripts/brand-assets.mjs (\`pnpm brand\`); do not edit by hand.\n\n/**\n * "Be•So" as centre lines on a 48-tall box (outer edges: capitals 6..42, lowercase 18..42),\n * drawn with a round stroke \`strokeWidth\` wide; the dot is a fill.\n */\nexport const WORDMARK = {\n  viewBox: '0 0 ${WORDMARK.width} 48',\n  strokeWidth: ${STROKE},\n  be: '${WORDMARK.be}',\n  so: '${WORDMARK.so}',\n  dot: '${WORDMARK.dot}',\n} as const;\n`,
 );
 
-// favicon.ico: the mark in the accent, a little bolder for the small sizes.
+// favicon.ico: the open o in the accent, bolder at the small sizes.
 const sizes = [16, 32, 48];
 const pngs = await Promise.all(
   sizes.map((size) =>
-    png(markSvg({ line: ACCENT, heart: '#3ab5ef', stroke: size < 48 ? 6.5 : 5.5 }), size),
+    png(iconSvg({ color: ACCENT, stroke: size === 16 ? 7 : size === 32 ? 6 : 5.5 }), size),
   ),
 );
 const header = Buffer.alloc(6);
@@ -124,49 +181,48 @@ await writeFile(
 // icon.svg follows the tab bar's theme; the touch icon is opaque: white on the accent.
 await writeFile(
   path.join(webPublic, 'icon.svg'),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><style>.l{stroke:${FG}}.h{fill:${ACCENT}}@media (prefers-color-scheme:dark){.l{stroke:${FG_DARK}}.h{fill:${ACCENT_DARK}}}</style><g ${strokeAttrs} class="l"><path d="${LETTER}"/><path class="h" d="${HEART}" stroke="none"/></g></svg>\n`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><style>.o{stroke:${ACCENT}}@media (prefers-color-scheme:dark){.o{stroke:${ACCENT_DARK}}}</style><path class="o" d="${iconPath(5.5)}" fill="none" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>\n`,
 );
+const onAccent = `<rect width="48" height="48" fill="${ACCENT}"/>`;
 await writeFile(
   path.join(webPublic, 'apple-touch-icon.png'),
-  await png(
-    markSvg(
-      { line: '#ffffff', heart: '#9ddcff' },
-      `<rect width="48" height="48" fill="${ACCENT}"/>`,
-    ),
-    180,
-  ),
+  await png(iconSvg({ color: '#ffffff', stroke: 5.5 }, onAccent, 0.8), 180),
 );
 
 // The installed app (manifest.webmanifest): the touch icon's look at the sizes stores and
 // launchers ask for. A maskable icon may be cut to any shape down to the inner 80 % circle, so
-// its mark is drawn at 60 % around the centre, with a bolder line so it does not thin out.
-const appIcon = (scale, stroke = STROKE) =>
-  markSvg(
-    { line: '#ffffff', heart: '#9ddcff', stroke },
-    `<rect width="48" height="48" fill="${ACCENT}"/><g transform="translate(${(24 - 24 * scale).toFixed(2)} ${(24 - 24 * scale).toFixed(2)}) scale(${scale})">`,
-  ).replace('</svg>', '</g></svg>');
-await writeFile(path.join(webPublic, 'icon-192.png'), await png(appIcon(1), 192));
-await writeFile(path.join(webPublic, 'icon-512.png'), await png(appIcon(1), 512));
-await writeFile(path.join(webPublic, 'icon-maskable-512.png'), await png(appIcon(0.6, 4.5), 512));
-// Android draws a notification's badge from its alpha channel alone: a white mark, bolder.
+// its o is drawn at 60 % around the centre, with a bolder line so it does not thin out.
+await writeFile(
+  path.join(webPublic, 'icon-192.png'),
+  await png(iconSvg({ color: '#ffffff', stroke: 5.5 }, onAccent, 0.8), 192),
+);
+await writeFile(
+  path.join(webPublic, 'icon-512.png'),
+  await png(iconSvg({ color: '#ffffff', stroke: 5.5 }, onAccent, 0.8), 512),
+);
+await writeFile(
+  path.join(webPublic, 'icon-maskable-512.png'),
+  await png(iconSvg({ color: '#ffffff', stroke: 6.5 }, onAccent, 0.6), 512),
+);
+// Android draws a notification's badge from its alpha channel alone: a white o, bolder.
 await writeFile(
   path.join(webPublic, 'badge-96.png'),
-  await png(markSvg({ line: '#ffffff', heart: '#ffffff', stroke: 4.5 }), 96),
+  await png(iconSvg({ color: '#ffffff', stroke: 6 }), 96),
 );
 
-// The mail header: mark + wordmark, shown 28 px tall, rendered at 4× for sharp screens.
-const MAIL_HEIGHT = 28;
-const mailWidth = Math.round((lockupWidth / 48) * MAIL_HEIGHT);
-const mail = await sharp(
-  Buffer.from(lockupSvg({ line: MAIL_TEXT, heart: ACCENT, text: MAIL_TEXT, accent: ACCENT })),
-  { density: 600 },
-)
+// The mail header: the wordmark, shown 26 px tall (as in the web's header), rendered at 4× for
+// sharp screens.
+const MAIL_HEIGHT = 26;
+const mailWidth = Math.round((WORDMARK.width / 48) * MAIL_HEIGHT);
+const mail = await sharp(Buffer.from(wordmarkSvg({ text: MAIL_TEXT, accent: ACCENT })), {
+  density: 600,
+})
   .resize({ height: MAIL_HEIGHT * 4 })
   .png()
   .toBuffer();
 await writeModule(
   emailModule,
-  `// Generated by scripts/brand-assets.mjs (\`pnpm brand\`); do not edit by hand.\n/** Mark + wordmark as a PNG, embedded inline in every mail (see brand.ts); CSS pixel size. */\nexport const LOGO_PNG = {\n  width: ${mailWidth},\n  height: ${MAIL_HEIGHT},\n  base64:\n    '${mail.toString('base64')}',\n};\n`,
+  `// Generated by scripts/brand-assets.mjs (\`pnpm brand\`); do not edit by hand.\n/** The wordmark as a PNG, embedded inline in every mail (see brand.ts); CSS pixel size. */\nexport const LOGO_PNG = {\n  width: ${mailWidth},\n  height: ${MAIL_HEIGHT},\n  base64:\n    '${mail.toString('base64')}',\n};\n`,
 );
 
 if (preview) {
@@ -174,29 +230,17 @@ if (preview) {
     sharp(Buffer.from(svg), { density: 600 }).resize({ width }).png().toBuffer();
   const bg = (color) => `<rect width="100%" height="100%" fill="${color}"/>`;
   const tiles = await Promise.all([
-    tile(lockupSvg({ line: FG, heart: ACCENT, text: FG, accent: ACCENT }, bg('#f6f7f9')), 420),
-    tile(
-      lockupSvg(
-        { line: FG_DARK, heart: ACCENT_DARK, text: FG_DARK, accent: ACCENT_DARK },
-        bg('#141619'),
-      ),
-      420,
-    ),
-    tile(markSvg({ line: ACCENT, heart: '#3ab5ef', stroke: 6.5 }, bg('#dddddd')), 120),
-    tile(
-      markSvg(
-        { line: '#ffffff', heart: '#9ddcff' },
-        `<rect width="48" height="48" rx="10" fill="${ACCENT}"/>`,
-      ),
-      120,
-    ),
+    tile(wordmarkSvg({ text: FG, accent: ACCENT }, bg('#f6f7f9')), 420),
+    tile(wordmarkSvg({ text: FG_DARK, accent: ACCENT_DARK }, bg('#141619')), 420),
+    tile(iconSvg({ color: ACCENT, stroke: 6 }, bg('#dddddd')), 120),
+    tile(iconSvg({ color: '#ffffff', stroke: 5.5 }, onAccent, 0.8), 120),
   ]);
-  await sharp({ create: { width: 900, height: 300, channels: 4, background: '#ffffff' } })
+  await sharp({ create: { width: 900, height: 330, channels: 4, background: '#ffffff' } })
     .composite([
       { input: tiles[0], left: 10, top: 20 },
       { input: tiles[1], left: 440, top: 20 },
-      { input: tiles[2], left: 10, top: 150 },
-      { input: tiles[3], left: 140, top: 150 },
+      { input: tiles[2], left: 10, top: 190 },
+      { input: tiles[3], left: 140, top: 190 },
     ])
     .png()
     .toFile(preview);
