@@ -21,7 +21,7 @@ hours.
 
 **Where we are on 2026-10-22** (§0 below is the picture of 2026-10-19): shipped A2–A4, B1–B6, C2,
 C3, C5, C6, D1, D2, D4 and E4 (merged up to D2, E4 and the L26 fix on `dev`); the box, the tunnel,
-Turnstile and Resend run. Open: C7 (last of v2.7), D3, E1, E2 (now step 1 of Track F), Track F;
+Turnstile and Resend run. C7 followed the same day, so v2.7 is complete. Open: D3, E1, E2 (now step 1 of Track F), Track F;
 A1's monitor, alerts and off-box copies and E3 sit in `BACKLOG.md` ("Monitoring and alerting"), C4
 stays deferred.
 
@@ -69,12 +69,12 @@ D1  email change, sessions list     ✅ 2026-10-20           │  v2.6
 C2  comment replies                 ✅ 2026-10-20          ─┘
 C5  chat extras (edit, reactions, role lines, sound) ✅ 2026-10-20 ─┐
 B6  # autocomplete                  ✅ 2026-10-20           │  v2.7
-C7  realtime activity                                       │
+C7  realtime activity                ✅ 2026-10-22           │
 D4  picture cropping                ✅ 2026-10-21          ─┘
 D2  richer posts                    ✅ 2026-10-21 (pulled forward by the owner)
 E4  code structure                  ✅ 2026-10-22 (the emoji picker upgrade waits for November)
 ── agreed 2026-10-22 (§7, §10 third round) ──
-C7  realtime activity                                          finishes v2.7
+C7  realtime activity                ✅ 2026-10-22              finishes v2.7
 E2  installable app + web push                                 v2.8  (step 1)
 F1  invites + explore                                       ─┐
 F2a achievements: engine, first groups                      │
@@ -399,7 +399,7 @@ Pulled from the backlog on 2026-10-20 (owner). Four pieces, one commit; voice no
 - Tests: int (edit rules incl. 403 for others and 400 for deleted or system lines, revisions, reactions and their push, the new lines), gateway spec for `message:updated`, web (editor in the bubble and in a chat window, reaction pills, the snippet following an edit, the sound rule), e2e extension of `chat.spec.ts` (an edit and a reaction seen live by the other member).
 - As built (2026-10-20): the message carries `reactions` as the plain `[{ userId, type }]` list instead of a `ReactionSummary` (one push serves every member; the client sums it), the picker lives in the bubble's hover toolbar with pills below (no long-press), `subscribeToMessages` listeners get `{ onScreen }` so the sound rule and the bubbles agree, and the export carries message revisions and reactions. The chat-window variant of the editor is covered by the shared `Thread`, not by a test of its own.
 
-### C7. Realtime activity · S
+### C7. Realtime activity · S · ✅ 2026-10-22
 
 Pulled from the backlog on 2026-10-20 (owner). *What it is:* the "Latest activity" card in the
 right bar and the `/activity` page are fetched when a page mounts and refetched when the tab
@@ -410,6 +410,7 @@ the way a message or a notification does.
 - API: `ActivitiesListener` emits `ActivityRecordedEvent(activity, actorId)` once the row is written (the item already shaped by `toActivity`); the gateway answers with `activity:new` to the rooms of the actor's followers (`FollowsService.followerIds(actorId)`, one query; capped at 1 000 ids, which no demo account reaches) and never to the actor. Removals (unlike, unfollow) push nothing: the row disappears at the next fetch, as today.
 - Web: `ChatProvider` hands the push to `receiveActivity` (`use-activities.ts`: `prependItem` into `queryKeys.activities.list` when it is loaded); the card keeps showing its six newest, the page its full list. No badge, no sound, nothing stored.
 - Tests: int (push to followers only, never to the actor or a stranger), gateway spec, web (push → card and page), fake socket schema map.
+- As built (2026-10-22): the listener works out the recipients itself and the event carries them (`ActivityRecordedEvent(activity, recipientIds)`, the gateway convention), because a follower must also be able to *see* the item: `GET /activities` leaves out anything by, about or on the post of someone the viewer blocked, was blocked by or muted, so the push asks the same of the actor, the target and the post's author through the new `VisibilityService.viewersOf(viewers, subjects)` (three queries for any number of followers; nobody when a subject is suspended). The client replaces an older line for the same thing happening again (a like after an unlike, which pushes nothing) and, after any socket gap, refetches the activity list and the notification count, since nothing queues pushes for an absent socket. Found on the way: the bell's query said "a tab regaining focus refetches" but focus refetching is off app-wide; it now has it. The socket helpers of the chat integration tests moved to `test/setup/sockets.ts`; e2e `activity.spec.ts`.
 
 ### C6. Scheduler and reapers · S · ✅ 2026-10-20 (ADR 0012 amendment)
 

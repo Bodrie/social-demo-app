@@ -1,8 +1,18 @@
-import { activityListSchema, commentSchema, postSchema, uploadResponseSchema } from '@beso/shared';
+import {
+  type Activity,
+  SOCKET_EVENTS,
+  activityListSchema,
+  activitySchema,
+  commentSchema,
+  postSchema,
+  uploadResponseSchema,
+} from '@beso/shared';
 import sharp from 'sharp';
+import type { Socket } from 'socket.io-client';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
 import { type CreatedUser, type TestAgent, createUser, login } from './setup/factories.js';
+import { collectUntil, connect, connected, sessionFor, waitFor } from './setup/sockets.js';
 
 async function agentFor(t: TestApp, user: CreatedUser): Promise<TestAgent> {
   const agent = request.agent(t.server);
@@ -173,5 +183,98 @@ describe('activities', () => {
 
   it('requires a session', async () => {
     await request(t.server).get('/api/v1/activities').expect(401);
+  });
+});
+
+describe('activity pushes (C7)', () => {
+  let t: TestApp;
+  const sockets: Socket[] = [];
+
+  beforeAll(async () => {
+    t = await createTestApp({ listen: true });
+  });
+
+  afterAll(async () => {
+    for (const socket of sockets) socket.disconnect();
+    await t.app.close();
+  });
+
+  async function member(): Promise<{ user: CreatedUser; agent: TestAgent; socket: Socket }> {
+    const user = await createUser(t.prisma);
+    const { agent, token } = await sessionFor(t, user);
+    const socket = connect(t, { token });
+    sockets.push(socket);
+    await connected(socket);
+    return { user, agent, socket };
+  }
+
+  const pushOf = (socket: Socket, type: Activity['type']) =>
+    waitFor<unknown>(socket, SOCKET_EVENTS.activityNew, (payload) => {
+      const parsed = activitySchema.safeParse(payload);
+      return parsed.success && parsed.data.type === type;
+    }).then((payload) => activitySchema.parse(payload));
+
+  /** What each socket received before `settled`, plus a moment for a stray push to land. */
+  const receivedBy = (socketsToWatch: Socket[], settled: Promise<unknown>) => {
+    const done = settled.then(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    return Promise.all(
+      socketsToWatch.map((socket) =>
+        collectUntil<unknown>(socket, SOCKET_EVENTS.activityNew, done),
+      ),
+    );
+  };
+
+  it('reaches the followers who may see it, never the actor, a stranger, a muter or across a block', async () => {
+    const bob = await member();
+    const carol = await member();
+    const alice = await member(); // follows bob
+    const dave = await member(); // follows bob, muted him
+    const erin = await member(); // follows bob, blocked carol
+    const gina = await member(); // follows bob, blocked by carol
+    const stranger = await member();
+    for (const follower of [alice, dave, erin, gina]) {
+      // oxlint-disable-next-line no-await-in-loop -- a handful of setup calls
+      await follower.agent.put(`/api/v1/users/${bob.user.id}/follow`).expect(204);
+    }
+    await dave.agent.put(`/api/v1/users/${bob.user.id}/mute`).expect(204);
+    await erin.agent.put(`/api/v1/users/${carol.user.id}/block`).expect(204);
+    await carol.agent.put(`/api/v1/users/${gina.user.id}/block`).expect(204);
+    const carolPost = postSchema.parse(
+      (await carol.agent.post('/api/v1/posts').send({ content: 'carol was here' }).expect(201))
+        .body,
+    );
+
+    // A post of bob's own reaches every follower who has not muted him.
+    const posted = Promise.all([
+      pushOf(alice.socket, 'POST_CREATED'),
+      pushOf(erin.socket, 'POST_CREATED'),
+      pushOf(gina.socket, 'POST_CREATED'),
+    ]);
+    const quietOnPost = receivedBy([bob.socket, dave.socket, stranger.socket], posted);
+    await bob.agent.post('/api/v1/posts').send({ content: 'hello followers' }).expect(201);
+    const [forAlice] = await posted;
+    expect(forAlice).toMatchObject({ type: 'POST_CREATED', actor: { id: bob.user.id } });
+    expect(await quietOnPost).toEqual([[], [], []]);
+
+    // A like on carol's post also involves carol: not for whoever blocked her or she blocked.
+    const liked = pushOf(alice.socket, 'POST_LIKED');
+    const quietOnLike = receivedBy(
+      [erin.socket, gina.socket, dave.socket, bob.socket, stranger.socket],
+      liked,
+    );
+    await bob.agent.put(`/api/v1/posts/${carolPost.id}/like`).expect(204);
+    const like = await liked;
+    expect(await quietOnLike).toEqual([[], [], [], [], []]);
+
+    // The push is the item the list shows, so the client can put it there as it is.
+    const listed = activityListSchema.parse(
+      (await alice.agent.get('/api/v1/activities').expect(200)).body,
+    );
+    expect(listed.items[0]).toEqual(like);
+    expect(like).toMatchObject({
+      type: 'POST_LIKED',
+      actor: { id: bob.user.id },
+      post: { id: carolPost.id, excerpt: 'carol was here' },
+    });
   });
 });

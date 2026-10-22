@@ -24,7 +24,11 @@ describe('toActivity', () => {
       type: 'COMMENT_CREATED',
       createdAt: new Date('2026-10-15T10:00:00.000Z'),
       actor,
-      post: { id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b7', content: 'the post' },
+      post: {
+        id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b7',
+        content: 'the post',
+        authorId: '01a13ed6-d3ec-71cb-b39f-fbc256a293b5',
+      },
       comment: { id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b6', content: 'the comment' },
       targetUser: null,
     };

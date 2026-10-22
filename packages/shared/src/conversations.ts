@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { reactionTypeSchema, setReactionSchema } from './comments.js';
 import { apiErrorSchema } from './errors.js';
 import { uuidSchema } from './common.js';
+import type { Activity } from './activities.js';
 import type { Notification } from './notifications.js';
 import { cursorQuerySchema, paginatedSchema } from './pagination.js';
 import { messageImageKeySchema, storedImageSchema } from './uploads.js';
@@ -206,6 +207,11 @@ export const SOCKET_EVENTS = {
   typingUpdate: 'typing:update',
   /** server → client (the recipient): a Notification that was just written (ADR 0015). */
   notificationNew: 'notification:new',
+  /**
+   * server → client (the actor's followers who may see it): an Activity that was just recorded
+   * (C7). Undone likes and follows push nothing; they are gone at the next fetch.
+   */
+  activityNew: 'activity:new',
   /** server → client: an ApiError raised by a handler outside the ack flow. */
   exception: 'exception',
 } as const;
@@ -263,6 +269,7 @@ export type ServerToClientEvents = {
   [SOCKET_EVENTS.conversationRemoved]: (payload: ConversationRef) => void;
   [SOCKET_EVENTS.typingUpdate]: (payload: TypingUpdate) => void;
   [SOCKET_EVENTS.notificationNew]: (notification: Notification) => void;
+  [SOCKET_EVENTS.activityNew]: (activity: Activity) => void;
   [SOCKET_EVENTS.exception]: (error: z.infer<typeof apiErrorSchema>) => void;
 };
 

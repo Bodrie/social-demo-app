@@ -85,4 +85,20 @@ describe('notifications', () => {
     expect(await screen.findByRole('heading', { name: 'Nothing here yet' })).toBeInTheDocument();
     expect(screen.getByText(/follows you or mentions you/)).toBeInTheDocument();
   });
+
+  it('catches the bell up on notifications pushed while the socket was away', async () => {
+    signedInAs(alice);
+    renderApp('/');
+    const banner = await screen.findByRole('banner');
+    expect(await within(banner).findByRole('link', { name: 'Notifications' })).toBeInTheDocument();
+    await waitFor(() => expect(fakeSocket.connected).toBe(true));
+
+    act(() => fakeSocket.transportClose());
+    mockDb.notifications.unshift(makeNotification('USER_FOLLOWED', { actor: summaryOf(carol) }));
+    act(() => fakeSocket.reconnect());
+
+    expect(
+      await within(banner).findByRole('link', { name: 'Notifications, 1 unread' }),
+    ).toBeInTheDocument();
+  });
 });

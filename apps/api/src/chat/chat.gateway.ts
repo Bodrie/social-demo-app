@@ -27,6 +27,7 @@ import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { fieldsFromIssues, toApiError } from '../common/errors.js';
 import type { Env } from '../config/env.js';
 import { ConversationsService } from '../conversations/conversations.service.js';
+import { ActivityRecordedEvent } from '../events/activity.events.js';
 import { SessionsRevokedEvent } from '../events/auth.events.js';
 import {
   ConversationDeletedEvent,
@@ -327,6 +328,12 @@ export class ChatGateway
   @OnEvent(NotificationCreatedEvent.EVENT)
   onNotificationCreated(event: NotificationCreatedEvent): void {
     this.emitTo([event.userId], SOCKET_EVENTS.notificationNew, event.notification);
+  }
+
+  /** Followers who may see it get the activity as `GET /activities` would show it (C7). */
+  @OnEvent(ActivityRecordedEvent.EVENT)
+  onActivityRecorded(event: ActivityRecordedEvent): void {
+    this.emitTo(event.recipientIds, SOCKET_EVENTS.activityNew, event.activity);
   }
 
   /** logout-all or refresh-token reuse: every open socket of the user is cut. */

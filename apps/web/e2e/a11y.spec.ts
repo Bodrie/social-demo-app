@@ -165,6 +165,9 @@ test.describe('accessibility (signed in)', () => {
   });
 
   test('people, activity and a profile', async ({ page }) => {
+    // Ten pages and dialogs audited one after another: the default 30 s ran out on a busy
+    // machine (2026-10-22), well before anything was wrong with the pages.
+    test.slow();
     await openHome(page);
     await page.goto('/users');
     await expect(
