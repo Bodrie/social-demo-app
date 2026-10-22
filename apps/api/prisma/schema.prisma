@@ -37,6 +37,11 @@ model User {
   coverKey        String?   @map("cover_key")
   /// Account-level preferences (`userSettingsSchema` in shared); keys are added as features land.
   settings        Json      @default("{}") @db.JsonB
+  /// The member's personal invite link, `/join/<code>` (F1): made when first asked for,
+  /// replaced on request (the old link stops working).
+  inviteCode      String?   @unique @map("invite_code")
+  /// Whose invite link the member registered with; null otherwise, or once that member is gone.
+  invitedById     String?   @map("invited_by_id") @db.Uuid
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -48,6 +53,8 @@ model User {
   activities        Activity[]           @relation("ActivityActor")
   targetedBy        Activity[]           @relation("ActivityTargetUser")
   refreshTokens     RefreshToken[]
+  invitedBy         User?                @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitees          User[]               @relation("UserInvites")
   pushSubscriptions PushSubscription[]
   sentMessages      Message[]            @relation("MessageSender")
   messageReactions  MessageReaction[]
@@ -70,6 +77,7 @@ model User {
   resolvedReports   Report[]             @relation("ReportResolver")
   adminActions      AdminAction[]
 
+  @@index([invitedById])
   @@map("users")
 }
 
@@ -523,6 +531,7 @@ enum NotificationType {
   MENTIONED_IN_COMMENT
   POST_REPOSTED
   POST_QUOTED
+  INVITE_JOINED
 
   @@map("notification_type")
 }

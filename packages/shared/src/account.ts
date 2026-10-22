@@ -56,6 +56,11 @@ export const accountExportSchema = z.object({
   ),
   following: z.array(followEntrySchema),
   followers: z.array(followEntrySchema),
+  /** The member's invite link code (if one was ever made) and whose invite they joined with. */
+  invite: z.object({
+    code: z.string().nullable(),
+    invitedBy: z.object({ userId: z.uuid(), username: z.string() }).nullable(),
+  }),
   messages: z.array(
     z.object({
       id: z.uuid(),

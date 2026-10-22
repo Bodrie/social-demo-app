@@ -2,7 +2,6 @@ import { type RouteObject, createBrowserRouter, createMemoryRouter } from 'react
 import { FullPageSpinner } from '@/components/full-page-spinner';
 import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/features/auth/login-page';
-import { RegisterPage } from '@/features/auth/register-page';
 import { HomePage } from '@/features/feed/home-page';
 import { RedirectIfAuthenticated, RequireAuth } from './routes/require-auth';
 import { RouteError } from './routes/route-error';
@@ -93,6 +92,12 @@ export const routes: RouteObject[] = [
                 }),
               },
               {
+                path: 'explore',
+                lazy: async () => ({
+                  Component: (await import('@/features/explore/explore-page')).ExplorePage,
+                }),
+              },
+              {
                 path: 'search',
                 lazy: async () => ({
                   Component: (await import('@/features/search/search-page')).SearchPage,
@@ -127,7 +132,20 @@ export const routes: RouteObject[] = [
         element: <RedirectIfAuthenticated />,
         children: [
           { path: 'login', element: <LoginPage /> },
-          { path: 'register', element: <RegisterPage /> },
+          // Signed-out visitors land on /login; the register form and an invite's join page
+          // (which wraps it) load on demand and share a chunk.
+          {
+            path: 'register',
+            lazy: async () => ({
+              Component: (await import('@/features/auth/register-page')).RegisterPage,
+            }),
+          },
+          {
+            path: 'join/:code',
+            lazy: async () => ({
+              Component: (await import('@/features/invites/join-page')).JoinPage,
+            }),
+          },
           {
             path: 'forgot-password',
             lazy: async () => ({

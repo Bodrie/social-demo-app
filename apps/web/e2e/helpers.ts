@@ -63,15 +63,18 @@ export function linkIn(mail: OutboxEntry, pathname: string): string {
 /** For specs that must start signed out (the auth flows themselves). */
 export const ANONYMOUS = { cookies: [], origins: [] };
 
-/** Registers a throwaway member and follows the confirmation link; ends signed in on the feed. */
-export async function registerAndConfirm(page: Page) {
+/**
+ * Registers a throwaway member and follows the confirmation link; ends signed in on the feed.
+ * `from`: the page with the form, `/register` or an invite's `/join/<code>`.
+ */
+export async function registerAndConfirm(page: Page, { from = '/register' } = {}) {
   const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
   const member = {
     username: `pw_${stamp}`,
     name: `Play Wright ${stamp}`,
     email: `pw_${stamp}@example.com`,
   };
-  await page.goto('/register');
+  await page.goto(from);
   await page.getByLabel('Username').fill(member.username);
   await page.getByLabel('Name', { exact: true }).fill(member.name);
   await page.getByLabel('Email').fill(member.email);

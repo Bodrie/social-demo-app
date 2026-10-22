@@ -69,6 +69,8 @@ export const mockDb = {
   sessions: [] as Session[],
   /** The body of the last registration, for asserting what the form sent (e.g. the bot-check token). */
   lastRegistration: null as Record<string, unknown> | null,
+  /** Invite codes (F1): code → the member it belongs to. alice's is the seed's. */
+  inviteCodes: new Map<string, string>(),
   /** `GET /push/config`: null is a server with push switched off (the default). */
   pushPublicKey: null as string | null,
   /** Endpoints of the push subscriptions the fake API holds (ADR 0022). */
@@ -114,6 +116,7 @@ export function resetMockDb(): void {
   mockDb.emailTokens = [];
   mockDb.sessions = [];
   mockDb.lastRegistration = null;
+  mockDb.inviteCodes = new Map([['welcome-from-alice', alice.id]]);
   mockDb.pushPublicKey = null;
   mockDb.pushEndpoints = [];
   mockDb.calls = {

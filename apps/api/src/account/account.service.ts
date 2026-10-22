@@ -91,6 +91,8 @@ export class AccountService {
           select: { createdAt: true, follower: { select: { id: true, username: true } } },
           orderBy: { createdAt: 'asc' },
         },
+        inviteCode: true,
+        invitedBy: { select: { id: true, username: true } },
         sentMessages: {
           select: {
             id: true,
@@ -162,6 +164,12 @@ export class AccountService {
         username: follow.follower.username,
         since: iso(follow.createdAt),
       })),
+      invite: {
+        code: user.inviteCode,
+        invitedBy: user.invitedBy
+          ? { userId: user.invitedBy.id, username: user.invitedBy.username }
+          : null,
+      },
       messages: user.sentMessages.map((message) => ({
         id: message.id,
         conversationId: message.conversationId,

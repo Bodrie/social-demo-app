@@ -17,6 +17,8 @@ export const NOTIFICATION_TYPES = [
   'POST_REPOSTED',
   /** `post` is the quote (its excerpt is the quoter's words); it leads to the quote's page. */
   'POST_QUOTED',
+  /** The actor registered through your invite link and now follows you (F1). */
+  'INVITE_JOINED',
 ] as const;
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
@@ -54,6 +56,7 @@ export const NOTIFICATION_PHRASES: Record<
   MENTIONED_IN_COMMENT: { phrase: 'mentioned you in a comment', quotes: 'comment' },
   POST_REPOSTED: { phrase: 'reposted your post', quotes: 'post' },
   POST_QUOTED: { phrase: 'quoted your post', quotes: 'post' },
+  INVITE_JOINED: { phrase: 'accepted your invite and follows you', quotes: null },
 };
 
 /** Where a notification leads: the post (at the comment, for comment types) or the actor. */

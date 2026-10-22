@@ -76,7 +76,7 @@ E4  code structure                  ✅ 2026-10-22 (the emoji picker upgrade wai
 ── agreed 2026-10-22 (§7, §10 third round) ──
 C7  realtime activity                ✅ 2026-10-22              finishes v2.7
 E2  installable app + web push      ✅ 2026-10-22              v2.8  (step 1)
-F1  invites + explore                                       ─┐
+F1  invites + explore                ✅ 2026-10-22          ─┐
 F2a achievements: engine, first groups                      │
 F2b achievements: recognition, community, hidden, time zone │  v2.9  (step 2)
 F3  polls + frequent jobs                                   │
@@ -533,7 +533,7 @@ closed tab, and an installed app with notifications is most of what members mean
   by 1 kB (257.3 of 258). Playwright's headless shell has no notifications, so e2e covers the
   manifest, the icons, the worker's registration and the card; the switch flow is in the web tests.
 
-### F1. Invites and the explore feed · M (step 2)
+### F1. Invites and the explore feed · M (step 2) · ✅ 2026-10-22
 
 The newcomer experience parked on 2026-10-20, now with invites: a new network's biggest risk is a
 newcomer looking at an empty feed.
@@ -554,6 +554,20 @@ newcomer looking at an empty feed.
   confirmation, revoked codes, explore visibility and both orders), web (join page, invite menu,
   explore tabs, empty feed), e2e (invite link → register → confirm → following the inviter), axe for
   `/join/:code` and `/explore`.
+- As built (2026-10-22): the code lives on the user (`users.invite_code`, unique; renewing replaces
+  it) rather than in an `invite_codes` table, and `users.invited_by_id` (SetNull, indexed). The
+  follow happens on `UserVerifiedEvent`, emitted by every path that confirms an address for the
+  first time (the mailed link, a password reset, a corrected address confirmed from the waiting
+  room); the follow's event carries `viaInvite`, so the inviter gets one `INVITE_JOINED` ("accepted
+  your invite and follows you") instead of `USER_FOLLOWED`, with a Follow back button in the
+  notification row (the actor's profile tells whether that already happened). A dead code is no
+  invite, never an error; suspended inviters and blocks stop the follow. The export carries the
+  member's code and whose invite they used. Explore is `GET /explore/posts?sort=` (latest is
+  `PostsService.list`, popular a raw ranking with the ranked cursor); `/explore` is in the main
+  navigation. Bundle: a lazy `/join/:code` sharing `RegisterPage` with the eager `/register` made
+  the bundler split the entry into a dozen small shared chunks (+4.9 kB); `/register` is lazy
+  now too, so both share one on-demand chunk and the first paint is 257.2 kB, a little under
+  where it was. The invite dialog loads when opened.
 
 ### F2. Achievements · M + M (two commits) · ADR 0021 "Achievements" (step 2)
 

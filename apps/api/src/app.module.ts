@@ -20,6 +20,7 @@ import { HttpThrottlerGuard } from './common/guards/http-throttler.guard.js';
 import { type Env, validateEnv } from './config/env.js';
 import { FollowsModule } from './follows/follows.module.js';
 import { HealthModule } from './health/health.module.js';
+import { InvitesModule } from './invites/invites.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { AppLoggerModule } from './logging/logger.module.js';
 import { ModerationModule } from './moderation/moderation.module.js';
@@ -71,6 +72,7 @@ import { UsersModule } from './users/users.module.js';
     TagsModule,
     SearchModule,
     FollowsModule,
+    InvitesModule,
     ActivitiesModule,
     NotificationsModule,
     PushModule,

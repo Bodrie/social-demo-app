@@ -8,6 +8,8 @@ import {
   confirmEmailChangeResponseSchema,
   conversationListSchema,
   conversationSchema,
+  inviteLookupSchema,
+  inviteSchema,
   markReadResultSchema,
   meResponseSchema,
   memberListSchema,
@@ -43,6 +45,8 @@ export class VerifyEmailResponseDto extends createZodDto(verifyEmailResponseSche
 export class ConfirmEmailChangeResponseDto extends createZodDto(confirmEmailChangeResponseSchema) {}
 export class SessionListDto extends createZodDto(sessionListSchema) {}
 export class AccountExportDto extends createZodDto(accountExportSchema) {}
+export class InviteDto extends createZodDto(inviteSchema) {}
+export class InviteLookupDto extends createZodDto(inviteLookupSchema) {}
 
 // People
 export class UserPublicDto extends createZodDto(userPublicSchema) {}

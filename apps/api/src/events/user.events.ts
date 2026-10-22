@@ -4,6 +4,15 @@ export class UserRegisteredEvent {
   constructor(readonly userId: string) {}
 }
 
+/**
+ * The member's address was confirmed for the first time, so the account is open (by the mailed
+ * link, a password reset, or confirming a corrected address from the waiting room).
+ */
+export class UserVerifiedEvent {
+  static readonly EVENT = 'user.verified';
+  constructor(readonly userId: string) {}
+}
+
 export class ProfileUpdatedEvent {
   static readonly EVENT = 'profile.updated';
   constructor(
@@ -17,6 +26,8 @@ export class UserFollowedEvent {
   constructor(
     readonly followerId: string,
     readonly followeeId: string,
+    /** The new member following whoever invited them (F1): told as INVITE_JOINED instead. */
+    readonly viaInvite = false,
   ) {}
 }
 

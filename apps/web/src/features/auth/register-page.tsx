@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type RegisterInput, registerSchema } from '@beso/shared';
+import { type RegisterInput, type UserSummary, registerSchema } from '@beso/shared';
 import { Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { UserAvatar } from '@/components/user-avatar';
 import { isApiClientError } from '@/lib/api/client';
 import { getTurnstileSiteKey } from '@/lib/env';
 import { AuthLayout } from './auth-layout';
@@ -24,8 +25,15 @@ import { applyApiErrors } from './form-errors';
 import { Turnstile } from './turnstile';
 import { useRegister } from './use-auth-mutations';
 
-export function RegisterPage() {
+/**
+ * The join page's invite (F1): `inviter` undefined while it is being looked up, null when the
+ * link no longer works (the visitor joins without it).
+ */
+type RegisterInvite = { code: string; inviter: UserSummary | null | undefined };
+
+export function RegisterPage({ invite }: { invite?: RegisterInvite } = {}) {
   const register = useRegister();
+  const inviter = invite?.inviter;
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: { email: '', username: '', name: '', password: '' },
@@ -39,24 +47,32 @@ export function RegisterPage() {
 
   const onSubmit = (values: RegisterInput) => {
     setCaptchaError(null);
-    register.mutate(siteKey ? { ...values, captchaToken: captchaToken ?? undefined } : values, {
-      onSuccess: () => toast.success('Welcome aboard!'),
-      onError: (error) => {
-        if (isApiClientError(error) && error.fields.captchaToken) {
-          setCaptchaError(error.fields.captchaToken);
-        } else {
-          applyApiErrors(error, form.setError, ['email', 'username', 'name', 'password']);
-        }
-        // Turnstile tokens work once: whatever went wrong, the next attempt needs a new one.
-        if (siteKey) setCaptchaReset((count) => count + 1);
+    const withInvite = inviter && invite ? { ...values, inviteCode: invite.code } : values;
+    register.mutate(
+      siteKey ? { ...withInvite, captchaToken: captchaToken ?? undefined } : withInvite,
+      {
+        onSuccess: () => toast.success('Welcome aboard!'),
+        onError: (error) => {
+          if (isApiClientError(error) && error.fields.captchaToken) {
+            setCaptchaError(error.fields.captchaToken);
+          } else {
+            applyApiErrors(error, form.setError, ['email', 'username', 'name', 'password']);
+          }
+          // Turnstile tokens work once: whatever went wrong, the next attempt needs a new one.
+          if (siteKey) setCaptchaReset((count) => count + 1);
+        },
       },
-    });
+    );
   };
 
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="A minute is all it takes."
+      title={inviter ? `${inviter.name} invited you to BeSo` : 'Create your account'}
+      subtitle={
+        inviter
+          ? 'Join, and you start out following them. A minute is all it takes.'
+          : 'A minute is all it takes.'
+      }
       footer={
         <>
           Already a member?{' '}
@@ -66,6 +82,19 @@ export function RegisterPage() {
         </>
       }
     >
+      {inviter ? (
+        <div className="bg-muted/60 mb-5 flex items-center gap-3 rounded-lg p-3">
+          <UserAvatar user={inviter} size="sm" />
+          <p className="text-sm">
+            <span className="font-medium">{inviter.name}</span>{' '}
+            <span className="text-muted-foreground">@{inviter.username}</span>
+          </p>
+        </div>
+      ) : invite && inviter === null ? (
+        <p className="bg-muted/60 text-muted-foreground mb-5 rounded-lg p-3 text-sm">
+          This invite link does not work any more, but you can still join.
+        </p>
+      ) : null}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
           <div className="grid gap-5 sm:grid-cols-2">

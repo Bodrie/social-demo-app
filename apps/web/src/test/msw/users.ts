@@ -53,6 +53,7 @@ export const userHandlers = [
       reactions: [],
       following: [],
       followers: [],
+      invite: { code: null, invitedBy: null },
       messages: [],
       uploads: [],
       messageReactions: [],

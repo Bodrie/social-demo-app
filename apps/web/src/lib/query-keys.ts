@@ -1,4 +1,4 @@
-import type { CommentSort } from '@beso/shared';
+import type { CommentSort, ExploreSort } from '@beso/shared';
 
 /**
  * Query key factory. Every key starts with its feature so invalidation can be scoped,
@@ -30,6 +30,8 @@ export const queryKeys = {
     byUser: (userId: string) => ['posts', 'list', 'user', userId] as const,
     byTag: (tag: string) => ['posts', 'list', 'tag', tag] as const,
     search: (q: string) => ['posts', 'list', 'search', q] as const,
+    /** Everyone's posts (F1), newest first or the most popular of the week. */
+    explore: (sort: ExploreSort) => ['posts', 'list', 'explore', sort] as const,
     /** The viewer's saved posts, newest save first; under the lists prefix like every post list. */
     bookmarks: ['posts', 'list', 'bookmarks'] as const,
     /** One post as a one-item list, so every cache helper (likes, edits, deletes) reaches it. */
@@ -69,6 +71,12 @@ export const queryKeys = {
     all: ['moderation'] as const,
     blocked: ['moderation', 'blocked'] as const,
     muted: ['moderation', 'muted'] as const,
+  },
+  invites: {
+    /** The member's own invite link (F1). */
+    mine: ['invites', 'mine'] as const,
+    /** Who a `/join/<code>` link is from. */
+    lookup: (code: string) => ['invites', 'lookup', code] as const,
   },
   push: {
     /** `{ publicKey }`: whether the server has web push switched on (ADR 0022). */

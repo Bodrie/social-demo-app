@@ -101,11 +101,12 @@ export class NotificationsListener {
     });
   }
 
+  /** A follow that an invite made says so (F1): one notification, not "started following you". */
   @OnEvent(UserFollowedEvent.EVENT)
   onUserFollowed(event: UserFollowedEvent): Promise<void> {
     return this.notify({
       userId: event.followeeId,
-      type: 'USER_FOLLOWED',
+      type: event.viaInvite ? 'INVITE_JOINED' : 'USER_FOLLOWED',
       actorId: event.followerId,
     });
   }

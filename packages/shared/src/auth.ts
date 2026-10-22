@@ -19,6 +19,11 @@ export const registerSchema = z.object({
   password: passwordSchema,
   /** The bot-check token (Cloudflare Turnstile); required only where the API has a secret. */
   captchaToken: z.string().max(2048).optional(),
+  /**
+   * From the invite link the visitor came by (F1): once the address is confirmed, the new member
+   * follows whoever invited them. A code that no longer works is ignored, never an error.
+   */
+  inviteCode: z.string().max(64).optional(),
 });
 export type RegisterInput = z.input<typeof registerSchema>;
 export type RegisterData = z.output<typeof registerSchema>;

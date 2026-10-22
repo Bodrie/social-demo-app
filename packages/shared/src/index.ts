@@ -6,6 +6,7 @@ export * from './common.js';
 export * from './constants.js';
 export * from './errors.js';
 export * from './health.js';
+export * from './invites.js';
 export * from './conversations.js';
 export * from './moderation.js';
 export * from './notifications.js';

@@ -101,6 +101,19 @@ export const userPostsQuerySchema = cursorQuerySchema.extend({
 });
 export type UserPostsQuery = z.output<typeof userPostsQuerySchema>;
 
+/** Explore (F1): everyone's posts newest first, or the most liked, commented and reposted lately. */
+export const EXPLORE_SORTS = ['latest', 'popular'] as const;
+export const exploreSortSchema = z.enum(EXPLORE_SORTS);
+export type ExploreSort = z.infer<typeof exploreSortSchema>;
+/** How far back Popular looks. */
+export const EXPLORE_POPULAR_DAYS = 7;
+
+/** `GET /explore/posts` */
+export const exploreQuerySchema = cursorQuerySchema.extend({
+  sort: exploreSortSchema.default('latest'),
+});
+export type ExploreQuery = z.output<typeof exploreQuerySchema>;
+
 export const SEARCH_MIN_LENGTH = 2;
 export const SEARCH_MAX_LENGTH = 100;
 

@@ -94,7 +94,7 @@ describe('web push', () => {
   const devicesOf = (userId: string) =>
     t.prisma.pushSubscription
       .findMany({ where: { userId }, select: { endpoint: true } })
-      .then((rows) => rows.map((row) => row.endpoint).sort());
+      .then((rows) => rows.map((row) => row.endpoint).toSorted());
 
   /** Pushes leave the request path, so they are waited for. */
   const pushesTo = async (name: string, count = 1) => {

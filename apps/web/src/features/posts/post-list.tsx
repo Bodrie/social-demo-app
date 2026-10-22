@@ -1,5 +1,6 @@
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
 import type { Post } from '@beso/shared';
+import type { ReactNode } from 'react';
 import { EmptyState, ErrorState } from '@/components/empty-state';
 import { type Pages, flattenPages } from '@/lib/infinite';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
@@ -8,7 +9,7 @@ import { PostListSkeleton, PostSkeleton } from './post-skeleton';
 
 type PostListProps = {
   query: UseInfiniteQueryResult<Pages<Post>>;
-  empty: { title: string; description?: string };
+  empty: { title: string; description?: string; action?: ReactNode };
   errorMessage: string;
   label: string;
 };
@@ -25,7 +26,9 @@ export function PostList({ query, empty, errorMessage, label }: PostListProps) {
     return <ErrorState message={errorMessage} onRetry={() => void query.refetch()} />;
 
   const posts = flattenPages(query.data);
-  if (posts.length === 0) return <EmptyState title={empty.title} description={empty.description} />;
+  if (posts.length === 0) {
+    return <EmptyState title={empty.title} description={empty.description} action={empty.action} />;
+  }
 
   return (
     <div className="space-y-4">

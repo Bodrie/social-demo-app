@@ -13,6 +13,7 @@ import { useUnblock } from '@/features/moderation/use-moderation';
 import { FollowButton } from '@/features/users/follow-button';
 import { displayUrl } from '@/lib/format';
 import { EditProfileDialog } from './edit-profile-dialog';
+import { InviteButton } from '@/features/invites/invite-button';
 
 export function ProfileHeader({ user }: { user: UserPublic }) {
   const me = useCurrentUser();
@@ -61,7 +62,10 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
           )}
           <div className="flex gap-2 pt-3">
             {isMe ? (
-              <EditProfileDialog />
+              <>
+                <EditProfileDialog />
+                <InviteButton />
+              </>
             ) : user.blocked ? (
               <Button
                 variant="outline"
