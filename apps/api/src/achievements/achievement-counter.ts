@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isEmojiOnly } from '@beso/shared';
 import {
   type AchievementSeries,
   BESO_OPENING,
@@ -11,7 +12,6 @@ import {
   clockMatches,
   hasHalloweenEmoji,
   hasKiss,
-  isEmojiOnly,
   isFullLength,
   isPalindrome,
   localHour,

@@ -5,6 +5,8 @@ import {
   type ReactionType,
   type ReplyRef,
   type StoredImage,
+  emojiCount,
+  isEmojiOnly,
 } from '@beso/shared';
 import { cn } from 'cn';
 import dayjs from 'dayjs';
@@ -489,6 +491,9 @@ type MessageListProps = {
 
 const isSystem = (message: ThreadMessage | undefined): boolean => message?.kind === 'system';
 
+/** Up to this many emoji, a message of emoji only goes without its bubble. */
+const BARE_EMOJI_MAX = 3;
+
 function MessageList({ messages, meId, conversation, onRetry, onReply }: MessageListProps) {
   const queryClient = useQueryClient();
   const listRef = useRef<HTMLOListElement>(null);
@@ -597,6 +602,18 @@ function MessageList({ messages, meId, conversation, onRetry, onReply }: Message
         const picture = settled ? message.image : null;
         // Text under a picture or a post is a caption, inset like the attachment above it.
         const captioned = message.image !== null || message.sharedPost !== null;
+        // A few emoji and nothing else stand on their own, large and without the bubble, as in
+        // other chat apps; a reply (its quote needs the frame) or a failed send keeps it.
+        const emoji =
+          !deleted &&
+          !isEditing &&
+          !captioned &&
+          message.replyTo === null &&
+          message.status !== 'failed' &&
+          isEmojiOnly(message.content)
+            ? emojiCount(message.content)
+            : 0;
+        const bare = emoji > 0 && emoji <= BARE_EMOJI_MAX;
         // Under the emojis of a press-and-hold: what the hover toolbar and its menu offer.
         const reply = message.replyTo;
         const pressActions: PressAction[] = [
@@ -651,18 +668,24 @@ function MessageList({ messages, meId, conversation, onRetry, onReply }: Message
             <div className={cn('flex w-full items-center gap-1', mine && 'flex-row-reverse')}>
               <LongPressArea
                 title={formatDateTime(message.createdAt)}
+                data-emoji-only={bare ? '' : undefined}
                 onLongPress={(element) => {
                   if (settled) setPressed({ id: message.id, element });
                 }}
                 className={cn(
-                  'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
-                  message.image || message.sharedPost ? 'p-1' : 'px-3.5 py-2',
+                  'max-w-[78%] rounded-2xl break-words whitespace-pre-wrap',
+                  bare
+                    ? cn('px-0.5', emoji === 1 ? 'text-5xl/tight' : 'text-4xl/tight')
+                    : cn(
+                        'text-[15px]/5',
+                        message.image || message.sharedPost ? 'p-1' : 'px-3.5 py-2',
+                        deleted
+                          ? 'text-muted-foreground border border-dashed bg-transparent italic'
+                          : mine
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-muted rounded-bl-md',
+                      ),
                   isEditing && 'w-[78%]',
-                  deleted
-                    ? 'text-muted-foreground border border-dashed bg-transparent italic'
-                    : mine
-                      ? 'bg-primary text-primary-foreground rounded-br-md'
-                      : 'bg-muted rounded-bl-md',
                   message.status === 'sending' && 'opacity-70',
                   message.status === 'failed' && 'bg-destructive/15 text-foreground',
                   flashed === message.id && 'ring-primary ring-2 ring-offset-2 ring-offset-card',

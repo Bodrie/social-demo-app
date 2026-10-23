@@ -5,20 +5,6 @@ import { POST_MAX_LENGTH, localTime } from '@beso/shared';
  * the counter can run them over a member's posts and the unit tests over awkward input.
  */
 
-const KEYCAP = /[0-9#*]\uFE0F?\u20E3/u;
-const KEYCAPS = new RegExp(KEYCAP.source, 'gu');
-/** What an emoji is built from: pictographs, skin tones, joiners, variation selectors, flags, tags. */
-const EMOJI_PART =
-  /\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F|[\u{E0020}-\u{E007F}]/gu;
-const PICTOGRAPH = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
-
-/** "Speechless": nothing but emoji (and spaces between them). */
-export function isEmojiOnly(text: string): boolean {
-  const compact = text.replace(/\s+/gu, '');
-  if (!PICTOGRAPH.test(compact) && !KEYCAP.test(compact)) return false;
-  return compact.replace(KEYCAPS, '').replace(EMOJI_PART, '') === '';
-}
-
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 const LETTER = /\p{L}/u;
 

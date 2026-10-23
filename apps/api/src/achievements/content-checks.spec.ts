@@ -3,27 +3,12 @@ import {
   clockMatches,
   hasHalloweenEmoji,
   hasKiss,
-  isEmojiOnly,
   isFullLength,
   isPalindrome,
   localHour,
 } from './content-checks.js';
 
 describe('content checks', () => {
-  it('tells a post of emoji only, whatever they are built from', () => {
-    expect(isEmojiOnly('😂')).toBe(true);
-    expect(isEmojiOnly(' 🎉  🎉 ')).toBe(true);
-    // Skin tones, joined families, flags, a keycap, a variation selector.
-    expect(isEmojiOnly('👍🏽 👨‍👩‍👧 🇧🇬 1️⃣ ❤️')).toBe(true);
-    expect(isEmojiOnly('🏴󠁧󠁢󠁳󠁣󠁴󠁿')).toBe(true);
-    expect(isEmojiOnly('ok 👍')).toBe(false);
-    expect(isEmojiOnly('123')).toBe(false);
-    expect(isEmojiOnly('#')).toBe(false);
-    expect(isEmojiOnly('   ')).toBe(false);
-    // The same answer however often it is asked (no regex state between calls).
-    expect([1, 2, 3, 4].map(() => isEmojiOnly('1️⃣'))).toEqual([true, true, true, true]);
-  });
-
   it('reads palindromes over letters and digits, at least seven letters', () => {
     // The badge's namesake: seven letters, exactly enough.
     expect(isPalindrome('Racecar!')).toBe(true);

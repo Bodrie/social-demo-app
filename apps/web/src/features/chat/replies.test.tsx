@@ -114,3 +114,24 @@ describe('replies in chat', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('emoji-only messages', () => {
+  it('stand without their bubble, up to three of them', async () => {
+    signedInAs(alice);
+    const withBob = seedDirect(alice.id, bob.id);
+    mockDb.messages.push(
+      makeMessage(withBob.id, alice.id, '🎉'),
+      makeMessage(withBob.id, bob.id, '👍🏽 🇧🇬'),
+      makeMessage(withBob.id, bob.id, '🎉🎉🎉🎉'),
+      makeMessage(withBob.id, alice.id, 'ok 🎉'),
+    );
+    renderApp(`/messages/${withBob.id}`);
+
+    const log = await screen.findByRole('log', { name: 'Conversation with Bob Brown' });
+    const bubbleOf = (text: string) => within(log).getByText(text).closest('[data-emoji-only]');
+    expect(bubbleOf('🎉')).not.toBeNull();
+    expect(bubbleOf('👍🏽 🇧🇬')).not.toBeNull();
+    expect(bubbleOf('🎉🎉🎉🎉')).toBeNull();
+    expect(bubbleOf('ok 🎉')).toBeNull();
+  });
+});

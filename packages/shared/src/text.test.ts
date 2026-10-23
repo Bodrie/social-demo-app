@@ -1,4 +1,4 @@
-import { extractEntities, hashtagSchema, tokenize } from './text.js';
+import { emojiCount, extractEntities, hashtagSchema, isEmojiOnly, tokenize } from './text.js';
 
 const types = (text: string) => tokenize(text).map((token) => `${token.type}:${token.raw}`);
 
@@ -127,5 +127,27 @@ describe('hashtagSchema', () => {
     expect(hashtagSchema.safeParse('2026').success).toBe(false);
     expect(hashtagSchema.safeParse('a b').success).toBe(false);
     expect(hashtagSchema.safeParse('a'.repeat(51)).success).toBe(false);
+  });
+});
+
+describe('isEmojiOnly / emojiCount', () => {
+  it('tells a text of emoji only, whatever they are built from', () => {
+    expect(isEmojiOnly('😂')).toBe(true);
+    expect(isEmojiOnly(' 🎉  🎉 ')).toBe(true);
+    // Skin tones, joined families, flags, a keycap, a variation selector.
+    expect(isEmojiOnly('👍🏽 👨‍👩‍👧 🇧🇬 1️⃣ ❤️')).toBe(true);
+    expect(isEmojiOnly('🏴󠁧󠁢󠁳󠁣󠁴󠁿')).toBe(true);
+    expect(isEmojiOnly('ok 👍')).toBe(false);
+    expect(isEmojiOnly('123')).toBe(false);
+    expect(isEmojiOnly('#')).toBe(false);
+    expect(isEmojiOnly('   ')).toBe(false);
+    // The same answer however often it is asked (no regex state between calls).
+    expect([1, 2, 3, 4].map(() => isEmojiOnly('1️⃣'))).toEqual([true, true, true, true]);
+  });
+
+  it('counts emoji as they are seen, joined ones once', () => {
+    expect(emojiCount('😂')).toBe(1);
+    expect(emojiCount(' 🎉  🎉 ')).toBe(2);
+    expect(emojiCount('👍🏽👨‍👩‍👧🇧🇬')).toBe(3);
   });
 });
