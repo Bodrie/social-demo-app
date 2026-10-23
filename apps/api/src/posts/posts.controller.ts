@@ -18,13 +18,23 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { CursorQueryDto, IdParamDto, UserIdParamDto } from '../common/params.dto.js';
 import { PostDto, PostListDto, RevisionListDto } from '../common/responses.dto.js';
-import { CreatePostDto, FeedQueryDto, UpdatePostDto, UserPostsQueryDto } from './posts.dto.js';
+import {
+  CreatePostDto,
+  FeedQueryDto,
+  UpdatePostDto,
+  UserPostsQueryDto,
+  VotePollDto,
+} from './posts.dto.js';
+import { PollsService } from './polls.service.js';
 import { PostsService } from './posts.service.js';
 
 @ApiTags('posts')
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly posts: PostsService) {}
+  constructor(
+    private readonly posts: PostsService,
+    private readonly polls: PollsService,
+  ) {}
 
   @Get()
   @ZodResponse({ status: 200, type: PostListDto })
@@ -105,6 +115,30 @@ export class PostsController {
   @HttpCode(204)
   unrepost(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
     return this.posts.unrepost(user.id, params.id);
+  }
+
+  /** The author's one pinned post, shown first on their profile; another pin replaces it. */
+  @Put(':id/pin')
+  @HttpCode(204)
+  pin(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.pin(user.id, params.id);
+  }
+
+  @Delete(':id/pin')
+  @HttpCode(204)
+  unpin(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unpin(user.id, params.id);
+  }
+
+  /** One vote, final (F3); the answer carries the results the voter may now see. */
+  @Put(':id/poll/vote')
+  @ZodResponse({ status: 200, type: PostDto })
+  vote(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Body() body: VotePollDto,
+  ): Promise<PostItem> {
+    return this.polls.vote(user.id, params.id, body.optionId);
   }
 }
 

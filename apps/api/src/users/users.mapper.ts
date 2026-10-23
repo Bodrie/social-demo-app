@@ -6,6 +6,7 @@ import {
   userSettingsSchema,
 } from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
+import { toRing } from './ring.js';
 
 /** The compact shape embedded in posts, comments, activities, messages and presence. */
 export const userSummarySelect = {
@@ -13,16 +14,33 @@ export const userSummarySelect = {
   username: true,
   name: true,
   avatarKey: true,
+  avatarPreset: true,
+  ring: true,
 } satisfies Prisma.UserSelect;
 
 export type UserSummaryRow = Prisma.UserGetPayload<{ select: typeof userSummarySelect }>;
+
+/**
+ * An uploaded picture, else a ready-made one (`/uploads/preset/`, served from the API's image),
+ * else none; the stored preset id was checked against the catalogue when it was picked.
+ */
+export function pictureUrl(
+  assetsBase: string,
+  kind: 'avatar' | 'cover',
+  key: string | null,
+  preset: string | null,
+): string | null {
+  if (key !== null) return `${assetsBase}/${key}`;
+  return preset === null ? null : `${assetsBase}/preset/${kind}-${preset}.webp`;
+}
 
 export function toUserSummary(row: UserSummaryRow, assetsBase: string): UserSummary {
   return {
     id: row.id,
     username: row.username,
     name: row.name,
-    avatarUrl: row.avatarKey === null ? null : `${assetsBase}/${row.avatarKey}`,
+    avatarUrl: pictureUrl(assetsBase, 'avatar', row.avatarKey, row.avatarPreset),
+    ring: toRing(row.ring),
   };
 }
 
@@ -34,8 +52,13 @@ export function userPublicSelect(viewerId: string) {
     city: true,
     website: true,
     coverKey: true,
+    coverPreset: true,
     createdAt: true,
     suspendedAt: true,
+    pinnedPostId: true,
+    featuredBadges: true,
+    // For `showAchievements`, which hides the featured badges too.
+    settings: true,
     _count: { select: { posts: true, followers: true, following: true } },
     // viewer → this user
     followers: { where: { followerId: viewerId }, select: { followerId: true } },
@@ -75,7 +98,7 @@ export function toUserPublic(
     bio: row.bio,
     city: row.city,
     website: row.website,
-    coverUrl: row.coverKey === null ? null : `${assetsBase}/${row.coverKey}`,
+    coverUrl: pictureUrl(assetsBase, 'cover', row.coverKey, row.coverPreset),
     createdAt: row.createdAt.toISOString(),
     counts: {
       posts: row._count.posts,
@@ -85,6 +108,8 @@ export function toUserPublic(
     followedByMe: row.followers.length > 0,
     followsMe: row.following.length > 0,
     ...relationship,
+    pinnedPostId: row.pinnedPostId,
+    featuredBadges: toUserSettings(row.settings).showAchievements ? row.featuredBadges : [],
   };
 }
 
@@ -105,6 +130,8 @@ export function toBlockedUserPublic(
     followedByMe: false,
     followsMe: false,
     ...relationship,
+    pinnedPostId: null,
+    featuredBadges: [],
   };
 }
 
@@ -120,6 +147,8 @@ export function toUserPrivate(row: UserPrivateRow, assetsBase: string): UserPriv
     email: row.email,
     pendingEmail: row.pendingEmail,
     emailVerifiedAt: row.emailVerifiedAt ? row.emailVerifiedAt.toISOString() : null,
+    avatarPreset: row.avatarPreset,
+    coverPreset: row.coverPreset,
     role: row.role,
     settings: toUserSettings(row.settings),
     updatedAt: row.updatedAt.toISOString(),

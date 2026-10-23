@@ -3,6 +3,7 @@ import {
   emailSchema,
   meResponseSchema,
   nameSchema,
+  presetIdSchema,
   userPrivateSchema,
   usernameSchema,
 } from './users.js';
@@ -24,6 +25,8 @@ export const registerSchema = z.object({
    * follows whoever invited them. A code that no longer works is ignored, never an error.
    */
   inviteCode: z.string().max(64).optional(),
+  /** One of the free ready-made avatars, picked on the form; without it the initials show. */
+  avatarPreset: presetIdSchema.optional(),
 });
 export type RegisterInput = z.input<typeof registerSchema>;
 export type RegisterData = z.output<typeof registerSchema>;

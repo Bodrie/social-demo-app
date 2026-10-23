@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { type RegisterInput, type UserSummary, registerSchema } from '@beso/shared';
 import { Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { PasswordInput } from '@/components/password-input';
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/user-avatar';
+import { PicturePicker } from '@/features/profile/picture-picker';
 import { isApiClientError } from '@/lib/api/client';
 import { getTurnstileSiteKey } from '@/lib/env';
 import { AuthLayout } from './auth-layout';
@@ -38,6 +39,7 @@ export function RegisterPage({ invite }: { invite?: RegisterInvite } = {}) {
     resolver: zodResolver(registerSchema),
     defaultValues: { email: '', username: '', name: '', password: '' },
   });
+  const typedName = useWatch({ control: form.control, name: 'name' });
   // The bot check (Cloudflare Turnstile) only where a site key was built in.
   const siteKey = getTurnstileSiteKey();
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -56,7 +58,13 @@ export function RegisterPage({ invite }: { invite?: RegisterInvite } = {}) {
           if (isApiClientError(error) && error.fields.captchaToken) {
             setCaptchaError(error.fields.captchaToken);
           } else {
-            applyApiErrors(error, form.setError, ['email', 'username', 'name', 'password']);
+            applyApiErrors(error, form.setError, [
+              'email',
+              'username',
+              'name',
+              'password',
+              'avatarPreset',
+            ]);
           }
           // Turnstile tokens work once: whatever went wrong, the next attempt needs a new one.
           if (siteKey) setCaptchaReset((count) => count + 1);
@@ -168,6 +176,34 @@ export function RegisterPage({ invite }: { invite?: RegisterInvite } = {}) {
                   />
                 </FormControl>
                 <FormDescription>At least 8 characters.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="avatarPreset"
+            render={({ field }) => (
+              <FormItem>
+                {/* Optional, and the initials until something is picked (ADR 0021, "Rewards"). */}
+                <PicturePicker
+                  kind="avatar"
+                  legend="Pick a picture (optional)"
+                  value={field.value ?? null}
+                  onChange={(id) => field.onChange(id ?? undefined)}
+                  none={{
+                    label: 'Your initials',
+                    picture: (
+                      <UserAvatar
+                        user={{ name: typedName.trim() || '?', avatarUrl: null }}
+                        className="size-full"
+                      />
+                    ),
+                  }}
+                />
+                <FormDescription>
+                  You can change it, or upload a photo of your own, in your profile later.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

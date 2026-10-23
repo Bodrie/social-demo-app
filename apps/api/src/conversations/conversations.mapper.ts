@@ -1,4 +1,10 @@
-import { type Conversation, type Message, type SystemLine, systemLineSchema } from '@beso/shared';
+import {
+  type Conversation,
+  type Message,
+  REPLY_EXCERPT_LENGTH,
+  type SystemLine,
+  systemLineSchema,
+} from '@beso/shared';
 import type { Prisma } from '../generated/prisma/client.js';
 import { storedImageSelect, toStoredImage } from '../uploads/uploads.mapper.js';
 import { toUserSummary, userSummarySelect } from '../users/users.mapper.js';
@@ -11,6 +17,20 @@ export const messageSelect = {
   content: true,
   imageKey: true,
   image: { select: storedImageSelect },
+  sharedPostId: true,
+  sharesPost: true,
+  isReply: true,
+  // The original as it is now: a reply read after an edit or a deletion quotes that.
+  replyTo: {
+    select: {
+      id: true,
+      senderId: true,
+      content: true,
+      imageKey: true,
+      sharesPost: true,
+      deletedAt: true,
+    },
+  },
   editedAt: true,
   deletedAt: true,
   systemMeta: true,
@@ -19,6 +39,23 @@ export const messageSelect = {
 } satisfies Prisma.MessageSelect;
 
 export type MessageRow = Prisma.MessageGetPayload<{ select: typeof messageSelect }>;
+
+function quoted(content: string): string {
+  const flat = content.replace(/\s+/g, ' ').trim();
+  return flat.length > REPLY_EXCERPT_LENGTH ? `${flat.slice(0, REPLY_EXCERPT_LENGTH - 1)}…` : flat;
+}
+
+function replyOf(row: MessageRow): Message['replyTo'] {
+  const original = row.replyTo;
+  if (!original) return row.isReply ? { unavailable: true } : null;
+  return {
+    id: original.id,
+    senderId: original.senderId,
+    excerpt: quoted(original.content),
+    attachment: original.imageKey ? 'picture' : original.sharesPost ? 'post' : null,
+    deleted: original.deletedAt !== null,
+  };
+}
 
 /** A system line whose stored subject no longer parses is shown as nothing rather than crashing a thread. */
 function systemLineOf(row: MessageRow): SystemLine | null {
@@ -36,6 +73,12 @@ export function toMessage(row: MessageRow, assetsBase: string): Message {
     content: row.content,
     image: row.image ? toStoredImage(row.image, assetsBase) : null,
     imageUrl: row.image ? `${assetsBase}/${row.image.key}` : null,
+    sharedPost: row.sharedPostId
+      ? { id: row.sharedPostId }
+      : row.sharesPost
+        ? { unavailable: true }
+        : null,
+    replyTo: replyOf(row),
     editedAt: row.editedAt ? row.editedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
     system: systemLineOf(row),

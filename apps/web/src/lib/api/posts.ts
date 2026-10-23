@@ -58,6 +58,14 @@ export const fetchBookmarks = ({ cursor, signal }: PageOptions): Promise<PostLis
 export const updatePost = (postId: string, input: UpdatePostInput): Promise<Post> =>
   api.patch(`/posts/${postId}`, input, { schema: postSchema });
 
+export const pinPost = (postId: string): Promise<void> => api.put(`/posts/${postId}/pin`);
+
+export const unpinPost = (postId: string): Promise<void> => api.delete(`/posts/${postId}/pin`);
+
+/** One vote, final (F3); the answer is the post with the results the voter may now see. */
+export const votePoll = (postId: string, optionId: string): Promise<Post> =>
+  api.put(`/posts/${postId}/poll/vote`, { optionId }, { schema: postSchema });
+
 export const fetchPostRevisions = (
   postId: string,
   { cursor, signal }: PageOptions,

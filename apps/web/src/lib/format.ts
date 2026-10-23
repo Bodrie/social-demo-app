@@ -40,3 +40,22 @@ export function formatDayLabel(iso: string, now: number = Date.now()): string {
 export function formatTime(iso: string): string {
   return dayjs(iso).format('HH:mm');
 }
+
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+const counted = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/**
+ * "3 days left", "5 hours left", "12 minutes left": how long a poll stays open. Rounded, so a
+ * poll asked for three days or one hour says so at first; days down to 23 hours, hours down to
+ * an hour.
+ */
+export function formatTimeLeft(iso: string, now: number = Date.now()): string {
+  const left = Date.parse(iso) - now;
+  if (left > 23 * HOUR_MS) return `${counted(Math.round(left / DAY_MS), 'day')} left`;
+  if (left > 59 * MINUTE_MS) return `${counted(Math.round(left / HOUR_MS), 'hour')} left`;
+  if (left >= MINUTE_MS) return `${counted(Math.round(left / MINUTE_MS), 'minute')} left`;
+  return 'Less than a minute left';
+}

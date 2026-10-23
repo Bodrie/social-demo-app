@@ -1,12 +1,14 @@
-import type {
-  Conversation,
-  ConversationMember,
-  Message,
-  MessageReaction,
-  ReactionSummary,
-  ReactionType,
-  SystemLine,
-  UserSummary,
+import {
+  type Conversation,
+  type ConversationMember,
+  type Message,
+  type MessageReaction,
+  REPLY_EXCERPT_LENGTH,
+  type ReactionSummary,
+  type ReactionType,
+  type ReplyRef,
+  type SystemLine,
+  type UserSummary,
 } from '@beso/shared';
 import { firstName } from '@/lib/names';
 
@@ -77,7 +79,7 @@ export function isAdmin(conversation: Conversation, userId: string): boolean {
 }
 
 /** "Alice", "Alice and Bob", "Alice, Bob and 2 others". */
-function listNames(names: readonly string[]): string {
+export function listNames(names: readonly string[]): string {
   const [first, second] = names;
   if (first === undefined) return 'someone';
   if (second === undefined) return first;
@@ -124,7 +126,13 @@ export function messagePreview(message: Message, conversation: Conversation, meI
   if (message.kind === 'system') {
     return message.system ? systemLineText(message.system, conversation, meId) : '';
   }
-  return message.content || 'Picture';
+  return message.content || attachmentWord(message);
+}
+
+/** The thing a message without text carries, for list rows, alerts and announcements. */
+export function attachmentWord(message: Message): string {
+  if (message.image) return 'Picture';
+  return message.sharedPost ? 'Post' : 'Message';
 }
 
 /** Counts per type, the total and my own, from the plain list a message carries. */
@@ -139,4 +147,37 @@ export function reactionSummaryOf(
     if (reaction.userId === meId) mine = reaction.type;
   }
   return { counts, total: reactions.length, mine };
+}
+
+type QuotedMessage = Extract<ReplyRef, { id: string }>;
+
+/**
+ * The words of a reply's quote: the original as the thread has it now (an edit or a deletion
+ * shows at once), else as the server read it.
+ */
+export function replyQuoteText(reply: QuotedMessage, loaded: Message | undefined): string {
+  if (loaded) {
+    if (loaded.deletedAt) return 'Message deleted';
+    return loaded.content.replace(/\s+/g, ' ').trim() || attachmentWord(loaded);
+  }
+  if (reply.deleted) return 'Message deleted';
+  if (reply.excerpt) return reply.excerpt;
+  return reply.attachment === 'picture'
+    ? 'Picture'
+    : reply.attachment === 'post'
+      ? 'Post'
+      : 'Message';
+}
+
+/** The quote an optimistic reply carries until the server's copy takes its place. */
+export function quoteOf(message: Message): QuotedMessage {
+  const flat = message.content.replace(/\s+/g, ' ').trim();
+  return {
+    id: message.id,
+    senderId: message.senderId,
+    excerpt:
+      flat.length > REPLY_EXCERPT_LENGTH ? `${flat.slice(0, REPLY_EXCERPT_LENGTH - 1)}…` : flat,
+    attachment: message.image ? 'picture' : message.sharedPost ? 'post' : null,
+    deleted: message.deletedAt !== null,
+  };
 }

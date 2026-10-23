@@ -9,12 +9,14 @@ import type {
   UserPublic,
   UserSummary,
 } from '@beso/shared';
+import { type PresetKind, findPreset } from '@beso/shared/pictures';
 import { AssetsService } from '../assets/assets.service.js';
-import { conflict, notFound } from '../common/errors.js';
+import { conflict, notFound, validationError } from '../common/errors.js';
 import { decodeCursor, keysetAfter, paginate } from '../common/pagination.js';
 import { ProfileUpdatedEvent } from '../events/user.events.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { refreshRing } from './ring.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 import { VisibilityService } from '../moderation/visibility.service.js';
 import {
@@ -31,7 +33,16 @@ import {
 
 export type UniqueFields = { email?: string; username?: string };
 
-type ProfileField = 'username' | 'name' | 'bio' | 'city' | 'website' | 'avatarKey' | 'coverKey';
+type ProfileField =
+  | 'username'
+  | 'name'
+  | 'bio'
+  | 'city'
+  | 'website'
+  | 'avatarKey'
+  | 'coverKey'
+  | 'avatarPreset'
+  | 'coverPreset';
 
 /** Escapes LIKE wildcards so `q=%` does not match everyone. */
 export function escapeLike(value: string): string {
@@ -122,12 +133,10 @@ export class UsersService {
       Object.entries(patch).filter(([, value]) => value !== undefined),
     );
     const next = toUserSettings({ ...toUserSettings(current.settings), ...changes });
-    const row = await this.prisma.user.update({
-      where: { id },
-      data: { settings: next },
-      select: userPrivateSelect(id),
-    });
-    return toUserPrivate(row, this.assets.base);
+    await this.prisma.user.update({ where: { id }, data: { settings: next } });
+    // Both settings decide whether the avatar wears its Collector ring.
+    if ('showRing' in changes || 'showAchievements' in changes) await refreshRing(this.prisma, id);
+    return this.getPrivateById(id);
   }
 
   async updateProfile(id: string, patch: UpdateProfileData): Promise<UserPrivate> {
@@ -141,9 +150,20 @@ export class UsersService {
         website: true,
         avatarKey: true,
         coverKey: true,
+        avatarPreset: true,
+        coverPreset: true,
       },
     });
     if (!previous) throw notFound('User not found');
+    // A picture is an upload or a ready-made one, never both: picking one clears the other.
+    const pictures = { ...patch };
+    for (const [key, preset] of [
+      ['avatarKey', 'avatarPreset'],
+      ['coverKey', 'coverPreset'],
+    ] as const) {
+      if (typeof pictures[preset] === 'string') pictures[key] = null;
+      else if (typeof pictures[key] === 'string') pictures[preset] = null;
+    }
 
     // Only fields whose value actually changes are written and reported.
     const data: Prisma.UserUpdateInput = {};
@@ -154,11 +174,13 @@ export class UsersService {
       ['bio', () => (data.bio = patch.bio)],
       ['city', () => (data.city = patch.city)],
       ['website', () => (data.website = patch.website)],
-      ['avatarKey', () => (data.avatarKey = patch.avatarKey)],
-      ['coverKey', () => (data.coverKey = patch.coverKey)],
+      ['avatarKey', () => (data.avatarKey = pictures.avatarKey)],
+      ['coverKey', () => (data.coverKey = pictures.coverKey)],
+      ['avatarPreset', () => (data.avatarPreset = pictures.avatarPreset)],
+      ['coverPreset', () => (data.coverPreset = pictures.coverPreset)],
     ];
     for (const [field, apply] of changes) {
-      if (patch[field] !== undefined && patch[field] !== previous[field]) {
+      if (pictures[field] !== undefined && pictures[field] !== previous[field]) {
         apply();
         changed.push(field);
       }
@@ -182,6 +204,12 @@ export class UsersService {
         field: 'coverKey',
       });
     }
+    if (typeof data.avatarPreset === 'string') {
+      await this.assertPreset(id, 'avatar', data.avatarPreset);
+    }
+    if (typeof data.coverPreset === 'string') {
+      await this.assertPreset(id, 'cover', data.coverPreset);
+    }
 
     const row = await this.prisma.user.update({
       where: { id },
@@ -193,6 +221,24 @@ export class UsersService {
     if (changed.includes('avatarKey')) await this.uploads.discard(previous.avatarKey);
     if (changed.includes('coverKey')) await this.uploads.discard(previous.coverKey);
     return toUserPrivate(row, this.assets.base);
+  }
+
+  /**
+   * A ready-made picture must exist, and one a badge unlocks needs the badge (ADR 0021,
+   * "Rewards"); earned is earned, so a picture once allowed stays allowed. `userId` null is a
+   * registration, which offers the free pictures only.
+   */
+  async assertPreset(userId: string | null, kind: PresetKind, presetId: string): Promise<void> {
+    const field = kind === 'avatar' ? 'avatarPreset' : 'coverPreset';
+    const preset = findPreset(kind, presetId);
+    if (!preset) throw validationError({ [field]: 'Unknown picture' });
+    if (preset.unlockedBy === null) return;
+    const held =
+      userId !== null &&
+      (await this.prisma.userAchievement.count({
+        where: { userId, key: preset.unlockedBy },
+      })) > 0;
+    if (!held) throw validationError({ [field]: 'Earn the badge that unlocks it first' });
   }
 
   async list(viewerId: string, query: ListUsersQuery): Promise<Paginated<UserPublic>> {

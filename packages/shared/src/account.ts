@@ -31,6 +31,15 @@ export const accountExportSchema = z.object({
       content: z.string(),
       imageUrls: z.array(z.string()),
       hashtags: z.array(z.string()),
+      /** The badge the post shared, if any (ADR 0021, "Rewards"). */
+      achievementKey: z.string().nullable(),
+      /** The poll the post asked (F3) with the options' totals. */
+      poll: z
+        .object({
+          closesAt: z.iso.datetime(),
+          options: z.array(z.object({ text: z.string(), votes: z.int().nonnegative() })),
+        })
+        .nullable(),
       createdAt: z.iso.datetime(),
       editedAt: z.iso.datetime().nullable(),
       revisions: z.array(revisionEntrySchema),
@@ -54,6 +63,10 @@ export const accountExportSchema = z.object({
   reactions: z.array(
     z.object({ commentId: z.uuid(), type: reactionTypeSchema, createdAt: z.iso.datetime() }),
   ),
+  /** The member's votes in others' polls (F3): which post, which option. */
+  pollVotes: z.array(
+    z.object({ postId: z.uuid(), option: z.string(), createdAt: z.iso.datetime() }),
+  ),
   following: z.array(followEntrySchema),
   followers: z.array(followEntrySchema),
   /** The member's invite link code (if one was ever made) and whose invite they joined with. */
@@ -72,6 +85,10 @@ export const accountExportSchema = z.object({
       conversationTitle: z.string().nullable(),
       content: z.string(),
       imageUrl: z.string().nullable(),
+      /** A post sent along (ADR 0009 amendment 4); null once that post is gone. */
+      sharedPostId: z.uuid().nullable(),
+      /** The message it answered, if any (null as well once that one is erased). */
+      replyToId: z.uuid().nullable(),
       createdAt: z.iso.datetime(),
       editedAt: z.iso.datetime().nullable(),
       revisions: z.array(revisionEntrySchema),

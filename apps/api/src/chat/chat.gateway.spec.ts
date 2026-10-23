@@ -40,6 +40,7 @@ const summary = (n: number): UserSummary => ({
   username: `user${n}`,
   name: `User ${n}`,
   avatarUrl: null,
+  ring: null,
 });
 
 function connectedSocket(userId: string) {
@@ -134,6 +135,8 @@ describe('ChatGateway', () => {
       content: 'fixed',
       image: null,
       imageUrl: null,
+      sharedPost: null,
+      replyTo: null,
       editedAt: '2026-10-20T10:01:00.000Z',
       deletedAt: null,
       system: null,

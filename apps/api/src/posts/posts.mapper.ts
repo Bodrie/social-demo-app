@@ -19,6 +19,20 @@ const imagesSelect = {
   orderBy: { position: 'asc' },
 } as const;
 
+/** A poll's options with their counts, and the viewer's own vote (F3). */
+function pollSelect(viewerId: string) {
+  return {
+    select: {
+      closesAt: true,
+      options: {
+        select: { id: true, text: true, _count: { select: { votes: true } } },
+        orderBy: { position: 'asc' },
+      },
+      votes: { where: { userId: viewerId }, select: { optionId: true } },
+    },
+  } as const;
+}
+
 /** Everything a feed item needs, in one query: author, counts, entities, the embed and the viewer's flags. */
 export function postSelect(viewerId: string) {
   return {
@@ -43,8 +57,11 @@ export function postSelect(viewerId: string) {
         images: imagesSelect,
         createdAt: true,
         author: { select: userSummarySelect },
+        poll: { select: { postId: true } },
       },
     },
+    poll: pollSelect(viewerId),
+    achievementKey: true,
     mentions: mentionsSelect,
     hashtags: { select: { tag: true }, orderBy: { tag: 'asc' } },
   } satisfies Prisma.PostSelect;
@@ -66,6 +83,7 @@ function toEmbed(row: PostRow, assetsBase: string, hidden?: ReadonlySet<string>)
       author: toUserSummary(row.quotedPost.author, assetsBase),
       content: row.quotedPost.content,
       ...toImages(row.quotedPost.images, assetsBase),
+      hasPoll: row.quotedPost.poll !== null,
       createdAt: row.quotedPost.createdAt.toISOString(),
     };
   }
@@ -73,14 +91,42 @@ function toEmbed(row: PostRow, assetsBase: string, hidden?: ReadonlySet<string>)
 }
 
 /**
- * `repost` is set by the feed and profile unions only: who put the post there, and when.
- * `hidden` masks the embed of a quote whose original author the viewer must not see.
+ * The counts only for whom P3 allows them before the close: the viewer who voted and the
+ * author. Everyone sees how many voted.
  */
+function toPoll(row: PostRow, viewerId: string, now: Date): Post['poll'] {
+  const { poll } = row;
+  if (!poll) return null;
+  const closed = poll.closesAt <= now;
+  const myVote = poll.votes[0]?.optionId ?? null;
+  const visible = closed || myVote !== null || row.author.id === viewerId;
+  return {
+    options: poll.options.map((option) => ({
+      id: option.id,
+      text: option.text,
+      votes: visible ? option._count.votes : null,
+    })),
+    totalVotes: poll.options.reduce((total, option) => total + option._count.votes, 0),
+    myVote,
+    closesAt: poll.closesAt.toISOString(),
+    closed,
+  };
+}
+
+export type ToPostOptions = {
+  /** Set by the feed and profile unions only: who put the post there, and when. */
+  repost?: Post['repost'];
+  /** Authors the viewer must not see: a quote of theirs shows the frame instead of the embed. */
+  hidden?: ReadonlySet<string>;
+  now?: Date;
+};
+
+/** `viewerId` is whom the row was selected for (`postSelect`): their flags, their poll view. */
 export function toPost(
   row: PostRow,
   assetsBase: string,
-  repost: Post['repost'] = null,
-  hidden?: ReadonlySet<string>,
+  viewerId: string,
+  { repost = null, hidden, now = new Date() }: ToPostOptions = {},
 ): Post {
   return {
     id: row.id,
@@ -94,6 +140,8 @@ export function toPost(
     repostCount: row.repostCount,
     repostedByMe: row.reposts.length > 0,
     quotedPost: toEmbed(row, assetsBase, hidden),
+    poll: toPoll(row, viewerId, now),
+    achievement: row.achievementKey,
     repost,
     editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     mentions: row.mentions.map((mention) => toUserSummary(mention.user, assetsBase)),

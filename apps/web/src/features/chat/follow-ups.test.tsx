@@ -189,6 +189,8 @@ describe('chat follow-ups', () => {
       return message;
     });
     seedReadMark(withBob.id, bob.id, second?.createdAt ?? null);
+    // A phone, where the list is the page: a wide screen would open (and read) the thread at once.
+    window.innerWidth = 390;
     renderApp('/messages');
     const user = userEvent.setup();
     await waitFor(() => expect(document.title).toBe('(2) Messages · BeSo'));

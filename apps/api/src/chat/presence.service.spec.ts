@@ -1,7 +1,7 @@
 import { PresenceService } from './presence.service.js';
 
-const alice = { id: 'a', username: 'alice', name: 'Alice', avatarUrl: null };
-const bob = { id: 'b', username: 'bob', name: 'Bob', avatarUrl: null };
+const alice = { id: 'a', username: 'alice', name: 'Alice', avatarUrl: null, ring: null };
+const bob = { id: 'b', username: 'bob', name: 'Bob', avatarUrl: null, ring: null };
 
 describe('PresenceService', () => {
   it('reports one entry per user across several sockets', () => {

@@ -2,12 +2,14 @@ import {
   type Comment,
   type Revision,
   type UserSummary,
+  POLL_DURATION_HOURS,
   createCommentSchema,
   createPostSchema,
   extractEntities,
   setReactionSchema,
   updateCommentSchema,
   updatePostSchema,
+  votePollSchema,
 } from '@beso/shared';
 import { HttpResponse, http } from 'msw/http';
 import { makeComment, makePost, summaryOf, testId } from '../fixtures';
@@ -186,13 +188,79 @@ export const postHandlers = [
             content: original.content,
             images: original.images,
             imageUrl: original.imageUrl,
+            hasPoll: original.poll !== null,
             createdAt: original.createdAt,
+          }
+        : null,
+      achievement: body.achievementKey ?? null,
+      // The author always sees the counts: none yet.
+      poll: body.poll
+        ? {
+            options: body.poll.options.map((text) => ({ id: crypto.randomUUID(), text, votes: 0 })),
+            totalVotes: 0,
+            myVote: null,
+            closesAt: new Date(
+              Date.now() + POLL_DURATION_HOURS[body.poll.duration] * 3_600_000,
+            ).toISOString(),
+            closed: false,
           }
         : null,
       ...entitiesOf(body.content),
     });
     mockDb.posts.unshift(post);
     return HttpResponse.json(post, { status: 201 });
+  }),
+
+  /** The author's one pinned post; another pin replaces it, an unpin of another post is a no-op. */
+  http.put(`${API}/posts/:id/pin`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    if (post.author.id !== mockDb.user.id) {
+      return apiError(403, 'FORBIDDEN', 'Only the author can pin a post');
+    }
+    mockDb.user.pinnedPostId = post.id;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete(`${API}/posts/:id/pin`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    if (mockDb.user.pinnedPostId === param(params.id)) mockDb.user.pinnedPostId = null;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  /** One final vote, refused like the API refuses it; the answer reveals the counts. */
+  http.put(`${API}/posts/:id/poll/vote`, async ({ request, params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post?.poll) return notFound('Post');
+    const { optionId } = votePollSchema.parse(await request.json());
+    const { poll } = post;
+    if (post.author.id === mockDb.user.id) {
+      return apiError(403, 'FORBIDDEN', 'You cannot vote in your own poll');
+    }
+    if (poll.closed || Date.parse(poll.closesAt) <= Date.now()) {
+      return apiError(409, 'CONFLICT', 'This poll has closed');
+    }
+    if (poll.myVote) return apiError(409, 'CONFLICT', 'You have voted in this poll already');
+    const chosen = poll.options.findIndex((option) => option.id === optionId);
+    if (chosen === -1) {
+      return apiError(400, 'BAD_REQUEST', 'Not an option of this poll', {
+        optionId: 'Not an option of this poll',
+      });
+    }
+    const counts =
+      mockDb.pollCounts.get(post.id) ?? poll.options.map((option) => option.votes ?? 0);
+    post.poll = {
+      ...poll,
+      options: poll.options.map((option, index) => ({
+        ...option,
+        votes: (counts[index] ?? 0) + (index === chosen ? 1 : 0),
+      })),
+      totalVotes: poll.totalVotes + 1,
+      myVote: optionId,
+    };
+    return HttpResponse.json(post);
   }),
 
   http.delete(`${API}/posts/:id`, ({ params }) => {

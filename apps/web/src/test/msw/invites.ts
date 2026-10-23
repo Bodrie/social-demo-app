@@ -36,6 +36,7 @@ export const inviteHandlers = [
         username: owner.username,
         name: owner.name,
         avatarUrl: owner.avatarUrl,
+        ring: owner.ring,
       },
     });
   }),

@@ -28,7 +28,7 @@ Nothing tells anyone today when something breaks. Docker health checks only mark
 ## Web
 
 - Bulgarian interface (owner, 2026-10-22: not for now): an i18n layer for every string, the emails, the API's error messages and the legal pages, with `<html lang>` following the choice. Trigger: members who would rather read Bulgarian.
-- Posts: the legacy double-tap-to-like gesture on touch devices; link previews (SSRF-safe fetching, a cache and a queue, left out of D2 on purpose); alt text written by the author for each picture (today every picture says who posted it and its position). (Several pictures per post and the lightbox shipped as D2 on 2026-10-21.)
+- Posts: link previews (SSRF-safe fetching, a cache and a queue, left out of D2 on purpose); alt text written by the author for each picture (today every picture says who posted it and its position). (Several pictures per post and the lightbox shipped as D2 on 2026-10-21.)
 - Lightbox (D2): pinch to zoom (the stage takes the touch for swiping today), the phone's Back button closing it (needs a history entry per open viewer), paging through all the pictures of a chat thread rather than one.
 - Search (ADR 0014): results are newest first; relevance ranking (`ts_rank` with a ranked cursor), highlighting of matched words and a stemmed per-language column are the upgrades when the volume asks for them. People search stays `ILIKE`.
 - Tags (ADR 0013): `GET /tags/trending` is a live `GROUP BY` over the indexed 7-day window with no cache; add a 60 s in-memory cache if it shows up in the query log. Hashtags in comments were left out on purpose. (`#` autocomplete is B6 in the plan since 2026-10-20.)
@@ -39,9 +39,10 @@ Nothing tells anyone today when something breaks. Docker health checks only mark
 - Images: multi-arch (`linux/arm64`) builds if the box is ever ARM. (The one-shot `migrate` image shipped with E4 on 2026-10-22, ADR 0018.) The migrate image is 719 MB because the Prisma 7 CLI hard-depends on Studio, effect and pglite; nothing to trim without patching the CLI.
 
 ## Ideas not in the agreed order (2026-10-22)
+- **Weekly digest** (F4 in `IMPLEMENTATION_PLAN.md`, owner 2026-10-23: not for now) – the Monday mail for members away three days, as planned there. Open points when picked up: the Resend plan's daily cap (every digest falls on Monday morning), the fallback for members without a time zone, the privacy-notice line. The frequent jobs it runs on exist since F3.
 From the ideas round that produced Track F of `IMPLEMENTATION_PLAN.md` (the newcomer experience that stood here is F1 and F2's Getting started checklist now). Trigger for each: members asking, or a gap between slices.
-- **Chat**: reply to a specific message (quoted), forward, pin a message, search inside a thread; voice notes stay under Web.
-- **Posts and profiles**: a pinned post on the profile, content warnings and spoilers, drafts and scheduled posts.
+- **Chat**: forward, pin a message, search inside a thread; voice notes stay under Web. (Replies to a message shipped as R6 on 2026-10-23.)
+- **Posts and profiles**: content warnings and spoilers, drafts and scheduled posts. (The pinned post and double tap to like shipped as R6 on 2026-10-23.)
 - **Communities**: groups with their own feed, members and moderators, once one shared feed gets crowded (XL).
 - **Games beyond F6**: ratings and leaderboards; checkers, backgammon, a daily word puzzle, battleship (listed in F6 as the later games).
 - **Stories**: highlights that outlive the 24 hours; video (needs Cloudflare Stream or R2, not the box).

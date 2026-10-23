@@ -40,6 +40,11 @@
   --badge-gold-foreground: oklch(0.47 0.1 75);
   --badge-platinum: oklch(0.92 0.04 205);
   --badge-platinum-foreground: oklch(0.43 0.08 215);
+  /* The Collector ring around an avatar (ADR 0021, "Rewards"): metal tones, decorative. */
+  --collector-bronze: oklch(0.62 0.12 55);
+  --collector-silver: oklch(0.74 0.015 250);
+  --collector-gold: oklch(0.78 0.15 85);
+  --collector-platinum: oklch(0.76 0.07 205);
   /* Behind the picture viewer: dark in both themes, so pictures are seen as they are. */
   --scrim: oklch(0.13 0.01 255 / 0.96);
   --scrim-foreground: oklch(0.97 0.004 250);
@@ -74,6 +79,10 @@
   --badge-gold-foreground: oklch(0.92 0.11 95);
   --badge-platinum: oklch(0.37 0.05 215);
   --badge-platinum-foreground: oklch(0.89 0.06 205);
+  --collector-bronze: oklch(0.66 0.12 55);
+  --collector-silver: oklch(0.8 0.015 250);
+  --collector-gold: oklch(0.82 0.15 88);
+  --collector-platinum: oklch(0.8 0.07 205);
 }
 
 @theme inline {
@@ -109,6 +118,10 @@
   --color-badge-gold-foreground: var(--badge-gold-foreground);
   --color-badge-platinum: var(--badge-platinum);
   --color-badge-platinum-foreground: var(--badge-platinum-foreground);
+  --color-collector-bronze: var(--collector-bronze);
+  --color-collector-silver: var(--collector-silver);
+  --color-collector-gold: var(--collector-gold);
+  --color-collector-platinum: var(--collector-platinum);
   --color-scrim: var(--scrim);
   --color-scrim-foreground: var(--scrim-foreground);
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
@@ -171,6 +184,61 @@
 .nav-progress {
   transform-origin: left;
   animation: nav-progress 1.5s ease-out 150ms both;
+}
+
+/* The heart a double tap leaves on a post: grows, holds, fades. None with reduced motion: the
+   Like button says it. */
+@keyframes like-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+.like-burst {
+  animation: like-burst 800ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .like-burst {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* A new badge's confetti (`celebrate`), falling past the bottom of the screen. */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+.confetti span {
+  position: absolute;
+  top: -1rem;
+  width: 0.5rem;
+  height: 0.8rem;
+  border-radius: 2px;
+  animation: confetti-fall 1.4s cubic-bezier(0.3, 0.6, 0.6, 1) both;
+}
+@keyframes confetti-fall {
+  to {
+    transform: translate(var(--drift), 105vh) rotate(var(--spin));
+    opacity: 0.3;
+  }
 }
 
 /* Sign in / sign up brand panel: a mesh of brand hues on deep navy, with a faint grid. */

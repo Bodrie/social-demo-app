@@ -147,7 +147,9 @@ export class PushService {
       ? pushExcerpt(message.content)
       : message.image
         ? 'Sent a picture'
-        : 'New message';
+        : message.sharedPost
+          ? 'Sent a post'
+          : 'New message';
     await this.deliver(
       recipients,
       (recipient): PushPayload | null =>

@@ -13,7 +13,14 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { ACTIVITY_PUSH_AUDIENCE, ActivitiesListener } from './activities.listener.js';
 import { type ActivityRow, activitySelect } from './activities.mapper.js';
 
-const person = (id: string) => ({ id, username: id, name: id, avatarKey: null });
+const person = (id: string) => ({
+  id,
+  username: id,
+  name: id,
+  avatarKey: null,
+  avatarPreset: null,
+  ring: null,
+});
 
 function rowFor(overrides: Partial<ActivityRow> = {}): ActivityRow {
   return {

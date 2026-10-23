@@ -2,18 +2,24 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
+import { updateUserEverywhere } from '@/features/users/user-cache';
 import { type Post, type UpdatePostInput, isAvailableEmbed } from '@beso/shared';
 import {
   bookmarkPost,
   createPost,
   deletePost,
+  fetchPost,
   likePost,
+  pinPost,
   repostPost,
   unbookmarkPost,
   unlikePost,
+  unpinPost,
   unrepostPost,
   updatePost,
+  votePoll,
 } from '@/lib/api/posts';
+import { isApiClientError } from '@/lib/api/client';
 import { type Pages, filterItems } from '@/lib/infinite';
 import { holdQueries, resumeQueries, runningToggles } from '@/lib/optimistic';
 import { queryKeys } from '@/lib/query-keys';
@@ -206,6 +212,58 @@ export function useToggleRepost() {
     onSettled: (_result, _error, _input, context) =>
       resumeQueries(queryClient, context?.interrupted ?? []),
   });
+}
+
+/**
+ * Pins the author's post to their profile, or takes it off. `me` and the profile caches hold
+ * `pinnedPostId`; the profile's posts tab reads the post itself through the post's own query.
+ */
+export function usePinPost() {
+  const queryClient = useQueryClient();
+  const me = useCurrentUser();
+  return useMutation({
+    mutationFn: ({ postId, pinned }: { postId: string; pinned: boolean }) =>
+      pinned ? unpinPost(postId) : pinPost(postId),
+    onSuccess: (_result, { postId, pinned }) => {
+      const pinnedPostId = pinned ? null : postId;
+      updateMe(queryClient, (user) => ({ ...user, pinnedPostId }));
+      updateUserEverywhere(queryClient, me.id, (user) => ({ ...user, pinnedPostId }));
+      toast.success(pinned ? 'Unpinned from your profile' : 'Pinned to your profile');
+    },
+    onError: (error) =>
+      toast.error(isApiClientError(error) ? error.message : 'Could not change the pinned post'),
+  });
+}
+
+/**
+ * A vote is final and its counts come from the server (the viewer could not see them before),
+ * so nothing is optimistic: the answer's poll replaces the cached one wherever the post shows.
+ * A refusal (closed meanwhile, voted in another tab) reloads the poll as it now is.
+ */
+export function useVotePoll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, optionId }: { postId: string; optionId: string }) =>
+      votePoll(postId, optionId),
+    onSuccess: (post) => withPoll(queryClient, post),
+    onError: (error, { postId }) => {
+      toast.error(isApiClientError(error) ? error.message : 'Could not send your vote');
+      void refreshPoll(queryClient, postId);
+    },
+  });
+}
+
+/** The poll as the server sees it now; the rest of each cached copy stays (its repost line, say). */
+export async function refreshPoll(queryClient: QueryClient, postId: string): Promise<void> {
+  try {
+    withPoll(queryClient, await fetchPost(postId));
+  } catch {
+    // Gone or out of reach: the lists catch up on their next load.
+  }
+}
+
+function withPoll(queryClient: QueryClient, post: Post): void {
+  updatePostEverywhere(queryClient, post.id, (current) => ({ ...current, poll: post.poll }));
 }
 
 export function useUpdatePost() {

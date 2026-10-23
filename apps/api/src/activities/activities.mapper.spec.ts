@@ -6,6 +6,8 @@ const actor = {
   username: 'bob',
   name: 'Bob',
   avatarKey: 'avatar/x.webp',
+  avatarPreset: null,
+  ring: null,
 };
 
 describe('excerpt', () => {

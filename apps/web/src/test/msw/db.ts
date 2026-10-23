@@ -80,6 +80,11 @@ export const mockDb = {
   achievements: [] as (EarnedAchievement & { userId: string })[],
   /** The signed-in member's series counts, as `GET /users/me/achievements` answers them. */
   achievementProgress: {} as Record<string, number>,
+  /**
+   * A poll's real counts by post id (F3), for polls whose stored copy hides them from the
+   * signed-in member; a vote reveals these. Without an entry the stored counts are the truth.
+   */
+  pollCounts: new Map<string, number[]>(),
   calls: {
     me: 0,
     refresh: 0,
@@ -127,6 +132,7 @@ export function resetMockDb(): void {
   mockDb.pushEndpoints = [];
   mockDb.achievements = [];
   mockDb.achievementProgress = {};
+  mockDb.pollCounts = new Map();
   mockDb.calls = {
     me: 0,
     refresh: 0,
@@ -241,6 +247,9 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
       blocked,
       blockedMe,
       muted,
+      pinnedPostId: null,
+      ring: user.ring,
+      featuredBadges: [],
     };
   }
   return {
@@ -267,6 +276,9 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
     blocked: false,
     blockedMe: false,
     muted,
+    pinnedPostId: user.pinnedPostId,
+    ring: user.ring,
+    featuredBadges: user.settings.showAchievements ? user.featuredBadges : [],
   };
 }
 

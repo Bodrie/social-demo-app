@@ -101,7 +101,11 @@ vi.mock('socket.io-client', () => ({ io: () => fakeSocket }));
 configure({ asyncUtilTimeout: 3000 });
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
+const JSDOM_WIDTH = window.innerWidth;
+
 afterEach(() => {
+  // A test that made the window phone-sized (`window.innerWidth = 390`) does not leave it so.
+  window.innerWidth = JSDOM_WIDTH;
   server.resetHandlers();
   resetMocks();
   fakeSocket.reset();

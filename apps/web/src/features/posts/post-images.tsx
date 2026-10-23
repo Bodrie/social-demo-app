@@ -66,6 +66,8 @@ export function PostImages({
         type="button"
         aria-label={single ? 'Open picture' : `Open picture ${index + 1} of ${count}`}
         aria-haspopup="dialog"
+        // A double tap on the picture likes the post; a single one opens it (`useDoubleTap`).
+        data-double-tap=""
         className={cn(
           cellClass,
           'focus-visible:outline-ring cursor-zoom-in focus-visible:outline-3 focus-visible:-outline-offset-3',

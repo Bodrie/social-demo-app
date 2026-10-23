@@ -1,5 +1,6 @@
+import { featuredBadgesSchema } from '@beso/shared/achievements';
 import { HttpResponse, http } from 'msw/http';
-import { API, unauthorized } from './auth';
+import { API, apiError, unauthorized } from './auth';
 import { mockDb } from './db';
 
 const earnedBy = (userId: string) =>
@@ -12,6 +13,20 @@ export const achievementHandlers = [
     const me = mockDb.user;
     if (!me) return unauthorized();
     return HttpResponse.json({ earned: earnedBy(me.id), progress: mockDb.achievementProgress });
+  }),
+  /** Held badges only, like the API; the signed-in member's profile shows them. */
+  http.put(`${API}/users/me/featured-badges`, async ({ request }) => {
+    const me = mockDb.user;
+    if (!me) return unauthorized();
+    const { keys } = featuredBadgesSchema.parse(await request.json());
+    const held = new Set(earnedBy(me.id).map((row) => row.key));
+    if (!keys.every((key) => held.has(key))) {
+      return apiError(400, 'VALIDATION_ERROR', 'Validation failed', {
+        keys: 'Earn the badge first',
+      });
+    }
+    me.featuredBadges = keys;
+    return new HttpResponse(null, { status: 204 });
   }),
   http.get(`${API}/users/:userId/achievements`, ({ params }) => {
     const me = mockDb.user;

@@ -23,10 +23,12 @@ describe('buildProfilePatch', () => {
     });
   });
 
-  it('maps picture changes to keys', () => {
-    expect(buildProfilePatch(me, unchanged, { avatar: 'avatar/x.webp', cover: null })).toEqual({
-      avatarKey: 'avatar/x.webp',
-      coverKey: null,
-    });
+  it('maps picture changes to keys and ready-made pictures', () => {
+    expect(
+      buildProfilePatch(me, unchanged, { avatar: { key: 'avatar/x.webp' }, cover: null }),
+    ).toEqual({ avatarKey: 'avatar/x.webp', coverKey: null, coverPreset: null });
+    expect(
+      buildProfilePatch(me, unchanged, { avatar: { preset: 'kai' }, cover: undefined }),
+    ).toEqual({ avatarPreset: 'kai' });
   });
 });

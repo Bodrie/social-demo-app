@@ -22,6 +22,7 @@ describe('commentSchema', () => {
         username: 'bob',
         name: 'Bob',
         avatarUrl: null,
+        ring: null,
       },
       mentions: [],
       replyCount: 0,

@@ -21,3 +21,7 @@ export const fetchUserAchievements = (
 
 export const fetchAchievementStats = (signal?: AbortSignal): Promise<AchievementStats> =>
   api.get('/achievements/stats', achievementStatsSchema, { signal });
+
+/** Up to three held badges for under the member's name; `[]` goes back to the rarest. */
+export const featureBadges = (keys: readonly string[]): Promise<void> =>
+  api.put('/users/me/featured-badges', { keys });

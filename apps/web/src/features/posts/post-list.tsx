@@ -12,10 +12,12 @@ type PostListProps = {
   empty: { title: string; description?: string; action?: ReactNode };
   errorMessage: string;
   label: string;
+  /** Shown first and marked "Pinned" (a profile's pinned post); left out further down. */
+  pinned?: Post;
 };
 
 /** Any cursor-paginated list of posts: skeletons, errors, empty state and infinite scroll included. */
-export function PostList({ query, empty, errorMessage, label }: PostListProps) {
+export function PostList({ query, empty, errorMessage, label, pinned }: PostListProps) {
   const sentinelRef = useInfiniteScroll({
     enabled: query.hasNextPage && !query.isFetchingNextPage,
     onReachEnd: () => void query.fetchNextPage(),
@@ -25,8 +27,10 @@ export function PostList({ query, empty, errorMessage, label }: PostListProps) {
   if (query.isError)
     return <ErrorState message={errorMessage} onRetry={() => void query.refetch()} />;
 
-  const posts = flattenPages(query.data);
-  if (posts.length === 0) {
+  const posts = flattenPages(query.data).filter(
+    (post) => !(pinned && post.id === pinned.id && !post.repost),
+  );
+  if (posts.length === 0 && !pinned) {
     return <EmptyState title={empty.title} description={empty.description} action={empty.action} />;
   }
 
@@ -38,6 +42,7 @@ export function PostList({ query, empty, errorMessage, label }: PostListProps) {
         aria-busy={query.isFetchingNextPage}
         className="space-y-4"
       >
+        {pinned ? <PostCard key={`pinned-${pinned.id}`} post={pinned} pinned /> : null}
         {posts.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}

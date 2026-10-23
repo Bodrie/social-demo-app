@@ -38,11 +38,21 @@ export const websiteSchema = optionalText(200).pipe(
 
 // --- outputs ------------------------------------------------------------
 /** The compact user shape embedded in posts, comments, activities, messages and presence. */
+/**
+ * The ring around a member's avatar (ADR 0021, "Rewards"): their Collector tier, unless they
+ * switched it or their badges off. Spelt out here, not taken from `@beso/shared/achievements`,
+ * which the main entry must not import.
+ */
+export const PROFILE_RINGS = ['bronze', 'silver', 'gold', 'platinum'] as const;
+export const profileRingSchema = z.enum(PROFILE_RINGS);
+export type ProfileRing = z.infer<typeof profileRingSchema>;
+
 export const userSummarySchema = z.object({
   id: z.uuid(),
   username: z.string(),
   name: z.string(),
   avatarUrl: z.string().nullable(),
+  ring: profileRingSchema.nullable(),
 });
 export type UserSummary = z.infer<typeof userSummarySchema>;
 
@@ -72,6 +82,10 @@ export const userPublicSchema = userSummarySchema.extend({
   blockedMe: z.boolean(),
   /** The viewer muted this user: their posts stay out of the viewer's feeds, nothing else changes. */
   muted: z.boolean(),
+  /** The post the member shows first on their profile; null across a block. */
+  pinnedPostId: z.uuid().nullable(),
+  /** Up to three badges the member chose to show under their name; empty when badges are off. */
+  featuredBadges: z.array(z.string()),
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
 
@@ -92,6 +106,8 @@ export const userSettingsSchema = z.object({
   pushPreviews: z.boolean().default(true),
   /** Others see the member's badges (F2); off hides them from everyone but the member. */
   showAchievements: z.boolean().default(true),
+  /** The Collector ring around the member's avatar (ADR 0021, "Rewards"); off removes it. */
+  showRing: z.boolean().default(true),
   /** The Getting started card on the home feed was dismissed. */
   hideGettingStarted: z.boolean().default(false),
   /**
@@ -112,6 +128,7 @@ export const updateSettingsSchema = z.object({
   pushSocial: z.boolean().optional(),
   pushPreviews: z.boolean().optional(),
   showAchievements: z.boolean().optional(),
+  showRing: z.boolean().optional(),
   hideGettingStarted: z.boolean().optional(),
   timeZone: timeZoneSchema.nullable().optional(),
 });
@@ -131,6 +148,9 @@ export const userPrivateSchema = userPublicSchema.extend({
   settings: userSettingsSchema,
   /** Null until the address was confirmed through the link we mailed; the app is closed until then. */
   emailVerifiedAt: z.iso.datetime().nullable(),
+  /** The ready-made pictures in use, if any (their URLs are `avatarUrl` and `coverUrl`). */
+  avatarPreset: z.string().nullable(),
+  coverPreset: z.string().nullable(),
   updatedAt: z.iso.datetime(),
 });
 export type UserPrivate = z.infer<typeof userPrivateSchema>;
@@ -147,6 +167,9 @@ export type UserList = z.infer<typeof userListSchema>;
  * No `email`: a new address has to be confirmed before it replaces the old one, and that flow
  * does not exist yet (ADR 0011). An `email` key is dropped like any unknown key.
  */
+/** The id of a ready-made picture (`@beso/shared/pictures`); the API checks it exists and is unlocked. */
+export const presetIdSchema = z.string().regex(/^[a-z0-9-]{1,32}$/, 'Unknown picture');
+
 export const updateProfileSchema = z.object({
   username: usernameSchema.optional(),
   name: nameSchema.optional(),
@@ -156,6 +179,9 @@ export const updateProfileSchema = z.object({
   /** Keys returned by POST /uploads?kind=avatar|cover; null removes the picture. */
   avatarKey: avatarKeySchema.nullable().optional(),
   coverKey: coverKeySchema.nullable().optional(),
+  /** A ready-made picture instead of an upload (it replaces one, an upload replaces it). */
+  avatarPreset: presetIdSchema.nullable().optional(),
+  coverPreset: presetIdSchema.nullable().optional(),
 });
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type UpdateProfileData = z.output<typeof updateProfileSchema>;

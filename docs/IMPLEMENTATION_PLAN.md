@@ -792,7 +792,7 @@ sessions, devices).
   switched-off badges, blocks), web (the profile tab and strip, the checklist card, the toast, the
   settings), e2e (a new member completes the checklist, sees the toast and the card go).
 
-### F3. Polls · M (step 2)
+### F3. Polls · M (step 2) · ✅ 2026-10-23
 
 - A post may carry a poll: `polls(post_id PK, closes_at, ended_notified_at)`,
   `poll_options(id, post_id, position, text ≤ 80)`, `poll_votes(post_id, user_id, option_id,
@@ -808,8 +808,29 @@ sessions, devices).
   author and the voters. F4, F5, F7 and F8 add theirs.
 - Tests: int (creation, vote rules, counts, closing, the frequent job), web (the composer with a
   poll, voting, result states), e2e (alice posts a poll, bob votes, both see the result).
+- As built (2026-10-23): migration `polls` (the three tables, `POLL_ENDED`; the job's lookup is an
+  `(ended_notified_at, closes_at)` index because Prisma's partial indexes are a preview feature).
+  Counts come with `postSelect` as relation counts in the same query rather than a `groupBy` per
+  page, like `likeCount`; `toPost` now takes the viewer id, since whether the counts show depends
+  on who reads (`votes: null` per option until then; `totalVotes` always shows). Decisions on the
+  way: the author cannot vote in their own poll (they always see the results; 403); a post has
+  pictures or a poll, never both, and a quote asks none (field error on `poll`, in the shared
+  schema); a vote refused because the poll closed or the member voted elsewhere is a 409, after
+  which the client reloads the poll; the poll is fixed at creation like the pictures. `POLL_ENDED`
+  goes to the voters with the author as the actor ("Alice asked, and the results are in") and to
+  the author without one ("The results of your poll are in", `NOTIFICATION_PHRASES[…].own`), so
+  pushes reach both. `PollsService` (`posts/`) owns the vote and the frequent job
+  `endClosed(now)` (ADR 0012, frequent jobs). Badges: Show of hands (first poll), Voice heard
+  (10 · 50 votes), Pollster (a poll with 20 votes). Web: "Poll" in the composer (the editor a
+  lazy chunk), `PostPoll` on the card (one press votes; results with the choice ticked and the
+  leaders marked at the close; a poll that closed on screen offers "See the results"), "Poll" in
+  quote embeds and chat cards, the privacy notice names votes (`LEGAL_UPDATED_ON` bumped). The
+  seed has an open poll of bob's and a closed one of carol's. First paint 258.0 of 259 kB.
 
-### F4. Weekly digest · M · ADR 0010 amendment 2 (step 2)
+### F4. Weekly digest · M · ADR 0010 amendment 2 (step 2) · deferred 2026-10-23
+
+_Owner, 2026-10-23: not for now; parked in `BACKLOG.md` (Ideas). The frequent jobs it needed shipped with F3._
+
 
 - One mail a week, on Monday at 09:00 in the member's time zone (F2b), on by default with a one-click
   unsubscribe (P4): the most liked posts from people they follow in the last 7 days (up to five),

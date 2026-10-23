@@ -5,8 +5,13 @@ import { defineConfig } from 'tsdown';
 const isWatch = process.argv.includes('--watch') || process.argv.includes('-w');
 
 export default defineConfig({
-  // Achievements are an entry of their own, so the web loads them lazily (F2, ADR 0021).
-  entry: { index: 'src/index.ts', achievements: 'src/achievements.ts' },
+  // Achievements and the ready-made pictures are entries of their own, so the web loads them
+  // lazily (F2, ADR 0021).
+  entry: {
+    index: 'src/index.ts',
+    achievements: 'src/achievements.ts',
+    pictures: 'src/pictures.ts',
+  },
   format: ['esm'],
   platform: 'neutral',
   dts: true,

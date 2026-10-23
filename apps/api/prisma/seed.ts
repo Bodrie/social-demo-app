@@ -526,6 +526,81 @@ async function seed(): Promise<void> {
     }
   }
 
+  // --- a pinned post: bob shows his photo set first on his profile ------------------------
+  if (bob) {
+    const photos = await prisma.post.findFirst({
+      where: { authorId: bob.id, content: { startsWith: 'New #photography set' } },
+      select: { id: true },
+    });
+    if (photos) {
+      await prisma.user.update({ where: { id: bob.id }, data: { pinnedPostId: photos.id } });
+    }
+  }
+
+  // --- polls (F3): one alice can still vote in, one with its results --------------------
+  if (alice && bob && carol) {
+    const hour = 60 * 60 * 1000;
+    const poll = async (
+      author: typeof alice,
+      content: string,
+      options: string[],
+      createdAt: Date,
+      closesAt: Date,
+      votes: { user: typeof alice; option: number }[],
+    ) => {
+      const post = await prisma.post.create({
+        data: {
+          authorId: author.id,
+          content,
+          createdAt,
+          poll: {
+            create: {
+              closesAt,
+              // A closed seed poll counts as announced: a reseed tells nobody anything.
+              endedNotifiedAt: closesAt <= new Date() ? closesAt : null,
+              options: { create: options.map((text, position) => ({ text, position })) },
+            },
+          },
+        },
+        select: {
+          id: true,
+          poll: { select: { options: { select: { id: true, position: true } } } },
+        },
+      });
+      const optionAt = (index: number) =>
+        post.poll?.options.find((option) => option.position === index)?.id ?? '';
+      await prisma.pollVote.createMany({
+        data: votes.map((vote) => ({
+          postId: post.id,
+          userId: vote.user.id,
+          optionId: optionAt(vote.option),
+        })),
+      });
+      await prisma.activity.create({
+        data: { actorId: author.id, type: ActivityType.POST_CREATED, postId: post.id, createdAt },
+      });
+    };
+    await poll(
+      bob,
+      'Hike on Saturday or Sunday?',
+      ['Saturday', 'Sunday', 'Both!'],
+      new Date(Date.now() - 2 * hour),
+      new Date(Date.now() + 70 * hour),
+      [{ user: carol, option: 2 }],
+    );
+    await poll(
+      carol,
+      'Best snack for the trail?',
+      ['Trail mix', 'Bananas', 'Chocolate'],
+      new Date(Date.now() - 30 * hour),
+      new Date(Date.now() - 6 * hour),
+      [
+        { user: alice, option: 2 },
+        { user: bob, option: 0 },
+      ],
+    );
+  }
+
   // --- conversations between the fixed accounts ------------------------------
   if (alice && bob) {
     const direct = await prisma.conversation.create({
@@ -543,6 +618,21 @@ async function seed(): Promise<void> {
       createdAt: new Date(Date.now() - (12 - i) * 60_000),
     }));
     await prisma.message.createMany({ data: texts });
+    // Bob's last text answers Alice's before it, so the thread shows a reply with its quote.
+    const [asked, answer] = await Promise.all(
+      [texts[10], texts[11]].map((text) =>
+        prisma.message.findFirst({
+          where: { conversationId: direct.id, createdAt: text?.createdAt },
+          select: { id: true },
+        }),
+      ),
+    );
+    if (asked && answer) {
+      await prisma.message.update({
+        where: { id: answer.id },
+        data: { replyToId: asked.id, isReply: true },
+      });
+    }
     // One picture from Bob, so the demo thread shows what a photo message looks like.
     const picture = await prisma.message.create({
       data: {

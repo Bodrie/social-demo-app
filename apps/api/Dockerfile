@@ -51,6 +51,8 @@ COPY --from=build --chown=node:node /app/packages/shared/package.json ./packages
 COPY --from=build --chown=node:node /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build --chown=node:node /app/apps/api/package.json ./apps/api/
 COPY --from=build --chown=node:node /app/apps/api/dist ./apps/api/dist
+# The ready-made profile pictures (`pnpm presets`), served under /uploads/preset/.
+COPY --from=build --chown=node:node /app/apps/api/presets ./apps/api/presets
 COPY --chown=node:node apps/api/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 # The entrypoint starts as root only to chown the uploads volume, then runs as `node`.
 EXPOSE 3000

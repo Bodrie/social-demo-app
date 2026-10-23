@@ -3,7 +3,7 @@ import type { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { type DeepMockProxy, mockDeep } from 'vitest-mock-extended';
 import type { Env } from '../config/env.js';
-import { DAILY_JOB, JobsScheduler } from './jobs.scheduler.js';
+import { DAILY_JOB, FREQUENT_JOB, JobsScheduler } from './jobs.scheduler.js';
 import type { JobsService } from './jobs.service.js';
 
 const config = (enabled: boolean): ConfigService<Env, true> =>
@@ -21,18 +21,26 @@ describe('JobsScheduler', () => {
     registry = new SchedulerRegistry();
     jobs = mockDeep<JobsService>();
     jobs.runDaily.mockResolvedValue(undefined);
+    jobs.runFrequent.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    if (registry.doesExist('cron', DAILY_JOB)) registry.deleteCronJob(DAILY_JOB);
+    for (const name of [DAILY_JOB, FREQUENT_JOB]) {
+      if (registry.doesExist('cron', name)) registry.deleteCronJob(name);
+    }
   });
 
-  it('registers the daily run when JOBS_ENABLED is on, and its tick runs the jobs', async () => {
+  it('registers both runs when JOBS_ENABLED is on, and their ticks run the jobs', async () => {
     new JobsScheduler(registry, jobs, config(true)).onApplicationBootstrap();
 
-    const job = registry.getCronJob(DAILY_JOB);
-    expect(job.isActive).toBe(true);
-    await job.fireOnTick();
+    const daily = registry.getCronJob(DAILY_JOB);
+    expect(daily.isActive).toBe(true);
+    await daily.fireOnTick();
+    expect(jobs.runDaily).toHaveBeenCalledTimes(1);
+    const frequent = registry.getCronJob(FREQUENT_JOB);
+    expect(frequent.isActive).toBe(true);
+    await frequent.fireOnTick();
+    expect(jobs.runFrequent).toHaveBeenCalledTimes(1);
     expect(jobs.runDaily).toHaveBeenCalledTimes(1);
   });
 

@@ -12,6 +12,10 @@
     "./achievements": {
       "types": "./dist/achievements.d.ts",
       "import": "./dist/achievements.js"
+    },
+    "./pictures": {
+      "types": "./dist/pictures.d.ts",
+      "import": "./dist/pictures.js"
     }
   },
   "files": [

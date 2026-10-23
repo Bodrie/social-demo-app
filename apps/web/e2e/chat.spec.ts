@@ -34,7 +34,8 @@ test.describe('chat', () => {
     // Bob gets it pushed: unread badge in the nav and the conversation list, then reads it.
     await bob.goto('/messages');
     const bobList = bob.getByRole('list', { name: 'Conversations' });
-    await expect(bobList.getByRole('listitem').first()).toContainText(text);
+    // Not necessarily first: the phone spec, running alongside, may write to Bob as well.
+    await expect(bobList.getByRole('listitem').filter({ hasText: text })).toBeVisible();
     // Anchored: the seeded group's snippet is a system line that names Alice too.
     await bobList.getByRole('link', { name: /^Alice Anderson/ }).click();
     const bobLog = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
@@ -152,7 +153,8 @@ test.describe('chat', () => {
     await dialog.getByRole('searchbox').fill('bob');
     await dialog.getByRole('button', { name: /Bob Brown/ }).click();
     await dialog.getByRole('button', { name: 'Create group' }).click();
-    await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
+    // Two panes open the newest chat by themselves: wait for the new group's thread, not any.
+    await expect(page.getByRole('log', { name: `Group ${title}` })).toBeVisible();
     await bob.goto(page.url());
     await expect(bob.getByRole('log', { name: `Group ${title}` })).toBeVisible();
 
@@ -280,6 +282,80 @@ test.describe('chat', () => {
     await expect(members).toContainText('Alice Anderson (you)');
     await expect(members).toContainText('Bob Brown');
     await page.keyboard.press('Escape');
+    await bob.context().close();
+  });
+
+  test('a post sent from the feed reaches the chat as a card, and leaves a frame once deleted', async ({
+    page,
+    browser,
+  }) => {
+    await openHome(page);
+    const text = `Worth a look ${Date.now()}`;
+    await page.getByLabel('New post').fill(text);
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const post = page.getByRole('article').filter({ hasText: text }).first();
+    await expect(post).toBeVisible();
+
+    await post.getByRole('button', { name: 'Send post' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Send post' });
+    await dialog.getByRole('searchbox', { name: 'Search chats and people' }).fill('bob');
+    await dialog.getByRole('button', { name: /Bob Brown/ }).click();
+    await dialog.getByLabel('Message (optional)').fill('For you');
+    await animationsDone(page);
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations, 'axe violations with the send dialog open').toEqual([]);
+    await dialog.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText('Sent to Bob Brown')).toBeVisible();
+    await expect(dialog).toBeHidden();
+
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await bob.goto('/messages/with/alice');
+    const log = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
+    const card = log.getByRole('link', { name: new RegExp(`^Post by Alice Anderson .*${text}`) });
+    await expect(card).toBeVisible();
+    await expect(log.getByText('For you').last()).toBeVisible();
+    await card.click();
+    await expect(bob).toHaveURL(/\/p\/[0-9a-f-]{36}$/);
+    await expect(bob.getByRole('article').filter({ hasText: text })).toBeVisible();
+
+    // Alice deletes the post; Bob's chat keeps the message with an empty frame.
+    await post.getByRole('button', { name: 'Post options' }).click();
+    await page.getByRole('menuitem', { name: 'Delete post' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('article').filter({ hasText: text })).toHaveCount(0);
+    await bob.goto('/messages/with/alice');
+    await expect(log.getByText('This post is unavailable').last()).toBeVisible();
+    await expect(card).toHaveCount(0);
+    await bob.context().close();
+  });
+
+  test('a reply quotes the message it answers, for both sides', async ({ page, browser }) => {
+    await openHome(page);
+    await page.goto('/messages/with/bob');
+    const log = page.getByRole('log', { name: 'Conversation with Bob Brown' });
+    const question = `Which trail ${Date.now()}`;
+    await page.getByRole('textbox', { name: 'Message Bob Brown' }).fill(question);
+    await page.keyboard.press('Enter');
+    const asked = log.getByRole('listitem').filter({ hasText: question });
+    await expect(log.getByText('Sending…')).toHaveCount(0);
+
+    await asked.hover();
+    await asked.getByRole('button', { name: 'Reply', exact: true }).click();
+    await expect(page.getByText('Replying to yourself')).toBeVisible();
+    await page.keyboard.type('The ridge one');
+    await page.keyboard.press('Enter');
+    await expect(
+      log.getByRole('button', { name: `Reply to You ${question}`, exact: true }),
+    ).toBeVisible();
+
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await bob.goto('/messages/with/alice');
+    const theirs = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
+    await expect(
+      theirs.getByRole('button', { name: `Reply to Alice Anderson ${question}`, exact: true }),
+    ).toBeVisible();
     await bob.context().close();
   });
 });

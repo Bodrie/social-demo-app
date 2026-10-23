@@ -175,7 +175,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       receiveNotification(queryClient, notification);
       if (notification.type === 'ACHIEVEMENT_EARNED') {
         void import('@/features/achievements/badge-toast').then(({ showBadgeToast }) =>
-          showBadgeToast(notification.achievementKey, () => void navigate('/badges')),
+          showBadgeToast(
+            notification.achievementKey,
+            () => void navigate('/badges'),
+            (key) => void navigate(`/badges?share=${encodeURIComponent(key)}`),
+          ),
         );
       }
     });

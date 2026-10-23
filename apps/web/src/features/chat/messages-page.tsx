@@ -1,11 +1,14 @@
 import { cn } from 'cn';
 import { MessageCircleIcon } from 'lucide-react';
-import { Outlet, useParams } from 'react-router';
+import { Navigate, Outlet, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { flattenPages } from '@/lib/infinite';
+import { MD_UP, useMediaQuery } from '@/lib/use-media-query';
 import { usePageTitle } from '@/lib/use-page-title';
 import { ConversationList } from './conversation-list';
 import { NewGroupDialog } from './new-group-dialog';
 import { NewMessageDialog } from './new-message-dialog';
+import { useConversations } from './use-conversations';
 
 /**
  * Two panes from `md` up; on phones the list and the thread take turns. The panel fills what
@@ -35,8 +38,19 @@ export function MessagesPage() {
   );
 }
 
+/**
+ * `/messages` itself. With two panes the newest chat opens by itself, as on Messenger's web
+ * app (and is read, as a click would read it); on phones the list is the page and this pane
+ * stays hidden. Only without a single conversation does it offer to start one.
+ */
 export function MessagesIndex() {
   usePageTitle('Messages');
+  const wide = useMediaQuery(MD_UP);
+  const conversations = useConversations();
+  const newest = flattenPages(conversations.data)[0];
+  if (wide && newest) return <Navigate to={`/messages/${newest.id}`} replace />;
+  // Not the empty state for a moment before the list arrives.
+  if (wide && conversations.isPending) return null;
   return (
     <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
       <div className="bg-muted flex size-12 items-center justify-center rounded-full">

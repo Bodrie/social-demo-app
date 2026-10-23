@@ -4,10 +4,14 @@ import {
   ACHIEVEMENT_TIER_TITLES,
   ACHIEVEMENTS,
   type AchievementStats,
+  FEATURED_BADGES_MAX,
 } from '@beso/shared/achievements';
+import { PRESETS } from '@beso/shared/pictures';
+import { cn } from 'cn';
 import dayjs from 'dayjs';
-import { AwardIcon, CircleHelpIcon } from 'lucide-react';
+import { AwardIcon, CircleHelpIcon, Share2Icon, StarIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import { EmptyState, ErrorState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,7 +21,20 @@ import { useUpdateSettings } from '@/features/settings/use-settings';
 import { firstName } from '@/lib/names';
 import { type BadgeTile, earnedMap, rarityOf, tilesOf } from './badge-tiles';
 import { Medallion } from './medallion';
-import { useAchievementStats, useMyAchievements, useUserAchievements } from './use-achievements';
+import { ShareBadgeDialog } from './share-badge-dialog';
+import {
+  useAchievementStats,
+  useFeatureBadges,
+  useMyAchievements,
+  useUserAchievements,
+} from './use-achievements';
+
+/** "Unlocks the “Confetti” cover", for a badge that a ready-made picture comes with. */
+function unlocksOf(key: string): string | null {
+  const pictures = PRESETS.filter((preset) => preset.unlockedBy === key);
+  if (pictures.length === 0) return null;
+  return pictures.map((preset) => `the “${preset.label}” ${preset.kind}`).join(' and ');
+}
 
 const VISIBLE_TOTAL = ACHIEVEMENTS.filter((achievement) => !achievement.hidden).length;
 const HIDDEN_TOTAL = ACHIEVEMENTS.length - VISIBLE_TOTAL;
@@ -36,6 +53,25 @@ function MyBadges() {
   const update = useUpdateSettings();
   const query = useMyAchievements();
   const stats = useAchievementStats();
+  const feature = useFeatureBadges();
+  // `?share=<key>`: the badge toast's "Share" lands here with the dialog open.
+  const [params, setParams] = useSearchParams();
+  const sharing = params.get('share');
+  const setSharing = (key: string | null) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (key) next.set('share', key);
+        else next.delete('share');
+        return next;
+      },
+      { replace: true },
+    );
+  const featured = me.featuredBadges;
+  const toggleFeatured = (key: string) =>
+    feature.mutate(
+      featured.includes(key) ? featured.filter((held) => held !== key) : [...featured, key],
+    );
   if (query.isPending) return <BadgesSkeleton />;
   if (query.isError) {
     return (
@@ -78,9 +114,22 @@ function MyBadges() {
             progress={query.data.progress}
             stats={stats.data}
             extra={secrets}
+            own={{
+              featured,
+              full: featured.length >= FEATURED_BADGES_MAX,
+              pending: feature.isPending,
+              onFeature: toggleFeatured,
+              onShare: setSharing,
+            }}
           />
         );
       })}
+      <p className="text-muted-foreground px-1 text-xs">
+        Feature up to {FEATURED_BADGES_MAX} badges to show them under your name; without any, your
+        rarest show. Collect 10, 25, 50 or 75 for a bronze, silver, gold or platinum ring around
+        your picture.
+      </p>
+      <ShareBadgeDialog achievementKey={sharing} onClose={() => setSharing(null)} />
     </div>
   );
 }
@@ -127,15 +176,33 @@ type BadgeGroupProps = {
   stats: AchievementStats | undefined;
   /** A last tile of the group's own (the hidden ones still to find). */
   extra?: ReactNode;
+  /** What the member may do with an earned badge of their own (feature it, share it). */
+  own?: OwnBadgeActions;
 };
 
-function BadgeGroup({ title, tiles, progress, stats, extra }: BadgeGroupProps) {
+/** The member's own Badges tab only. */
+type OwnBadgeActions = {
+  featured: readonly string[];
+  /** As many are featured as may be. */
+  full: boolean;
+  pending: boolean;
+  onFeature: (key: string) => void;
+  onShare: (key: string) => void;
+};
+
+function BadgeGroup({ title, tiles, progress, stats, extra, own }: BadgeGroupProps) {
   return (
     <section aria-label={title} className="bg-card rounded-xl border p-4">
       <h2 className="mb-3 font-semibold">{title}</h2>
       <ul className="grid gap-3 sm:grid-cols-2">
         {tiles.map((tile) => (
-          <BadgeTileItem key={tile.id} tile={tile} progress={progress} stats={stats} />
+          <BadgeTileItem
+            key={tile.id}
+            tile={tile}
+            progress={progress}
+            stats={stats}
+            own={tile.earned ? own : undefined}
+          />
         ))}
         {extra}
       </ul>
@@ -169,10 +236,12 @@ function BadgeTileItem({
   tile,
   progress,
   stats,
+  own,
 }: {
   tile: BadgeTile;
   progress?: Record<string, number>;
   stats: AchievementStats | undefined;
+  own?: OwnBadgeActions;
 }) {
   const shown = tile.earned ?? tile.next;
   if (!shown) return null;
@@ -200,6 +269,12 @@ function BadgeTileItem({
             {rarity ? ` · ${rarity} of members` : null}
           </p>
         ) : null}
+        {/* What a badge brings (ADR 0021, "Rewards"): the earned one's, else the next one's. */}
+        {unlocksOf((tile.earned ?? goal ?? shown).key) ? (
+          <p className="text-muted-foreground text-xs">
+            {tile.earned ? 'Unlocked' : 'Unlocks'} {unlocksOf((tile.earned ?? goal ?? shown).key)}
+          </p>
+        ) : null}
         {goal && goal.threshold > 1 ? (
           <div className="mt-1.5 flex items-center gap-2">
             <progress
@@ -213,8 +288,30 @@ function BadgeTileItem({
             </span>
           </div>
         ) : null}
+        {own && tile.earned ? <OwnActions own={own} badgeKey={tile.earned.key} /> : null}
       </div>
     </li>
+  );
+}
+
+function OwnActions({ own, badgeKey }: { own: OwnBadgeActions; badgeKey: string }) {
+  const isFeatured = own.featured.includes(badgeKey);
+  return (
+    <div className="-ms-2 mt-1 flex flex-wrap gap-1">
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-pressed={isFeatured}
+        disabled={own.pending || (!isFeatured && own.full)}
+        onClick={() => own.onFeature(badgeKey)}
+      >
+        <StarIcon className={cn(isFeatured && 'fill-current')} />
+        Feature on profile
+      </Button>
+      <Button variant="ghost" size="xs" onClick={() => own.onShare(badgeKey)}>
+        <Share2Icon /> Share
+      </Button>
+    </div>
   );
 }
 

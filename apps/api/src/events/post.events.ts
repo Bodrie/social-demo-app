@@ -69,3 +69,23 @@ export class PostEditedEvent {
     readonly authorId: string,
   ) {}
 }
+
+/** `voterId` voted in the poll of `authorId`'s post (F3); a vote is final, so never undone. */
+export class PollVotedEvent {
+  static readonly EVENT = 'poll.voted';
+  constructor(
+    readonly postId: string,
+    readonly voterId: string,
+    readonly authorId: string,
+  ) {}
+}
+
+/** A poll closed and is announced, once (the frequent job stamps `ended_notified_at`). */
+export class PollEndedEvent {
+  static readonly EVENT = 'poll.ended';
+  constructor(
+    readonly postId: string,
+    readonly authorId: string,
+    readonly voterIds: readonly string[],
+  ) {}
+}

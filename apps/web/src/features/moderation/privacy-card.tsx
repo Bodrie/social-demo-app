@@ -80,6 +80,7 @@ export function PrivacyCard() {
   const me = useCurrentUser();
   const update = useUpdateSettings();
   const badgesId = useId();
+  const ringId = useId();
   const blocked = useBlockedMembers();
   const muted = useMutedMembers();
   const unblock = useUnblock();
@@ -101,6 +102,14 @@ export function PrivacyCard() {
           description="Off, your badges are yours alone: others see none of them on your profile."
           checked={me.settings.showAchievements}
           onCheckedChange={(checked) => update.mutate({ showAchievements: checked })}
+        />
+        <Preference
+          id={ringId}
+          label="Show my badge ring"
+          description="A bronze, silver, gold or platinum ring around your picture, everywhere it shows, once you collect 10, 25, 50 or 75 badges."
+          checked={me.settings.showRing}
+          disabled={!me.settings.showAchievements}
+          onCheckedChange={(checked) => update.mutate({ showRing: checked })}
         />
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">Blocked</h3>

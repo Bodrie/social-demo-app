@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isEmojiOnly } from '@beso/shared';
 import {
   type AchievementSeries,
   BESO_OPENING,
@@ -11,7 +12,6 @@ import {
   clockMatches,
   hasHalloweenEmoji,
   hasKiss,
-  isEmojiOnly,
   isFullLength,
   isPalindrome,
   localHour,
@@ -44,6 +44,9 @@ export type CountedMember = {
   createdAt: Date;
   avatarKey: string | null;
   coverKey: string | null;
+  /** A ready-made picture counts as one's picture (Say cheese, Widescreen, The full picture). */
+  avatarPreset: string | null;
+  coverPreset: string | null;
   bio: string | null;
   city: string | null;
   website: string | null;
@@ -136,15 +139,15 @@ export class AchievementCounter {
     const zone = member.timeZone;
     switch (series) {
       case 'avatar':
-        return flag(member.avatarKey !== null);
+        return flag(member.avatarKey !== null || member.avatarPreset !== null);
       case 'cover':
-        return flag(member.coverKey !== null);
+        return flag(member.coverKey !== null || member.coverPreset !== null);
       case 'bio':
         return flag(filled(member.bio));
       case 'full-profile':
         return flag(
-          member.avatarKey !== null &&
-            member.coverKey !== null &&
+          (member.avatarKey !== null || member.avatarPreset !== null) &&
+            (member.coverKey !== null || member.coverPreset !== null) &&
             filled(member.bio) &&
             filled(member.city) &&
             filled(member.website),
@@ -187,6 +190,10 @@ export class AchievementCounter {
         return this.prisma.message.count({ where: { senderId: userId, kind: 'user' } });
       case 'groups-created':
         return this.prisma.conversation.count({ where: { createdById: userId, kind: 'group' } });
+      case 'polls':
+        return this.prisma.poll.count({ where: { post: { authorId: userId } } });
+      case 'poll-votes':
+        return this.prisma.pollVote.count({ where: { userId } });
       case 'likes-given':
         return this.prisma.postLike.count({ where: { userId } });
       case 'reactions-given': {
@@ -234,6 +241,14 @@ export class AchievementCounter {
         return this.scalar(Prisma.sql`
           SELECT COALESCE(MAX(reactions_count), 0)::int AS count
           FROM comments WHERE author_id = ${userId}::uuid`);
+      case 'top-poll-votes':
+        return this.scalar(Prisma.sql`
+          SELECT COALESCE(MAX(n), 0)::int AS count FROM (
+            SELECT COUNT(*) AS n FROM poll_votes AS pv
+            JOIN posts AS p ON p.id = pv.post_id
+            WHERE p.author_id = ${userId}::uuid
+            GROUP BY pv.post_id
+          ) AS per_poll`);
       case 'top-post-reposts':
         return this.scalar(Prisma.sql`
           SELECT COALESCE(MAX(repost_count), 0)::int AS count

@@ -224,6 +224,8 @@ export class ConversationsService {
         field: 'imageKey',
       });
     }
+    if (input.postId !== undefined) await this.assertShareable(meId, input.postId);
+    if (input.replyToId !== undefined) await this.assertAnswerable(id, input.replyToId);
     const created = await this.prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
         data: {
@@ -231,6 +233,10 @@ export class ConversationsService {
           senderId: meId,
           content: input.content,
           imageKey: input.imageKey ?? null,
+          sharedPostId: input.postId ?? null,
+          sharesPost: input.postId !== undefined,
+          replyToId: input.replyToId ?? null,
+          isReply: input.replyToId !== undefined,
         },
         select: messageSelect,
       });
@@ -251,8 +257,37 @@ export class ConversationsService {
   }
 
   /**
+   * A post goes to a chat on the rules of a quote (ADR 0017): it must exist, and nobody sends
+   * what a block between them and its author keeps from them. The members each load it through
+   * `GET /posts/:id`, so their own blocks apply when they look (ADR 0009 amendment 4).
+   */
+  private async assertShareable(meId: string, postId: string): Promise<void> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post) throw badRequest('Unknown post', { postId: 'Unknown post' });
+    await this.visibility.assertNotBlocked(meId, post.authorId);
+  }
+
+  /** A reply answers a member's message of this conversation that is still there. */
+  private async assertAnswerable(conversationId: string, messageId: string): Promise<void> {
+    const original = await this.prisma.message.findFirst({
+      where: { id: messageId, conversationId },
+      select: { kind: true, deletedAt: true },
+    });
+    const problem =
+      !original || original.kind === 'system'
+        ? 'Not a message of this conversation'
+        : original.deletedAt
+          ? 'That message was deleted'
+          : null;
+    if (problem) throw badRequest(problem, { replyToId: problem });
+  }
+
+  /**
    * The sender takes a message back, however old: the row stays (ordering, read marks), its
-   * text and picture go, and everyone sees "Message deleted". Idempotent.
+   * text, picture and post go, and everyone sees "Message deleted". Idempotent.
    */
   async deleteMessage(meId: string, id: string, messageId: string): Promise<Message> {
     const row = await this.rowForMember(meId, id);
@@ -266,7 +301,15 @@ export class ConversationsService {
     if (existing.deletedAt) return this.toMessage(existing);
     const updated = await this.prisma.message.update({
       where: { id: messageId },
-      data: { deletedAt: new Date(), content: '', imageKey: null },
+      data: {
+        deletedAt: new Date(),
+        content: '',
+        imageKey: null,
+        sharedPostId: null,
+        sharesPost: false,
+        replyToId: null,
+        isReply: false,
+      },
       select: messageSelect,
     });
     await this.uploads.discard(existing.imageKey);

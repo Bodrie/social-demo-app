@@ -160,3 +160,34 @@ export const trendingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(5),
 });
 export type TrendingQuery = z.output<typeof trendingQuerySchema>;
+
+const KEYCAP = /[0-9#*]\uFE0F?\u20E3/u;
+const KEYCAPS = new RegExp(KEYCAP.source, 'gu');
+/** What an emoji is built from: pictographs, skin tones, joiners, variation selectors, flags, tags. */
+const EMOJI_PART =
+  /\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F|[\u{E0020}-\u{E007F}]/gu;
+const PICTOGRAPH = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+
+/**
+ * Nothing but emoji, and spaces between them: the "Speechless" badge (ADR 0021) and a chat
+ * message shown large without its bubble.
+ */
+export function isEmojiOnly(text: string): boolean {
+  const compact = text.replace(/\s+/gu, '');
+  if (!PICTOGRAPH.test(compact) && !KEYCAP.test(compact)) return false;
+  return compact.replace(KEYCAPS, '').replace(EMOJI_PART, '') === '';
+}
+
+/**
+ * How many emoji a text holds, as one sees them: grapheme clusters, so a family joined with
+ * zero-width joiners, a flag or a skin tone counts once. Spaces do not count.
+ */
+export function emojiCount(text: string): number {
+  let count = 0;
+  for (const { segment } of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(
+    text,
+  )) {
+    if (segment.trim() !== '') count += 1;
+  }
+  return count;
+}

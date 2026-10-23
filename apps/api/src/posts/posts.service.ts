@@ -11,6 +11,7 @@ import {
   type UserPostsQuery,
   extractEntities,
   EXPLORE_POPULAR_DAYS,
+  POLL_DURATION_HOURS,
   type ExploreQuery,
 } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
@@ -46,6 +47,8 @@ import { postSelect, toPost } from './posts.mapper.js';
 
 type Occurrence = { post_id: string; sort_at: Date; repost_id: string | null };
 
+const HOUR_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class PostsService {
   constructor(
@@ -78,6 +81,14 @@ export class PostsService {
       if (!quoted) throw badRequest('Unknown post', { quotedPostId: 'Unknown post' });
       await this.visibility.assertNotBlocked(authorId, quoted.authorId);
     }
+    // A shared badge must be the author's (ADR 0021, "Rewards"); hidden ones may be shown off too.
+    if (input.achievementKey) {
+      const held = await this.prisma.userAchievement.count({
+        where: { userId: authorId, key: input.achievementKey },
+      });
+      if (held === 0)
+        throw badRequest('Not one of your badges', { achievementKey: 'Not one of your badges' });
+    }
     const createdAt = new Date();
     const entities = extractEntities(input.content);
     const mentioned = await this.users.findByUsernames(entities.mentions);
@@ -89,10 +100,24 @@ export class PostsService {
           images: { create: imageKeys.map((key, position) => ({ key, position })) },
           quotedPostId: quoted?.id ?? null,
           wasQuote: quoted !== null,
+          achievementKey: input.achievementKey ?? null,
           createdAt,
           mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
           // The tag rows copy the post's timestamp so a tag page pages without a join.
           hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
+          // Fixed from here on (F3); the schema refused it with pictures or in a quote.
+          poll: input.poll
+            ? {
+                create: {
+                  closesAt: new Date(
+                    createdAt.getTime() + POLL_DURATION_HOURS[input.poll.duration] * HOUR_MS,
+                  ),
+                  options: {
+                    create: input.poll.options.map((text, position) => ({ text, position })),
+                  },
+                },
+              }
+            : undefined,
         },
         select: postSelect(authorId),
       });
@@ -119,7 +144,7 @@ export class PostsService {
       mentioned.map((user) => user.id),
       { postId: row.id, commentId: null },
     );
-    return toPost(row, this.assets.base);
+    return toPost(row, this.assets.base, authorId);
   }
 
   /** A post of someone on either side of a block with the viewer does not exist for them (ADR 0016). */
@@ -133,7 +158,7 @@ export class PostsService {
     if (row.author.id !== viewerId && blocked.includes(row.author.id)) {
       throw notFound('Post not found');
     }
-    return toPost(row, this.assets.base, null, await this.hiddenFor(viewerId));
+    return toPost(row, this.assets.base, viewerId, { hidden: await this.hiddenFor(viewerId) });
   }
 
   /** Authors the viewer must not see, as a set for the mapper's embed masking. */
@@ -303,7 +328,8 @@ export class PostsService {
       items,
       query.limit,
       (item) => ({ createdAt: item.sortAt, id: item.row.id }),
-      (item) => toPost(item.row, this.assets.base, item.repost, hiddenSet),
+      (item) =>
+        toPost(item.row, this.assets.base, viewerId, { repost: item.repost, hidden: hiddenSet }),
     );
   }
 
@@ -364,7 +390,7 @@ export class PostsService {
       query.limit,
       ({ rank }) =>
         encodeRankedCursor({ score: rank.score, createdAt: rank.created_at, id: rank.id }),
-      ({ row }) => toPost(row, this.assets.base, null, hiddenSet),
+      ({ row }) => toPost(row, this.assets.base, viewerId, { hidden: hiddenSet }),
     );
   }
 
@@ -394,7 +420,9 @@ export class PostsService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     const hiddenSet = new Set(hidden);
-    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
+    return paginate(rows, query.limit, (row) =>
+      toPost(row, this.assets.base, viewerId, { hidden: hiddenSet }),
+    );
   }
 
   /** The author's own, or an admin's from the reports queue (`asAdmin`, ADR 0016). */
@@ -493,6 +521,26 @@ export class PostsService {
     }
   }
 
+  /** The author's one pinned post, shown first on their profile; pinning another replaces it. */
+  async pin(viewerId: string, postId: string): Promise<void> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post) throw notFound('Post not found');
+    if (post.authorId !== viewerId) throw forbidden('Only the author can pin a post');
+    await this.prisma.user.update({ where: { id: viewerId }, data: { pinnedPostId: postId } });
+  }
+
+  /** Only that post comes off; another one pinned since stays. Idempotent. */
+  async unpin(viewerId: string, postId: string): Promise<void> {
+    await this.assertExists(postId);
+    await this.prisma.user.updateMany({
+      where: { id: viewerId, pinnedPostId: postId },
+      data: { pinnedPostId: null },
+    });
+  }
+
   async unlike(viewerId: string, postId: string): Promise<void> {
     await this.assertExists(postId);
     const result = await this.prisma.postLike.deleteMany({ where: { userId: viewerId, postId } });
@@ -541,7 +589,7 @@ export class PostsService {
       rows,
       query.limit,
       (row) => ({ createdAt: row.createdAt, id: row.postId }),
-      (row) => toPost(row.post, this.assets.base, null, hiddenSet),
+      (row) => toPost(row.post, this.assets.base, viewerId, { hidden: hiddenSet }),
     );
   }
 
@@ -565,6 +613,8 @@ export class PostsService {
       take: query.limit + 1,
     });
     const hiddenSet = new Set(hidden);
-    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
+    return paginate(rows, query.limit, (row) =>
+      toPost(row, this.assets.base, viewerId, { hidden: hiddenSet }),
+    );
   }
 }

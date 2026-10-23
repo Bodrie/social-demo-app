@@ -1,5 +1,13 @@
 import type { Post } from '@beso/shared';
-import { FlagIcon, LinkIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import {
+  FlagIcon,
+  LinkIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PinIcon,
+  PinOffIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { type RefObject, Suspense, lazy, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -20,7 +28,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useDeletePost } from './use-post-mutations';
+import { useCurrentUser } from '@/features/auth/current-user';
+import { useDeletePost, usePinPost } from './use-post-mutations';
 
 // Reporting is rare: the dialog loads when it is first opened, not with the feed's first paint.
 const ReportDialog = lazy(() =>
@@ -39,11 +48,13 @@ type PostMenuProps = {
   triggerRef?: RefObject<HTMLButtonElement | null>;
 };
 
-/** Copy link for everyone; edit and delete for the author, report for everyone else. */
+/** Copy link for everyone; pin, edit and delete for the author, report for everyone else. */
 export function PostMenu({ post, isAuthor, onEdit, triggerRef }: PostMenuProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
   const remove = useDeletePost();
+  const pin = usePinPost();
+  const pinned = useCurrentUser().pinnedPostId === post.id;
 
   const copyLink = async () => {
     try {
@@ -69,6 +80,17 @@ export function PostMenu({ post, isAuthor, onEdit, triggerRef }: PostMenuProps) 
           {isAuthor ? (
             <>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => pin.mutate({ postId: post.id, pinned })}>
+                {pinned ? (
+                  <>
+                    <PinOffIcon /> Unpin from your profile
+                  </>
+                ) : (
+                  <>
+                    <PinIcon /> Pin to your profile
+                  </>
+                )}
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={onEdit}>
                 <PencilIcon /> Edit post
               </DropdownMenuItem>

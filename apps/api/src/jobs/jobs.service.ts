@@ -7,6 +7,7 @@ import {
   NOTIFICATION_RETENTION_DAYS,
   NotificationsService,
 } from '../notifications/notifications.service.js';
+import { PollsService } from '../posts/polls.service.js';
 import { PushService } from '../push/push.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 
@@ -21,16 +22,18 @@ type Job = { name: string; run: (now: Date) => Promise<number> };
 const before = (now: Date, ms: number): Date => new Date(now.getTime() - ms);
 
 /**
- * The daily housekeeping (ADR 0012, C6). Every job is owned by the module whose table it
- * cleans and takes the clock as a parameter, so tests run them with a date of their own;
- * this service only decides the cut-offs, the order, and that one failure never stops the
- * rest. `JobsScheduler` calls `runDaily` on the timer.
+ * The daily housekeeping (ADR 0012, C6) and the frequent jobs (ADR 0012 amendment 2, F3):
+ * things that are due at a moment, like the end of a poll. Every job is owned by the module
+ * whose table it works on and takes the clock as a parameter, so tests run them with a date of
+ * their own; this service only decides the cut-offs, the order, and that one failure never
+ * stops the rest. `JobsScheduler` calls `runDaily` and `runFrequent` on their timers.
  */
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
   private readonly jobs: Job[];
-  private running = false;
+  private readonly frequentJobs: Job[];
+  private readonly running = { daily: false, frequent: false };
 
   constructor(
     emailTokens: EmailTokensService,
@@ -40,6 +43,7 @@ export class JobsService {
     notifications: NotificationsService,
     push: PushService,
     achievements: AchievementsService,
+    polls: PollsService,
   ) {
     const { warnAfterDays, deleteAfterDays } = UNVERIFIED_ACCOUNT_POLICY;
     this.jobs = [
@@ -68,27 +72,41 @@ export class JobsService {
       // Tenure, and whatever a failed listener missed (ADR 0021).
       { name: 'achievements', run: (now) => achievements.sweep(now) },
     ];
+    // Due at a moment rather than overnight; each is idempotent through a `*_notified_at` stamp.
+    this.frequentJobs = [{ name: 'ended polls', run: (now) => polls.endClosed(now) }];
   }
 
-  /** Every job once, in order; a failing job is logged and the next one still runs. */
-  async runDaily(now = new Date()): Promise<void> {
-    if (this.running) {
-      this.logger.warn('The daily jobs are still running; this run is skipped');
+  /** Every daily job once, in order; a failing job is logged and the next one still runs. */
+  runDaily(now = new Date()): Promise<void> {
+    return this.runAll('daily', this.jobs, now);
+  }
+
+  /** Every frequent job once (every few minutes); only what did something is logged. */
+  runFrequent(now = new Date()): Promise<void> {
+    return this.runAll('frequent', this.frequentJobs, now);
+  }
+
+  private async runAll(kind: 'daily' | 'frequent', jobs: Job[], now: Date): Promise<void> {
+    if (this.running[kind]) {
+      this.logger.warn({ kind }, 'The jobs are still running; this run is skipped');
       return;
     }
-    this.running = true;
+    this.running[kind] = true;
     try {
-      for (const job of this.jobs) {
+      for (const job of jobs) {
         try {
           // oxlint-disable-next-line no-await-in-loop -- one job at a time, on purpose
           const count = await job.run(now);
-          this.logger.log({ job: job.name, count }, 'Job finished');
+          // Every five minutes: a line per run would bury the log.
+          if (kind === 'daily' || count > 0) {
+            this.logger.log({ job: job.name, count }, 'Job finished');
+          }
         } catch (error) {
           this.logger.error({ err: error, job: job.name }, 'Job failed');
         }
       }
     } finally {
-      this.running = false;
+      this.running[kind] = false;
     }
   }
 }

@@ -164,9 +164,9 @@ function defaultAckHandlers(socket: FakeSocket): Record<string, AckHandler> {
       const user = mockDb.user;
       const parsed = sendMessagePayloadSchema.safeParse(payload);
       if (!user || !parsed.success) return validationFailed;
-      const { conversationId, content, imageKey } = parsed.data;
+      const { conversationId, content, imageKey, postId, replyToId } = parsed.data;
       if (!memberRow(user.id, conversationId)) return notFound;
-      const message = storeMessage(conversationId, user.id, content, imageKey);
+      const message = storeMessage(conversationId, user.id, content, imageKey, postId, replyToId);
       queueMicrotask(() => socket.serverEmit(SOCKET_EVENTS.messageNew, message));
       return { ok: true, message };
     },

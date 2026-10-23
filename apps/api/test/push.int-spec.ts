@@ -214,13 +214,23 @@ describe('web push', () => {
       topic: direct.id.replaceAll('-', ''),
     });
 
+    // A post sent without words is named as one.
+    const post = postSchema.parse(
+      (await aliceSession.agent.post('/api/v1/posts').send({ content: 'Mine' }).expect(201)).body,
+    );
+    await bobSession.agent
+      .post(`/api/v1/conversations/${direct.id}/messages`)
+      .send({ postId: post.id })
+      .expect(201);
+    expect((await pushesTo('chat-alice', 2))[1]?.payload.body).toBe('Sent a post');
+
     await aliceSession.agent
       .patch('/api/v1/users/me/settings')
       .send({ pushPreviews: false })
       .expect(200);
     await say('Secret plans');
-    const pushes = await pushesTo('chat-alice', 2);
-    expect(pushes[1]?.payload.body).toBe('New message');
+    const pushes = await pushesTo('chat-alice', 3);
+    expect(pushes[2]?.payload.body).toBe('New message');
 
     await aliceSession.agent
       .patch('/api/v1/users/me/settings')
@@ -233,7 +243,7 @@ describe('web push', () => {
       .send({ title: 'Trip', memberIds: [alice.id] })
       .expect(201);
     await settle();
-    expect(sent.filter((p) => p.endpoint === endpoint('chat-alice'))).toHaveLength(2);
+    expect(sent.filter((p) => p.endpoint === endpoint('chat-alice'))).toHaveLength(3);
     expect(sent.some((p) => p.endpoint === endpoint('chat-bob'))).toBe(false);
   });
 

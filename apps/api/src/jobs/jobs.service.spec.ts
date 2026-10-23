@@ -5,6 +5,7 @@ import type { AchievementsService } from '../achievements/achievements.service.j
 import type { EmailTokensService } from '../auth/email-tokens.service.js';
 import type { RefreshTokensService } from '../auth/refresh-tokens.service.js';
 import type { NotificationsService } from '../notifications/notifications.service.js';
+import type { PollsService } from '../posts/polls.service.js';
 import type { PushService } from '../push/push.service.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
 import { JobsService } from './jobs.service.js';
@@ -19,6 +20,7 @@ describe('JobsService.runDaily', () => {
   let notifications: DeepMockProxy<NotificationsService>;
   let push: DeepMockProxy<PushService>;
   let achievements: DeepMockProxy<AchievementsService>;
+  let polls: DeepMockProxy<PollsService>;
   let service: JobsService;
 
   beforeAll(() => {
@@ -41,6 +43,8 @@ describe('JobsService.runDaily', () => {
     push.pruneEnded.mockResolvedValue(0);
     achievements = mockDeep<AchievementsService>();
     achievements.sweep.mockResolvedValue(0);
+    polls = mockDeep<PollsService>();
+    polls.endClosed.mockResolvedValue(0);
     service = new JobsService(
       emailTokens,
       refreshTokens,
@@ -49,6 +53,7 @@ describe('JobsService.runDaily', () => {
       notifications,
       push,
       achievements,
+      polls,
     );
   });
 
@@ -94,5 +99,15 @@ describe('JobsService.runDaily', () => {
 
     await service.runDaily(now);
     expect(emailTokens.deleteExpired).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs the frequent jobs on their own, beside a daily run still going', async () => {
+    emailTokens.deleteExpired.mockReturnValue(new Promise<number>(() => {}));
+    void service.runDaily(now);
+
+    await service.runFrequent(now);
+
+    expect(polls.endClosed).toHaveBeenCalledWith(now);
+    expect(uploads.deleteOrphans).not.toHaveBeenCalled();
   });
 });

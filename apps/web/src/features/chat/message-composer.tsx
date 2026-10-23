@@ -1,6 +1,14 @@
-import { MESSAGE_MAX_LENGTH, UPLOAD_LIMITS } from '@beso/shared';
-import { ImageIcon, SendIcon } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { MESSAGE_MAX_LENGTH, type ReplyRef, UPLOAD_LIMITS } from '@beso/shared';
+import { ImageIcon, ReplyIcon, SendIcon, XIcon } from 'lucide-react';
+import {
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { CharacterCounter } from '@/components/character-counter';
 import { Button } from '@/components/ui/button';
@@ -9,6 +17,7 @@ import { EmojiPickerButton } from '@/features/posts/emoji-picker-button';
 import { insertText } from '@/features/posts/insert-text';
 import { AttachmentPreview } from '@/features/uploads/attachment-preview';
 import { useImageUpload } from '@/features/uploads/use-image-upload';
+import { focusLater } from '@/lib/focus';
 import { useTypingSignal } from './use-typing-signal';
 
 /** What the composer hands over: text, an uploaded picture, or both. */
@@ -19,7 +28,12 @@ export type OutgoingMessage = {
   previewUrl?: string;
   /** The uploaded picture's size, so the optimistic bubble already has its final shape. */
   previewSize?: { width: number | null; height: number | null };
+  /** The message answered, as the optimistic bubble quotes it (the server sends its own). */
+  replyTo?: Extract<ReplyRef, { id: string }>;
 };
+
+/** The message being answered, as the bar above the field names it. */
+export type ReplyingTo = { id: string; name: string; text: string };
 
 type MessageComposerProps = {
   /** Who or what the message goes to, for the field's accessible name. */
@@ -27,6 +41,8 @@ type MessageComposerProps = {
   disabled?: boolean;
   onSend: (message: OutgoingMessage) => void;
   onTyping?: (typing: boolean) => void;
+  replyingTo?: ReplyingTo | null;
+  onCancelReply?: () => void;
 };
 
 export function MessageComposer({
@@ -34,9 +50,18 @@ export function MessageComposer({
   disabled,
   onSend,
   onTyping,
+  replyingTo = null,
+  onCancelReply,
 }: MessageComposerProps) {
   const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const replyBarId = useId();
+  const replyingToId = replyingTo?.id;
+  // "Reply" on a bubble hands the typing to the field; after the bubble's menu has closed, which
+  // gives the focus back to its own trigger first.
+  useEffect(() => {
+    if (replyingToId) focusLater(textareaRef);
+  }, [replyingToId]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const image = useImageUpload('message');
   const typing = useTypingSignal((isTyping) => onTyping?.(isTyping));
@@ -83,6 +108,11 @@ export function MessageComposer({
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       send();
+    } else if (event.key === 'Escape' && replyingTo) {
+      // Inside a chat window Escape would close the window too; the reply goes first.
+      event.preventDefault();
+      event.stopPropagation();
+      onCancelReply?.();
     }
   };
 
@@ -112,6 +142,27 @@ export function MessageComposer({
 
   return (
     <form onSubmit={onSubmit} className="border-t p-3">
+      {replyingTo ? (
+        <div className="bg-muted border-primary/60 mb-2 flex items-start gap-2 rounded-lg border-l-4 px-3 py-1.5 text-xs">
+          <ReplyIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <p id={replyBarId} className="min-w-0 flex-1">
+            <span className="block font-semibold">Replying to {replyingTo.name}</span>
+            <span className="text-muted-foreground block truncate">{replyingTo.text}</span>
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Cancel reply"
+            onClick={() => {
+              onCancelReply?.();
+              textareaRef.current?.focus();
+            }}
+          >
+            <XIcon />
+          </Button>
+        </div>
+      ) : null}
       {image.state.status !== 'idle' ? (
         <AttachmentPreview
           state={image.state}
@@ -145,6 +196,7 @@ export function MessageComposer({
         <Textarea
           ref={textareaRef}
           aria-label={`Message ${recipientName}`}
+          aria-describedby={replyingTo ? replyBarId : undefined}
           placeholder="Write a message…"
           rows={1}
           value={content}

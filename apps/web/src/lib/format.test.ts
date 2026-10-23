@@ -1,4 +1,10 @@
-import { displayUrl, formatDateTime, formatDayLabel, formatRelativeTime } from './format';
+import {
+  displayUrl,
+  formatDateTime,
+  formatDayLabel,
+  formatRelativeTime,
+  formatTimeLeft,
+} from './format';
 
 const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -40,5 +46,21 @@ describe('formatDayLabel', () => {
     expect(formatDayLabel(ago(24 * 3_600_000), NOW)).toBe('Yesterday');
     expect(formatDayLabel(ago(5 * 86_400_000), NOW)).toBe('Oct 10');
     expect(formatDayLabel('2025-01-02T10:00:00.000Z', NOW)).toBe('Jan 2, 2025');
+  });
+});
+
+describe('formatTimeLeft', () => {
+  const now = Date.parse('2026-10-23T10:00:00.000Z');
+  const at = (ms: number) => new Date(now + ms).toISOString();
+
+  it('counts down in days, then hours, then minutes', () => {
+    expect(formatTimeLeft(at(3 * 86_400_000 - 1), now)).toBe('3 days left');
+    expect(formatTimeLeft(at(86_400_000 - 1), now)).toBe('1 day left');
+    expect(formatTimeLeft(at(23 * 3_600_000), now)).toBe('23 hours left');
+    expect(formatTimeLeft(at(3_600_000 - 1), now)).toBe('1 hour left');
+    expect(formatTimeLeft(at(30 * 60_000), now)).toBe('30 minutes left');
+    expect(formatTimeLeft(at(5 * 3_600_000 + 59_000), now)).toBe('5 hours left');
+    expect(formatTimeLeft(at(60_000), now)).toBe('1 minute left');
+    expect(formatTimeLeft(at(59_000), now)).toBe('Less than a minute left');
   });
 });

@@ -54,7 +54,7 @@ describe('text entities (mentions, hashtags)', () => {
       );
 
       expect(post.mentions).toEqual([
-        { id: friend.id, username: 'friend_one', name: 'Friend One', avatarUrl: null },
+        { id: friend.id, username: 'friend_one', name: 'Friend One', avatarUrl: null, ring: null },
       ]);
       expect(post.hashtags).toEqual(['weekend']);
       expect(mentioned).toEqual([new UserMentionedEvent(me.id, friend.id, post.id, null)]);
