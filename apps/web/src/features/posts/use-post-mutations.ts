@@ -7,13 +7,16 @@ import {
   bookmarkPost,
   createPost,
   deletePost,
+  fetchPost,
   likePost,
   repostPost,
   unbookmarkPost,
   unlikePost,
   unrepostPost,
   updatePost,
+  votePoll,
 } from '@/lib/api/posts';
+import { isApiClientError } from '@/lib/api/client';
 import { type Pages, filterItems } from '@/lib/infinite';
 import { holdQueries, resumeQueries, runningToggles } from '@/lib/optimistic';
 import { queryKeys } from '@/lib/query-keys';
@@ -206,6 +209,37 @@ export function useToggleRepost() {
     onSettled: (_result, _error, _input, context) =>
       resumeQueries(queryClient, context?.interrupted ?? []),
   });
+}
+
+/**
+ * A vote is final and its counts come from the server (the viewer could not see them before),
+ * so nothing is optimistic: the answer's poll replaces the cached one wherever the post shows.
+ * A refusal (closed meanwhile, voted in another tab) reloads the poll as it now is.
+ */
+export function useVotePoll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, optionId }: { postId: string; optionId: string }) =>
+      votePoll(postId, optionId),
+    onSuccess: (post) => withPoll(queryClient, post),
+    onError: (error, { postId }) => {
+      toast.error(isApiClientError(error) ? error.message : 'Could not send your vote');
+      void refreshPoll(queryClient, postId);
+    },
+  });
+}
+
+/** The poll as the server sees it now; the rest of each cached copy stays (its repost line, say). */
+export async function refreshPoll(queryClient: QueryClient, postId: string): Promise<void> {
+  try {
+    withPoll(queryClient, await fetchPost(postId));
+  } catch {
+    // Gone or out of reach: the lists catch up on their next load.
+  }
+}
+
+function withPoll(queryClient: QueryClient, post: Post): void {
+  updatePostEverywhere(queryClient, post.id, (current) => ({ ...current, poll: post.poll }));
 }
 
 export function useUpdatePost() {

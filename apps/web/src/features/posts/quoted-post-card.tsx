@@ -1,5 +1,6 @@
 import { type PostEmbed, isAvailableEmbed } from '@beso/shared';
 import { cn } from 'cn';
+import { ChartBarIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { RichText } from '@/components/rich-text';
 import { UserAvatar } from '@/components/user-avatar';
@@ -54,6 +55,13 @@ export function QuotedPostCard({ embed, compact = false, className }: QuotedPost
         mentions={[]}
         className="mt-2 line-clamp-6 text-sm break-words whitespace-pre-wrap"
       />
+      {/* Named, never shown: a vote belongs on the poll's own post (F3). */}
+      {embed.hasPoll ? (
+        <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs font-medium">
+          <ChartBarIcon className="size-3.5" aria-hidden="true" />
+          Poll
+        </p>
+      ) : null}
       {compact ? null : (
         <PostImages
           images={embed.images}

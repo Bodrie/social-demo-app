@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { CommentCreatedEvent, CommentReactedEvent } from '../events/comment.events.js';
 import {
+  PollEndedEvent,
   PostLikedEvent,
   PostQuotedEvent,
   PostRepostedEvent,
@@ -131,6 +132,30 @@ export class NotificationsListener {
       postId: event.postId,
       commentId: event.commentId,
     });
+  }
+
+  /**
+   * The results are in (F3): the author hears it without an actor (nobody is told about their
+   * own doing), each voter with the author as the actor, so a muted or blocked author stays
+   * silent like any other.
+   */
+  @OnEvent(PollEndedEvent.EVENT)
+  async onPollEnded(event: PollEndedEvent): Promise<void> {
+    await this.notify({
+      userId: event.authorId,
+      type: 'POLL_ENDED',
+      actorId: null,
+      postId: event.postId,
+    });
+    for (const voterId of event.voterIds) {
+      // oxlint-disable-next-line no-await-in-loop -- one row and push at a time is plenty here
+      await this.notify({
+        userId: voterId,
+        type: 'POLL_ENDED',
+        actorId: event.authorId,
+        postId: event.postId,
+      });
+    }
   }
 
   private async notify(input: NotificationInput): Promise<void> {

@@ -29,9 +29,10 @@ export function PrivacyPage() {
             and a cover picture. All of it is optional and visible to other members.
           </li>
           <li>
-            <strong>What you publish:</strong> posts, pictures, comments, reactions, likes, who you
-            follow, and messages you send in direct and group conversations, including pictures sent
-            there. Edits keep the previous versions so that members can see what changed.
+            <strong>What you publish:</strong> posts (and the polls they ask), pictures, comments,
+            reactions, likes, your votes in polls, who you follow, and messages you send in direct
+            and group conversations, including pictures sent there. Edits keep the previous versions
+            so that members can see what changed.
           </li>
           <li>
             <strong>Settings and what follows from your activity:</strong> your preferences (such as
@@ -75,7 +76,8 @@ export function PrivacyPage() {
           <li>
             <strong>Other members</strong> see your public profile, your posts and comments, your
             reactions and follows, your badges (unless you hide them in Settings) and whether you
-            are online. Messages are visible only to the members of that conversation.
+            are online. Messages are visible only to the members of that conversation. A vote in a
+            poll only adds to its totals: nobody, the poll's author included, sees how you voted.
           </li>
           <li>
             <strong>Cloudflare</strong> sits in front of the server: it terminates the encrypted

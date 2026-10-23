@@ -45,6 +45,9 @@ export const ACHIEVEMENT_SERIES = [
   'amplified',
   'messages',
   'groups-created',
+  /** Posts with a poll, and polls voted in (F3). */
+  'polls',
+  'poll-votes',
   'likes-given',
   'reactions-given',
   'bookmarks',
@@ -63,6 +66,8 @@ export const ACHIEVEMENT_SERIES = [
   'top-post-reposts',
   /** Different members who mentioned the member. */
   'mentioned-by',
+  /** The most votes one of the member's polls got. */
+  'top-poll-votes',
   /** Tags the member used first that five other members then used. */
   'trendsetter',
   // Community.
@@ -182,7 +187,10 @@ export type AchievementIcon =
   | 'layers'
   | 'palette'
   | 'message-circle-dashed'
-  | 'fingerprint';
+  | 'fingerprint'
+  | 'list-checks'
+  | 'vote'
+  | 'chart-bar-big';
 
 export type AchievementDefinition = {
   key: string;
@@ -365,6 +373,7 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     'smile-plus',
   ),
   one('first-bookmark', 'firsts', 'bookmarks', 'Saved for later', 'Bookmark a post.', 'bookmark'),
+  one('first-poll', 'firsts', 'polls', 'Show of hands', 'Ask something in a poll.', 'list-checks'),
   one(
     'full-profile',
     'firsts',
@@ -421,6 +430,7 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     [100, 1000, 5000],
   ),
   ...tiered('tags', 'Tag explorer', 'compass', (n) => `Use ${n} different hashtags.`, [5, 20, 50]),
+  ...tiered('poll-votes', 'Voice heard', 'vote', (n) => `Vote in ${n} polls.`, [10, 50]),
   ...tiered(
     'amplified',
     'Amplifier',
@@ -495,6 +505,15 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     '10 different members mentioned you.',
     'radio',
     10,
+  ),
+  one(
+    'pollster',
+    'recognition',
+    'top-poll-votes',
+    'Pollster',
+    'One of your polls got 20 votes.',
+    'chart-bar-big',
+    20,
   ),
   one(
     'trendsetter',

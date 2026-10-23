@@ -92,6 +92,7 @@ export function RepostControl({ post }: { post: Post }) {
             content: post.content,
             images: post.images,
             imageUrl: post.imageUrl,
+            hasPoll: post.poll !== null,
             createdAt: post.createdAt,
           }}
         />

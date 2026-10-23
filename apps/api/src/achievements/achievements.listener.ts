@@ -9,6 +9,7 @@ import {
   MessageUpdatedEvent,
 } from '../events/conversation.events.js';
 import {
+  PollVotedEvent,
   PostBookmarkedEvent,
   PostCreatedEvent,
   PostEditedEvent,
@@ -51,6 +52,7 @@ const POST_SERIES: readonly AchievementSeries[] = [
   'leap-day',
   'friday-13',
   'welcome-back',
+  'polls',
 ];
 
 /**
@@ -110,6 +112,12 @@ export class AchievementsListener {
       'self-reply',
     ]);
     await this.check(event.postAuthorId, ['top-post-comments']);
+  }
+
+  @OnEvent(PollVotedEvent.EVENT)
+  async onPollVoted(event: PollVotedEvent): Promise<void> {
+    await this.check(event.voterId, ['poll-votes']);
+    await this.check(event.authorId, ['top-poll-votes']);
   }
 
   @OnEvent(PostLikedEvent.EVENT)

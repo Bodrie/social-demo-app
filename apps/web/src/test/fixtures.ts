@@ -6,6 +6,7 @@ import type {
   Message,
   Notification,
   NotificationType,
+  Poll,
   Post,
   StoredImage,
   UserPrivate,
@@ -27,7 +28,8 @@ export function testId(
     | 'message'
     | 'conversation'
     | 'notification'
-    | 'report',
+    | 'report'
+    | 'option',
   n: number,
 ): string {
   const prefix = {
@@ -39,6 +41,7 @@ export function testId(
     conversation: '01a14300',
     notification: '01a14400',
     report: '01a14500',
+    option: '01a14600',
   }[kind];
   return `${prefix}-0000-7000-8000-${String(n).padStart(12, '0')}`;
 }
@@ -128,6 +131,7 @@ export function makePost(overrides: Partial<Post> = {}): Post {
     repostCount: 0,
     repostedByMe: false,
     quotedPost: null,
+    poll: null,
     repost: null,
     editedAt: null,
     mentions: [],
@@ -135,6 +139,43 @@ export function makePost(overrides: Partial<Post> = {}): Post {
     createdAt,
     updatedAt: createdAt,
     ...overrides,
+  };
+}
+
+/**
+ * A poll as the signed-in member sees it (F3): `counts` null hides them (not voted, still open,
+ * not the author). Closes in a day unless said otherwise.
+ */
+export function makePoll(
+  texts: readonly string[],
+  {
+    counts = null,
+    myVote = null,
+    closesAt = new Date(Date.now() + 24 * 3_600_000).toISOString(),
+    closed = false,
+    totalVotes,
+  }: {
+    counts?: readonly number[] | null;
+    myVote?: number | null;
+    closesAt?: string;
+    closed?: boolean;
+    totalVotes?: number;
+  } = {},
+): Poll {
+  const ids = texts.map(() => {
+    sequence += 1;
+    return testId('option', sequence);
+  });
+  return {
+    options: texts.map((text, index) => ({
+      id: ids[index] ?? '',
+      text,
+      votes: counts ? (counts[index] ?? 0) : null,
+    })),
+    totalVotes: totalVotes ?? counts?.reduce((sum, count) => sum + count, 0) ?? 0,
+    myVote: myVote === null ? null : (ids[myVote] ?? null),
+    closesAt,
+    closed,
   };
 }
 

@@ -1,7 +1,7 @@
-import { POST_MAX_IMAGES, POST_MAX_LENGTH, UPLOAD_LIMITS } from '@beso/shared';
+import { POST_MAX_IMAGES, POST_MAX_LENGTH, UPLOAD_LIMITS, createPollSchema } from '@beso/shared';
 import { cn } from 'cn';
-import { ImageIcon } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
+import { ChartBarIcon, ImageIcon } from 'lucide-react';
+import { type ChangeEvent, type FormEvent, Suspense, lazy, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CharacterCounter } from '@/components/character-counter';
 import { MentionTextarea } from '@/components/mention-textarea';
@@ -15,17 +15,26 @@ import { isApiClientError } from '@/lib/api/client';
 import { firstName } from '@/lib/names';
 import { EmojiPickerButton } from './emoji-picker-button';
 import { insertText } from './insert-text';
+import type { PollDraft } from './poll-editor';
 import { useCreatePost } from './use-post-mutations';
 
 const COUNTER_THRESHOLD = 50;
+const BOTH = 'A post has pictures or a poll, not both.';
+const NEW_POLL: PollDraft = { options: ['', ''], duration: '1d' };
+
+// Most posts ask nothing: the editor loads when "Poll" is pressed (F3).
+const PollEditor = lazy(async () => ({ default: (await import('./poll-editor')).PollEditor }));
 
 export function PostComposer() {
   const me = useCurrentUser();
   const createPost = useCreatePost();
   const images = useImageUploads('post', POST_MAX_IMAGES);
   const [content, setContent] = useState('');
+  const [poll, setPoll] = useState<PollDraft | null>(null);
+  const [pollProblem, setPollProblem] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollButtonRef = useRef<HTMLButtonElement>(null);
 
   const trimmed = content.trim();
   const remaining = POST_MAX_LENGTH - content.length;
@@ -36,15 +45,35 @@ export function PostComposer() {
   const full = images.items.length >= POST_MAX_IMAGES;
   const canSubmit = trimmed.length > 0 && remaining >= 0 && !imagesBusy && !createPost.isPending;
 
+  const changePoll = (next: PollDraft) => {
+    setPoll(next);
+    setPollProblem(null);
+  };
+  const removePoll = () => {
+    setPoll(null);
+    setPollProblem(null);
+    pollButtonRef.current?.focus();
+  };
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!canSubmit) return;
+    const checked = poll ? createPollSchema.safeParse(poll) : null;
+    if (checked && !checked.success) {
+      setPollProblem(checked.error.issues[0]?.message ?? 'Check the poll');
+      return;
+    }
     createPost.mutate(
-      { content: trimmed, imageKeys: imageKeys.length > 0 ? imageKeys : undefined },
+      {
+        content: trimmed,
+        imageKeys: imageKeys.length > 0 ? imageKeys : undefined,
+        poll: checked?.data,
+      },
       {
         onSuccess: () => {
           setContent('');
           images.clear();
+          setPoll(null);
           toast.success('Posted');
         },
         onError: (error) =>
@@ -82,11 +111,22 @@ export function PostComposer() {
             <MentionTextarea
               ref={textareaRef}
               aria-label="New post"
-              placeholder={`What's on your mind, ${firstName(me.name)}?`}
+              placeholder={poll ? 'Ask something…' : `What's on your mind, ${firstName(me.name)}?`}
               value={content}
               onValueChange={setContent}
               className="min-h-14 resize-none border-0 bg-transparent px-0 py-2 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
+
+            {poll ? (
+              <Suspense fallback={null}>
+                <PollEditor
+                  value={poll}
+                  onChange={changePoll}
+                  onRemove={removePoll}
+                  problem={pollProblem}
+                />
+              </Suspense>
+            ) : null}
 
             {images.items.length > 0 ? (
               <div className={cn(images.items.length > 1 && 'grid grid-cols-2 gap-2')}>
@@ -121,12 +161,32 @@ export function PostComposer() {
                 aria-label="Add image"
                 // Stays enabled when full: disabling the focused button would drop the focus.
                 onClick={() =>
-                  full
-                    ? toast.error(`At most ${POST_MAX_IMAGES} pictures per post.`)
-                    : fileInputRef.current?.click()
+                  poll
+                    ? toast.error(BOTH)
+                    : full
+                      ? toast.error(`At most ${POST_MAX_IMAGES} pictures per post.`)
+                      : fileInputRef.current?.click()
                 }
               >
                 <ImageIcon />
+              </Button>
+              <Button
+                ref={pollButtonRef}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Poll"
+                aria-pressed={poll !== null}
+                className={cn(poll && 'text-primary hover:text-primary')}
+                onClick={() =>
+                  poll
+                    ? removePoll()
+                    : images.items.length > 0
+                      ? toast.error(BOTH)
+                      : changePoll(NEW_POLL)
+                }
+              >
+                <ChartBarIcon />
               </Button>
               <EmojiPickerButton onPick={insertEmoji} />
               <span className="flex-1" />

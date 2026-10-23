@@ -1,4 +1,4 @@
-import { createPostSchema, postSchema } from './posts.js';
+import { createPostSchema, pollSchema, postSchema } from './posts.js';
 
 const key = (n: number) => `post/01a13ed6-d3ec-71cb-b39f-fbc256a293b${n}.webp`;
 
@@ -30,6 +30,52 @@ describe('createPostSchema', () => {
   });
 });
 
+const parse = (value: object) => createPostSchema.safeParse({ content: 'When?', ...value });
+const pollOption = (id: string, votes: number | null) => ({ id, text: id, votes });
+
+describe('createPostSchema with a poll', () => {
+  const poll = { options: [' Saturday ', 'Sunday'], duration: '1d' };
+
+  it('takes two to four distinct options and one of the durations', () => {
+    expect(createPostSchema.parse({ content: 'When?', poll }).poll).toEqual({
+      options: ['Saturday', 'Sunday'],
+      duration: '1d',
+    });
+    expect(parse({ poll: { ...poll, options: ['Only one'] } }).success).toBe(false);
+    expect(parse({ poll: { ...poll, options: ['a', 'b', 'c', 'd', 'e'] } }).success).toBe(false);
+    expect(parse({ poll: { ...poll, options: ['Yes', ' yes'] } }).success).toBe(false);
+    expect(parse({ poll: { ...poll, options: ['Yes', ''] } }).success).toBe(false);
+    expect(parse({ poll: { ...poll, options: ['x'.repeat(81), 'y'] } }).success).toBe(false);
+    expect(parse({ poll: { ...poll, duration: '2d' } }).success).toBe(false);
+  });
+
+  it('is not asked with pictures or in a quote', () => {
+    const withPictures = createPostSchema.safeParse({ content: 'x', poll, imageKeys: [key(1)] });
+    expect(withPictures.error?.issues[0]).toMatchObject({ path: ['poll'] });
+    const inQuote = createPostSchema.safeParse({
+      content: 'x',
+      poll,
+      quotedPostId: '01a13ed6-d3ec-71cb-b39f-fbc256a293b9',
+    });
+    expect(inQuote.error?.issues[0]).toMatchObject({ path: ['poll'] });
+  });
+});
+
+describe('pollSchema', () => {
+  it('leaves the counts out until the viewer may see them', () => {
+    const ids = ['01a13ed6-d3ec-71cb-b39f-fbc256a293b1', '01a13ed6-d3ec-71cb-b39f-fbc256a293b2'];
+    const hidden = {
+      options: ids.map((id) => pollOption(id, null)),
+      totalVotes: 3,
+      myVote: null,
+      closesAt: '2026-10-16T10:00:00.000Z',
+      closed: false,
+    };
+    expect(pollSchema.parse(hidden)).toEqual(hidden);
+    expect(pollSchema.safeParse({ ...hidden, myVote: 'nope' }).success).toBe(false);
+  });
+});
+
 describe('postSchema', () => {
   it('describes a feed item', () => {
     const post = {
@@ -50,6 +96,7 @@ describe('postSchema', () => {
       repostCount: 0,
       repostedByMe: false,
       quotedPost: null,
+      poll: null,
       repost: null,
       editedAt: null,
       mentions: [],

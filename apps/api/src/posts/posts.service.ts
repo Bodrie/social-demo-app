@@ -11,6 +11,7 @@ import {
   type UserPostsQuery,
   extractEntities,
   EXPLORE_POPULAR_DAYS,
+  POLL_DURATION_HOURS,
   type ExploreQuery,
 } from '@beso/shared';
 import { AssetsService } from '../assets/assets.service.js';
@@ -45,6 +46,8 @@ import { UsersService } from '../users/users.service.js';
 import { postSelect, toPost } from './posts.mapper.js';
 
 type Occurrence = { post_id: string; sort_at: Date; repost_id: string | null };
+
+const HOUR_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class PostsService {
@@ -93,6 +96,19 @@ export class PostsService {
           mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
           // The tag rows copy the post's timestamp so a tag page pages without a join.
           hashtags: { create: entities.hashtags.map((tag) => ({ tag, createdAt })) },
+          // Fixed from here on (F3); the schema refused it with pictures or in a quote.
+          poll: input.poll
+            ? {
+                create: {
+                  closesAt: new Date(
+                    createdAt.getTime() + POLL_DURATION_HOURS[input.poll.duration] * HOUR_MS,
+                  ),
+                  options: {
+                    create: input.poll.options.map((text, position) => ({ text, position })),
+                  },
+                },
+              }
+            : undefined,
         },
         select: postSelect(authorId),
       });
@@ -119,7 +135,7 @@ export class PostsService {
       mentioned.map((user) => user.id),
       { postId: row.id, commentId: null },
     );
-    return toPost(row, this.assets.base);
+    return toPost(row, this.assets.base, authorId);
   }
 
   /** A post of someone on either side of a block with the viewer does not exist for them (ADR 0016). */
@@ -133,7 +149,7 @@ export class PostsService {
     if (row.author.id !== viewerId && blocked.includes(row.author.id)) {
       throw notFound('Post not found');
     }
-    return toPost(row, this.assets.base, null, await this.hiddenFor(viewerId));
+    return toPost(row, this.assets.base, viewerId, { hidden: await this.hiddenFor(viewerId) });
   }
 
   /** Authors the viewer must not see, as a set for the mapper's embed masking. */
@@ -303,7 +319,8 @@ export class PostsService {
       items,
       query.limit,
       (item) => ({ createdAt: item.sortAt, id: item.row.id }),
-      (item) => toPost(item.row, this.assets.base, item.repost, hiddenSet),
+      (item) =>
+        toPost(item.row, this.assets.base, viewerId, { repost: item.repost, hidden: hiddenSet }),
     );
   }
 
@@ -364,7 +381,7 @@ export class PostsService {
       query.limit,
       ({ rank }) =>
         encodeRankedCursor({ score: rank.score, createdAt: rank.created_at, id: rank.id }),
-      ({ row }) => toPost(row, this.assets.base, null, hiddenSet),
+      ({ row }) => toPost(row, this.assets.base, viewerId, { hidden: hiddenSet }),
     );
   }
 
@@ -394,7 +411,9 @@ export class PostsService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     const hiddenSet = new Set(hidden);
-    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
+    return paginate(rows, query.limit, (row) =>
+      toPost(row, this.assets.base, viewerId, { hidden: hiddenSet }),
+    );
   }
 
   /** The author's own, or an admin's from the reports queue (`asAdmin`, ADR 0016). */
@@ -541,7 +560,7 @@ export class PostsService {
       rows,
       query.limit,
       (row) => ({ createdAt: row.createdAt, id: row.postId }),
-      (row) => toPost(row.post, this.assets.base, null, hiddenSet),
+      (row) => toPost(row.post, this.assets.base, viewerId, { hidden: hiddenSet }),
     );
   }
 
@@ -565,6 +584,8 @@ export class PostsService {
       take: query.limit + 1,
     });
     const hiddenSet = new Set(hidden);
-    return paginate(rows, query.limit, (row) => toPost(row, this.assets.base, null, hiddenSet));
+    return paginate(rows, query.limit, (row) =>
+      toPost(row, this.assets.base, viewerId, { hidden: hiddenSet }),
+    );
   }
 }

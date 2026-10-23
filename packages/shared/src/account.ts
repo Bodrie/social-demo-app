@@ -31,6 +31,13 @@ export const accountExportSchema = z.object({
       content: z.string(),
       imageUrls: z.array(z.string()),
       hashtags: z.array(z.string()),
+      /** The poll the post asked (F3) with the options' totals. */
+      poll: z
+        .object({
+          closesAt: z.iso.datetime(),
+          options: z.array(z.object({ text: z.string(), votes: z.int().nonnegative() })),
+        })
+        .nullable(),
       createdAt: z.iso.datetime(),
       editedAt: z.iso.datetime().nullable(),
       revisions: z.array(revisionEntrySchema),
@@ -53,6 +60,10 @@ export const accountExportSchema = z.object({
   reposts: z.array(z.object({ postId: z.uuid(), createdAt: z.iso.datetime() })),
   reactions: z.array(
     z.object({ commentId: z.uuid(), type: reactionTypeSchema, createdAt: z.iso.datetime() }),
+  ),
+  /** The member's votes in others' polls (F3): which post, which option. */
+  pollVotes: z.array(
+    z.object({ postId: z.uuid(), option: z.string(), createdAt: z.iso.datetime() }),
   ),
   following: z.array(followEntrySchema),
   followers: z.array(followEntrySchema),

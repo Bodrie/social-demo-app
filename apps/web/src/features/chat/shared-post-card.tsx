@@ -71,6 +71,11 @@ export function SharedPostCard({ post: ref }: { post: SharedPostRef }) {
         <span className="mt-1.5 line-clamp-4 block text-sm break-words whitespace-pre-wrap">
           {post.content}
         </span>
+      ) : null}{' '}
+      {post.poll ? (
+        <span className="text-muted-foreground mt-1.5 block text-xs font-medium">
+          Poll · {post.poll.totalVotes} {post.poll.totalVotes === 1 ? 'vote' : 'votes'}
+        </span>
       ) : null}
       <PostImages
         images={post.images}

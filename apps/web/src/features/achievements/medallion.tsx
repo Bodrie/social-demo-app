@@ -17,6 +17,7 @@ import {
   CompassIcon,
   DoorOpenIcon,
   EraserIcon,
+  ChartBarBigIcon,
   FingerprintIcon,
   FlagIcon,
   FlameIcon,
@@ -33,6 +34,7 @@ import {
   LandmarkIcon,
   LaughIcon,
   LayersIcon,
+  ListChecksIcon,
   type LucideIcon,
   MailPlusIcon,
   MedalIcon,
@@ -76,6 +78,7 @@ import {
   UsersRoundIcon,
   UtensilsCrossedIcon,
   ZapIcon,
+  VoteIcon,
 } from 'lucide-react';
 
 /**
@@ -154,6 +157,9 @@ const ICONS: Record<AchievementIcon, LucideIcon> = {
   palette: PaletteIcon,
   'message-circle-dashed': MessageCircleDashedIcon,
   fingerprint: FingerprintIcon,
+  'list-checks': ListChecksIcon,
+  vote: VoteIcon,
+  'chart-bar-big': ChartBarBigIcon,
 };
 
 /** The tier tokens of `index.css`; a badge without tiers wears the accent. */

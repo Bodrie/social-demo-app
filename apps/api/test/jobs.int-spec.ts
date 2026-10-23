@@ -243,4 +243,65 @@ describe('daily jobs', () => {
       before,
     );
   });
+
+  describe('frequent jobs', () => {
+    it('tell the author and the voters once when a poll closes, never before', async () => {
+      const [author, voter, other, muter] = await Promise.all([
+        createUser(t.prisma),
+        createUser(t.prisma),
+        createUser(t.prisma),
+        createUser(t.prisma),
+      ]);
+      const asked = (closesAt: Date) =>
+        t.prisma.post.create({
+          data: {
+            authorId: author.id,
+            content: 'Tea or coffee?',
+            poll: {
+              create: {
+                closesAt,
+                options: {
+                  create: ['Tea', 'Coffee'].map((text, position) => ({ text, position })),
+                },
+              },
+            },
+          },
+          select: { id: true, poll: { select: { options: { select: { id: true } } } } },
+        });
+      const [closed, open] = await Promise.all([asked(ago(60_000)), asked(ago(-HOUR))]);
+      const option = closed.poll?.options[0]?.id ?? '';
+      await t.prisma.pollVote.createMany({
+        data: [voter, other, muter].map((user) => ({
+          postId: closed.id,
+          userId: user.id,
+          optionId: option,
+        })),
+      });
+      await t.prisma.mute.create({ data: { muterId: muter.id, mutedId: author.id } });
+
+      await jobs.runFrequent(now);
+
+      const told = await t.prisma.notification.findMany({
+        where: { type: 'POLL_ENDED' },
+        select: { userId: true, actorId: true, postId: true },
+      });
+      expect(told).toHaveLength(3);
+      expect(told).toEqual(
+        expect.arrayContaining([
+          { userId: author.id, actorId: null, postId: closed.id },
+          { userId: voter.id, actorId: author.id, postId: closed.id },
+          { userId: other.id, actorId: author.id, postId: closed.id },
+        ]),
+      );
+      const stamps = await t.prisma.poll.findMany({
+        where: { postId: { in: [closed.id, open.id] } },
+        select: { postId: true, endedNotifiedAt: true },
+      });
+      expect(stamps.find((row) => row.postId === closed.id)?.endedNotifiedAt).toEqual(now);
+      expect(stamps.find((row) => row.postId === open.id)?.endedNotifiedAt).toBeNull();
+
+      await jobs.runFrequent(now);
+      expect(await t.prisma.notification.count({ where: { type: 'POLL_ENDED' } })).toBe(3);
+    });
+  });
 });

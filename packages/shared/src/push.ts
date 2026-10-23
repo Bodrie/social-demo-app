@@ -77,9 +77,10 @@ export function pushExcerpt(text: string): string {
  * but the shape stays total.
  */
 export function notificationPush(notification: Notification): PushPayload {
-  const { phrase, quotes } = NOTIFICATION_PHRASES[notification.type];
+  const { phrase, quotes, own } = NOTIFICATION_PHRASES[notification.type];
   const quoted = quotes === null ? null : notification[quotes];
-  const sentence = quoted ? `${phrase}: “${quoted.excerpt}”` : phrase;
+  const words = notification.actor ? phrase : (own ?? phrase);
+  const sentence = quoted ? `${words}: “${quoted.excerpt}”` : words;
   return {
     title: notification.actor?.name ?? 'BeSo',
     body: pushExcerpt(sentence.charAt(0).toUpperCase() + sentence.slice(1)),

@@ -109,6 +109,7 @@ describe('reposts and quotes', () => {
       content: 'Quote me #tag',
       images: [],
       imageUrl: null,
+      hasPoll: false,
       createdAt: original.createdAt,
     });
     expect(quote.mentions.map((user) => user.username)).toEqual(['alice']);

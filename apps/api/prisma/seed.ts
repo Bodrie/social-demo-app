@@ -526,6 +526,70 @@ async function seed(): Promise<void> {
     }
   }
 
+  // --- polls (F3): one alice can still vote in, one with its results --------------------
+  if (alice && bob && carol) {
+    const hour = 60 * 60 * 1000;
+    const poll = async (
+      author: typeof alice,
+      content: string,
+      options: string[],
+      createdAt: Date,
+      closesAt: Date,
+      votes: { user: typeof alice; option: number }[],
+    ) => {
+      const post = await prisma.post.create({
+        data: {
+          authorId: author.id,
+          content,
+          createdAt,
+          poll: {
+            create: {
+              closesAt,
+              // A closed seed poll counts as announced: a reseed tells nobody anything.
+              endedNotifiedAt: closesAt <= new Date() ? closesAt : null,
+              options: { create: options.map((text, position) => ({ text, position })) },
+            },
+          },
+        },
+        select: {
+          id: true,
+          poll: { select: { options: { select: { id: true, position: true } } } },
+        },
+      });
+      const optionAt = (index: number) =>
+        post.poll?.options.find((option) => option.position === index)?.id ?? '';
+      await prisma.pollVote.createMany({
+        data: votes.map((vote) => ({
+          postId: post.id,
+          userId: vote.user.id,
+          optionId: optionAt(vote.option),
+        })),
+      });
+      await prisma.activity.create({
+        data: { actorId: author.id, type: ActivityType.POST_CREATED, postId: post.id, createdAt },
+      });
+    };
+    await poll(
+      bob,
+      'Hike on Saturday or Sunday?',
+      ['Saturday', 'Sunday', 'Both!'],
+      new Date(Date.now() - 2 * hour),
+      new Date(Date.now() + 70 * hour),
+      [{ user: carol, option: 2 }],
+    );
+    await poll(
+      carol,
+      'Best snack for the trail?',
+      ['Trail mix', 'Bananas', 'Chocolate'],
+      new Date(Date.now() - 30 * hour),
+      new Date(Date.now() - 6 * hour),
+      [
+        { user: alice, option: 2 },
+        { user: bob, option: 0 },
+      ],
+    );
+  }
+
   // --- conversations between the fixed accounts ------------------------------
   if (alice && bob) {
     const direct = await prisma.conversation.create({

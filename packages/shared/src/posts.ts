@@ -24,6 +24,8 @@ export const postEmbedSchema = z.union([
     images: z.array(storedImageSchema),
     /** @deprecated The first of `images`. */
     imageUrl: legacyImageUrlSchema,
+    /** The original asks something (F3): an embed names the poll, it never shows it. */
+    hasPoll: z.boolean(),
     createdAt: z.iso.datetime(),
   }),
 ]);
@@ -31,6 +33,71 @@ export type PostEmbed = z.infer<typeof postEmbedSchema>;
 export type AvailableEmbed = Extract<PostEmbed, { id: string }>;
 export const isAvailableEmbed = (embed: PostEmbed): embed is AvailableEmbed =>
   !('unavailable' in embed);
+
+/** Polls (F3, decision P3): two to four options, one final vote, open for a set time. */
+export const POLL_MIN_OPTIONS = 2;
+export const POLL_MAX_OPTIONS = 4;
+export const POLL_OPTION_MAX_LENGTH = 80;
+export const POLL_DURATIONS = ['1h', '1d', '3d', '7d'] as const;
+export const pollDurationSchema = z.enum(POLL_DURATIONS);
+export type PollDuration = z.infer<typeof pollDurationSchema>;
+export const POLL_DURATION_HOURS: Record<PollDuration, number> = {
+  '1h': 1,
+  '1d': 24,
+  '3d': 72,
+  '7d': 168,
+};
+export const POLL_DURATION_LABELS: Record<PollDuration, string> = {
+  '1h': '1 hour',
+  '1d': '1 day',
+  '3d': '3 days',
+  '7d': '7 days',
+};
+
+/** The poll a new post asks; it cannot change afterwards (only the post's text can). */
+export const createPollSchema = z.object({
+  options: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, 'Write the option or remove it')
+        .max(POLL_OPTION_MAX_LENGTH, `At most ${POLL_OPTION_MAX_LENGTH} characters`),
+    )
+    .min(POLL_MIN_OPTIONS, `At least ${POLL_MIN_OPTIONS} options`)
+    .max(POLL_MAX_OPTIONS, `At most ${POLL_MAX_OPTIONS} options`)
+    .refine(
+      (options) => new Set(options.map((option) => option.toLowerCase())).size === options.length,
+      'Each option only once',
+    ),
+  duration: pollDurationSchema,
+});
+export type CreatePollInput = z.input<typeof createPollSchema>;
+
+/**
+ * A poll as the viewer sees it. `votes` per option is null until the viewer may see the
+ * results: once they voted, once the poll closed, and always for its author.
+ */
+export const pollSchema = z.object({
+  options: z.array(
+    z.object({
+      id: z.uuid(),
+      text: z.string(),
+      votes: z.int().nonnegative().nullable(),
+    }),
+  ),
+  totalVotes: z.int().nonnegative(),
+  /** The option the viewer chose; null before voting (and always for the author, who cannot). */
+  myVote: z.uuid().nullable(),
+  closesAt: z.iso.datetime(),
+  /** As of the answer; a client also treats `closesAt` passing as closed. */
+  closed: z.boolean(),
+});
+export type Poll = z.infer<typeof pollSchema>;
+
+/** `PUT /posts/:id/poll/vote`: one vote, final; the answer is the post with the results. */
+export const votePollSchema = z.object({ optionId: uuidSchema });
+export type VotePollInput = z.infer<typeof votePollSchema>;
 
 export const postSchema = z.object({
   id: z.uuid(),
@@ -52,6 +119,8 @@ export const postSchema = z.object({
   repostedByMe: z.boolean(),
   /** Set on a quote post: the original, or `{ unavailable: true }` once that is gone. */
   quotedPost: postEmbedSchema.nullable(),
+  /** What the post asks (F3); a post has pictures or a poll, never both. */
+  poll: pollSchema.nullable(),
   /** On feed and profile items only: who reposted it and when; null when the item is the post itself. */
   repost: z.object({ by: userSummarySchema, at: z.iso.datetime() }).nullable(),
   /** Null until the first edit. */
@@ -68,7 +137,7 @@ export type Post = z.infer<typeof postSchema>;
 export const postListSchema = paginatedSchema(postSchema);
 export type PostList = z.infer<typeof postListSchema>;
 
-export const createPostSchema = z.object({
+const postInputSchema = z.object({
   content: z
     .string()
     .trim()
@@ -83,12 +152,25 @@ export const createPostSchema = z.object({
   imageKey: postImageKeySchema.optional(),
   /** Makes the post a quote of that post; a plain repost (no text) is `PUT /posts/:id/repost` instead. */
   quotedPostId: uuidSchema.optional(),
+  /** Asks a question (F3); not with pictures, not in a quote. */
+  poll: createPollSchema.optional(),
+});
+
+export const createPostSchema = postInputSchema.superRefine((input, context) => {
+  const pictures = (input.imageKeys?.length ?? 0) > 0 || input.imageKey !== undefined;
+  if (input.poll && (pictures || input.quotedPostId !== undefined)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['poll'],
+      message: pictures ? 'A post has pictures or a poll, not both' : 'A quote cannot ask a poll',
+    });
+  }
 });
 export type CreatePostInput = z.input<typeof createPostSchema>;
 export type CreatePostData = z.output<typeof createPostSchema>;
 
-/** Only the text can change; the pictures are fixed once posted. */
-export const updatePostSchema = createPostSchema.pick({ content: true });
+/** Only the text can change; the pictures and the poll are fixed once posted. */
+export const updatePostSchema = postInputSchema.pick({ content: true });
 export type UpdatePostInput = z.input<typeof updatePostSchema>;
 export type UpdatePostData = z.output<typeof updatePostSchema>;
 

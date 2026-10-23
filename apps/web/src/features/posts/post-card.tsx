@@ -17,6 +17,7 @@ import { focusLater } from '@/lib/focus';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { PostImages } from './post-images';
 import { PostMenu } from './post-menu';
+import { PostPoll } from './post-poll';
 import { QuotedPostCard } from './quoted-post-card';
 import { RepostControl } from './repost-control';
 import { SendPostButton } from './send-post-button';
@@ -141,6 +142,7 @@ export function PostCard({
             className="text-[15px]/6 break-words whitespace-pre-wrap"
           />
         )}
+        {post.poll ? <PostPoll postId={post.id} poll={post.poll} className="mt-3" /> : null}
         {post.quotedPost ? <QuotedPostCard embed={post.quotedPost} className="mt-3" /> : null}
         <PostImages
           images={post.images}

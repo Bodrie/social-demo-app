@@ -81,6 +81,7 @@ model User {
   resolvedReports   Report[]             @relation("ReportResolver")
   adminActions      AdminAction[]
   achievements      UserAchievement[]
+  pollVotes         PollVote[]
 
   @@index([invitedById])
   @@map("users")
@@ -255,6 +256,7 @@ model Post {
   quotedPost    Post?          @relation("PostQuotes", fields: [quotedPostId], references: [id], onDelete: SetNull)
   quotes        Post[]         @relation("PostQuotes")
   reposts       Repost[]
+  poll          Poll?
   /// Messages that send this post to a chat (ADR 0009 amendment 4).
   sharedIn      Message[]      @relation("MessageSharedPost")
   images        PostImage[]
@@ -280,6 +282,53 @@ model PostImage {
   @@id([postId, position])
   @@index([key])
   @@map("post_images")
+}
+
+/// A post's poll (F3): two to four options, open until `closes_at`, fixed once posted (only
+/// the post's text can change). `ended_notified_at` is stamped by the frequent job that tells
+/// the author and the voters, so each poll ends once.
+model Poll {
+  postId          String    @id @map("post_id") @db.Uuid
+  closesAt        DateTime  @map("closes_at") @db.Timestamptz(3)
+  endedNotifiedAt DateTime? @map("ended_notified_at") @db.Timestamptz(3)
+
+  post    Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options PollOption[]
+  votes   PollVote[]
+
+  /// The frequent job's lookup: closed polls nobody has been told about yet.
+  @@index([endedNotifiedAt, closesAt])
+  @@map("polls")
+}
+
+model PollOption {
+  id       String @id @default(uuid(7)) @db.Uuid
+  postId   String @map("post_id") @db.Uuid
+  position Int    @db.SmallInt
+  text     String
+
+  poll  Poll       @relation(fields: [postId], references: [postId], onDelete: Cascade)
+  votes PollVote[]
+
+  @@unique([postId, position])
+  @@map("poll_options")
+}
+
+/// One vote per member and poll, final (decision P3).
+model PollVote {
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  optionId  String   @map("option_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  poll   Poll       @relation(fields: [postId], references: [postId], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([optionId])
+  @@index([userId])
+  @@map("poll_votes")
 }
 
 /// Members a post's text mentions (`@username`), resolved by the API when the post is saved or
@@ -545,6 +594,7 @@ enum NotificationType {
   POST_QUOTED
   INVITE_JOINED
   ACHIEVEMENT_EARNED
+  POLL_ENDED
 
   @@map("notification_type")
 }

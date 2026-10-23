@@ -13,7 +13,7 @@ import { notificationSelect, toNotification } from './notifications.mapper.js';
 /** Rows older than this are removed by the daily jobs; nobody scrolls back that far. */
 export const NOTIFICATION_RETENTION_DAYS = 90;
 
-/** Who is told about what; the subjects a type carries. Only a badge has no actor. */
+/** Who is told about what; the subjects a type carries. A badge and one's own poll have no actor. */
 export type NotificationInput = {
   userId: string;
   type: NotificationType;
@@ -93,8 +93,8 @@ export class NotificationsService {
    * Writes the notification and pushes it. Nobody is told about their own doing. A repeat of
    * the same event (a reaction removed and put back, a mention edited out and in) refreshes
    * the one row, new and unread again, rather than adding another; the unique key covers the
-   * types whose subjects are all set, this lookup the ones with a null subject. A badge has no
-   * actor, so those two rules do not apply to it.
+   * types whose subjects are all set, this lookup the ones with a null subject. A badge and the
+   * end of one's own poll have no actor, so those two rules do not apply to them.
    */
   async notify(input: NotificationInput): Promise<Notification | null> {
     if (input.actorId !== null) {

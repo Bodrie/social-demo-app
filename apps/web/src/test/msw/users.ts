@@ -43,6 +43,12 @@ export const userHandlers = [
           content: post.content,
           imageUrls: post.images.map((image) => image.url),
           hashtags: post.hashtags,
+          poll: post.poll
+            ? {
+                closesAt: post.poll.closesAt,
+                options: post.poll.options.map((o) => ({ text: o.text, votes: o.votes ?? 0 })),
+              }
+            : null,
           createdAt: post.createdAt,
           editedAt: post.editedAt,
           revisions: [],
@@ -52,6 +58,7 @@ export const userHandlers = [
       bookmarks: [],
       reposts: [],
       reactions: [],
+      pollVotes: [],
       following: [],
       followers: [],
       invite: { code: null, invitedBy: null },

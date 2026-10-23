@@ -99,6 +99,30 @@ and how to keep denormalised counters honest.
   itself. Every job takes the clock as a parameter and never uses `now()` in SQL, which is
   what makes the integration tests deterministic.
 
+## Frequent jobs (F3, 2026-10-23)
+
+Some work is due at a moment rather than overnight: the end of a poll now, later the weekly
+digest at a member's local hour (F4), a move timing out (F5), an event reminder (F7), a story
+expiring (F8). Waiting for 04:00 would make "the results are in" up to a day late.
+
+- **A second list, every five minutes.** `JobsService.runFrequent(now)` runs `frequentJobs`
+  under the same rules as the daily run (one at a time, a failure logged and the next job run,
+  an overlapping run of the same kind skipped, the clock as a parameter, never `now()` in SQL);
+  a daily run that is still going does not hold it up. `JobsScheduler` registers it as
+  `frequent-jobs` (`*/5 * * * *`) next to the daily one, both only when `JOBS_ENABLED`. Only
+  runs that did something are logged, so the log does not get a line every five minutes.
+- **Idempotent through a stamp.** A frequent job claims its rows and stamps them in one
+  statement (`UPDATE … SET <x>_notified_at = $now WHERE <x>_notified_at IS NULL AND <due> <= $now
+  RETURNING …`), then acts on what it claimed, so two runs, or a run after a restart, never act
+  twice; a row that fails is logged and the others go on. The first one is
+  `PollsService.endClosed`: `polls.ended_notified_at`, then `PollEndedEvent`, which the
+  notifications listener turns into `POLL_ENDED` for the author (without an actor: nobody is
+  told about their own doing) and for each voter (with the author as the actor, so muting or
+  blocking the author silences it like anything else they do). A job that must catch up on a
+  missed window (the box was down) simply finds more rows due on its next run.
+- **Tests** call `runFrequent(now)` with a clock of their own, like the daily jobs
+  (`test/jobs.int-spec.ts`).
+
 ## Consequences
 
 - Deleting an account removes the member's words from conversations others still have.

@@ -59,6 +59,15 @@ export class AccountService {
             editedAt: true,
             hashtags: { select: { tag: true }, orderBy: { tag: 'asc' } },
             revisions: { select: { content: true, editedAt: true }, orderBy: { editedAt: 'asc' } },
+            poll: {
+              select: {
+                closesAt: true,
+                options: {
+                  select: { text: true, _count: { select: { votes: true } } },
+                  orderBy: { position: 'asc' },
+                },
+              },
+            },
           },
         },
         comments: {
@@ -78,6 +87,10 @@ export class AccountService {
         reposts: { select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
         commentReactions: {
           select: { commentId: true, type: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        pollVotes: {
+          select: { postId: true, createdAt: true, option: { select: { text: true } } },
           orderBy: { createdAt: 'asc' },
         },
         messageReactions: {
@@ -127,6 +140,15 @@ export class AccountService {
         content: post.content,
         imageUrls: post.images.map((image) => this.assets.url(image.key)),
         hashtags: post.hashtags.map((hashtag) => hashtag.tag),
+        poll: post.poll
+          ? {
+              closesAt: iso(post.poll.closesAt),
+              options: post.poll.options.map((option) => ({
+                text: option.text,
+                votes: option._count.votes,
+              })),
+            }
+          : null,
         createdAt: iso(post.createdAt),
         editedAt: post.editedAt === null ? null : iso(post.editedAt),
         revisions: post.revisions.map((r) => ({ content: r.content, editedAt: iso(r.editedAt) })),
@@ -159,6 +181,11 @@ export class AccountService {
         commentId: reaction.commentId,
         type: reaction.type,
         createdAt: iso(reaction.createdAt),
+      })),
+      pollVotes: user.pollVotes.map((vote) => ({
+        postId: vote.postId,
+        option: vote.option.text,
+        createdAt: iso(vote.createdAt),
       })),
       following: user.following.map((follow) => ({
         userId: follow.followee.id,

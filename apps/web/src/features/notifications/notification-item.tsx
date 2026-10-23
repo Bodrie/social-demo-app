@@ -1,7 +1,7 @@
 import { type Notification } from '@beso/shared';
 import { ACHIEVEMENT_BY_KEY } from '@beso/shared/achievements';
 import { cn } from 'cn';
-import { AwardIcon } from 'lucide-react';
+import { AwardIcon, VoteIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { UserAvatar } from '@/components/user-avatar';
 import { Medallion } from '@/features/achievements/medallion';
@@ -21,6 +21,13 @@ export function NotificationItem({ notification, className }: NotificationItemPr
         <Link to={`/u/${notification.actor.username}`} aria-hidden="true" tabIndex={-1}>
           <UserAvatar user={notification.actor} size="sm" />
         </Link>
+      ) : notification.type === 'POLL_ENDED' ? (
+        <span
+          aria-hidden="true"
+          className="bg-accent text-accent-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-full"
+        >
+          <VoteIcon className="size-4" />
+        </span>
       ) : (
         <BadgePicture achievementKey={notification.achievementKey} />
       )}
