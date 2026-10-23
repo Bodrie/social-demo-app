@@ -25,7 +25,11 @@ import path from 'node:path';
 // now that lazy badge screens share them, about 0.9 kB; measured 258.6 kB, E1 still the way back).
 // R4 gave some back: the wordmark is drawn as a few stroked paths instead of the traced outlines
 // and the header lost its symbol; measured 255.7 kB (from 258.8), the budget stays where it is.
-const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 259);
+// Since then R5 (send a post, 256.4), F3 (polls: the card's poll and the composer's toggle, the
+// editor lazy; 258.0) and R6 (pinning in the post menu and the card's "Pinned" line, double tap
+// to like on the card; 259.0) filled it: 259 → 260. E1's zod/mini build (≈ 25 kB) is overdue
+// and is the way back before the next slice that touches the feed's first paint.
+const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 260);
 const dist = path.resolve(import.meta.dirname, '../dist');
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8');
 const initial = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(

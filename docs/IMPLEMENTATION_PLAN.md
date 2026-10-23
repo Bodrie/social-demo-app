@@ -827,7 +827,10 @@ sessions, devices).
   quote embeds and chat cards, the privacy notice names votes (`LEGAL_UPDATED_ON` bumped). The
   seed has an open poll of bob's and a closed one of carol's. First paint 258.0 of 259 kB.
 
-### F4. Weekly digest · M · ADR 0010 amendment 2 (step 2)
+### F4. Weekly digest · M · ADR 0010 amendment 2 (step 2) · deferred 2026-10-23
+
+_Owner, 2026-10-23: not for now; parked in `BACKLOG.md` (Ideas). The frequent jobs it needed shipped with F3._
+
 
 - One mail a week, on Monday at 09:00 in the member's time zone (F2b), on by default with a one-click
   unsubscribe (P4): the most liked posts from people they follow in the last 7 days (up to five),

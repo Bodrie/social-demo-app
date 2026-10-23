@@ -370,4 +370,83 @@ describe('conversations', () => {
       await aliceAgent.get(`/api/v1/posts/${post.id}`).expect(404);
     });
   });
+
+  describe('replies', () => {
+    const post = (agent: TestAgent, id: string, body: object, status = 201) =>
+      agent.post(`/api/v1/conversations/${id}/messages`).send(body).expect(status);
+    const newest = async (agent: TestAgent, id: string) =>
+      messageListSchema.parse(
+        (await agent.get(`/api/v1/conversations/${id}/messages`).expect(200)).body,
+      ).items[0];
+
+    it('quote the answered message as it is now, and a frame once it is erased', async () => {
+      const erin = await createUser(t.prisma);
+      const erinAgent = await agentFor(erin);
+      const group = await createGroup(aliceAgent, 'Plans', [bob.id, erin.id]);
+      const question = await send(bobAgent, group.id, 'Lunch   at one?');
+      const reply = messageSchema.parse(
+        (await post(aliceAgent, group.id, { content: 'Yes!', replyToId: question.id })).body,
+      );
+      expect(reply.replyTo).toEqual({
+        id: question.id,
+        senderId: bob.id,
+        excerpt: 'Lunch at one?',
+        attachment: null,
+        deleted: false,
+      });
+
+      await bobAgent
+        .patch(`/api/v1/conversations/${group.id}/messages/${question.id}`)
+        .send({ content: 'Lunch at two?' })
+        .expect(200);
+      expect((await newest(erinAgent, group.id))?.replyTo).toMatchObject({
+        excerpt: 'Lunch at two?',
+      });
+      await bobAgent
+        .delete(`/api/v1/conversations/${group.id}/messages/${question.id}`)
+        .expect(200);
+      expect((await newest(erinAgent, group.id))?.replyTo).toMatchObject({
+        id: question.id,
+        excerpt: '',
+        deleted: true,
+      });
+
+      const erinSaid = await send(erinAgent, group.id, 'Count me in');
+      await post(aliceAgent, group.id, { content: 'Great', replyToId: erinSaid.id });
+      await t.prisma.user.delete({ where: { id: erin.id } });
+      expect((await newest(aliceAgent, group.id))?.replyTo).toEqual({ unavailable: true });
+    });
+
+    it('answer only a living message of the same conversation, and go with a deletion', async () => {
+      const [here, elsewhere] = [
+        await createGroup(aliceAgent, 'Here', [bob.id]),
+        await createGroup(aliceAgent, 'Elsewhere', [bob.id]),
+      ];
+      const foreign = await send(bobAgent, elsewhere.id, 'Over there');
+      const field = async (replyToId: string) =>
+        apiErrorSchema.parse(
+          (await post(aliceAgent, here.id, { content: 'Hm', replyToId }, 400)).body,
+        ).fields?.replyToId;
+      expect(await field(foreign.id)).toBe('Not a message of this conversation');
+      expect(await field(GHOST)).toBe('Not a message of this conversation');
+      const system = (await newest(aliceAgent, here.id))?.id ?? '';
+      expect(await field(system)).toBe('Not a message of this conversation');
+      const gone = await send(bobAgent, here.id, 'Oops');
+      await bobAgent.delete(`/api/v1/conversations/${here.id}/messages/${gone.id}`).expect(200);
+      expect(await field(gone.id)).toBe('That message was deleted');
+
+      const kept = await send(bobAgent, here.id, 'Still here');
+      const answer = messageSchema.parse(
+        (await post(aliceAgent, here.id, { content: 'Noted', replyToId: kept.id })).body,
+      );
+      const deleted = messageSchema.parse(
+        (
+          await aliceAgent
+            .delete(`/api/v1/conversations/${here.id}/messages/${answer.id}`)
+            .expect(200)
+        ).body,
+      );
+      expect(deleted.replyTo).toBeNull();
+    });
+  });
 });

@@ -117,6 +117,19 @@ export class PostsController {
     return this.posts.unrepost(user.id, params.id);
   }
 
+  /** The author's one pinned post, shown first on their profile; another pin replaces it. */
+  @Put(':id/pin')
+  @HttpCode(204)
+  pin(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.pin(user.id, params.id);
+  }
+
+  @Delete(':id/pin')
+  @HttpCode(204)
+  unpin(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
+    return this.posts.unpin(user.id, params.id);
+  }
+
   /** One vote, final (F3); the answer carries the results the voter may now see. */
   @Put(':id/poll/vote')
   @ZodResponse({ status: 200, type: PostDto })

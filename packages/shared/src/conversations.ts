@@ -69,6 +69,27 @@ export const sharedPostRefSchema = z.union([
 ]);
 export type SharedPostRef = z.infer<typeof sharedPostRefSchema>;
 
+/** How long the quoted start of a replied-to message is. */
+export const REPLY_EXCERPT_LENGTH = 140;
+
+/**
+ * The message a reply answers, as a quote above the reply: who wrote it and how it began, as
+ * of the read. A client that has the original loaded shows the original as it is now (edited,
+ * deleted). `{ unavailable: true }` once the original left with its sender's account.
+ */
+export const replyRefSchema = z.union([
+  z.object({ unavailable: z.literal(true) }),
+  z.object({
+    id: z.uuid(),
+    senderId: z.uuid(),
+    excerpt: z.string(),
+    /** What it carried besides its text. */
+    attachment: z.enum(['picture', 'post']).nullable(),
+    deleted: z.boolean(),
+  }),
+]);
+export type ReplyRef = z.infer<typeof replyRefSchema>;
+
 export const messageSchema = z.object({
   id: z.uuid(),
   conversationId: z.uuid(),
@@ -80,6 +101,8 @@ export const messageSchema = z.object({
   image: storedImageSchema.nullable(),
   /** A post sent along; null on most messages, and once the message is deleted. */
   sharedPost: sharedPostRefSchema.nullable(),
+  /** The message this one answers; null when it answers none, and once it is deleted. */
+  replyTo: replyRefSchema.nullable(),
   /** @deprecated `image.url`, kept for tabs opened before D2 (they parse the old shape). */
   imageUrl: z.url().nullable(),
   /** Null until the sender edited the text; the previous texts are its revisions. */
@@ -108,6 +131,8 @@ export const sendMessageSchema = z
     imageKey: messageImageKeySchema.optional(),
     /** A post to send to the chat ("Send" on a post); the sender must be able to see it. */
     postId: uuidSchema.optional(),
+    /** The message this one answers, in the same conversation, not deleted, not a system line. */
+    replyToId: uuidSchema.optional(),
   })
   .refine(
     (value) =>

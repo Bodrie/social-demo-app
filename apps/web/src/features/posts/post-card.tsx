@@ -1,6 +1,6 @@
 import { type CommentSort, POST_MAX_LENGTH, type Post } from '@beso/shared';
 import { cn } from 'cn';
-import { BookmarkIcon, HeartIcon, MessageCircleIcon, Repeat2Icon } from 'lucide-react';
+import { BookmarkIcon, HeartIcon, MessageCircleIcon, PinIcon, Repeat2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { CommentsSection } from '@/features/comments/comments-section';
 import { focusLater } from '@/lib/focus';
+import { useDoubleTap } from '@/lib/use-double-tap';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
 import { PostImages } from './post-images';
 import { PostMenu } from './post-menu';
@@ -35,6 +36,8 @@ type PostCardProps = {
   onCommentSortChange?: (sort: CommentSort) => void;
   /** A comment to scroll to and ring (`?comment=` on the post page). */
   highlightCommentId?: string | null;
+  /** First on its author's profile, marked so. */
+  pinned?: boolean;
 };
 
 export function PostCard({
@@ -43,6 +46,7 @@ export function PostCard({
   commentSort,
   onCommentSortChange,
   highlightCommentId,
+  pinned = false,
 }: PostCardProps) {
   const me = useCurrentUser();
   const toggleLike = useToggleLike();
@@ -57,6 +61,12 @@ export function PostCard({
     focusLater(menuRef);
   };
   const update = useUpdatePost();
+  // A finger's double tap on the post likes it (never unlikes), with a heart where it landed.
+  const [burst, setBurst] = useState<{ x: number; y: number; key: number } | null>(null);
+  const doubleTap = useDoubleTap((point) => {
+    if (!post.likedByMe) toggleLike.mutate({ postId: post.id, liked: false });
+    setBurst({ ...point, key: Date.now() });
+  });
   const profile = `/u/${post.author.username}`;
   const headingId = `post-${post.id}-author`;
 
@@ -65,7 +75,12 @@ export function PostCard({
       aria-labelledby={headingId}
       className="bg-card text-card-foreground rounded-xl border shadow-sm"
     >
-      {post.repost ? (
+      {pinned ? (
+        <p className="text-muted-foreground flex items-center gap-1.5 px-5 pt-3 text-xs">
+          <PinIcon className="size-3.5" aria-hidden="true" />
+          <span>Pinned</span>
+        </p>
+      ) : post.repost ? (
         <p className="text-muted-foreground flex items-center gap-1.5 px-5 pt-3 text-xs">
           <Repeat2Icon className="size-3.5" aria-hidden="true" />
           <span>
@@ -73,7 +88,9 @@ export function PostCard({
           </span>
         </p>
       ) : null}
-      <header className={cn('flex items-start gap-3 px-5', post.repost ? 'pt-2' : 'pt-5')}>
+      <header
+        className={cn('flex items-start gap-3 px-5', pinned || post.repost ? 'pt-2' : 'pt-5')}
+      >
         <Link to={profile} aria-hidden="true" tabIndex={-1}>
           <UserAvatar user={post.author} />
         </Link>
@@ -113,7 +130,16 @@ export function PostCard({
         />
       </header>
 
-      <div className="px-5 pt-3">
+      <div className="relative touch-manipulation px-5 pt-3" {...doubleTap.handlers}>
+        {burst ? (
+          <HeartIcon
+            key={burst.key}
+            aria-hidden="true"
+            className="like-burst text-like pointer-events-none absolute z-10 size-20 fill-current drop-shadow-md"
+            style={{ left: burst.x, top: burst.y }}
+            onAnimationEnd={() => setBurst(null)}
+          />
+        ) : null}
         {editing ? (
           <InlineEditor
             initial={post.content}
@@ -147,7 +173,7 @@ export function PostCard({
         <PostImages
           images={post.images}
           alt={`Posted by ${post.author.name}`}
-          onOpen={setViewing}
+          onOpen={(index) => doubleTap.single(() => setViewing(index))}
           maxHeightClass={expanded ? 'max-h-[40rem]' : 'max-h-[32rem]'}
           className="mt-3"
         />

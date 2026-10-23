@@ -115,6 +115,29 @@ test.describe('on a phone', () => {
       await expect(page.getByRole('button', { name: 'Love' })).toBeHidden();
     });
 
+    test('two quick taps on a post like it', async ({ page }) => {
+      await openHome(page);
+      const text = `Tap tap ${Date.now()}`;
+      await page.getByLabel('New post').fill(text);
+      await page.getByRole('button', { name: 'Post', exact: true }).tap();
+      const post = page.getByRole('article').filter({ hasText: text }).first();
+      const like = post.getByRole('button', { name: /^Like/ });
+      await expect(like).toHaveAttribute('aria-pressed', 'false');
+
+      const box = await post.getByText(text, { exact: true }).boundingBox();
+      if (!box) throw new Error('The text has no box');
+      const point = { x: box.x + 8, y: box.y + box.height / 2 };
+      await page.touchscreen.tap(point.x, point.y);
+      await page.touchscreen.tap(point.x, point.y);
+      await expect(like).toHaveAttribute('aria-pressed', 'true');
+      await expect(like).toContainText('1');
+
+      await post.getByRole('button', { name: 'Post options' }).tap();
+      await page.getByRole('menuitem', { name: 'Delete post' }).tap();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).tap();
+      await expect(page.getByRole('article').filter({ hasText: text })).toHaveCount(0);
+    });
+
     test('a comment held with a finger offers reactions and its options', async ({ page }) => {
       await openHome(page);
       const article = page

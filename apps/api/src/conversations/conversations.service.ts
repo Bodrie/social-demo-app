@@ -225,6 +225,7 @@ export class ConversationsService {
       });
     }
     if (input.postId !== undefined) await this.assertShareable(meId, input.postId);
+    if (input.replyToId !== undefined) await this.assertAnswerable(id, input.replyToId);
     const created = await this.prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
         data: {
@@ -234,6 +235,8 @@ export class ConversationsService {
           imageKey: input.imageKey ?? null,
           sharedPostId: input.postId ?? null,
           sharesPost: input.postId !== undefined,
+          replyToId: input.replyToId ?? null,
+          isReply: input.replyToId !== undefined,
         },
         select: messageSelect,
       });
@@ -267,6 +270,21 @@ export class ConversationsService {
     await this.visibility.assertNotBlocked(meId, post.authorId);
   }
 
+  /** A reply answers a member's message of this conversation that is still there. */
+  private async assertAnswerable(conversationId: string, messageId: string): Promise<void> {
+    const original = await this.prisma.message.findFirst({
+      where: { id: messageId, conversationId },
+      select: { kind: true, deletedAt: true },
+    });
+    const problem =
+      !original || original.kind === 'system'
+        ? 'Not a message of this conversation'
+        : original.deletedAt
+          ? 'That message was deleted'
+          : null;
+    if (problem) throw badRequest(problem, { replyToId: problem });
+  }
+
   /**
    * The sender takes a message back, however old: the row stays (ordering, read marks), its
    * text, picture and post go, and everyone sees "Message deleted". Idempotent.
@@ -289,6 +307,8 @@ export class ConversationsService {
         imageKey: null,
         sharedPostId: null,
         sharesPost: false,
+        replyToId: null,
+        isReply: false,
       },
       select: messageSelect,
     });

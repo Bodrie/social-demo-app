@@ -122,6 +122,25 @@ reader's other tabs lower their badge (review L9).
   would; only a member without a single conversation sees the empty pane with "New message" and
   "New group". On phones the list stays the page.
 
+## Amendment 2026-10-23: replies (owner's request, R6)
+
+- **A message can answer another one** of the same conversation: `sendMessageSchema.replyToId`
+  (a member's message that is still there; another conversation's, a system line or a deleted
+  one is a field error), stored as `messages.reply_to_id` (`SET NULL`) with `is_reply`, which
+  stays true so a reply whose original left with its sender's account shows "Original message
+  unavailable", the same pattern as `shares_post`.
+- **The quote is the original as it is now.** `message.replyTo` carries the original's id,
+  sender, the start of its text (`REPLY_EXCERPT_LENGTH`), what it carried besides text and
+  whether it was deleted, read from the original at every read, so a thread loaded after an
+  edit or a deletion quotes that; a client that has the original loaded prefers it, so an edit
+  or a deletion pushed later shows in the quotes at once without the replies being pushed again.
+  Unlike a shared post (amendment 2026-10-23 above), the same quote serves every member: they all
+  see every message of the conversation. Deleting a reply clears its reference.
+- **On the web** "Reply" sits in the bubble's hover toolbar and first in the press-and-hold
+  actions; the composer shows "Replying to …" above the field (its description), cancelled with
+  the button or Escape; the quote above the reply is a button that scrolls to the original and
+  rings it, or says it is further up when that part of the history is not loaded.
+
 ## Consequences
 
 - The web client addresses threads by conversation id (`/messages/:conversationId`); `/messages/with/:username` resolves a person to their direct thread and redirects. Group avatars, member lists, per-member read receipts and multi-person typing all derive from the conversation's `members`.

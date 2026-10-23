@@ -210,6 +210,24 @@ export const postHandlers = [
     return HttpResponse.json(post, { status: 201 });
   }),
 
+  /** The author's one pinned post; another pin replaces it, an unpin of another post is a no-op. */
+  http.put(`${API}/posts/:id/pin`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    const post = mockDb.posts.find((item) => item.id === param(params.id));
+    if (!post) return notFound('Post');
+    if (post.author.id !== mockDb.user.id) {
+      return apiError(403, 'FORBIDDEN', 'Only the author can pin a post');
+    }
+    mockDb.user.pinnedPostId = post.id;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete(`${API}/posts/:id/pin`, ({ params }) => {
+    if (!mockDb.user) return unauthorized();
+    if (mockDb.user.pinnedPostId === param(params.id)) mockDb.user.pinnedPostId = null;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   /** One final vote, refused like the API refuses it; the answer reveals the counts. */
   http.put(`${API}/posts/:id/poll/vote`, async ({ request, params }) => {
     if (!mockDb.user) return unauthorized();

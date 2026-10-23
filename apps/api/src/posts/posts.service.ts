@@ -512,6 +512,26 @@ export class PostsService {
     }
   }
 
+  /** The author's one pinned post, shown first on their profile; pinning another replaces it. */
+  async pin(viewerId: string, postId: string): Promise<void> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post) throw notFound('Post not found');
+    if (post.authorId !== viewerId) throw forbidden('Only the author can pin a post');
+    await this.prisma.user.update({ where: { id: viewerId }, data: { pinnedPostId: postId } });
+  }
+
+  /** Only that post comes off; another one pinned since stays. Idempotent. */
+  async unpin(viewerId: string, postId: string): Promise<void> {
+    await this.assertExists(postId);
+    await this.prisma.user.updateMany({
+      where: { id: viewerId, pinnedPostId: postId },
+      data: { pinnedPostId: null },
+    });
+  }
+
   async unlike(viewerId: string, postId: string): Promise<void> {
     await this.assertExists(postId);
     const result = await this.prisma.postLike.deleteMany({ where: { userId: viewerId, postId } });

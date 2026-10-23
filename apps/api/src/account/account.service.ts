@@ -118,6 +118,7 @@ export class AccountService {
             content: true,
             imageKey: true,
             sharedPostId: true,
+            replyToId: true,
             createdAt: true,
             editedAt: true,
             conversation: { select: { title: true } },
@@ -222,6 +223,7 @@ export class AccountService {
         content: message.content,
         imageUrl: url(message.imageKey),
         sharedPostId: message.sharedPostId,
+        replyToId: message.replyToId,
         createdAt: iso(message.createdAt),
         editedAt: message.editedAt === null ? null : iso(message.editedAt),
         revisions: message.revisions.map((r) => ({

@@ -36,6 +36,7 @@ export function userPublicSelect(viewerId: string) {
     coverKey: true,
     createdAt: true,
     suspendedAt: true,
+    pinnedPostId: true,
     _count: { select: { posts: true, followers: true, following: true } },
     // viewer → this user
     followers: { where: { followerId: viewerId }, select: { followerId: true } },
@@ -85,6 +86,7 @@ export function toUserPublic(
     followedByMe: row.followers.length > 0,
     followsMe: row.following.length > 0,
     ...relationship,
+    pinnedPostId: row.pinnedPostId,
   };
 }
 
@@ -105,6 +107,7 @@ export function toBlockedUserPublic(
     followedByMe: false,
     followsMe: false,
     ...relationship,
+    pinnedPostId: null,
   };
 }
 

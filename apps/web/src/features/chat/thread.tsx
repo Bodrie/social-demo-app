@@ -3,6 +3,7 @@ import {
   type Conversation,
   MESSAGE_MAX_LENGTH,
   type ReactionType,
+  type ReplyRef,
   type StoredImage,
 } from '@beso/shared';
 import { cn } from 'cn';
@@ -14,6 +15,7 @@ import {
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
+  ReplyIcon,
   Trash2Icon,
   UsersIcon,
 } from 'lucide-react';
@@ -62,7 +64,9 @@ import {
   directPeer,
   isAdmin,
   memberById,
+  quoteOf,
   reactionSummaryOf,
+  replyQuoteText,
   seenText,
   systemLineText,
   typingText,
@@ -110,6 +114,8 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
   // Messages from others that arrived while the viewer was scrolled up, offered as a pill.
   const [newBelow, setNewBelow] = useState(0);
   const [renaming, setRenaming] = useState(false);
+  // The message the composer answers ("Reply" on a bubble), until it is sent or cancelled.
+  const [replyTo, setReplyTo] = useState<ThreadMessage | null>(null);
   const { activateConversation, markRead, setTyping } = chat;
 
   const peer = directPeer(conversation, me.id);
@@ -256,6 +262,7 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       imageUrl: outgoing.previewUrl ?? null,
       imageKey: outgoing.imageKey,
       sharedPost: null,
+      replyTo: outgoing.replyTo ?? null,
       editedAt: null,
       deletedAt: null,
       system: null,
@@ -269,6 +276,7 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       const message = await chat.sendMessage(conversation.id, {
         content: outgoing.content,
         imageKey: outgoing.imageKey,
+        replyToId: outgoing.replyTo?.id,
       });
       replaceInThread(queryClient, conversation.id, temp.id, message);
       upsertConversation(queryClient, message, { countUnread: false });
@@ -399,6 +407,7 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
                     messages={messages}
                     meId={me.id}
                     conversation={conversation}
+                    onReply={setReplyTo}
                     onRetry={(message) =>
                       void send(
                         {
@@ -406,6 +415,10 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
                           imageKey: message.imageKey,
                           previewUrl: message.image?.url,
                           previewSize: message.image ?? undefined,
+                          replyTo:
+                            message.replyTo && 'id' in message.replyTo
+                              ? message.replyTo
+                              : undefined,
                         },
                         message.id,
                       )
@@ -443,8 +456,24 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
 
       <MessageComposer
         recipientName={name}
-        onSend={(outgoing) => void send(outgoing)}
+        onSend={(outgoing) => {
+          void send({ ...outgoing, replyTo: replyTo ? quoteOf(replyTo) : undefined });
+          setReplyTo(null);
+        }}
         onTyping={(isTyping) => setTyping(conversation.id, isTyping)}
+        replyingTo={
+          replyTo
+            ? {
+                id: replyTo.id,
+                name:
+                  replyTo.senderId === me.id
+                    ? 'yourself'
+                    : (memberById(conversation, replyTo.senderId)?.user.name ?? 'a former member'),
+                text: replyQuoteText(quoteOf(replyTo), replyTo),
+              }
+            : null
+        }
+        onCancelReply={() => setReplyTo(null)}
       />
     </div>
   );
@@ -455,12 +484,28 @@ type MessageListProps = {
   meId: string;
   conversation: Conversation;
   onRetry: (message: ThreadMessage) => void;
+  onReply: (message: ThreadMessage) => void;
 };
 
 const isSystem = (message: ThreadMessage | undefined): boolean => message?.kind === 'system';
 
-function MessageList({ messages, meId, conversation, onRetry }: MessageListProps) {
+function MessageList({ messages, meId, conversation, onRetry, onReply }: MessageListProps) {
   const queryClient = useQueryClient();
+  const listRef = useRef<HTMLOListElement>(null);
+  // The original a quote was pressed on, ringed for a moment once it is scrolled to.
+  const [flashed, setFlashed] = useState<string | null>(null);
+  const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
+  const jumpTo = (id: string) => {
+    const target = listRef.current?.querySelector(`[data-message-id="${id}"]`);
+    if (!target) {
+      toast('That message is further up: scroll to load it');
+      return;
+    }
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    setFlashed(id);
+    window.setTimeout(() => setFlashed((current) => (current === id ? null : current)), 1600);
+  };
   const deleteMessage = useDeleteMessage(conversation.id);
   const editMessage = useEditMessage(conversation.id);
   const react = useReactToMessage(conversation.id);
@@ -511,7 +556,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
     );
 
   return (
-    <ol className="flex flex-col gap-0.5">
+    <ol ref={listRef} className="flex flex-col gap-0.5">
       {messages.map((message, index) => {
         const previous = messages[index - 1];
         const next = messages[index + 1];
@@ -553,7 +598,11 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         // Text under a picture or a post is a caption, inset like the attachment above it.
         const captioned = message.image !== null || message.sharedPost !== null;
         // Under the emojis of a press-and-hold: what the hover toolbar and its menu offer.
+        const reply = message.replyTo;
         const pressActions: PressAction[] = [
+          ...(settled
+            ? [{ label: 'Reply', icon: <ReplyIcon />, onSelect: () => onReply(message) }]
+            : []),
           ...(picture
             ? [
                 {
@@ -582,6 +631,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         return (
           <li
             key={message.id}
+            data-message-id={message.id}
             className={cn('group flex flex-col', mine ? 'items-end' : 'items-start')}
           >
             <span className="sr-only">{mine ? 'You' : senderName(message.senderId)}: </span>
@@ -615,9 +665,20 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                       : 'bg-muted rounded-bl-md',
                   message.status === 'sending' && 'opacity-70',
                   message.status === 'failed' && 'bg-destructive/15 text-foreground',
+                  flashed === message.id && 'ring-primary ring-2 ring-offset-2 ring-offset-card',
                 )}
               >
                 {deleted ? <span className="block">Message deleted</span> : null}
+                {reply && !deleted ? (
+                  <ReplyQuote
+                    reply={reply}
+                    loaded={'id' in reply ? byId.get(reply.id) : undefined}
+                    senderName={(id) => (id === meId ? 'You' : senderName(id))}
+                    mine={mine}
+                    inset={captioned}
+                    onJump={jumpTo}
+                  />
+                ) : null}
                 {message.image ? (
                   <button
                     type="button"
@@ -668,6 +729,15 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 // Fine pointers: shown while the row is hovered, holds keyboard focus or has a
                 // menu open. Touch screens: not there at all, the press-and-hold is the way in.
                 <div className="pointer-coarse:hidden flex shrink-0 items-center opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 has-[[data-state=open]]:opacity-100">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Reply"
+                    className="text-muted-foreground hover:text-foreground rounded-full"
+                    onClick={() => onReply(message)}
+                  >
+                    <ReplyIcon />
+                  </Button>
                   <ReactionPicker
                     mine={reactions?.mine ?? null}
                     onReact={onReact}
@@ -775,6 +845,51 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         alt={(index) => `Sent by ${sentByOf(pictures[index]?.senderId ?? '')}`}
       />
     </ol>
+  );
+}
+
+type ReplyQuoteProps = {
+  reply: ReplyRef;
+  /** The original as the thread has it loaded, which wins over the server's quote. */
+  loaded: ThreadMessage | undefined;
+  senderName: (userId: string) => string;
+  mine: boolean;
+  /** Above a picture or a post, inside the bubble's narrow padding. */
+  inset: boolean;
+  onJump: (messageId: string) => void;
+};
+
+/** The answered message above a reply; pressing it scrolls to the original and rings it. */
+function ReplyQuote({ reply, loaded, senderName, mine, inset, onJump }: ReplyQuoteProps) {
+  const frame = cn(
+    'mb-1 block w-full rounded-lg border-l-4 px-2.5 py-1 text-left text-xs',
+    mine
+      ? 'bg-primary-foreground/15 border-primary-foreground/60'
+      : 'bg-background/70 border-primary/60',
+    inset && 'mx-1 mt-1 w-[calc(100%-0.5rem)]',
+  );
+  if (!('id' in reply)) {
+    return <span className={cn(frame, 'italic opacity-80')}>Original message unavailable</span>;
+  }
+  const who = senderName(reply.senderId);
+  const text = replyQuoteText(reply, loaded);
+  return (
+    <button
+      type="button"
+      // A tap jumps to the original; a hold is the reply's own (reactions, options).
+      data-long-press=""
+      // The visible words are the name ("Reply to" read before them): the spaces between the
+      // parts are for that name and collapse between the blocks on screen.
+      className={cn(
+        frame,
+        'whitespace-normal',
+        'focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none',
+      )}
+      onClick={() => onJump(reply.id)}
+    >
+      <span className="sr-only">Reply to</span> <span className="block font-semibold">{who}</span>{' '}
+      <span className="line-clamp-2 block opacity-90">{text}</span>
+    </button>
   );
 }
 

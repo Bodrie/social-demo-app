@@ -72,6 +72,8 @@ export const userPublicSchema = userSummarySchema.extend({
   blockedMe: z.boolean(),
   /** The viewer muted this user: their posts stay out of the viewer's feeds, nothing else changes. */
   muted: z.boolean(),
+  /** The post the member shows first on their profile; null across a block. */
+  pinnedPostId: z.uuid().nullable(),
 });
 export type UserPublic = z.infer<typeof userPublicSchema>;
 

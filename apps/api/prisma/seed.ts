@@ -526,6 +526,17 @@ async function seed(): Promise<void> {
     }
   }
 
+  // --- a pinned post: bob shows his photo set first on his profile ------------------------
+  if (bob) {
+    const photos = await prisma.post.findFirst({
+      where: { authorId: bob.id, content: { startsWith: 'New #photography set' } },
+      select: { id: true },
+    });
+    if (photos) {
+      await prisma.user.update({ where: { id: bob.id }, data: { pinnedPostId: photos.id } });
+    }
+  }
+
   // --- polls (F3): one alice can still vote in, one with its results --------------------
   if (alice && bob && carol) {
     const hour = 60 * 60 * 1000;
@@ -607,6 +618,21 @@ async function seed(): Promise<void> {
       createdAt: new Date(Date.now() - (12 - i) * 60_000),
     }));
     await prisma.message.createMany({ data: texts });
+    // Bob's last text answers Alice's before it, so the thread shows a reply with its quote.
+    const [asked, answer] = await Promise.all(
+      [texts[10], texts[11]].map((text) =>
+        prisma.message.findFirst({
+          where: { conversationId: direct.id, createdAt: text?.createdAt },
+          select: { id: true },
+        }),
+      ),
+    );
+    if (asked && answer) {
+      await prisma.message.update({
+        where: { id: answer.id },
+        data: { replyToId: asked.id, isReply: true },
+      });
+    }
     // One picture from Bob, so the demo thread shows what a photo message looks like.
     const picture = await prisma.message.create({
       data: {

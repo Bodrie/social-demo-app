@@ -1,12 +1,14 @@
-import type {
-  Conversation,
-  ConversationMember,
-  Message,
-  MessageReaction,
-  ReactionSummary,
-  ReactionType,
-  SystemLine,
-  UserSummary,
+import {
+  type Conversation,
+  type ConversationMember,
+  type Message,
+  type MessageReaction,
+  REPLY_EXCERPT_LENGTH,
+  type ReactionSummary,
+  type ReactionType,
+  type ReplyRef,
+  type SystemLine,
+  type UserSummary,
 } from '@beso/shared';
 import { firstName } from '@/lib/names';
 
@@ -145,4 +147,37 @@ export function reactionSummaryOf(
     if (reaction.userId === meId) mine = reaction.type;
   }
   return { counts, total: reactions.length, mine };
+}
+
+type QuotedMessage = Extract<ReplyRef, { id: string }>;
+
+/**
+ * The words of a reply's quote: the original as the thread has it now (an edit or a deletion
+ * shows at once), else as the server read it.
+ */
+export function replyQuoteText(reply: QuotedMessage, loaded: Message | undefined): string {
+  if (loaded) {
+    if (loaded.deletedAt) return 'Message deleted';
+    return loaded.content.replace(/\s+/g, ' ').trim() || attachmentWord(loaded);
+  }
+  if (reply.deleted) return 'Message deleted';
+  if (reply.excerpt) return reply.excerpt;
+  return reply.attachment === 'picture'
+    ? 'Picture'
+    : reply.attachment === 'post'
+      ? 'Post'
+      : 'Message';
+}
+
+/** The quote an optimistic reply carries until the server's copy takes its place. */
+export function quoteOf(message: Message): QuotedMessage {
+  const flat = message.content.replace(/\s+/g, ' ').trim();
+  return {
+    id: message.id,
+    senderId: message.senderId,
+    excerpt:
+      flat.length > REPLY_EXCERPT_LENGTH ? `${flat.slice(0, REPLY_EXCERPT_LENGTH - 1)}…` : flat,
+    attachment: message.image ? 'picture' : message.sharedPost ? 'post' : null,
+    deleted: message.deletedAt !== null,
+  };
 }

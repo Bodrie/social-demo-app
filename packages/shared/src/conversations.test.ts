@@ -3,6 +3,7 @@ import {
   markReadAckSchema,
   markReadPayloadSchema,
   messageAckSchema,
+  replyRefSchema,
   sendMessagePayloadSchema,
   sendMessageSchema,
 } from './conversations.js';
@@ -86,5 +87,19 @@ describe('markReadAckSchema', () => {
       markReadAckSchema.safeParse({ ok: true, readAt: '2026-10-16T10:00:00.000Z' }).success,
     ).toBe(true);
     expect(markReadAckSchema.safeParse({ ok: false }).success).toBe(false);
+  });
+});
+
+describe('replies', () => {
+  it('name the answered message on send and carry its quote on the message', () => {
+    expect(sendMessageSchema.parse({ content: 'yes', replyToId: ID.toUpperCase() })).toEqual({
+      content: 'yes',
+      replyToId: ID,
+    });
+    // A reply still needs something of its own to say.
+    expect(sendMessageSchema.safeParse({ replyToId: ID }).success).toBe(false);
+    const quote = { id: ID, senderId: ID, excerpt: 'Lunch?', attachment: null, deleted: false };
+    expect(replyRefSchema.parse(quote)).toEqual(quote);
+    expect(replyRefSchema.parse({ unavailable: true })).toEqual({ unavailable: true });
   });
 });

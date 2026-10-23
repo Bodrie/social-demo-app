@@ -247,6 +247,7 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
       blocked,
       blockedMe,
       muted,
+      pinnedPostId: null,
     };
   }
   return {
@@ -273,6 +274,7 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
     blocked: false,
     blockedMe: false,
     muted,
+    pinnedPostId: user.pinnedPostId,
   };
 }
 

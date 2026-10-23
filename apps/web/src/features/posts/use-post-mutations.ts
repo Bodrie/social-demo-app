@@ -2,6 +2,7 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/current-user';
 import { updateMe } from '@/features/auth/use-me';
+import { updateUserEverywhere } from '@/features/users/user-cache';
 import { type Post, type UpdatePostInput, isAvailableEmbed } from '@beso/shared';
 import {
   bookmarkPost,
@@ -9,9 +10,11 @@ import {
   deletePost,
   fetchPost,
   likePost,
+  pinPost,
   repostPost,
   unbookmarkPost,
   unlikePost,
+  unpinPost,
   unrepostPost,
   updatePost,
   votePoll,
@@ -208,6 +211,27 @@ export function useToggleRepost() {
     },
     onSettled: (_result, _error, _input, context) =>
       resumeQueries(queryClient, context?.interrupted ?? []),
+  });
+}
+
+/**
+ * Pins the author's post to their profile, or takes it off. `me` and the profile caches hold
+ * `pinnedPostId`; the profile's posts tab reads the post itself through the post's own query.
+ */
+export function usePinPost() {
+  const queryClient = useQueryClient();
+  const me = useCurrentUser();
+  return useMutation({
+    mutationFn: ({ postId, pinned }: { postId: string; pinned: boolean }) =>
+      pinned ? unpinPost(postId) : pinPost(postId),
+    onSuccess: (_result, { postId, pinned }) => {
+      const pinnedPostId = pinned ? null : postId;
+      updateMe(queryClient, (user) => ({ ...user, pinnedPostId }));
+      updateUserEverywhere(queryClient, me.id, (user) => ({ ...user, pinnedPostId }));
+      toast.success(pinned ? 'Unpinned from your profile' : 'Pinned to your profile');
+    },
+    onError: (error) =>
+      toast.error(isApiClientError(error) ? error.message : 'Could not change the pinned post'),
   });
 }
 

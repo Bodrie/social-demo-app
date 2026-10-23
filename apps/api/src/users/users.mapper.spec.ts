@@ -18,6 +18,7 @@ const row: UserPrivateRow = {
   pendingEmail: null,
   role: 'member',
   suspendedAt: null,
+  pinnedPostId: null,
   _count: { posts: 3, followers: 2, following: 1 },
   followers: [{ followerId: 'viewer' }],
   following: [],

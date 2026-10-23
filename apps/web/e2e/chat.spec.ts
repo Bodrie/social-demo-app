@@ -34,7 +34,8 @@ test.describe('chat', () => {
     // Bob gets it pushed: unread badge in the nav and the conversation list, then reads it.
     await bob.goto('/messages');
     const bobList = bob.getByRole('list', { name: 'Conversations' });
-    await expect(bobList.getByRole('listitem').first()).toContainText(text);
+    // Not necessarily first: the phone spec, running alongside, may write to Bob as well.
+    await expect(bobList.getByRole('listitem').filter({ hasText: text })).toBeVisible();
     // Anchored: the seeded group's snippet is a system line that names Alice too.
     await bobList.getByRole('link', { name: /^Alice Anderson/ }).click();
     const bobLog = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
@@ -327,6 +328,34 @@ test.describe('chat', () => {
     await bob.goto('/messages/with/alice');
     await expect(log.getByText('This post is unavailable').last()).toBeVisible();
     await expect(card).toHaveCount(0);
+    await bob.context().close();
+  });
+
+  test('a reply quotes the message it answers, for both sides', async ({ page, browser }) => {
+    await openHome(page);
+    await page.goto('/messages/with/bob');
+    const log = page.getByRole('log', { name: 'Conversation with Bob Brown' });
+    const question = `Which trail ${Date.now()}`;
+    await page.getByRole('textbox', { name: 'Message Bob Brown' }).fill(question);
+    await page.keyboard.press('Enter');
+    const asked = log.getByRole('listitem').filter({ hasText: question });
+    await expect(log.getByText('Sending…')).toHaveCount(0);
+
+    await asked.hover();
+    await asked.getByRole('button', { name: 'Reply', exact: true }).click();
+    await expect(page.getByText('Replying to yourself')).toBeVisible();
+    await page.keyboard.type('The ridge one');
+    await page.keyboard.press('Enter');
+    await expect(
+      log.getByRole('button', { name: `Reply to You ${question}`, exact: true }),
+    ).toBeVisible();
+
+    const bob = await (await contextAs(browser, 'bob')).newPage();
+    await bob.goto('/messages/with/alice');
+    const theirs = bob.getByRole('log', { name: 'Conversation with Alice Anderson' });
+    await expect(
+      theirs.getByRole('button', { name: `Reply to Alice Anderson ${question}`, exact: true }),
+    ).toBeVisible();
     await bob.context().close();
   });
 });

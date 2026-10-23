@@ -82,6 +82,9 @@ model User {
   adminActions      AdminAction[]
   achievements      UserAchievement[]
   pollVotes         PollVote[]
+  /// The one post the member shows first on their profile; null again once that post is deleted.
+  pinnedPostId      String?              @unique @map("pinned_post_id") @db.Uuid
+  pinnedPost        Post?                @relation("PinnedPost", fields: [pinnedPostId], references: [id], onDelete: SetNull)
 
   @@index([invitedById])
   @@map("users")
@@ -257,6 +260,7 @@ model Post {
   quotes        Post[]         @relation("PostQuotes")
   reposts       Repost[]
   poll          Poll?
+  pinnedBy      User?          @relation("PinnedPost")
   /// Messages that send this post to a chat (ADR 0009 amendment 4).
   sharedIn      Message[]      @relation("MessageSharedPost")
   images        PostImage[]
@@ -762,6 +766,10 @@ model Message {
   sharedPostId   String?     @map("shared_post_id") @db.Uuid
   /// Stays true when the shared post is gone, so the bubble keeps an "unavailable" frame.
   sharesPost     Boolean     @default(false) @map("shares_post")
+  /// The message this one answers, in the same conversation; null again if that row is erased.
+  replyToId      String?     @map("reply_to_id") @db.Uuid
+  /// Stays true when the original is erased with its sender's account: the quote becomes a frame.
+  isReply        Boolean     @default(false) @map("is_reply")
   createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
 
   conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -770,11 +778,14 @@ model Message {
   reactions    MessageReaction[]
   image        Upload?           @relation(fields: [imageKey], references: [key], onDelete: SetNull)
   sharedPost   Post?             @relation("MessageSharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull)
+  replyTo      Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]         @relation("MessageReplies")
 
   @@index([conversationId, createdAt, id])
   @@index([senderId])
   @@index([imageKey])
   @@index([sharedPostId])
+  @@index([replyToId])
   @@map("messages")
 }
 

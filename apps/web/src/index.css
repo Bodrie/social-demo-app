@@ -173,6 +173,38 @@
   animation: nav-progress 1.5s ease-out 150ms both;
 }
 
+/* The heart a double tap leaves on a post: grows, holds, fades. None with reduced motion: the
+   Like button says it. */
+@keyframes like-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+.like-burst {
+  animation: like-burst 800ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .like-burst {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* Sign in / sign up brand panel: a mesh of brand hues on deep navy, with a faint grid. */
 .auth-panel {
   background-color: oklch(0.24 0.06 262);
