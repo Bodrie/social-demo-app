@@ -21,6 +21,14 @@
 		-Server
 	}
 
+	# The ready-made pictures (ADR 0021, "Rewards") ship inside the API image, not in the
+	# uploads volume, so they go to the API, which caches them for a day. Both blocks are
+	# `handle_path`, so Caddy tries the longer path first; the prefix it strips is put back.
+	handle_path /api/v1/uploads/preset/* {
+		rewrite * /api/v1/uploads/preset{path}
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+
 	# Uploaded pictures straight from the shared volume: no Node in the path. Only a file
 	# that exists is immutable; a missing one is a 404 nobody may cache (review L11).
 	handle_path /api/v1/uploads/* {
