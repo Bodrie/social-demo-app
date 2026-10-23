@@ -8,7 +8,12 @@ import { pushActiveHere } from '@/lib/push';
 import { playMessageSound } from '@/lib/notification-sound';
 import { queryKeys } from '@/lib/query-keys';
 import { useChat } from './chat-context';
-import { conversationName, memberById, messagePreview } from './conversation-display';
+import {
+  attachmentWord,
+  conversationName,
+  memberById,
+  messagePreview,
+} from './conversation-display';
 import type { ConversationPages } from './use-conversations';
 
 /** Whether this browser can show notifications and the person said yes to them. */
@@ -59,7 +64,7 @@ export default function MessageAlerts() {
             : sender;
         const body = conversation
           ? messagePreview(message, conversation, me.id)
-          : message.content || 'Sent a picture';
+          : message.content || `Sent a ${attachmentWord(message).toLowerCase()}`;
         try {
           // One notification per conversation: a newer message replaces the older one.
           const notification = new Notification(title, { body, tag: message.conversationId });

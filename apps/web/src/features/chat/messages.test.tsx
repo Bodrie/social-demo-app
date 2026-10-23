@@ -45,6 +45,8 @@ const pictureOf = (button: HTMLElement) => button.querySelector('img');
 
 describe('messages', () => {
   it('lists conversations with unread counts and a navigation badge', async () => {
+    // On a phone the list is the page; a wide screen opens the newest thread (and reads it).
+    window.innerWidth = 390;
     signedInAs(alice);
     seedChats();
     const group = seedConversation('group', [alice.id, bob.id, carol.id], {
@@ -66,6 +68,18 @@ describe('messages', () => {
     expect(rows[2]).toHaveTextContent('Hey Alice');
     expect(rows[2]).not.toHaveTextContent('Unread');
     expect(screen.getByRole('link', { name: /Messages.*3 unread/ })).toBeInTheDocument();
+    expect(screen.queryByRole('log')).not.toBeInTheDocument();
+  });
+
+  it('opens the newest conversation by itself where list and thread sit side by side', async () => {
+    signedInAs(alice);
+    seedChats();
+    renderApp('/messages');
+
+    expect(await screen.findByRole('log', { name: 'Conversation with Bob Brown' })).toBeVisible();
+    const list = screen.getByRole('list', { name: 'Conversations' });
+    expect(within(list).getByRole('link', { name: /Bob Brown/, current: 'page' })).toBeVisible();
+    expect(screen.queryByText(/Pick a conversation on the left/)).not.toBeInTheDocument();
   });
 
   it('opens a thread in order, marks it read and sends over the socket', async () => {

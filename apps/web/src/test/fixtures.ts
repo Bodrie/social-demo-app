@@ -210,6 +210,7 @@ export function makeMessage(
     content,
     image: null,
     imageUrl: null,
+    sharedPost: null,
     editedAt: null,
     deletedAt: null,
     system: null,

@@ -77,7 +77,7 @@ export function isAdmin(conversation: Conversation, userId: string): boolean {
 }
 
 /** "Alice", "Alice and Bob", "Alice, Bob and 2 others". */
-function listNames(names: readonly string[]): string {
+export function listNames(names: readonly string[]): string {
   const [first, second] = names;
   if (first === undefined) return 'someone';
   if (second === undefined) return first;
@@ -124,7 +124,13 @@ export function messagePreview(message: Message, conversation: Conversation, meI
   if (message.kind === 'system') {
     return message.system ? systemLineText(message.system, conversation, meId) : '';
   }
-  return message.content || 'Picture';
+  return message.content || attachmentWord(message);
+}
+
+/** The thing a message without text carries, for list rows, alerts and announcements. */
+export function attachmentWord(message: Message): string {
+  if (message.image) return 'Picture';
+  return message.sharedPost ? 'Post' : 'Message';
 }
 
 /** Counts per type, the total and my own, from the plain list a message carries. */

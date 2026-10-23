@@ -97,6 +97,31 @@ reader's other tabs lower their badge (review L9).
   only: a visible tab shows the bubble instead. `subscribeToMessages` listeners now receive
   `{ onScreen }` with the message so the alerts and the bubbles agree.
 
+## Amendment 2026-10-23: posts sent to chats, the newest chat opens by itself (owner's request, R5)
+
+- **A message can carry a post.** "Send post" on every post card picks up to ten chats or people
+  (recent chats first, a search over chats and members otherwise; someone with a direct chat is
+  offered once, as that chat), takes an optional message and sends it to each as a message of its
+  own: `sendMessageSchema.postId` on the same HTTP route and socket event, a person without a
+  chat gets one through `ensureDirect` first, and what failed stays chosen for another try.
+  Migration `shared_posts`: `messages.shared_post_id` (foreign key, `SET NULL` when the post is
+  deleted) and `messages.shares_post`, which stays true so the bubble keeps a frame, the way
+  `posts.was_quote` does for quotes (ADR 0017). The sender must be able to see the post (unknown
+  → field error `postId`, a block between sender and author → 403 `BLOCKED`, as for a quote).
+- **The message names the post, the members load it.** `message.sharedPost` is `{ id }`,
+  `{ unavailable: true }` or null, not an embed: one push serves every member (amendment 3's
+  reason for the plain reactions list), but who may see a post differs between them. Each client
+  reads it through `GET /posts/:id` into the post page's cache (`postQueryOptions`), so the
+  viewer's blocks apply, a 404 shows the same "This post is unavailable" frame as a deletion, and
+  a like given on the post page shows in the chat too. The cost is one request per distinct post
+  in a loaded thread, cached. Deleting the message clears the reference with the text and picture.
+  The list snippet, the alert and the push say "Post" / "Sent a post" when there is no text; the
+  export lists `sharedPostId`. Sending a post notifies nobody beyond the message itself.
+- **Two panes open the newest chat.** On widths from `md` up, `/messages` redirects to the chat at
+  the top of the list (newest activity), as Messenger's web app does, and reads it as a click
+  would; only a member without a single conversation sees the empty pane with "New message" and
+  "New group". On phones the list stays the page.
+
 ## Consequences
 
 - The web client addresses threads by conversation id (`/messages/:conversationId`); `/messages/with/:username` resolves a person to their direct thread and redirects. Group avatars, member lists, per-member read receipts and multi-person typing all derive from the conversation's `members`.

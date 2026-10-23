@@ -89,11 +89,13 @@ export function storeMessage(
   senderId: string,
   content: string,
   imageKey?: string,
+  postId?: string,
 ): Message {
   const url = imageKey ? `http://localhost/api/v1/uploads/${imageKey}` : null;
   const message = makeMessage(conversationId, senderId, content, {
     image: url ? { url, width: 64, height: 64 } : null,
     imageUrl: url,
+    sharedPost: postId ? { id: postId } : null,
     createdAt: new Date().toISOString(),
   });
   mockDb.messages.push(message);
@@ -232,6 +234,7 @@ export const conversationHandlers = [
       message.content = '';
       message.image = null;
       message.imageUrl = null;
+      message.sharedPost = null;
     }
     return HttpResponse.json(message);
   }),
@@ -248,7 +251,7 @@ export const conversationHandlers = [
     const row = memberRow(mockDb.user.id, param(params.id));
     if (!row) return notFound();
     const body = sendMessageSchema.parse(await request.json());
-    const message = storeMessage(row.id, mockDb.user.id, body.content, body.imageKey);
+    const message = storeMessage(row.id, mockDb.user.id, body.content, body.imageKey, body.postId);
     return HttpResponse.json(message, { status: 201 });
   }),
 

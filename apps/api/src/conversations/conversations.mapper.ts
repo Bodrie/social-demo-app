@@ -11,6 +11,8 @@ export const messageSelect = {
   content: true,
   imageKey: true,
   image: { select: storedImageSelect },
+  sharedPostId: true,
+  sharesPost: true,
   editedAt: true,
   deletedAt: true,
   systemMeta: true,
@@ -36,6 +38,11 @@ export function toMessage(row: MessageRow, assetsBase: string): Message {
     content: row.content,
     image: row.image ? toStoredImage(row.image, assetsBase) : null,
     imageUrl: row.image ? `${assetsBase}/${row.image.key}` : null,
+    sharedPost: row.sharedPostId
+      ? { id: row.sharedPostId }
+      : row.sharesPost
+        ? { unavailable: true }
+        : null,
     editedAt: row.editedAt ? row.editedAt.toISOString() : null,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
     system: systemLineOf(row),

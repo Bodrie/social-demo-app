@@ -19,6 +19,7 @@ import { PostImages } from './post-images';
 import { PostMenu } from './post-menu';
 import { QuotedPostCard } from './quoted-post-card';
 import { RepostControl } from './repost-control';
+import { SendPostButton } from './send-post-button';
 import { useToggleBookmark, useToggleLike, useUpdatePost } from './use-post-mutations';
 import { isApiClientError } from '@/lib/api/client';
 import { fetchPostRevisions } from '@/lib/api/posts';
@@ -190,6 +191,7 @@ export function PostCard({
             <span className="tabular-nums">{post.commentCount}</span>
           </Button>
         )}
+        <SendPostButton post={post} />
         <Button
           variant="ghost"
           size="sm"

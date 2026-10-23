@@ -24,6 +24,21 @@ describe('sendMessageSchema', () => {
     expect(sendMessageSchema.safeParse({ imageKey: `post/${ID}.webp` }).success).toBe(false);
   });
 
+  it('accepts a post to send, with or without text', () => {
+    expect(sendMessageSchema.parse({ postId: ID })).toEqual({ content: '', postId: ID });
+    expect(sendMessageSchema.parse({ postId: ID.toUpperCase(), content: 'look' })).toEqual({
+      content: 'look',
+      postId: ID,
+    });
+    expect(sendMessageSchema.safeParse({ postId: 'nope' }).success).toBe(false);
+    expect(sendMessagePayloadSchema.safeParse({ conversationId: ID, postId: ID }).success).toBe(
+      true,
+    );
+    expect(sendMessagePayloadSchema.safeParse({ conversationId: ID, content: '' }).success).toBe(
+      false,
+    );
+  });
+
   it('requires a conversation on the socket event', () => {
     expect(sendMessagePayloadSchema.safeParse({ content: 'hi' }).success).toBe(false);
     expect(sendMessagePayloadSchema.safeParse({ content: 'hi', conversationId: ID }).success).toBe(

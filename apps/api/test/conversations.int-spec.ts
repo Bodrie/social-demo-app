@@ -5,6 +5,7 @@ import {
   markReadResultSchema,
   messageListSchema,
   messageSchema,
+  postSchema,
 } from '@beso/shared';
 import request from 'supertest';
 import { type TestApp, createTestApp } from './setup/app.js';
@@ -295,6 +296,78 @@ describe('conversations', () => {
         .send({})
         .expect(400);
       expect(apiErrorSchema.parse(nothing.body).fields).toHaveProperty('content');
+    });
+  });
+
+  describe('shared posts', () => {
+    const publish = async (agent: TestAgent, content: string) =>
+      postSchema.parse((await agent.post('/api/v1/posts').send({ content }).expect(201)).body);
+
+    const share = async (agent: TestAgent, id: string, body: object) =>
+      messageSchema.parse(
+        (await agent.post(`/api/v1/conversations/${id}/messages`).send(body).expect(201)).body,
+      );
+
+    const thread = async (agent: TestAgent, id: string) =>
+      messageListSchema.parse(
+        (await agent.get(`/api/v1/conversations/${id}/messages`).expect(200)).body,
+      ).items;
+
+    it('go to a chat with or without text and leave a frame once the post is deleted', async () => {
+      const group = await createGroup(aliceAgent, 'Reading', [bob.id, carol.id]);
+      const post = await publish(carolAgent, 'worth a read');
+
+      const alone = await share(aliceAgent, group.id, { postId: post.id });
+      expect(alone).toMatchObject({ content: '', image: null, sharedPost: { id: post.id } });
+      const noted = await share(aliceAgent, group.id, { postId: post.id, content: ' look ' });
+      expect(noted).toMatchObject({ content: 'look', sharedPost: { id: post.id } });
+      expect((await thread(bobAgent, group.id)).slice(0, 2).map((m) => m.sharedPost)).toEqual([
+        { id: post.id },
+        { id: post.id },
+      ]);
+      expect((await conversation(bobAgent, group.id))?.lastMessage?.sharedPost).toEqual({
+        id: post.id,
+      });
+
+      await carolAgent.delete(`/api/v1/posts/${post.id}`).expect(204);
+      expect((await thread(bobAgent, group.id)).slice(0, 2)).toMatchObject([
+        { id: noted.id, content: 'look', sharedPost: { unavailable: true } },
+        { id: alone.id, sharedPost: { unavailable: true } },
+      ]);
+
+      const deleted = messageSchema.parse(
+        (
+          await aliceAgent
+            .delete(`/api/v1/conversations/${group.id}/messages/${alone.id}`)
+            .expect(200)
+        ).body,
+      );
+      expect(deleted).toMatchObject({ content: '', sharedPost: null });
+    });
+
+    it('refuse an unknown post and one kept from the sender by a block', async () => {
+      const erin = await createUser(t.prisma);
+      const erinAgent = await agentFor(erin);
+      const direct = conversationSchema.parse(
+        (await aliceAgent.put(`/api/v1/conversations/direct/${dave.id}`).expect(200)).body,
+      );
+
+      const unknown = await aliceAgent
+        .post(`/api/v1/conversations/${direct.id}/messages`)
+        .send({ postId: GHOST })
+        .expect(400);
+      expect(apiErrorSchema.parse(unknown.body).fields).toEqual({ postId: 'Unknown post' });
+
+      const post = await publish(erinAgent, 'not for alice');
+      await erinAgent.put(`/api/v1/users/${alice.id}/block`).expect(204);
+      const blocked = await aliceAgent
+        .post(`/api/v1/conversations/${direct.id}/messages`)
+        .send({ postId: post.id })
+        .expect(403);
+      expect(apiErrorSchema.parse(blocked.body).code).toBe('BLOCKED');
+      // Dave may send it; whoever cannot see it gets the frame from GET /posts/:id instead.
+      await share(daveAgent, direct.id, { postId: post.id });
+      await aliceAgent.get(`/api/v1/posts/${post.id}`).expect(404);
     });
   });
 });

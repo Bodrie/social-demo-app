@@ -72,6 +72,8 @@ export const accountExportSchema = z.object({
       conversationTitle: z.string().nullable(),
       content: z.string(),
       imageUrl: z.string().nullable(),
+      /** A post sent along (ADR 0009 amendment 4); null once that post is gone. */
+      sharedPostId: z.uuid().nullable(),
       createdAt: z.iso.datetime(),
       editedAt: z.iso.datetime().nullable(),
       revisions: z.array(revisionEntrySchema),

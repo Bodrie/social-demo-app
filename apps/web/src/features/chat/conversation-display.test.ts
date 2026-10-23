@@ -15,6 +15,7 @@ import {
 const T0 = '2026-10-16T10:00:00.000Z';
 const T1 = '2026-10-16T10:05:00.000Z';
 const T2 = '2026-10-16T10:10:00.000Z';
+const POST_ID = '01a13f00-0000-7000-8000-000000000001';
 
 function conversation(
   kind: Conversation['kind'],
@@ -140,6 +141,15 @@ describe('systemLineText / messagePreview', () => {
       total: 0,
       mine: null,
     });
+  });
+
+  const post = (content: string, sharedPost: { id: string } | { unavailable: true }) =>
+    messagePreview(makeMessage(group.id, bob.id, content, { sharedPost }), group, alice.id);
+
+  it('previews a sent post by its text, else as a post, gone or not', () => {
+    expect(post('look', { id: POST_ID })).toBe('look');
+    expect(post('', { id: POST_ID })).toBe('Post');
+    expect(post('', { unavailable: true })).toBe('Post');
   });
 
   it('previews a deleted message, a system line and a picture', () => {

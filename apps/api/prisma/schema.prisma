@@ -255,6 +255,8 @@ model Post {
   quotedPost    Post?          @relation("PostQuotes", fields: [quotedPostId], references: [id], onDelete: SetNull)
   quotes        Post[]         @relation("PostQuotes")
   reposts       Repost[]
+  /// Messages that send this post to a chat (ADR 0009 amendment 4).
+  sharedIn      Message[]      @relation("MessageSharedPost")
   images        PostImage[]
 
   @@index([quotedPostId])
@@ -706,6 +708,10 @@ model Message {
   deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(3)
   /// The subject of a system line (shared `systemLineSchema`).
   systemMeta     Json?       @map("system_meta") @db.JsonB
+  /// A post sent to the chat (ADR 0009 amendment 4); null again once the post is deleted.
+  sharedPostId   String?     @map("shared_post_id") @db.Uuid
+  /// Stays true when the shared post is gone, so the bubble keeps an "unavailable" frame.
+  sharesPost     Boolean     @default(false) @map("shares_post")
   createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
 
   conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -713,10 +719,12 @@ model Message {
   revisions    MessageRevision[]
   reactions    MessageReaction[]
   image        Upload?           @relation(fields: [imageKey], references: [key], onDelete: SetNull)
+  sharedPost   Post?             @relation("MessageSharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull)
 
   @@index([conversationId, createdAt, id])
   @@index([senderId])
   @@index([imageKey])
+  @@index([sharedPostId])
   @@map("messages")
 }
 

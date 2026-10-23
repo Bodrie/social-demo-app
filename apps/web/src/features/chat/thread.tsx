@@ -54,8 +54,10 @@ import { flattenPages } from '@/lib/infinite';
 import { firstName } from '@/lib/names';
 import { queryKeys } from '@/lib/query-keys';
 import { useChat } from './chat-context';
+import { SharedPostCard } from './shared-post-card';
 import { ConversationAvatar } from './conversation-avatar';
 import {
+  attachmentWord,
   conversationName,
   directPeer,
   isAdmin,
@@ -155,7 +157,9 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
       if (fresh.system) setAnnouncement(systemLineText(fresh.system, conversation, me.id));
     } else {
       const sender = firstName(memberById(conversation, fresh.senderId)?.user.name ?? 'Someone');
-      setAnnouncement(`${sender}: ${fresh.content || 'sent a picture'}`);
+      setAnnouncement(
+        `${sender}: ${fresh.content || `sent a ${attachmentWord(fresh).toLowerCase()}`}`,
+      );
     }
     // Scrolled up through the history: the new messages wait below, behind a pill.
     const unseen = arrived.filter((message) => message.kind === 'user').length;
@@ -251,6 +255,7 @@ export function Thread({ conversation, embedded = false, className }: ThreadProp
         : null,
       imageUrl: outgoing.previewUrl ?? null,
       imageKey: outgoing.imageKey,
+      sharedPost: null,
       editedAt: null,
       deletedAt: null,
       system: null,
@@ -545,6 +550,8 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
         const reactions = settled ? reactionSummaryOf(message.reactions, meId) : null;
         const onReact = (type: ReactionType | null) => react.mutate({ message, type });
         const picture = settled ? message.image : null;
+        // Text under a picture or a post is a caption, inset like the attachment above it.
+        const captioned = message.image !== null || message.sharedPost !== null;
         // Under the emojis of a press-and-hold: what the hover toolbar and its menu offer.
         const pressActions: PressAction[] = [
           ...(picture
@@ -599,7 +606,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                 }}
                 className={cn(
                   'max-w-[78%] rounded-2xl text-[15px]/5 break-words whitespace-pre-wrap',
-                  message.image ? 'p-1' : 'px-3.5 py-2',
+                  message.image || message.sharedPost ? 'p-1' : 'px-3.5 py-2',
                   isEditing && 'w-[78%]',
                   deleted
                     ? 'text-muted-foreground border border-dashed bg-transparent italic'
@@ -633,8 +640,9 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                     />
                   </button>
                 ) : null}
+                {message.sharedPost ? <SharedPostCard post={message.sharedPost} /> : null}
                 {isEditing ? (
-                  <div className={cn('text-foreground', message.image && 'px-2.5 pt-1.5 pb-1')}>
+                  <div className={cn('text-foreground', captioned && 'px-2.5 pt-1.5 pb-1')}>
                     <InlineEditor
                       initial={message.content}
                       maxLength={MESSAGE_MAX_LENGTH}
@@ -651,7 +659,7 @@ function MessageList({ messages, meId, conversation, onRetry }: MessageListProps
                   <RichText
                     as="span"
                     text={message.content}
-                    className={cn('block', message.image && 'px-2.5 pt-1.5 pb-1')}
+                    className={cn('block', captioned && 'px-2.5 pt-1.5 pb-1')}
                     linkClassName={mine ? 'text-primary-foreground underline' : undefined}
                   />
                 ) : null}

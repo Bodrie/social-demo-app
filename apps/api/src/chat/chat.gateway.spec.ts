@@ -134,6 +134,7 @@ describe('ChatGateway', () => {
       content: 'fixed',
       image: null,
       imageUrl: null,
+      sharedPost: null,
       editedAt: '2026-10-20T10:01:00.000Z',
       deletedAt: null,
       system: null,

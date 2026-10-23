@@ -58,15 +58,28 @@ export type SystemLine = z.infer<typeof systemLineSchema>;
 export const messageReactionSchema = z.object({ userId: z.uuid(), type: reactionTypeSchema });
 export type MessageReaction = z.infer<typeof messageReactionSchema>;
 
+/**
+ * A post sent to the chat (ADR 0009 amendment 4): a reference only, because one push serves every
+ * member and who may see the post differs between them. Each client loads it through
+ * `GET /posts/:id`, which applies the viewer's blocks; `{ unavailable: true }` once it was deleted.
+ */
+export const sharedPostRefSchema = z.union([
+  z.object({ unavailable: z.literal(true) }),
+  z.object({ id: z.uuid() }),
+]);
+export type SharedPostRef = z.infer<typeof sharedPostRefSchema>;
+
 export const messageSchema = z.object({
   id: z.uuid(),
   conversationId: z.uuid(),
   senderId: z.uuid(),
   /** `system` lines are written by the server about membership changes and renames. */
   kind: messageKindSchema,
-  /** Empty when the message is a picture only, a system line or deleted. */
+  /** Empty when the message is a picture or a post only, a system line or deleted. */
   content: z.string(),
   image: storedImageSchema.nullable(),
+  /** A post sent along; null on most messages, and once the message is deleted. */
+  sharedPost: sharedPostRefSchema.nullable(),
   /** @deprecated `image.url`, kept for tabs opened before D2 (they parse the old shape). */
   imageUrl: z.url().nullable(),
   /** Null until the sender edited the text; the previous texts are its revisions. */
@@ -84,7 +97,7 @@ export type Message = z.infer<typeof messageSchema>;
 export const messageListSchema = paginatedSchema(messageSchema);
 export type MessageList = z.infer<typeof messageListSchema>;
 
-/** Text, a picture, or both; never neither. */
+/** Text, a picture, a post or any of them together; never none. */
 export const sendMessageSchema = z
   .object({
     content: z
@@ -93,11 +106,14 @@ export const sendMessageSchema = z
       .max(MESSAGE_MAX_LENGTH, `At most ${MESSAGE_MAX_LENGTH} characters`)
       .default(''),
     imageKey: messageImageKeySchema.optional(),
+    /** A post to send to the chat ("Send" on a post); the sender must be able to see it. */
+    postId: uuidSchema.optional(),
   })
-  .refine((value) => value.content.length > 0 || value.imageKey !== undefined, {
-    message: 'Write something or attach a picture',
-    path: ['content'],
-  });
+  .refine(
+    (value) =>
+      value.content.length > 0 || value.imageKey !== undefined || value.postId !== undefined,
+    { message: 'Write something or attach a picture', path: ['content'] },
+  );
 export type SendMessageInput = z.input<typeof sendMessageSchema>;
 export type SendMessageData = z.output<typeof sendMessageSchema>;
 
