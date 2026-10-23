@@ -22,7 +22,7 @@ import { VisibilityService } from '../moderation/visibility.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type ActivityRow, activitySelect, toActivity } from './activities.mapper.js';
 
-const PICTURE_FIELDS = new Set(['avatarKey', 'coverKey']);
+const PICTURE_FIELDS = new Set(['avatarKey', 'coverKey', 'avatarPreset', 'coverPreset']);
 /** Followers a new activity is pushed to, newest follows first; no member comes near it today. */
 export const ACTIVITY_PUSH_AUDIENCE = 1000;
 

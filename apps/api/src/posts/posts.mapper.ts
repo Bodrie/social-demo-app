@@ -61,6 +61,7 @@ export function postSelect(viewerId: string) {
       },
     },
     poll: pollSelect(viewerId),
+    achievementKey: true,
     mentions: mentionsSelect,
     hashtags: { select: { tag: true }, orderBy: { tag: 'asc' } },
   } satisfies Prisma.PostSelect;
@@ -140,6 +141,7 @@ export function toPost(
     repostedByMe: row.reposts.length > 0,
     quotedPost: toEmbed(row, assetsBase, hidden),
     poll: toPoll(row, viewerId, now),
+    achievement: row.achievementKey,
     repost,
     editedAt: row.editedAt === null ? null : row.editedAt.toISOString(),
     mentions: row.mentions.map((mention) => toUserSummary(mention.user, assetsBase)),

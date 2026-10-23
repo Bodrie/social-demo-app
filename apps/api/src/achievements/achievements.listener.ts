@@ -177,10 +177,19 @@ export class AchievementsListener {
     return this.check(event.userId, ['avatar', 'cover', 'bio', 'full-profile']);
   }
 
-  /** The account opened: the tenure badges a newcomer can have from day one, and the inviter's. */
+  /**
+   * The account opened: the tenure badges a newcomer can have from day one, the picture picked
+   * on the form (Say cheese), and the inviter's.
+   */
   @OnEvent(UserVerifiedEvent.EVENT)
   async onUserVerified(event: UserVerifiedEvent): Promise<void> {
-    await this.check(event.userId, ['membership-days', 'pioneer', 'founding', 'first-100']);
+    await this.check(event.userId, [
+      'membership-days',
+      'pioneer',
+      'founding',
+      'first-100',
+      'avatar',
+    ]);
     await this.run('inviter', () => this.achievements.checkInviterOf(event.userId));
   }
 

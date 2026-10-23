@@ -167,7 +167,7 @@ export function ProfileHeader({ user }: { user: UserPublic }) {
                 </dd>
               </div>
             </dl>
-            <BadgeStrip userId={user.id} />
+            <BadgeStrip userId={user.id} featured={user.featuredBadges} />
           </>
         )}
       </div>

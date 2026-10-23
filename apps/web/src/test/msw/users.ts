@@ -43,6 +43,7 @@ export const userHandlers = [
           content: post.content,
           imageUrls: post.images.map((image) => image.url),
           hashtags: post.hashtags,
+          achievementKey: post.achievement,
           poll: post.poll
             ? {
                 closesAt: post.poll.closesAt,
@@ -125,12 +126,31 @@ export const userHandlers = [
       return apiError(409, 'CONFLICT', 'Already in use', { username: 'This username is taken' });
     }
 
-    const { avatarKey, coverKey, ...rest } = body;
+    const { avatarKey, coverKey, avatarPreset, coverPreset, ...rest } = body;
     for (const [key, value] of Object.entries(rest)) {
       if (value !== undefined) Object.assign(me, { [key]: value });
     }
-    if (avatarKey !== undefined) me.avatarUrl = avatarKey ? assetUrl(avatarKey) : null;
-    if (coverKey !== undefined) me.coverUrl = coverKey ? assetUrl(coverKey) : null;
+    // Like the API: a ready-made picture replaces an upload, an upload replaces it.
+    if (avatarPreset) {
+      me.avatarPreset = avatarPreset;
+      me.avatarUrl = assetUrl(`preset/avatar-${avatarPreset}.webp`);
+    } else if (avatarKey !== undefined) {
+      me.avatarPreset = null;
+      me.avatarUrl = avatarKey ? assetUrl(avatarKey) : null;
+    } else if (avatarPreset === null) {
+      me.avatarPreset = null;
+      me.avatarUrl = null;
+    }
+    if (coverPreset) {
+      me.coverPreset = coverPreset;
+      me.coverUrl = assetUrl(`preset/cover-${coverPreset}.webp`);
+    } else if (coverKey !== undefined) {
+      me.coverPreset = null;
+      me.coverUrl = coverKey ? assetUrl(coverKey) : null;
+    } else if (coverPreset === null) {
+      me.coverPreset = null;
+      me.coverUrl = null;
+    }
     me.updatedAt = new Date().toISOString();
     return HttpResponse.json({ user: me });
   }),

@@ -445,7 +445,8 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     (n) => `Follow ${n} members.`,
     [10, 25, 50, 100],
   ),
-  ...tiered('collected', 'Collector', 'trophy', (n) => `Earn ${n} achievements.`, [10, 25, 50]),
+  // Collector's tier is also the ring around the member's avatar (ADR 0021, "Rewards").
+  ...tiered('collected', 'Collector', 'trophy', (n) => `Earn ${n} achievements.`, [10, 25, 50, 75]),
 
   // Recognition: what others do with what the member shares.
   ...tiered(
@@ -753,6 +754,18 @@ export const GETTING_STARTED_KEYS = [
   'first-post',
   'first-comment',
 ] as const;
+
+/** How many badges a member may feature under their name (ADR 0021, "Rewards"). */
+export const FEATURED_BADGES_MAX = 3;
+
+/** `PUT /users/me/featured-badges`: badges the member holds, in the order to show them. */
+export const featuredBadgesSchema = z.object({
+  keys: z
+    .array(z.string().regex(/^[a-z0-9-]{1,64}$/))
+    .max(FEATURED_BADGES_MAX, `At most ${FEATURED_BADGES_MAX} badges`)
+    .refine((keys) => new Set(keys).size === keys.length, 'Each badge only once'),
+});
+export type FeaturedBadgesInput = z.infer<typeof featuredBadgesSchema>;
 
 export const earnedAchievementSchema = z.object({
   key: z.string(),

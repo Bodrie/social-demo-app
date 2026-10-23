@@ -130,3 +130,65 @@ which read the clock ("Night owl", "Happy new year") or the words of a post ("Sp
 - **Privacy notice.** "What we collect" now names preferences, the time zone, badges, the
   inviter and push devices; "Who else sees it" names badges.
 
+## Amendment 2026-10-23: ready-made pictures (owner's request, R7)
+
+The owner asked for default profile pictures and covers, and for a choice at registration. Two
+of the options discussed were settled the other way (decided 2026-10-23):
+
+- **Illustrations, not photos of people.** A stranger's photo as a default would read as the
+  member's face, and photos of people need model releases. The avatars are Open Peeps by Pablo
+  Stanley (CC0 1.0, the licence carried in each SVG's metadata), generated once with DiceBear
+  9.4 in a throwaway install and kept as SVG sources (`scripts/presets/avatars/`); the covers
+  are drawn by the script in the brand's colours. `pnpm presets` (`scripts/preset-pictures.mjs`)
+  renders both into `apps/api/presets/` (512² avatars, 1800 × 600 covers, WebP), which the API
+  image carries.
+- **No gender question.** Asking "woman / man / prefer not to say" would leave out non-binary
+  members and keep personal data for one use only; the registration form offers instead an
+  optional "Pick a picture" among the 16 free avatars, with the initials as the default. Nothing
+  about gender is stored.
+- **Stored as a choice, served as a URL.** `users.avatar_preset` / `cover_preset` hold the id
+  from the catalogue (`@beso/shared/pictures`, an entry of its own like the badges); a member
+  has an upload or a ready-made picture, never both (picking one clears the other and an upload
+  nobody uses any more is discarded as before). `toUserSummary` / `toUserPublic` answer
+  `<assets>/preset/<kind>-<id>.webp`, served by `GET /uploads/preset/:file` from the bundled
+  folder (catalogue ids only, cached for a day since a release may redraw one), so `avatarUrl`
+  stays the one address every client uses. `UserPrivate` carries `avatarPreset` / `coverPreset`
+  for the editor.
+- **Earned pictures.** Eight avatars and six covers carry `unlockedBy`, a badge key (Hit,
+  Commentator, Tag explorer, one month, Crew, Chatterbox, Storyteller silver, Crowd; Night owl,
+  Early bird, Shutterbug, Collector 25 and 50, Tag explorer silver); `UsersService.assertPreset`
+  refuses one whose badge the member does not hold, and registration offers the free ones only.
+  The editor shows the earned ones locked with the badge that unlocks them, a hidden badge
+  unnamed. This is the first of the rewards (option 3 of the proposal); the rest follow in a
+  further amendment.
+- **A ready-made picture is one's picture** for Say cheese, Widescreen and The full picture; a
+  picture picked on the form counts once the address is confirmed.
+
+## Amendment 2026-10-23: rewards (owner's choice of the proposal, R8)
+
+Of the rewards proposed (ring, featured badges, unlockable pictures, an accent colour,
+celebration and sharing, levels, small perks) the owner chose the ring, featured badges, the
+unlockable pictures (above) and celebration with sharing. Leaderboards and anything that
+changes reach stay out: rewards are cosmetic and come from particular badges, not from volume.
+
+- **The ring is Collector's tier.** Collector gains a platinum tier at 75 badges; bronze (10),
+  silver (25), gold (50) and platinum are the ring around the member's avatar wherever it
+  shows. It is stored, not counted per read: `users.ring` is written by `refreshRing`
+  (`users/ring.ts`) whenever `AchievementsService.award` inserts a Collector badge and whenever
+  `showRing` (new setting, default on, Settings → Privacy) or `showAchievements` changes;
+  the migration fills it from the Collector badges already earned. `UserSummary.ring` carries it
+  (`PROFILE_RINGS` spelt out in the main entry, which must not import the catalogue); the web's
+  `UserAvatar` draws it as an outline in the `--collector-*` metal tones, decorative.
+- **Featured badges.** `PUT /users/me/featured-badges { keys }` (at most three, held, distinct;
+  `[]` goes back to the rarest three) writes `users.featured_badges`; `UserPublic.featuredBadges`
+  answers them while the member shows their badges. The profile's strip shows them in the
+  member's order; the Badges tab has "Feature on profile" on each earned badge.
+- **Celebration and sharing.** A badge pushed while the app is open throws confetti (CSS,
+  `celebrate()`, none with reduced motion) with its toast, whose action is now "Share" ("See
+  badges" stays as the second button). Sharing makes a post of its own with the badge as a
+  card: `createPostSchema.achievementKey` (held, not with pictures, a poll or a quote),
+  `posts.achievement_key`, `Post.achievement`; the card (`PostBadge`) is a lazy chunk, so the
+  catalogue stays off the first paint, and leads to the author's Badges tab. The toast's Share
+  goes to `/badges?share=<key>`, where the Badges tab opens the dialog; the Badges tab's own
+  "Share" does the same. Each badge also says which ready-made pictures it unlocks.
+

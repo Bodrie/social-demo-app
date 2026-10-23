@@ -121,6 +121,8 @@ export const postSchema = z.object({
   quotedPost: postEmbedSchema.nullable(),
   /** What the post asks (F3); a post has pictures or a poll, never both. */
   poll: pollSchema.nullable(),
+  /** A badge the author shares (ADR 0021, "Rewards"), shown as a card under the text. */
+  achievement: z.string().nullable(),
   /** On feed and profile items only: who reposted it and when; null when the item is the post itself. */
   repost: z.object({ by: userSummarySchema, at: z.iso.datetime() }).nullable(),
   /** Null until the first edit. */
@@ -154,6 +156,11 @@ const postInputSchema = z.object({
   quotedPostId: uuidSchema.optional(),
   /** Asks a question (F3); not with pictures, not in a quote. */
   poll: createPollSchema.optional(),
+  /** Shares one of the author's badges as a card; alone, without pictures, a poll or a quote. */
+  achievementKey: z
+    .string()
+    .regex(/^[a-z0-9-]{1,64}$/, 'Unknown badge')
+    .optional(),
 });
 
 export const createPostSchema = postInputSchema.superRefine((input, context) => {
@@ -163,6 +170,13 @@ export const createPostSchema = postInputSchema.superRefine((input, context) => 
       code: 'custom',
       path: ['poll'],
       message: pictures ? 'A post has pictures or a poll, not both' : 'A quote cannot ask a poll',
+    });
+  }
+  if (input.achievementKey && (pictures || input.poll || input.quotedPostId !== undefined)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['achievementKey'],
+      message: 'A badge is shared on a post of its own',
     });
   }
 });

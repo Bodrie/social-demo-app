@@ -14,3 +14,8 @@ const uploadPathSchema = z.object({
     ),
 });
 export class UploadPathDto extends createZodDto(uploadPathSchema) {}
+
+const presetPathSchema = z.object({
+  file: z.string().regex(/^(avatar|cover)-[a-z0-9-]{1,32}\.webp$/, 'Invalid file name'),
+});
+export class PresetPathDto extends createZodDto(presetPathSchema) {}

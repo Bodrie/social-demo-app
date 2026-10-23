@@ -1,7 +1,7 @@
 import { type CommentSort, POST_MAX_LENGTH, type Post } from '@beso/shared';
 import { cn } from 'cn';
 import { BookmarkIcon, HeartIcon, MessageCircleIcon, PinIcon, Repeat2Icon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Suspense, lazy, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { EditedMarker } from '@/components/edited-marker';
@@ -26,6 +26,11 @@ import { useToggleBookmark, useToggleLike, useUpdatePost } from './use-post-muta
 import { isApiClientError } from '@/lib/api/client';
 import { fetchPostRevisions } from '@/lib/api/posts';
 import { queryKeys } from '@/lib/query-keys';
+
+// A shared badge (ADR 0021, "Rewards") needs the catalogue, which the first paint must not carry.
+const PostBadge = lazy(async () => ({
+  default: (await import('@/features/achievements/badge-card')).PostBadge,
+}));
 
 type PostCardProps = {
   post: Post;
@@ -169,6 +174,16 @@ export function PostCard({
           />
         )}
         {post.poll ? <PostPoll postId={post.id} poll={post.poll} className="mt-3" /> : null}
+        {post.achievement ? (
+          // A fixed height while the badge chunk loads, so the card does not jump.
+          <Suspense fallback={<div className="mt-3 h-20 rounded-lg border" />}>
+            <PostBadge
+              achievementKey={post.achievement}
+              username={post.author.username}
+              className="mt-3"
+            />
+          </Suspense>
+        ) : null}
         {post.quotedPost ? <QuotedPostCard embed={post.quotedPost} className="mt-3" /> : null}
         <PostImages
           images={post.images}

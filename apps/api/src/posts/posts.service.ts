@@ -81,6 +81,14 @@ export class PostsService {
       if (!quoted) throw badRequest('Unknown post', { quotedPostId: 'Unknown post' });
       await this.visibility.assertNotBlocked(authorId, quoted.authorId);
     }
+    // A shared badge must be the author's (ADR 0021, "Rewards"); hidden ones may be shown off too.
+    if (input.achievementKey) {
+      const held = await this.prisma.userAchievement.count({
+        where: { userId: authorId, key: input.achievementKey },
+      });
+      if (held === 0)
+        throw badRequest('Not one of your badges', { achievementKey: 'Not one of your badges' });
+    }
     const createdAt = new Date();
     const entities = extractEntities(input.content);
     const mentioned = await this.users.findByUsernames(entities.mentions);
@@ -92,6 +100,7 @@ export class PostsService {
           images: { create: imageKeys.map((key, position) => ({ key, position })) },
           quotedPostId: quoted?.id ?? null,
           wasQuote: quoted !== null,
+          achievementKey: input.achievementKey ?? null,
           createdAt,
           mentions: { create: mentioned.map((user) => ({ userId: user.id })) },
           // The tag rows copy the post's timestamp so a tag page pages without a join.

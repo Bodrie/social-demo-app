@@ -12,6 +12,7 @@ const actor = {
   username: 'bob',
   name: 'Bob Brown',
   avatarUrl: null,
+  ring: null,
 };
 const notification = (overrides: Partial<Notification>): Notification => ({
   id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b2',

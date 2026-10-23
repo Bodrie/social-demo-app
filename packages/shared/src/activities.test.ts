@@ -10,6 +10,7 @@ describe('activitySchema', () => {
         username: 'bob',
         name: 'Bob',
         avatarUrl: null,
+        ring: null,
       },
       post: { id: '01a13ed6-d3ec-71cb-b39f-fbc256a293b7', excerpt: 'hello world' },
       comment: null,

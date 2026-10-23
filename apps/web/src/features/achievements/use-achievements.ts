@@ -1,5 +1,11 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useCurrentUser } from '@/features/auth/current-user';
+import { updateMe } from '@/features/auth/use-me';
+import { updateUserEverywhere } from '@/features/users/user-cache';
+import { isApiClientError } from '@/lib/api/client';
 import {
+  featureBadges,
   fetchAchievementStats,
   fetchMyAchievements,
   fetchUserAchievements,
@@ -29,5 +35,20 @@ export function useAchievementStats() {
     queryKey: queryKeys.achievements.stats,
     queryFn: ({ signal }) => fetchAchievementStats(signal),
     staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** The badges under the member's name (ADR 0021, "Rewards"): `me` and the profile caches follow. */
+export function useFeatureBadges() {
+  const queryClient = useQueryClient();
+  const me = useCurrentUser();
+  return useMutation({
+    mutationFn: (keys: string[]) => featureBadges(keys),
+    onSuccess: (_result, featuredBadges) => {
+      updateMe(queryClient, (user) => ({ ...user, featuredBadges }));
+      updateUserEverywhere(queryClient, me.id, (user) => ({ ...user, featuredBadges }));
+    },
+    onError: (error) =>
+      toast.error(isApiClientError(error) ? error.message : 'Could not change your badges'),
   });
 }

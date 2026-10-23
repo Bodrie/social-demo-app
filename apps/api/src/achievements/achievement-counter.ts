@@ -44,6 +44,9 @@ export type CountedMember = {
   createdAt: Date;
   avatarKey: string | null;
   coverKey: string | null;
+  /** A ready-made picture counts as one's picture (Say cheese, Widescreen, The full picture). */
+  avatarPreset: string | null;
+  coverPreset: string | null;
   bio: string | null;
   city: string | null;
   website: string | null;
@@ -136,15 +139,15 @@ export class AchievementCounter {
     const zone = member.timeZone;
     switch (series) {
       case 'avatar':
-        return flag(member.avatarKey !== null);
+        return flag(member.avatarKey !== null || member.avatarPreset !== null);
       case 'cover':
-        return flag(member.coverKey !== null);
+        return flag(member.coverKey !== null || member.coverPreset !== null);
       case 'bio':
         return flag(filled(member.bio));
       case 'full-profile':
         return flag(
-          member.avatarKey !== null &&
-            member.coverKey !== null &&
+          (member.avatarKey !== null || member.avatarPreset !== null) &&
+            (member.coverKey !== null || member.coverPreset !== null) &&
             filled(member.bio) &&
             filled(member.city) &&
             filled(member.website),

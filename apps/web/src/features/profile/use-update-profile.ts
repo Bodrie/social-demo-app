@@ -17,6 +17,7 @@ export function useUpdateProfile() {
         username: user.username,
         name: user.name,
         avatarUrl: user.avatarUrl,
+        ring: user.ring,
       };
       queryClient.setQueriesData<Pages<Post>>(
         { queryKey: queryKeys.posts.lists },

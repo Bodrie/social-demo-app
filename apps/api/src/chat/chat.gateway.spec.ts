@@ -40,6 +40,7 @@ const summary = (n: number): UserSummary => ({
   username: `user${n}`,
   name: `User ${n}`,
   avatarUrl: null,
+  ring: null,
 });
 
 function connectedSocket(userId: string) {

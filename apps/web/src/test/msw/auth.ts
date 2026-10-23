@@ -65,6 +65,10 @@ export const authHandlers = [
         username: body.username,
         name: body.name,
         emailVerifiedAt: null,
+        avatarPreset: body.avatarPreset ?? null,
+        avatarUrl: body.avatarPreset
+          ? `http://localhost/api/v1/uploads/preset/avatar-${body.avatarPreset}.webp`
+          : null,
       }),
     );
     mockDb.emailTokens.push({

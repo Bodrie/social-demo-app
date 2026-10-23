@@ -28,6 +28,7 @@ describe('PATCH /users/me/settings', () => {
       pushSocial: true,
       pushPreviews: true,
       showAchievements: true,
+      showRing: true,
       hideGettingStarted: false,
       timeZone: null,
     });
@@ -44,6 +45,7 @@ describe('PATCH /users/me/settings', () => {
       pushSocial: true,
       pushPreviews: true,
       showAchievements: true,
+      showRing: true,
       hideGettingStarted: false,
       timeZone: null,
     });
@@ -62,6 +64,7 @@ describe('PATCH /users/me/settings', () => {
       pushSocial: true,
       pushPreviews: true,
       showAchievements: true,
+      showRing: true,
       hideGettingStarted: false,
       timeZone: null,
     });

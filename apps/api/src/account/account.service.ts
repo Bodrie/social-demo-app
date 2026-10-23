@@ -59,6 +59,7 @@ export class AccountService {
             editedAt: true,
             hashtags: { select: { tag: true }, orderBy: { tag: 'asc' } },
             revisions: { select: { content: true, editedAt: true }, orderBy: { editedAt: 'asc' } },
+            achievementKey: true,
             poll: {
               select: {
                 closesAt: true,
@@ -141,6 +142,7 @@ export class AccountService {
         content: post.content,
         imageUrls: post.images.map((image) => this.assets.url(image.key)),
         hashtags: post.hashtags.map((hashtag) => hashtag.tag),
+        achievementKey: post.achievementKey,
         poll: post.poll
           ? {
               closesAt: iso(post.poll.closesAt),

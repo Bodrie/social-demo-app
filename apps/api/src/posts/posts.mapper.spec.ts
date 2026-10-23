@@ -21,6 +21,8 @@ const row: PostRow = {
     username: 'alice',
     name: 'Alice',
     avatarKey: null,
+    avatarPreset: null,
+    ring: null,
   },
   _count: { likes: 3, comments: 2 },
   likes: [{ userId: 'viewer' }],
@@ -30,6 +32,7 @@ const row: PostRow = {
   wasQuote: false,
   quotedPost: null,
   poll: null,
+  achievementKey: null,
   mentions: [
     {
       user: {
@@ -37,6 +40,8 @@ const row: PostRow = {
         username: 'bob',
         name: 'Bob',
         avatarKey: 'avatar/01a13ed6-d3ec-71cb-b39f-fbc256a293b2.webp',
+        avatarPreset: null,
+        ring: null,
       },
     },
   ],

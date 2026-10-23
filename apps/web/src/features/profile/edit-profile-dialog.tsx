@@ -5,8 +5,10 @@ import {
   type UserPrivate,
   updateProfileSchema,
 } from '@beso/shared';
-import { PencilIcon } from 'lucide-react';
-import { useState } from 'react';
+import type { PresetKind } from '@beso/shared/pictures';
+import { useQuery } from '@tanstack/react-query';
+import { ChevronDownIcon, PencilIcon } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -36,6 +38,10 @@ import { useCurrentUser } from '@/features/auth/current-user';
 import { applyApiErrors } from '@/features/auth/form-errors';
 import { ImageField } from '@/features/uploads/image-field';
 import { useImageUpload } from '@/features/uploads/use-image-upload';
+import { myAchievementsQueryOptions } from '@/features/achievements/use-achievements';
+import { presetUrl } from '@/lib/presets';
+import { PicturePicker } from './picture-picker';
+import { lockReason } from './preset-locks';
 import { type ImageChange, buildProfilePatch } from './profile-patch';
 import { useUpdateProfile } from './use-update-profile';
 
@@ -61,13 +67,16 @@ export function EditProfileDialog() {
   );
 }
 
+/** An upload wins, then "Remove", then a ready-made picture other than the current one. */
 function imageChange(
   upload: ReturnType<typeof useImageUpload>,
   removed: boolean,
-  currentUrl: string | null,
+  preset: string | null,
+  current: { url: string | null; preset: string | null },
 ): ImageChange {
-  if (upload.state.status === 'ready') return upload.state.upload.key;
-  if (removed && currentUrl) return null;
+  if (upload.state.status === 'ready') return { key: upload.state.upload.key };
+  if (removed) return current.url ? null : undefined;
+  if (preset !== null && preset !== current.preset) return { preset };
   return undefined;
 }
 
@@ -89,6 +98,14 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
   const cover = useImageUpload('cover');
   const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [coverRemoved, setCoverRemoved] = useState(false);
+  // The ready-made picture in use or just picked (ADR 0021, "Rewards"); an upload replaces it.
+  const [avatarPreset, setAvatarPreset] = useState(me.avatarPreset);
+  const [coverPreset, setCoverPreset] = useState(me.coverPreset);
+  const badges = useQuery(myAchievementsQueryOptions);
+  const lockOf = useMemo(
+    () => lockReason(new Set(badges.data?.earned.map((badge) => badge.key) ?? [])),
+    [badges.data],
+  );
   const form = useForm<UpdateProfileInput, unknown, UpdateProfileData>({
     resolver: zodResolver(updateProfileSchema),
     defaultValues: defaultsFor(me),
@@ -99,8 +116,14 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
 
   const onSubmit = (values: UpdateProfileData) => {
     const patch = buildProfilePatch(me, values, {
-      avatar: imageChange(avatar, avatarRemoved, me.avatarUrl),
-      cover: imageChange(cover, coverRemoved, me.coverUrl),
+      avatar: imageChange(avatar, avatarRemoved, avatarPreset, {
+        url: me.avatarUrl,
+        preset: me.avatarPreset,
+      }),
+      cover: imageChange(cover, coverRemoved, coverPreset, {
+        url: me.coverUrl,
+        preset: me.coverPreset,
+      }),
     });
     if (!patch) {
       onDone();
@@ -123,18 +146,44 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
         <ImageField
           kind="cover"
           label="Cover"
-          currentUrl={me.coverUrl}
+          currentUrl={shownPicture('cover', coverPreset, me.coverPreset, me.coverUrl)}
           upload={cover}
           removed={coverRemoved}
-          onRemovedChange={setCoverRemoved}
+          onRemovedChange={(removed) => {
+            setCoverRemoved(removed);
+            if (removed) setCoverPreset(null);
+          }}
+        />
+        <PresetChoice
+          kind="cover"
+          value={cover.state.status === 'idle' && !coverRemoved ? coverPreset : null}
+          lockOf={lockOf}
+          onChange={(id) => {
+            setCoverPreset(id);
+            cover.clear();
+            setCoverRemoved(false);
+          }}
         />
         <ImageField
           kind="avatar"
           label="Avatar"
-          currentUrl={me.avatarUrl}
+          currentUrl={shownPicture('avatar', avatarPreset, me.avatarPreset, me.avatarUrl)}
           upload={avatar}
           removed={avatarRemoved}
-          onRemovedChange={setAvatarRemoved}
+          onRemovedChange={(removed) => {
+            setAvatarRemoved(removed);
+            if (removed) setAvatarPreset(null);
+          }}
+        />
+        <PresetChoice
+          kind="avatar"
+          value={avatar.state.status === 'idle' && !avatarRemoved ? avatarPreset : null}
+          lockOf={lockOf}
+          onChange={(id) => {
+            setAvatarPreset(id);
+            avatar.clear();
+            setAvatarRemoved(false);
+          }}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -246,5 +295,58 @@ function EditProfileForm({ onDone }: { onDone: () => void }) {
         </DialogFooter>
       </form>
     </Form>
+  );
+}
+
+/** The picture the field shows before any upload: one just picked from ours, else the current. */
+function shownPicture(
+  kind: PresetKind,
+  picked: string | null,
+  current: string | null,
+  currentUrl: string | null,
+): string | null {
+  return picked !== null && picked !== current ? presetUrl(kind, picked) : currentUrl;
+}
+
+type PresetChoiceProps = {
+  kind: PresetKind;
+  value: string | null;
+  lockOf: Parameters<typeof PicturePicker>[0]['lockOf'];
+  onChange: (id: string) => void;
+};
+
+/** "Choose one of ours" under a picture field: the ready-made ones, folded until asked for. */
+function PresetChoice({ kind, value, lockOf, onChange }: PresetChoiceProps) {
+  const [open, setOpen] = useState(false);
+  const regionId = useId();
+  return (
+    <div className="-mt-2 space-y-3">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-expanded={open}
+        aria-controls={regionId}
+        onClick={() => setOpen((shown) => !shown)}
+      >
+        Choose one of ours
+        <ChevronDownIcon
+          className={open ? 'rotate-180 transition-transform' : 'transition-transform'}
+        />
+      </Button>
+      {open ? (
+        <div id={regionId}>
+          <PicturePicker
+            kind={kind}
+            legend={kind === 'avatar' ? 'Ready-made avatars' : 'Ready-made covers'}
+            value={value}
+            onChange={(id) => {
+              if (id) onChange(id);
+            }}
+            lockOf={lockOf}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }

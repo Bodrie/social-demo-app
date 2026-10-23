@@ -192,6 +192,7 @@ export const postHandlers = [
             createdAt: original.createdAt,
           }
         : null,
+      achievement: body.achievementKey ?? null,
       // The author always sees the counts: none yet.
       poll: body.poll
         ? {

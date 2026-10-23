@@ -31,6 +31,8 @@ export const accountExportSchema = z.object({
       content: z.string(),
       imageUrls: z.array(z.string()),
       hashtags: z.array(z.string()),
+      /** The badge the post shared, if any (ADR 0021, "Rewards"). */
+      achievementKey: z.string().nullable(),
       /** The poll the post asked (F3) with the options' totals. */
       poll: z
         .object({

@@ -248,6 +248,8 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
       blockedMe,
       muted,
       pinnedPostId: null,
+      ring: user.ring,
+      featuredBadges: [],
     };
   }
   return {
@@ -275,6 +277,8 @@ export function toPublic(user: UserPrivate, viewerId: string | null): UserPublic
     blockedMe: false,
     muted,
     pinnedPostId: user.pinnedPostId,
+    ring: user.ring,
+    featuredBadges: user.settings.showAchievements ? user.featuredBadges : [],
   };
 }
 

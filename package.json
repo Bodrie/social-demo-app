@@ -19,6 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "brand": "node scripts/brand-assets.mjs",
+    "presets": "node scripts/preset-pictures.mjs",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @beso/api db:generate",

@@ -11,10 +11,11 @@ import {
   GETTING_STARTED_KEYS,
   type MyAchievements,
 } from '@beso/shared/achievements';
-import { notFound } from '../common/errors.js';
+import { notFound, validationError } from '../common/errors.js';
 import { VisibilityService } from '../moderation/visibility.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RING_KEYS, refreshRing } from '../users/ring.js';
 import { toUserSettings } from '../users/users.mapper.js';
 import {
   AchievementCounter,
@@ -36,6 +37,8 @@ const memberSelect = {
   createdAt: true,
   avatarKey: true,
   coverKey: true,
+  avatarPreset: true,
+  coverPreset: true,
   bio: true,
   city: true,
   website: true,
@@ -191,6 +194,19 @@ export class AchievementsService {
    * `GET /users/me/achievements`: the earned badges and the count of every series but the
    * hidden ones (their counts would give them away).
    */
+  /**
+   * The badges the member shows under their name, in their order (ADR 0021, "Rewards"): only
+   * ones they hold; an empty list goes back to the automatic three rarest.
+   */
+  async feature(userId: string, keys: readonly string[]): Promise<void> {
+    const held = await this.prisma.userAchievement.findMany({
+      where: { userId, key: { in: [...keys] } },
+      select: { key: true },
+    });
+    if (held.length !== keys.length) throw validationError({ keys: 'Earn the badge first' });
+    await this.prisma.user.update({ where: { id: userId }, data: { featuredBadges: [...keys] } });
+  }
+
   async mine(userId: string, now = new Date()): Promise<MyAchievements> {
     const member = await this.member(userId);
     if (!member) return { earned: [], progress: {} };
@@ -302,10 +318,13 @@ export class AchievementsService {
       );
       // oxlint-disable-next-line no-await-in-loop -- each round depends on the one before
       const more = await this.insert(member.id, reached, now);
-      if (more.length === 0) return earned;
+      if (more.length === 0) break;
       for (const key of more) held.add(key);
       earned.push(...more);
     }
+    // A new Collector tier is a new ring around the avatar.
+    if (earned.some((key) => RING_KEYS.has(key))) await refreshRing(this.prisma, member.id);
+    return earned;
   }
 
   private async insert(

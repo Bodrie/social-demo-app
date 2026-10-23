@@ -20,7 +20,8 @@ import { CurrentUser } from '../auth/current-user.decorator.js';
 import { Public } from '../auth/public.decorator.js';
 import { notFound, toApiError, validationError } from '../common/errors.js';
 import { UploadResponseDto } from '../common/responses.dto.js';
-import { UploadPathDto, UploadQueryDto } from './uploads.dto.js';
+import { openPreset } from './presets.js';
+import { PresetPathDto, UploadPathDto, UploadQueryDto } from './uploads.dto.js';
 import { UploadsService } from './uploads.service.js';
 
 @ApiTags('uploads')
@@ -48,6 +49,23 @@ export class UploadsController {
   ): Promise<UploadResponse> {
     if (!file) throw validationError({ file: 'A file is required' });
     return this.uploads.upload(query.kind, file.buffer, user.id);
+  }
+
+  /**
+   * A ready-made picture (ADR 0021, "Rewards"). Declared before `:kind/:file`, which would
+   * refuse `preset` as a kind. Cached for a day only: a release may redraw one under its name.
+   */
+  @Public()
+  @SkipThrottle()
+  @Get('preset/:file')
+  async preset(
+    @Param() params: PresetPathDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const stream = await openPreset(params.file);
+    if (!stream) throw notFound('File not found');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return new StreamableFile(stream, { type: 'image/webp', disposition: 'inline' });
   }
 
   /** Uploads are public and immutable (new content always gets a new key), so they are not rate limited. */

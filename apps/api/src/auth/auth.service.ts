@@ -73,6 +73,7 @@ export class AuthService {
     await this.users.assertAvailable({ email: input.email, username: input.username });
     const passwordHash = await hashPassword(input.password);
     const invitedById = await this.invites.inviterOf(input.inviteCode);
+    if (input.avatarPreset) await this.users.assertPreset(null, 'avatar', input.avatarPreset);
     const created = await this.prisma.user.create({
       data: {
         email: input.email,
@@ -80,6 +81,7 @@ export class AuthService {
         name: input.name,
         passwordHash,
         invitedById,
+        avatarPreset: input.avatarPreset ?? null,
       },
       select: { id: true, email: true, name: true },
     });

@@ -10,6 +10,8 @@ const row: UserPrivateRow = {
   website: null,
   avatarKey: 'avatars/alice.webp',
   coverKey: null,
+  avatarPreset: null,
+  coverPreset: null,
   createdAt: new Date('2026-10-15T10:00:00.000Z'),
   updatedAt: new Date('2026-10-15T11:00:00.000Z'),
   email: 'alice@example.com',
@@ -19,6 +21,8 @@ const row: UserPrivateRow = {
   role: 'member',
   suspendedAt: null,
   pinnedPostId: null,
+  ring: null,
+  featuredBadges: [],
   _count: { posts: 3, followers: 2, following: 1 },
   followers: [{ followerId: 'viewer' }],
   following: [],
@@ -57,6 +61,7 @@ describe('toUserSettings', () => {
       pushSocial: true,
       pushPreviews: true,
       showAchievements: true,
+      showRing: true,
       hideGettingStarted: false,
       timeZone: null,
     });
@@ -68,6 +73,7 @@ describe('toUserSettings', () => {
       pushSocial: true,
       pushPreviews: true,
       showAchievements: true,
+      showRing: true,
       hideGettingStarted: false,
       timeZone: null,
     });

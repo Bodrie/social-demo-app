@@ -65,10 +65,14 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
     blockedMe: false,
     muted: false,
     pinnedPostId: null,
+    ring: null,
+    featuredBadges: [],
     email: 'alice@example.com',
     pendingEmail: null,
     role: 'member',
     emailVerifiedAt: '2026-10-15T10:05:00.000Z',
+    avatarPreset: null,
+    coverPreset: null,
     settings: {
       chatBubbles: true,
       messageSound: false,
@@ -76,6 +80,7 @@ export function makeUser(overrides: Partial<UserPrivate> = {}): UserPrivate {
       pushMessages: true,
       pushSocial: true,
       pushPreviews: true,
+      showRing: true,
       showAchievements: true,
       hideGettingStarted: false,
       timeZone: 'Europe/Sofia',
@@ -102,7 +107,13 @@ export const carol = makeUser({
 });
 
 export function summaryOf(user: UserPrivate): UserSummary {
-  return { id: user.id, username: user.username, name: user.name, avatarUrl: user.avatarUrl };
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    ring: user.ring,
+  };
 }
 
 /** A stored post picture as responses carry it; `n` keeps the URLs apart. */
@@ -133,6 +144,7 @@ export function makePost(overrides: Partial<Post> = {}): Post {
     repostedByMe: false,
     quotedPost: null,
     poll: null,
+    achievement: null,
     repost: null,
     editedAt: null,
     mentions: [],
